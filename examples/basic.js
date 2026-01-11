@@ -1,7 +1,7 @@
 const MarkdownParser = require('../src/index.js');
 
 console.log('Markdown Parser Examples\n');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 
 // Example 1: Simple header
 console.log('\nExample 1: Header');

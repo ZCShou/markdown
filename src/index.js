@@ -5,7 +5,7 @@
 class MarkdownParser {
   constructor() {
     this.rules = [
-      // Headers (h1-h6)
+      // Headers (h1-h6) - process first
       { pattern: /^######\s+(.+)$/gm, replacement: '<h6>$1</h6>' },
       { pattern: /^#####\s+(.+)$/gm, replacement: '<h5>$1</h5>' },
       { pattern: /^####\s+(.+)$/gm, replacement: '<h4>$1</h4>' },
@@ -13,22 +13,19 @@ class MarkdownParser {
       { pattern: /^##\s+(.+)$/gm, replacement: '<h2>$1</h2>' },
       { pattern: /^#\s+(.+)$/gm, replacement: '<h1>$1</h1>' },
       
-      // Bold
+      // Bold - process before italic to avoid conflicts
       { pattern: /\*\*(.+?)\*\*/g, replacement: '<strong>$1</strong>' },
       { pattern: /__(.+?)__/g, replacement: '<strong>$1</strong>' },
       
-      // Italic
-      { pattern: /\*(.+?)\*/g, replacement: '<em>$1</em>' },
-      { pattern: /_(.+?)_/g, replacement: '<em>$1</em>' },
+      // Italic - use negative lookahead to avoid matching bold markers
+      { pattern: /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, replacement: '<em>$1</em>' },
+      { pattern: /(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, replacement: '<em>$1</em>' },
       
       // Links
       { pattern: /\[([^\]]+)\]\(([^)]+)\)/g, replacement: '<a href="$2">$1</a>' },
       
       // Inline code
       { pattern: /`([^`]+)`/g, replacement: '<code>$1</code>' },
-      
-      // Line breaks
-      { pattern: /\n\n/g, replacement: '</p><p>' },
     ];
   }
 
@@ -49,10 +46,17 @@ class MarkdownParser {
       html = html.replace(rule.pattern, rule.replacement);
     });
 
-    // Wrap in paragraph tags if not already wrapped
-    if (!html.startsWith('<h') && !html.startsWith('<p>')) {
-      html = '<p>' + html + '</p>';
-    }
+    // Split into lines and wrap non-header lines in paragraphs
+    const lines = html.split('\n\n');
+    html = lines.map(line => {
+      line = line.trim();
+      if (!line) return '';
+      // Don't wrap headers or already-wrapped content
+      if (line.startsWith('<h') || line.startsWith('<p>')) {
+        return line;
+      }
+      return '<p>' + line + '</p>';
+    }).filter(line => line).join('\n');
 
     return html;
   }

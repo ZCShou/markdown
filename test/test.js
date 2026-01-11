@@ -65,4 +65,10 @@ assert(result.includes('<h1>Title</h1>'), 'Combined markdown - header');
 assert(result.includes('<strong>bold</strong>'), 'Combined markdown - bold');
 assert(result.includes('<em>italic</em>'), 'Combined markdown - italic');
 
+// Test 9: Bold and italic shouldn't conflict
+result = parser.parse('**bold** and *italic*');
+assert(result.includes('<strong>bold</strong>'), 'Bold without italic interference');
+assert(result.includes('<em>italic</em>'), 'Italic without bold interference');
+assert(!result.includes('<em>*</em>'), 'No residual asterisks in italic');
+
 console.log('\n✅ All tests passed!');
