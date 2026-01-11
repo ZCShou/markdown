@@ -285,7 +285,7 @@ body {
 .md-sidebar-content {
     flex: 1;
     overflow-x: hidden;
-    padding: 8px 0 8px 8px;
+    padding: 16px 8px 16px 16px;
     display: flex;
     flex-direction: column;
     min-height: 0;
