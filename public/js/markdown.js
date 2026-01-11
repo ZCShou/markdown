@@ -592,8 +592,6 @@ sequenceDiagram
         if (!section || !content) return;
 
         const isCollapsed = content.classList.toggle('collapsed');
-        const toggle = section.querySelector('.md-sidebar-section-toggle');
-        if (toggle) toggle.textContent = isCollapsed ? '›' : '⌄';
 
         this.saveSectionState(sectionName, !isCollapsed);
     }
@@ -627,10 +625,8 @@ sequenceDiagram
         ['toc', 'export'].forEach((sectionName) => {
             const isCollapsed = this.loadSectionState(sectionName);
             const content = document.getElementById(`md-${sectionName}-content`);
-            const toggle = document.querySelector(`#md-${sectionName}-section .md-sidebar-section-toggle`);
 
             if (content) content.classList.toggle('collapsed', isCollapsed);
-            if (toggle) toggle.textContent = isCollapsed ? '›' : '⌄';
         });
     }
 
