@@ -39,7 +39,8 @@ class MarkdownParser {
       return '';
     }
 
-    let html = markdown;
+    // Normalize line endings to \n
+    let html = markdown.replace(/\r\n/g, '\n');
 
     // Apply all transformation rules
     this.rules.forEach(rule => {
