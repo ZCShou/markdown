@@ -392,6 +392,7 @@ body {
     padding: 6px 0;
     cursor: pointer;
     transition: color 0.2s;
+    color: var(--md-text-primary);
 }
 
 .md-toc-item:hover {
