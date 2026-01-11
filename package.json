@@ -1,0 +1,17 @@
+{
+  "name": "@zcshou/markdown",
+  "version": "1.0.0",
+  "description": "A simple markdown parser and converter",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "keywords": [
+    "markdown",
+    "parser",
+    "converter",
+    "html"
+  ],
+  "author": "ZCShou",
+  "license": "MIT"
+}
