@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Markdown 编辑器</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/markdown.css">
+</head>
+<body>
+    <!-- Left Sidebar - Project Management -->
+    <aside class="md-sidebar md-sidebar-left" id="md-sidebar-left">
+        <div class="md-sidebar-header">
+            <h3>项目管理</h3>
+            <button class="md-sidebar-close" id="md-close-left-sidebar">✕</button>
+        </div>
+        <div class="md-sidebar-content">
+            <button class="md-sidebar-btn" id="md-new-doc">📄 新建文档</button>
+            <div class="md-doc-list" id="md-doc-list">
+                <!-- Document list will be generated dynamically -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right Sidebar - Tools -->
+    <aside class="md-sidebar md-sidebar-right" id="md-sidebar-right">
+        <div class="md-sidebar-header">
+            <h3>工具</h3>
+            <button class="md-sidebar-close" id="md-close-right-sidebar">✕</button>
+        </div>
+        <div class="md-sidebar-content">
+            <!-- TOC Section -->
+            <div class="md-sidebar-section" id="md-toc-section">
+                <div class="md-sidebar-section-header">
+                    <button class="md-sidebar-section-toggle" data-section="toc">⌄</button>
+                    <span class="md-sidebar-section-title">📑 目录</span>
+                </div>
+                <div class="md-sidebar-section-content " id="md-toc-content">
+                    <div>
+                        <div class="md-toc unified-scrollbar" id="md-toc">
+                            <!-- TOC will be generated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Section -->
+            <div class="md-sidebar-section" id="md-export-section">
+                <div class="md-sidebar-section-header">
+                    <button class="md-sidebar-section-toggle" data-section="export">⌄</button>
+                    <span class="md-sidebar-section-title">📤 导出</span>
+                </div>
+                <div class="md-sidebar-section-content" id="md-export-content">
+                    <div>
+                        <button class="md-sidebar-btn" id="md-export-html">导出 HTML</button>
+                        <button class="md-sidebar-btn" id="md-export-md">导出 Markdown</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Sidebar Overlay -->
+    <div class="md-sidebar-overlay" id="md-sidebar-overlay"></div>
+
+    <!-- Top Toolbar -->
+    <div class="markdown-toolbar">
+        <button id="md-toggle-left-sidebar" title="项目管理">📁</button>
+        <div class="markdown-toolbar-right">
+            <button id="theme-toggle" title="切换主题">
+                <span class="theme-icon">🌙</span>
+            </button>
+            <button id="md-toggle-right-sidebar" title="功能">☰</button>
+        </div>
+    </div>
+
+    <!-- Status Display -->
+    <div class="status-overlay" id="status-overlay"></div>
+    <div class="status-message" id="status-message"></div>
+
+    <!-- Main Container -->
+    <div class="markdown-container" id="md-container">
+        <!-- Editor Pane -->
+        <div class="markdown-editor-pane" id="md-editor-pane">
+            <div class="markdown-editor-wrapper">
+                <textarea id="markdown-editor" class="unified-scrollbar" placeholder="在此输入 Markdown 内容..." spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="markdown-divider" id="md-divider"></div>
+
+        <!-- Preview Pane -->
+        <div class="markdown-preview-pane" id="md-preview-pane">
+            <div class="markdown-preview-wrapper unified-scrollbar" id="md-preview-wrapper">
+                <div id="markdown-preview" class="markdown-body " ></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prism Themes -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-light-theme" />
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-dark-theme" disabled />
+
+    <!-- External Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-java.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-cpp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-csharp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-ruby.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-go.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-rust.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-swift.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-kotlin.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-scala.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-jsx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-tsx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-docker.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-makefile.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-nginx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-perl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-lua.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-r.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-matlab.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-groovy.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+
+    <!-- Markdown Editor -->
+    <script src="js/markdown.js"></script>
+</body>
+</html>

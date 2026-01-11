@@ -1,0 +1,1064 @@
+/* Markdown 编辑器样式 */
+:root {
+    /* 基础颜色 */
+    --md-bg-primary: #f5f5f5;
+    --md-bg-secondary: #fff;
+    --md-bg-tertiary: #f8f9fa;
+    --md-bg-hover: #f0f0f0;
+    --md-bg-active: #e3f2fd;
+    
+    /* 文字颜色 */
+    --md-text-primary: #333;
+    --md-text-secondary: #666;
+    --md-text-tertiary: #999;
+    --md-text-disabled: #6a737d;
+    
+    /* 边框颜色 */
+    --md-border-primary: #e0e0e0;
+    --md-border-secondary: #ddd;
+    --md-border-tertiary: #c6cbd1;
+    --md-border-quaternary: #dfe2e5;
+    
+    /* 主题色 */
+    --md-color-primary: #2196f3;
+    --md-color-primary-dark: #0d47a1;
+    --md-color-danger: #f44336;
+    --md-color-success: #4caf50;
+    --md-color-warning: #ff9800;
+    --md-color-info: #2196f3;
+    
+    /* 代码块颜色 */
+    --md-code-bg: #f6f8fa;
+    --md-code-bg-inline: rgba(27, 31, 35, 0.05);
+    --md-code-text: #24292e;
+    
+    /* Markdown 内容颜色 */
+    --md-markdown-bg: #fff;
+    --md-markdown-text: #24292e;
+    --md-markdown-link: #0366d6;
+    --md-markdown-quote: #6a737d;
+    --md-markdown-hr: #e1e4e8;
+    
+    /* 工具栏颜色 */
+    --md-toolbar-bg: #444;
+    --md-toolbar-text: #fff;
+    --md-toolbar-border: #333;
+    
+    /* 分隔条颜色 */
+    --md-divider-bg: #ddd;
+    --md-divider-hover: #999;
+    --md-divider-active: #666;
+    
+    /* 滚动条颜色 */
+    --md-scrollbar-track: #f1f1f1;
+    --md-scrollbar-thumb: #888;
+    --md-scrollbar-thumb-hover: #555;
+    
+    /* 阴影 */
+    --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    --md-shadow-dark: 2px 0 8px rgba(0, 0, 0, 0.3);
+    
+    /* 状态消息颜色 */
+    --md-status-bg: #fff;
+    --md-status-text: #333;
+    --md-status-border: transparent;
+    --md-status-success-bg: #4caf50;
+    --md-status-error-bg: #f44336;
+    --md-status-info-bg: #2196f3;
+    --md-status-warning-bg: #ff9800;
+    
+    /* 代码复制按钮颜色 */
+    --md-code-copy-bg: transparent;
+    --md-code-copy-text: #fff;
+    --md-code-copy-border: none;
+    --md-code-copy-hover-bg: rgba(120, 120, 120, 0.15);
+    
+    /* 侧边栏遮罩 */
+    --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.5);
+    
+    /* 占位符颜色 */
+    --md-placeholder-color: #999;
+    
+    /* 复选框颜色 */
+    --md-checkbox-border: #dfe2e5;
+    --md-checkbox-bg: #fff;
+    --md-checkbox-checked-bg: #0366d6;
+}
+
+[data-mode="dark"] {
+    /* 基础颜色 */
+    --md-bg-primary: #0f1420;
+    --md-bg-secondary: #1e1e1e;
+    --md-bg-tertiary: #2d2d2d;
+    --md-bg-hover: #3e3e3e;
+    --md-bg-active: #0d47a1;
+    
+    /* 文字颜色 */
+    --md-text-primary: #e0e0e0;
+    --md-text-secondary: #b0b0b0;
+    --md-text-tertiary: #7f8c8d;
+    --md-text-disabled: #808080;
+    
+    /* 边框颜色 */
+    --md-border-primary: #3e3e3e;
+    --md-border-secondary: #3e3e3e;
+    --md-border-tertiary: #3e3e3e;
+    --md-border-quaternary: #3e3e3e;
+    
+    /* 主题色 */
+    --md-color-primary: #42a5f5;
+    --md-color-primary-dark: #0d47a1;
+    --md-color-danger: #ef5350;
+    --md-color-success: #2e7d32;
+    --md-color-warning: #f57c00;
+    --md-color-info: #1565c0;
+    
+    /* 代码块颜色 */
+    --md-code-bg: #2d2d2d;
+    --md-code-bg-inline: #2d2d2d;
+    --md-code-text: #e0e0e0;
+    
+    /* Markdown 内容颜色 */
+    --md-markdown-bg: #1e1e1e;
+    --md-markdown-text: #e0e0e0;
+    --md-markdown-link: #42a5f5;
+    --md-markdown-quote: #b0b0b0;
+    --md-markdown-hr: #3e3e3e;
+    
+    /* 工具栏颜色 */
+    --md-toolbar-bg: #2d2d2d;
+    --md-toolbar-text: #e0e0e0;
+    --md-toolbar-border: #3e3e3e;
+    
+    /* 分隔条颜色 */
+    --md-divider-bg: #3e3e3e;
+    --md-divider-hover: #4e4e4e;
+    --md-divider-active: #0d47a1;
+    
+    /* 滚动条颜色 */
+    --md-scrollbar-track: #1e1e1e;
+    --md-scrollbar-thumb: #3e3e3e;
+    --md-scrollbar-thumb-hover: #4e4e4e;
+    
+    /* 阴影 */
+    --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    --md-shadow-dark: 2px 0 8px rgba(0, 0, 0, 0.5);
+    
+    /* 状态消息颜色 */
+    --md-status-bg: #2d2d2d;
+    --md-status-text: #e0e0e0;
+    --md-status-border: #3e3e3e;
+    --md-status-success-bg: #2e7d32;
+    --md-status-error-bg: #c62828;
+    --md-status-info-bg: #1565c0;
+    --md-status-warning-bg: #f57c00;
+    
+    /* 代码复制按钮颜色 */
+    --md-code-copy-bg: #2d2d2d;
+    --md-code-copy-text: #e0e0e0;
+    --md-code-copy-border: #3e3e3e;
+    --md-code-copy-hover-bg: #3e3e3e;
+    
+    /* 侧边栏遮罩 */
+    --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.7);
+    
+    /* 占位符颜色 */
+    --md-placeholder-color: #7f8c8d;
+    
+    /* 复选框颜色 */
+    --md-checkbox-border: #3e3e3e;
+    --md-checkbox-bg: #2d2d2d;
+    --md-checkbox-checked-bg: #0d47a1;
+}
+
+/* ==================== 滚动条样式 ==================== */
+/* 统一滚动条样式 - 应用于 html 和所有使用 .unified-scrollbar 类的元素 */
+html,
+.unified-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: var(--scrollbar-color) transparent;
+}
+
+html::-webkit-scrollbar,
+.unified-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+html::-webkit-scrollbar-track,
+.unified-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+.unified-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-color);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+.unified-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-hover-color);
+    background-clip: content-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background-color: var(--md-bg-primary);
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 侧边栏样式 */
+.md-sidebar {
+    position: fixed;
+    top: 0;
+    width: 280px;
+    height: 100%;
+    background-color: var(--md-bg-secondary);
+    box-shadow: var(--md-shadow);
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.md-sidebar-left {
+    left: 0;
+    transform: translateX(-100%);
+}
+
+.md-sidebar-left.open {
+    transform: translateX(0);
+}
+
+.md-sidebar-right {
+    right: 0;
+    transform: translateX(100%);
+}
+
+.md-sidebar-right.open {
+    transform: translateX(0);
+}
+
+.md-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--md-border-primary);
+    background-color: var(--md-bg-tertiary);
+}
+
+.md-sidebar-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--md-text-primary);
+}
+
+.md-sidebar-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--md-text-secondary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.md-sidebar-close:hover {
+    background-color: var(--md-bg-hover);
+}
+
+.md-sidebar-content {
+    flex: 1;
+    overflow-x: hidden;
+    padding: 8px 0 8px 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* 默认显示滚动条 */
+    overflow-y: auto;
+    background-color: var(--md-bg-secondary);
+}
+
+/* 针对 Webkit 浏览器：让滚动条始终显示但不占用布局空间 */
+.md-sidebar-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.md-sidebar-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.md-sidebar-content::-webkit-scrollbar-thumb {
+    background: var(--md-text-tertiary);
+    border-radius: 4px;
+}
+
+.md-sidebar-content::-webkit-scrollbar-thumb:hover {
+    background: var(--md-text-secondary);
+}
+
+.md-sidebar-btn {
+    width: 100%;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    background-color: var(--md-bg-secondary);
+    border: 1px solid var(--md-border-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    transition: all 0.2s;
+    color: var(--md-text-primary);
+}
+
+.md-sidebar-btn:hover {
+    background-color: var(--md-bg-hover);
+    border-color: var(--md-text-secondary);
+}
+
+.md-doc-list {
+    margin-top: 16px;
+}
+
+.md-doc-item {
+    padding: 10px 12pxvar(--md-bg-tertiary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--md-text-primary);
+}
+
+.md-doc-item:hover {
+    background-color: var(--md-bg-hover);
+}
+
+.md-doc-item.active {
+    background-color: var(--md-bg-active);
+    border-left: 3px solid var(--md-color-primary);
+}
+
+.md-doc-item-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--md-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.md-doc-item-delete {
+    background: none;
+    border: none;
+    color: var(--md-text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.md-doc-item:hover .md-doc-item-delete {
+    opacity: 1;
+}
+
+.md-doc-item-delete:hover {
+    color: var(--md-color-danger);
+}
+
+.md-toc {
+    margin: 0;
+    padding: 0;
+}
+
+.md-toc-item {
+    padding: 6px 0;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.md-toc-item:hover {
+    color: var(--md-color-primary);
+}
+
+.md-toc-item.level-1 {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.md-toc-item.level-2 {
+    padding-left: 16px;
+    font-size: 13px;
+}
+
+.md-toc-item.level-3 {
+    padding-left: 32px;
+    font-size: 12px;
+}
+
+.md-toc-item.level-4 {
+    padding-left: 48px;
+    font-size: 12px;
+}
+
+.md-toc-item.level-5 {
+    padding-left: 64px;
+    font-size: 12px;
+}
+
+.md-toc-item.level-6 {
+    padding-left: 80px;
+    font-size: 12px;
+}
+
+.md-sidebar-divider {
+    border: none;
+    border-top: 1px solid var(--md-border-primary);
+    margin: 16px 0;
+}
+
+.md-sidebar-content h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--md-text-secondary);
+}
+
+/* 侧边栏区块样式 - 纯 CSS 实现 */
+.md-sidebar-section {
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    /* 折叠状态：不占用空间 */
+    flex: 0 0 auto;
+    min-height: 0;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: border-color 0.2s ease, flex 0.3s ease;
+}
+
+/* 展开状态的区块：根据内容自适应高度 */
+.md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) {
+    flex: 0 1 auto;
+    min-height: 0;
+}
+
+
+.md-sidebar-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.md-sidebar-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-text-primary);
+    flex: 1;
+    padding: 8px 0;
+}
+
+.md-sidebar-section-toggle {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--md-text-secondary);
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* 展开状态：旋转90度向下 */
+.md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) .md-sidebar-section-toggle {
+    transform: rotate(90deg);
+}
+
+/* 折叠状态：保持原始状态（向右） */
+.md-sidebar-section:has(.md-sidebar-section-content.collapsed) .md-sidebar-section-toggle {
+    transform: rotate(0deg);
+}
+
+/* 区块内容容器 - 使用 max-height 实现平滑高度过渡 */
+.md-sidebar-section-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 150px);
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease,
+                padding 0.3s ease;
+    opacity: 1;
+    padding: 4px;
+}
+
+/* 折叠状态 */
+.md-sidebar-section-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 12px 0 12px;
+    flex: 0 0 0;
+}
+
+/* 内部内容包装器 */
+.md-sidebar-section-content > div {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 150px);
+}
+
+/* 折叠时确保内部元素不可见且不可交互 */
+.md-sidebar-section-content.collapsed > div {
+    visibility: hidden;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* 目录容器 */
+.md-toc {
+    padding: 0;
+}
+
+/* 导出按钮容器 */
+#md-export-content > div {
+    /* 导出按钮不需要滚动，内容简单 */
+    overflow: visible !important;
+    flex: 0 0 auto !important;
+}
+
+/* 侧边栏遮罩 */
+.md-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--md-sidebar-overlay-bg);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.md-sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 顶部工具栏 */
+.markdown-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background-color: var(--md-toolbar-bg);
+    color: var(--md-toolbar-text);
+    font-size: 13px;
+    border-bottom: 1px solid var(--md-toolbar-border);
+}
+
+.markdown-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 侧边栏切换按钮 - 无背景样式 */
+#md-toggle-left-sidebar,
+#md-toggle-right-sidebar,
+#theme-toggle {
+    background: none;
+    border: none;
+    color: var(--md-toolbar-text);
+    font-size: 18px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+#md-toggle-left-sidebar:hover,
+#md-toggle-right-sidebar:hover,
+#theme-toggle:hover {
+    background: none;
+    opacity: 0.7;
+}
+
+/* 主容器 */
+.markdown-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    background-color: var(--md-bg-secondary);
+}
+
+/* 编辑区域 */
+.markdown-editor-pane {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--md-bg-secondary);
+    border-right: 1px solid var(--md-border-primary);
+    flex: 1;
+    min-width: 0;
+}
+
+.markdown-editor-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+#markdown-editor {
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    border: none;
+    resize: none;
+    outline: none;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--md-text-primary);
+    background-color: var(--md-bg-secondary);
+    box-sizing: border-box;
+}
+
+#markdown-editor::placeholder {
+    color: var(--md-placeholder-color);
+}
+
+#markdown-editor::-webkit-input-placeholder {
+    color: var(--md-placeholder-color);
+}
+
+#markdown-editor::-moz-placeholder {
+    color: var(--md-placeholder-color);
+}
+
+#markdown-editor:-ms-input-placeholder {
+    color: var(--md-placeholder-color);
+}
+
+/* 分隔条 */
+.markdown-divider {
+    width: 5px;
+    background-color: var(--md-divider-bg);
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+}
+
+.markdown-divider:hover {
+    background-color: var(--md-divider-hover);
+}
+
+.markdown-divider.dragging {
+    background-color: var(--md-divider-active);
+}
+
+/* 预览区域 */
+.markdown-preview-pane {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--md-bg-secondary);
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+}
+
+.markdown-preview-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+}
+
+#markdown-preview {
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Markdown 内容样式 - 使用 GitHub 风格 */
+.markdown-body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--md-markdown-text);
+    word-wrap: break-word;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.markdown-body > *:first-child {
+    margin-top: 0 !important;
+}
+
+.markdown-body > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* 选中文字样式 */
+.markdown-body::selection {
+    background-color: rgba(33, 150, 243, 0.3);
+    color: #24292e;
+}
+
+.markdown-body::-moz-selection {
+    background-color: rgba(33, 150, 243, 0.3);
+    color: #24292e;
+}
+
+.markdown-body a {
+    color: var(--md-markdown-link);
+    text-decoration: none;
+}
+
+.markdown-body a:hover {
+    text-decoration: underline;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.markdown-body h1 {
+    font-size: 2em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--md-border-primary);
+}
+
+.markdown-body h2 {
+    font-size: 1.5em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--md-border-primary);
+}
+
+.markdown-body h3 {
+    font-size: 1.25em;
+}
+
+.markdown-body h4 {
+    font-size: 1em;
+}
+
+.markdown-body h5 {
+    font-size: 0.875em;
+}
+
+.markdown-body h6 {
+    font-size: 0.85em;
+    color: var(--md-text-disabled);
+}
+
+.markdown-body p {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-left: 2em;
+}
+
+.markdown-body li {
+    margin-top: 0.25em;
+}
+
+.markdown-body li > p {
+    margin-top: 16px;
+}
+
+.markdown-body code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: var(--md-code-bg-inline);
+    border-radius: 3px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    color: var(--md-code-text);
+}
+
+.markdown-body pre {
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: var(--md-code-bg);
+    border-radius: 6px;
+    margin-top: 0;
+    margin-bottom: 16px;
+    max-width: 100%;
+}
+
+.markdown-body pre code {
+    padding: 0;
+    margin: 0;
+    font-size: 100%;
+    background-color: transparent;
+    border-radius: 0;
+}
+
+.markdown-body blockquote {
+    padding: 0 1em;
+    color: var(--md-markdown-quote);
+    border-left: 0.25em solid var(--md-border-quaternary);
+    margin: 0 0 16px 0;
+}
+
+.markdown-body blockquote > :first-child {
+    margin-top: 0;
+}
+
+.markdown-body blockquote > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown-body table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    margin-top: 0;
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+}
+
+.markdown-body table th {
+    font-weight: 600;
+    background-color: var(--md-code-bg);
+}
+
+.markdown-body table th,
+.markdown-body table td {
+    padding: 6px 13px;
+    border: 1px solid var(--md-border-quaternary);
+}
+
+.markdown-body table tr {
+    background-color: var(--md-bg-secondary);
+    border-top: 1px solid var(--md-border-tertiary);
+}
+
+.markdown-body table tr:nth-child(2n) {
+    background-color: var(--md-code-bg);
+}
+
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+    box-sizing: border-box;
+}
+
+.markdown-body hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: var(--md-markdown-hr);
+    border: 0;
+}
+
+.markdown-body input[type="checkbox"] {
+    border-color: var(--md-checkbox-border);
+    background-color: var(--md-checkbox-bg);
+}
+
+.markdown-body input[type="checkbox"]:checked {
+    background-color: var(--md-checkbox-checked-bg);
+    border-color: var(--md-checkbox-checked-bg);
+}
+
+/* 代码块复制按钮 */
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--md-code-copy-bg);
+    color: var(--md-code-copy-text);
+    border: var(--md-code-copy-border);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+pre:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    opacity: 1;
+    background: var(--md-code-copy-hover-bg);
+}
+
+.code-copy-btn.copied {
+    background: #28a745;
+}
+
+/* Mermaid 图表样式 */
+.markdown-body .mermaid {
+    text-align: center;
+    margin: 16px 0;
+    background-color: var(--md-bg-secondary);
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid var(--md-border-quaternary);
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+/* Mermaid 图表内部容器 */
+.markdown-body .mermaid svg {
+    display: inline-block;
+    max-width: none;
+    height: auto;
+}
+
+/* 滚动条样式 */
+.unified-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.unified-scrollbar::-webkit-scrollbar-track {
+    background: var(--md-scrollbar-track);
+}
+
+.unified-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--md-scrollbar-thumb);
+    border-radius: 4px;
+}
+
+.unified-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--md-scrollbar-thumb-hover);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .markdown-toolbar {
+        flex-wrap: wrap;
+        padding: 8px 12px;
+    }
+
+    #markdown-editor,
+    .markdown-preview-wrapper {
+        padding: 12px;
+    }
+}
+
+/* ==================== 状态显示 ==================== */
+.status-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.status-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.status-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background-color: var(--md-status-bg);
+    color: var(--md-status-text);
+    padding: 16px 24px;
+    border-radius: 8px;
+    border: 1px solid var(--md-status-border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    max-width: 400px;
+    text-align: center;
+}
+
+.status-message.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.status-message.success {
+    background-color: var(--md-status-success-bg);
+    color: #fff;
+}
+
+.status-message.error {
+    background-color: var(--md-status-error-bg);
+    color: #fff;
+}
+
+.status-message.info {
+    background-color: var(--md-status-info-bg);
+    color: #fff;
+}
+
+.status-message.warning {
+    background-color: var(--md-status-warning-bg);
+    color: #fff;
+}
+
+/* ==================== 主题切换 ==================== */
+.theme-icon {
+    font-size: 18px;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+#theme-toggle {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+#theme-toggle:hover .theme-icon {
+    transform: rotate(20deg);
+}
