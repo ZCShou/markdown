@@ -673,6 +673,12 @@ sequenceDiagram
         this.documents.forEach((doc) => {
             const item = document.createElement('div');
             item.className = 'md-doc-item' + (doc.id === this.currentDocId ? ' active' : '');
+            item.dataset.docId = doc.id;
+            item.dataset.docType = doc.type || 'file';
+            
+            const icon = document.createElement('span');
+            icon.className = 'md-doc-item-icon';
+            icon.textContent = (doc.type === 'folder') ? '📁' : '📄';
             
             const nameSpan = document.createElement('span');
             nameSpan.className = 'md-doc-item-name';
@@ -684,6 +690,7 @@ sequenceDiagram
             deleteBtn.title = '删除';
             deleteBtn.dataset.docId = doc.id;
             
+            item.appendChild(icon);
             item.appendChild(nameSpan);
             item.appendChild(deleteBtn);
             fragment.appendChild(item);
@@ -702,8 +709,8 @@ sequenceDiagram
             }
 
             const item = e.target.closest('.md-doc-item');
-            if (item) {
-                const docId = item.querySelector('.md-doc-item-delete')?.dataset.docId;
+            if (item && item.dataset.docType !== 'folder') {
+                const docId = item.dataset.docId;
                 if (docId) this.openDocument(docId);
             }
         };
@@ -713,14 +720,18 @@ sequenceDiagram
      * 新建文档
      */
     newDocument() {
-        const defaultName = '未命名文档 ' + new Date().toLocaleString();
-        const docName = prompt('请输入文档名称:', defaultName);
-        if (!docName) return;
+        this.createItem('file');
+    }
 
+    /**
+     * 创建文件或文件夹
+     */
+    createItem(type = 'file') {
         const doc = {
             id: Date.now().toString(),
-            name: docName,
-            content: '',
+            name: type === 'folder' ? '新建文件夹' : '新建文档',
+            type: type,
+            content: type === 'file' ? '' : undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -728,8 +739,103 @@ sequenceDiagram
         this.documents.push(doc);
         this.saveDocuments();
         this.renderDocumentList();
-        this.openDocument(doc.id);
-        this.showMessage('文档已创建', 'success');
+        
+        // 立即进入编辑模式
+        this.editItemName(doc.id);
+        
+        if (type === 'file') {
+            this.openDocument(doc.id);
+        }
+        
+        this.showMessage(`${type === 'folder' ? '文件夹' : '文档'}已创建`, 'success');
+    }
+
+    /**
+     * 编辑项目名称
+     */
+    editItemName(docId) {
+        const docList = this.getElement('md-doc-list');
+        if (!docList) return;
+
+        const item = docList.querySelector(`[data-doc-id="${docId}"]`);
+        if (!item) return;
+
+        const nameSpan = item.querySelector('.md-doc-item-name');
+        if (!nameSpan) return;
+
+        const currentName = nameSpan.textContent;
+        
+        // 创建输入框
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'md-doc-item-input';
+        input.value = currentName;
+        
+        // 替换名称显示为输入框
+        nameSpan.replaceWith(input);
+        item.classList.add('editing');
+        
+        // 选中文本
+        input.focus();
+        input.select();
+        
+        // 保存函数
+        const save = () => {
+            const newName = input.value.trim();
+            if (!newName) {
+                this.showMessage('名称不能为空', 'error');
+                input.focus();
+                return;
+            }
+            
+            const doc = this.documents.find(d => d.id === docId);
+            if (doc) {
+                doc.name = newName;
+                doc.updatedAt = new Date().toISOString();
+                this.saveDocuments();
+                this.renderDocumentList();
+                this.showMessage('重命名成功', 'success');
+            }
+        };
+        
+        // 取消函数
+        const cancel = () => {
+            this.renderDocumentList();
+        };
+        
+        // 绑定事件
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                save();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+            }
+        });
+    }
+
+    /**
+     * 重命名当前选中的项目
+     */
+    renameCurrentItem() {
+        if (!this.currentDocId) {
+            this.showMessage('请先选择一个项目', 'warning');
+            return;
+        }
+        this.editItemName(this.currentDocId);
+    }
+
+    /**
+     * 删除当前选中的项目
+     */
+    deleteCurrentItem() {
+        if (!this.currentDocId) {
+            this.showMessage('请先选择一个项目', 'warning');
+            return;
+        }
+        this.deleteDocument(this.currentDocId);
     }
 
     /**
@@ -739,10 +845,15 @@ sequenceDiagram
         const doc = this.documents.find((d) => d.id === docId);
         if (!doc) return;
 
+        // 如果是文件夹，不执行打开操作
+        if (doc.type === 'folder') {
+            return;
+        }
+
         this.currentDocId = docId;
         const editor = this.getElement('markdown-editor');
         if (editor) {
-            editor.value = doc.content;
+            editor.value = doc.content || '';
         }
         this.updatePreview(true);
         this.renderDocumentList();
@@ -759,7 +870,7 @@ sequenceDiagram
             if (!editor) return;
 
             const doc = this.documents.find((d) => d.id === this.currentDocId);
-            if (!doc) return;
+            if (!doc || doc.type === 'folder') return;
 
             doc.content = editor.value;
             doc.updatedAt = new Date().toISOString();
@@ -771,7 +882,11 @@ sequenceDiagram
      * 删除文档
      */
     deleteDocument(docId) {
-        if (!confirm('确定要删除这个文档吗？')) return;
+        const doc = this.documents.find((d) => d.id === docId);
+        if (!doc) return;
+
+        const itemType = doc.type === 'folder' ? '文件夹' : '文档';
+        if (!confirm(`确定要删除这个${itemType}吗？`)) return;
 
         const index = this.documents.findIndex((d) => d.id === docId);
         if (index === -1) return;
@@ -788,7 +903,7 @@ sequenceDiagram
         }
 
         this.renderDocumentList();
-        this.showMessage('文档已删除', 'success');
+        this.showMessage(`${itemType}已删除`, 'success');
     }
 
     // ==================== 目录生成 ====================
@@ -1050,7 +1165,10 @@ ${html}
 
         // 文档操作按钮
         const docButtons = {
-            'md-new-doc': () => this.newDocument(),
+            'md-new-file': () => this.createItem('file'),
+            'md-new-folder': () => this.createItem('folder'),
+            'md-rename-item': () => this.renameCurrentItem(),
+            'md-delete-item': () => this.deleteCurrentItem(),
             'md-export-html': () => this.exportHTML(),
             'md-export-md': () => this.exportMarkdown(),
             'theme-toggle': () => this.toggleTheme()

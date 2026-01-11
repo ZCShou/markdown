@@ -11,11 +11,15 @@
     <!-- Left Sidebar - Project Management -->
     <aside class="md-sidebar md-sidebar-left" id="md-sidebar-left">
         <div class="md-sidebar-header">
-            <h3>项目管理</h3>
+            <div class="md-sidebar-toolbar">
+                <button class="md-sidebar-tool-btn" id="md-new-file" title="新建文件">📄</button>
+                <button class="md-sidebar-tool-btn" id="md-new-folder" title="新建目录">📁</button>
+                <button class="md-sidebar-tool-btn" id="md-rename-item" title="重命名">✏️</button>
+                <button class="md-sidebar-tool-btn" id="md-delete-item" title="删除">🗑️</button>
+            </div>
             <button class="md-sidebar-close" id="md-close-left-sidebar">✕</button>
         </div>
         <div class="md-sidebar-content">
-            <button class="md-sidebar-btn" id="md-new-doc">📄 新建文档</button>
             <div class="md-doc-list" id="md-doc-list">
                 <!-- Document list will be generated dynamically -->
             </div>
