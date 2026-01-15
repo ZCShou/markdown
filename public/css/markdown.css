@@ -395,22 +395,22 @@ pre:hover .code-copy-btn,
     display: flex;
     flex-direction: column;
     flex: 1;
-    padding: 8px;
+    padding: 8px 0 8px 8px;
     min-height: 0;
     overflow-y: auto;
     background-color: var(--md-bg-secondary);
 }
 
 .md-doc-list {
-    margin-top: 0;
+    margin: 0 8px 0 0;
 }
 
 .md-doc-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    margin-bottom: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
     background: var(--md-bg-tertiary);
     border-radius: 6px;
     cursor: pointer;
@@ -481,7 +481,7 @@ pre:hover .code-copy-btn,
 }
 
 .md-toc {
-    margin: 0;
+    margin: 8px;
     padding: 0;
 }
 
@@ -639,6 +639,7 @@ pre:hover .code-copy-btn,
 
 /* 按钮组容器 */
 .md-btn-group {
+    margin: 8px;
     display: flex;
     flex-direction: column;
     gap: 8px;
