@@ -541,10 +541,8 @@ pre:hover .code-copy-btn,
 
 /* 侧边栏区块样式 - 纯 CSS 实现 */
 .md-sidebar-section {
-    margin-bottom: 8px;
     display: flex;
     flex-direction: column;
-    flex: 0 0 auto;
     min-height: 0;
     border-radius: 8px;
     border: 1px solid transparent;
@@ -605,6 +603,7 @@ pre:hover .code-copy-btn,
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
                 opacity 0.3s ease,
                 padding 0.3s ease;
+    padding-bottom: 8px;
 }
 
 /* 折叠状态 */
