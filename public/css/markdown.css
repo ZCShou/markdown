@@ -374,7 +374,7 @@ pre:hover .code-copy-btn,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 12px;
+    padding: 4px 4px 4px 16px;
     border-bottom: 1px solid var(--md-border-primary);
     background-color: var(--md-bg-tertiary);
 }
@@ -395,7 +395,7 @@ pre:hover .code-copy-btn,
     display: flex;
     flex-direction: column;
     flex: 1;
-    padding: 16px 8px 16px 16px;
+    padding: 8px;
     min-height: 0;
     overflow-y: auto;
     background-color: var(--md-bg-secondary);
@@ -604,7 +604,6 @@ pre:hover .code-copy-btn,
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
                 opacity 0.3s ease,
                 padding 0.3s ease;
-    padding: 4px;
 }
 
 /* 折叠状态 */
@@ -662,10 +661,9 @@ pre:hover .code-copy-btn,
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 12px;
+    padding: 4px 4px 4px 4px;
     background-color: var(--md-toolbar-bg);
     color: var(--md-toolbar-text);
-    font-size: 13px;
     border-bottom: 1px solid var(--md-toolbar-border);
 }
 
