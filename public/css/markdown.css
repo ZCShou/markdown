@@ -137,7 +137,7 @@
     /* 分隔条颜色 */
     --md-divider-bg: #3e3e3e;
     --md-divider-hover: #4e4e4e;
-    --md-divider-active: #0d47a1;
+    --md-divider-active: #666;
     
     /* 滚动条颜色 */
     --md-scrollbar-track: #1e1e1e;
