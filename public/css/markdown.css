@@ -1232,3 +1232,34 @@ pre:hover .code-copy-btn {
 #theme-toggle:hover .theme-icon {
     transform: rotate(20deg);
 }
+
+/* ==================== 拖拽相关样式 ==================== */
+/* 拖拽时的 body 状态 */
+body.is-dragging {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+/* 固定宽度的面板 */
+.markdown-editor-pane.fixed-width,
+.markdown-preview-pane.fixed-width {
+    flex: none !important;
+}
+
+/* ==================== 代码块相关样式 ==================== */
+/* 带复制按钮的代码块 */
+pre.has-copy-btn {
+    position: relative;
+}
+
+/* Mermaid 渲染失败状态 */
+.mermaid.render-error {
+    color: var(--md-color-danger);
+}
+
+/* ==================== 空状态提示 ==================== */
+.md-empty-state {
+    color: var(--md-text-tertiary);
+    text-align: center;
+    padding: 20px;
+}

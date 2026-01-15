@@ -416,7 +416,7 @@ sequenceDiagram
                 console.warn('Mermaid 渲染失败:', err);
                 containers.forEach((container) => {
                     container.textContent = '图表渲染失败: ' + err.message;
-                    container.style.color = 'red';
+                    container.classList.add('render-error');
                 });
                 this.isRenderingMermaid = false;
             });
@@ -434,7 +434,6 @@ sequenceDiagram
 
         preElements.forEach((pre) => {
             pre.classList.add('has-copy-btn');
-            pre.style.position = 'relative';
 
             const btn = document.createElement('button');
             btn.className = 'md-btn md-btn-sm code-copy-btn';
@@ -486,9 +485,9 @@ sequenceDiagram
             const leftWidth = availableWidth * ratio;
 
             editorPane.style.width = leftWidth + 'px';
-            editorPane.style.flex = 'none';
+            editorPane.classList.add('fixed-width');
             previewPane.style.width = (availableWidth - leftWidth) + 'px';
-            previewPane.style.flex = 'none';
+            previewPane.classList.add('fixed-width');
         };
 
         // 初始化宽度
@@ -508,8 +507,7 @@ sequenceDiagram
             this.isDragging = true;
             divider.classList.add('dragging');
             divider.classList.remove('hover');
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
+            document.body.classList.add('is-dragging');
             e.preventDefault();
         });
 
@@ -529,9 +527,9 @@ sequenceDiagram
             const leftWidth = Math.max(minWidth, Math.min(e.clientX - containerRect.left, maxWidth));
 
             editorPane.style.width = leftWidth + 'px';
-            editorPane.style.flex = 'none';
+            editorPane.classList.add('fixed-width');
             previewPane.style.width = (totalWidth - leftWidth - dividerWidth) + 'px';
-            previewPane.style.flex = 'none';
+            previewPane.classList.add('fixed-width');
 
             this.lastLeftRatio = leftWidth / (totalWidth - dividerWidth);
         });
@@ -540,8 +538,7 @@ sequenceDiagram
             if (this.isDragging) {
                 this.isDragging = false;
                 divider.classList.remove('dragging', 'hover');
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
+                document.body.classList.remove('is-dragging');
             }
         });
 
@@ -664,7 +661,7 @@ sequenceDiagram
         if (!docList) return;
 
         if (this.documents.length === 0) {
-            docList.innerHTML = `<p style="color: #999; text-align: center; padding: 20px;">暂无文档</p>`;
+            docList.innerHTML = `<p class="md-empty-state">暂无文档</p>`;
             return;
         }
 
@@ -918,7 +915,7 @@ sequenceDiagram
 
         const headings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
         if (headings.length === 0) {
-            tocContainer.innerHTML = `<p style="color: #999; text-align: center; padding: 20px;">暂无目录</p>`;
+            tocContainer.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
             return;
         }
 
