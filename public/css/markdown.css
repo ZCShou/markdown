@@ -565,6 +565,7 @@ pre:hover .code-copy-btn,
     user-select: none;
     border-radius: 6px;
     flex-shrink: 0;
+    margin: 8px;
 }
 
 .md-sidebar-section-title {
@@ -635,6 +636,13 @@ pre:hover .code-copy-btn,
     /* 导出按钮不需要滚动，内容简单 */
     overflow: visible;
     flex: 0 0 auto;
+}
+
+/* 按钮组容器 */
+.md-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 /* 侧边栏遮罩 */
