@@ -12,12 +12,12 @@
     <aside class="md-sidebar md-sidebar-left" id="md-sidebar-left">
         <div class="md-sidebar-header">
             <div class="md-sidebar-toolbar">
-                <button class="md-sidebar-tool-btn" id="md-new-file" title="新建文件">📄</button>
-                <button class="md-sidebar-tool-btn" id="md-new-folder" title="新建目录">📁</button>
-                <button class="md-sidebar-tool-btn" id="md-rename-item" title="重命名">✏️</button>
-                <button class="md-sidebar-tool-btn" id="md-delete-item" title="删除">🗑️</button>
+                <button class="md-btn md-btn-icon" id="md-new-file" title="新建文件">📄</button>
+                <button class="md-btn md-btn-icon" id="md-new-folder" title="新建目录">📁</button>
+                <button class="md-btn md-btn-icon" id="md-rename-item" title="重命名">✏️</button>
+                <button class="md-btn md-btn-icon md-btn-danger" id="md-delete-item" title="删除">🗑️</button>
             </div>
-            <button class="md-sidebar-close" id="md-close-left-sidebar">✕</button>
+            <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-left-sidebar" title="关闭侧边栏">✕</button>
         </div>
         <div class="md-sidebar-content">
             <div class="md-doc-list" id="md-doc-list">
@@ -30,13 +30,13 @@
     <aside class="md-sidebar md-sidebar-right" id="md-sidebar-right">
         <div class="md-sidebar-header">
             <h3>工具</h3>
-            <button class="md-sidebar-close" id="md-close-right-sidebar">✕</button>
+            <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-right-sidebar" title="关闭侧边栏">✕</button>
         </div>
         <div class="md-sidebar-content">
             <!-- TOC Section -->
             <div class="md-sidebar-section" id="md-toc-section">
                 <div class="md-sidebar-section-header">
-                    <button class="md-sidebar-section-toggle" data-section="toc">›</button>
+                    <button class="md-btn md-btn-icon md-btn-ghost md-sidebar-section-toggle" data-section="toc" title="折叠/展开">›</button>
                     <span class="md-sidebar-section-title">目录</span>
                 </div>
                 <div class="md-sidebar-section-content " id="md-toc-content">
@@ -51,13 +51,13 @@
             <!-- Export Section -->
             <div class="md-sidebar-section" id="md-export-section">
                 <div class="md-sidebar-section-header">
-                    <button class="md-sidebar-section-toggle" data-section="export">›</button>
+                    <button class="md-btn md-btn-icon md-btn-ghost md-sidebar-section-toggle" data-section="export" title="折叠/展开">›</button>
                     <span class="md-sidebar-section-title">导出</span>
                 </div>
                 <div class="md-sidebar-section-content" id="md-export-content">
-                    <div>
-                        <button class="md-sidebar-btn" id="md-export-html">导出 HTML</button>
-                        <button class="md-sidebar-btn" id="md-export-md">导出 Markdown</button>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="md-btn md-btn-block" id="md-export-html">导出 HTML</button>
+                        <button class="md-btn md-btn-block" id="md-export-md">导出 Markdown</button>
                     </div>
                 </div>
             </div>
@@ -69,12 +69,12 @@
 
     <!-- Top Toolbar -->
     <div class="markdown-toolbar">
-        <button id="md-toggle-left-sidebar" title="项目管理">📁</button>
+        <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-left-sidebar" title="项目管理">📁</button>
         <div class="markdown-toolbar-right">
-            <button id="theme-toggle" title="切换主题">
+            <button class="md-btn md-btn-icon md-btn-ghost" id="theme-toggle" title="切换主题">
                 <span class="theme-icon">🌙</span>
             </button>
-            <button id="md-toggle-right-sidebar" title="功能">☰</button>
+            <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-right-sidebar" title="功能面板">☰</button>
         </div>
     </div>
 

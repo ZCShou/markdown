@@ -437,7 +437,7 @@ sequenceDiagram
             pre.style.position = 'relative';
 
             const btn = document.createElement('button');
-            btn.className = 'code-copy-btn';
+            btn.className = 'md-btn md-btn-sm code-copy-btn';
             btn.textContent = '📋';
             btn.title = '复制代码';
 
@@ -685,7 +685,7 @@ sequenceDiagram
             nameSpan.textContent = doc.name;
             
             const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'md-doc-item-delete';
+            deleteBtn.className = 'md-btn md-btn-icon md-btn-sm md-btn-danger md-doc-item-delete';
             deleteBtn.textContent = '🗑️';
             deleteBtn.title = '删除';
             deleteBtn.dataset.docId = doc.id;

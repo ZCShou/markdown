@@ -224,7 +224,210 @@ body {
     flex-direction: column;
 }
 
-/* 侧边栏样式 */
+/* ==================== 按钮系统 ==================== */
+/* 基础按钮样式 */
+.md-btn {
+    /* 布局 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    
+    /* 尺寸 */
+    padding: 8px 12px;
+    min-height: 36px;
+    min-width: 36px;
+    
+    /* 字体 */
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    
+    /* 颜色和背景 */
+    color: var(--md-text-primary);
+    background-color: var(--md-bg-secondary);
+    border: 1px solid var(--md-border-secondary);
+    
+    /* 圆角 */
+    border-radius: 6px;
+    
+    /* 鼠标 */
+    cursor: pointer;
+    
+    /* 过渡效果 */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* 其他 */
+    outline: none;
+    user-select: none;
+    text-decoration: none;
+}
+
+/* 按钮悬停状态 */
+.md-btn:hover {
+    background-color: var(--md-bg-hover);
+    border-color: var(--md-text-secondary);
+}
+
+/* 按钮激活状态 */
+.md-btn:active {
+    transform: scale(0.96);
+}
+
+/* 按钮聚焦状态 */
+.md-btn:focus-visible {
+    outline: 2px solid var(--md-color-primary);
+    outline-offset: 2px;
+}
+
+/* 按钮禁用状态 */
+.md-btn:disabled,
+.md-btn.md-btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ==================== 按钮变体 ==================== */
+
+/* 图标按钮 - 紧凑型，用于工具栏 */
+.md-btn.md-btn-icon {
+    padding: 6px;
+    min-height: 32px;
+    min-width: 32px;
+    font-size: 18px;
+    background-color: transparent;
+    border: 1px solid transparent;
+}
+
+.md-btn.md-btn-icon:hover {
+    background-color: var(--md-bg-hover);
+    border-color: transparent;
+}
+
+.md-btn.md-btn-icon:active {
+    transform: scale(0.95);
+}
+
+/* 幽灵按钮 - 无背景，用于次要操作 */
+.md-btn.md-btn-ghost {
+    background-color: transparent;
+    border: 1px solid transparent;
+}
+
+.md-btn.md-btn-ghost:hover {
+    background-color: var(--md-bg-hover);
+    border-color: transparent;
+}
+
+/* 主要按钮 - 强调操作 */
+.md-btn.md-btn-primary {
+    background-color: var(--md-color-primary);
+    color: #fff;
+    border-color: var(--md-color-primary);
+}
+
+.md-btn.md-btn-primary:hover {
+    background-color: var(--md-color-primary-dark);
+    border-color: var(--md-color-primary-dark);
+}
+
+/* 危险按钮 - 删除等操作 */
+.md-btn.md-btn-danger {
+    color: var(--md-color-danger);
+    border-color: var(--md-color-danger);
+}
+
+.md-btn.md-btn-danger:hover {
+    background-color: var(--md-color-danger);
+    color: #fff;
+}
+
+/* 成功按钮 */
+.md-btn.md-btn-success {
+    color: var(--md-color-success);
+    border-color: var(--md-color-success);
+}
+
+.md-btn.md-btn-success:hover {
+    background-color: var(--md-color-success);
+    color: #fff;
+}
+
+/* 小尺寸按钮 */
+.md-btn.md-btn-sm {
+    padding: 4px 8px;
+    min-height: 28px;
+    min-width: 28px;
+    font-size: 12px;
+}
+
+.md-btn.md-btn-sm.md-btn-icon {
+    padding: 4px;
+    min-height: 24px;
+    min-width: 24px;
+    font-size: 14px;
+}
+
+/* 大尺寸按钮 */
+.md-btn.md-btn-lg {
+    padding: 12px 20px;
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 16px;
+}
+
+/* 块级按钮 - 占满容器宽度 */
+.md-btn.md-btn-block {
+    width: 100%;
+    display: flex;
+}
+
+/* 圆形按钮 */
+.md-btn.md-btn-circle {
+    border-radius: 50%;
+    padding: 6px;
+}
+
+/* ==================== 特殊按钮样式 ==================== */
+
+/* 文档项删除按钮 */
+.md-doc-item-delete {
+    /* 继承基础按钮样式 */
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.md-doc-item:hover .md-doc-item-delete {
+    opacity: 1;
+}
+
+/* 代码复制按钮 */
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+pre:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    opacity: 1;
+}
+
+.code-copy-btn.copied {
+    background: var(--md-color-success);
+    color: #fff;
+}
+
+/* ==================== 侧边栏样式 ==================== */
 .md-sidebar {
     position: fixed;
     top: 0;
@@ -271,46 +474,11 @@ body {
     align-items: center;
 }
 
-.md-sidebar-tool-btn {
-    background: transparent;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 6px;
-    border-radius: 4px;
-    transition: all 0.2s;
-    color: var(--md-text-primary);
-}
-
-.md-sidebar-tool-btn:hover {
-    background-color: var(--md-bg-hover);
-    transform: scale(1.1);
-}
-
-.md-sidebar-tool-btn:active {
-    transform: scale(0.95);
-}
-
 .md-sidebar-header h3 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
     color: var(--md-text-primary);
-}
-
-.md-sidebar-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: var(--md-text-secondary);
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background 0.2s;
-}
-
-.md-sidebar-close:hover {
-    background-color: var(--md-bg-hover);
 }
 
 .md-sidebar-content {
@@ -341,25 +509,6 @@ body {
 
 .md-sidebar-content::-webkit-scrollbar-thumb:hover {
     background: var(--md-text-secondary);
-}
-
-.md-sidebar-btn {
-    width: 100%;
-    padding: 10px 16px;
-    margin-bottom: 8px;
-    background-color: var(--md-bg-secondary);
-    border: 1px solid var(--md-border-secondary);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    text-align: left;
-    transition: all 0.2s;
-    color: var(--md-text-primary);
-}
-
-.md-sidebar-btn:hover {
-    background-color: var(--md-bg-hover);
-    border-color: var(--md-text-secondary);
 }
 
 .md-doc-list {
@@ -645,23 +794,14 @@ body {
     gap: 8px;
 }
 
-/* 侧边栏切换按钮 - 无背景样式 */
-#md-toggle-left-sidebar,
-#md-toggle-right-sidebar,
-#theme-toggle {
-    background: none;
-    border: none;
+/* 顶部工具栏按钮 - 继承 .md-btn.md-btn-icon.md-btn-ghost 样式 */
+.markdown-toolbar .md-btn {
     color: var(--md-toolbar-text);
-    font-size: 18px;
-    cursor: pointer;
-    transition: opacity 0.2s;
 }
 
-#md-toggle-left-sidebar:hover,
-#md-toggle-right-sidebar:hover,
-#theme-toggle:hover {
-    background: none;
-    opacity: 0.7;
+.markdown-toolbar .md-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: transparent;
 }
 
 /* 主容器 */
@@ -955,35 +1095,6 @@ body {
 .markdown-body input[type="checkbox"]:checked {
     background-color: var(--md-checkbox-checked-bg);
     border-color: var(--md-checkbox-checked-bg);
-}
-
-/* 代码块复制按钮 */
-.code-copy-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: var(--md-code-copy-bg);
-    color: var(--md-code-copy-text);
-    border: var(--md-code-copy-border);
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-pre:hover .code-copy-btn {
-    opacity: 1;
-}
-
-.code-copy-btn:hover {
-    opacity: 1;
-    background: var(--md-code-copy-hover-bg);
-}
-
-.code-copy-btn.copied {
-    background: #28a745;
 }
 
 /* Mermaid 图表样式 */
