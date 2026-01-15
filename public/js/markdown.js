@@ -284,13 +284,28 @@ sequenceDiagram
         try {
             let html = '';
             if (typeof marked !== 'undefined' && marked.parse) {
-                html = marked.parse(markdown, { breaks: true, gfm: true });
+                // 配置 marked 选项
+                const options = {
+                    breaks: true,
+                    gfm: true
+                };
+                html = marked.parse(markdown, options);
             } else {
                 html = this.escapeHtml(markdown);
             }
 
             if (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) {
-                html = DOMPurify.sanitize(html);
+                // 配置 DOMPurify 允许图片标签及其属性
+                html = DOMPurify.sanitize(html, {
+                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote', 
+                                   'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                                   'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'img',
+                                   'input', 'span', 'div', 'dd', 'dt', 'dl', 's'],
+                    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'type', 'checked',
+                                   'width', 'height', 'loading', 'colspan', 'rowspan', 'start'],
+                    ALLOW_DATA_ATTR: true,
+                    ADD_ATTR: ['data-*']
+                });
             }
 
             return html;
@@ -340,6 +355,25 @@ sequenceDiagram
             this.highlightCode();
             this.renderMermaidCharts();
             this.addCopyButtons();
+            this.checkImageLoad();
+        });
+    }
+
+    /**
+     * 检查图片加载状态
+     */
+    checkImageLoad() {
+        const preview = this.getElement('markdown-preview');
+        if (!preview) return;
+
+        const images = preview.querySelectorAll('img');
+        images.forEach((img) => {
+            // 监听图片加载失败事件
+            img.addEventListener('error', () => {
+                img.alt = `图片加载失败: ${img.src}`;
+                img.style.border = '2px dashed #f44336';
+                img.style.padding = '10px';
+            });
         });
     }
 
