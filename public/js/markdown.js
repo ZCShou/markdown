@@ -589,30 +589,7 @@ sequenceDiagram
         if (!section || !content) return;
 
         const isCollapsed = content.classList.toggle('collapsed');
-
-        this.saveSectionState(sectionName, !isCollapsed);
-    }
-
-    /**
-     * 保存区块状态
-     */
-    saveSectionState(sectionName, isExpanded) {
-        try {
-            localStorage.setItem(`markdown_editor_section_${sectionName}`, isExpanded ? 'expanded' : 'collapsed');
-        } catch (e) {
-            console.warn('保存区块状态失败:', e);
-        }
-    }
-
-    /**
-     * 加载区块状态
-     */
-    loadSectionState(sectionName) {
-        try {
-            return localStorage.getItem(`markdown_editor_section_${sectionName}`) === 'collapsed';
-        } catch (e) {
-            return false;
-        }
+        StorageStore.saveSectionState(sectionName, !isCollapsed);
     }
 
     /**
@@ -620,7 +597,7 @@ sequenceDiagram
      */
     applySectionStates() {
         ['toc', 'export'].forEach((sectionName) => {
-            const isCollapsed = this.loadSectionState(sectionName);
+            const isCollapsed = StorageStore.loadSectionState(sectionName);
             const content = document.getElementById(`md-${sectionName}-content`);
 
             if (content) content.classList.toggle('collapsed', isCollapsed);
@@ -628,30 +605,6 @@ sequenceDiagram
     }
 
     // ==================== 文档管理 ====================
-    
-    /**
-     * 加载文档列表
-     */
-    loadDocuments() {
-        try {
-            const saved = localStorage.getItem('markdown_editor_documents');
-            this.documents = saved ? JSON.parse(saved) : [];
-        } catch (e) {
-            console.warn('加载文档列表失败:', e);
-            this.documents = [];
-        }
-    }
-
-    /**
-     * 保存文档列表
-     */
-    saveDocuments() {
-        try {
-            localStorage.setItem('markdown_editor_documents', JSON.stringify(this.documents));
-        } catch (e) {
-            console.warn('保存文档列表失败:', e);
-        }
-    }
 
     /**
      * 渲染文档列表
@@ -734,7 +687,7 @@ sequenceDiagram
         };
 
         this.documents.push(doc);
-        this.saveDocuments();
+        StorageStore.saveDocuments(this.documents);
         this.renderDocumentList();
         
         // 立即进入编辑模式
@@ -789,7 +742,7 @@ sequenceDiagram
             if (doc) {
                 doc.name = newName;
                 doc.updatedAt = new Date().toISOString();
-                this.saveDocuments();
+                StorageStore.saveDocuments(this.documents);
                 this.renderDocumentList();
                 this.showMessage('重命名成功', 'success');
             }
@@ -871,7 +824,7 @@ sequenceDiagram
 
             doc.content = editor.value;
             doc.updatedAt = new Date().toISOString();
-            this.saveDocuments();
+            StorageStore.saveDocuments(this.documents);
         }, MarkdownEditor.DEBOUNCE_DELAY.SAVE);
     }
 
@@ -889,7 +842,7 @@ sequenceDiagram
         if (index === -1) return;
 
         this.documents.splice(index, 1);
-        this.saveDocuments();
+        StorageStore.saveDocuments(this.documents);
 
         if (docId === this.currentDocId) {
             this.currentDocId = null;
@@ -1021,25 +974,8 @@ ${html}
             const editor = this.getElement('markdown-editor');
             if (!editor) return;
 
-            try {
-                localStorage.setItem('markdown_editor_content', editor.value);
-            } catch (e) {
-                console.warn('保存内容失败:', e);
-            }
+            StorageStore.saveContent(editor.value);
         }, MarkdownEditor.DEBOUNCE_DELAY.SAVE);
-    }
-
-    /**
-     * 从本地存储加载内容
-     */
-    loadContent() {
-        try {
-            const saved = localStorage.getItem('markdown_editor_content');
-            if (saved) return saved;
-        } catch (e) {
-            console.warn('加载内容失败:', e);
-        }
-        return MarkdownEditor.DEFAULT_CONTENT;
     }
 
     /**
@@ -1054,28 +990,6 @@ ${html}
     }
 
     // ==================== 主题管理 ====================
-    
-    /**
-     * 获取当前主题模式
-     */
-    getThemeMode() {
-        try {
-            return localStorage.getItem('markdown_editor_theme') || 'light';
-        } catch (e) {
-            return 'light';
-        }
-    }
-
-    /**
-     * 设置主题模式
-     */
-    setThemeMode(mode) {
-        try {
-            localStorage.setItem('markdown_editor_theme', mode);
-        } catch (e) {
-            console.warn('保存主题失败:', e);
-        }
-    }
 
     /**
      * 应用主题
@@ -1113,9 +1027,9 @@ ${html}
      * 切换主题
      */
     toggleTheme() {
-        const currentMode = this.getThemeMode();
+        const currentMode = StorageStore.getThemeMode('light');
         const newMode = currentMode === 'dark' ? 'light' : 'dark';
-        this.setThemeMode(newMode);
+        StorageStore.setThemeMode(newMode);
         this.applyTheme(newMode);
         this.updateThemeIcon(newMode);
     }
@@ -1135,7 +1049,7 @@ ${html}
      * 初始化主题
      */
     initTheme() {
-        const mode = this.getThemeMode();
+        const mode = StorageStore.getThemeMode('light');
         this.applyTheme(mode);
         this.updateThemeIcon(mode);
     }
@@ -1209,7 +1123,7 @@ ${html}
                     if (this.timers.save) {
                         clearTimeout(this.timers.save);
                     }
-                    localStorage.setItem('markdown_editor_content', editor.value);
+                    StorageStore.saveContent(editor.value);
                     this.showMessage('内容已保存', 'success');
                 }
             });
@@ -1226,9 +1140,9 @@ ${html}
 
         this.initMermaid();
         this.initTheme();
-        this.loadDocuments();
+        this.documents = StorageStore.loadDocuments();
         this.renderDocumentList();
-        this.setContent(this.loadContent());
+        this.setContent(StorageStore.loadContent(MarkdownEditor.DEFAULT_CONTENT));
         this.bindEvents();
         this.setupDivider();
         this.applySectionStates();
