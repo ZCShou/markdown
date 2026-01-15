@@ -2,7 +2,7 @@
  * 本地存储管理器
  * 负责管理所有与 localStorage 相关的数据存储和读取
  */
-class StorageStore {
+class StoreManager {
     // ==================== 存储键名常量 ====================
     
     static STORAGE_KEYS = {
@@ -20,7 +20,7 @@ class StorageStore {
      */
     static saveContent(content) {
         try {
-            localStorage.setItem(StorageStore.STORAGE_KEYS.CONTENT, content);
+            localStorage.setItem(StoreManager.STORAGE_KEYS.CONTENT, content);
             return true;
         } catch (e) {
             console.warn('保存内容失败:', e);
@@ -35,7 +35,7 @@ class StorageStore {
      */
     static loadContent(defaultContent = '') {
         try {
-            const saved = localStorage.getItem(StorageStore.STORAGE_KEYS.CONTENT);
+            const saved = localStorage.getItem(StoreManager.STORAGE_KEYS.CONTENT);
             return saved !== null ? saved : defaultContent;
         } catch (e) {
             console.warn('加载内容失败:', e);
@@ -48,7 +48,7 @@ class StorageStore {
      */
     static clearContent() {
         try {
-            localStorage.removeItem(StorageStore.STORAGE_KEYS.CONTENT);
+            localStorage.removeItem(StoreManager.STORAGE_KEYS.CONTENT);
             return true;
         } catch (e) {
             console.warn('清除内容失败:', e);
@@ -64,7 +64,7 @@ class StorageStore {
      */
     static loadDocuments() {
         try {
-            const saved = localStorage.getItem(StorageStore.STORAGE_KEYS.DOCUMENTS);
+            const saved = localStorage.getItem(StoreManager.STORAGE_KEYS.DOCUMENTS);
             return saved ? JSON.parse(saved) : [];
         } catch (e) {
             console.warn('加载文档列表失败:', e);
@@ -79,7 +79,7 @@ class StorageStore {
      */
     static saveDocuments(documents) {
         try {
-            localStorage.setItem(StorageStore.STORAGE_KEYS.DOCUMENTS, JSON.stringify(documents));
+            localStorage.setItem(StoreManager.STORAGE_KEYS.DOCUMENTS, JSON.stringify(documents));
             return true;
         } catch (e) {
             console.warn('保存文档列表失败:', e);
@@ -93,7 +93,7 @@ class StorageStore {
      */
     static clearDocuments() {
         try {
-            localStorage.removeItem(StorageStore.STORAGE_KEYS.DOCUMENTS);
+            localStorage.removeItem(StoreManager.STORAGE_KEYS.DOCUMENTS);
             return true;
         } catch (e) {
             console.warn('清除文档列表失败:', e);
@@ -110,7 +110,7 @@ class StorageStore {
      */
     static getThemeMode(defaultMode = 'light') {
         try {
-            return localStorage.getItem(StorageStore.STORAGE_KEYS.THEME) || defaultMode;
+            return localStorage.getItem(StoreManager.STORAGE_KEYS.THEME) || defaultMode;
         } catch (e) {
             return defaultMode;
         }
@@ -123,7 +123,7 @@ class StorageStore {
      */
     static setThemeMode(mode) {
         try {
-            localStorage.setItem(StorageStore.STORAGE_KEYS.THEME, mode);
+            localStorage.setItem(StoreManager.STORAGE_KEYS.THEME, mode);
             return true;
         } catch (e) {
             console.warn('保存主题失败:', e);
@@ -141,7 +141,7 @@ class StorageStore {
      */
     static saveSectionState(sectionName, isExpanded) {
         try {
-            const key = StorageStore.STORAGE_KEYS.SECTION_PREFIX + sectionName;
+            const key = StoreManager.STORAGE_KEYS.SECTION_PREFIX + sectionName;
             localStorage.setItem(key, isExpanded ? 'expanded' : 'collapsed');
             return true;
         } catch (e) {
@@ -158,7 +158,7 @@ class StorageStore {
      */
     static loadSectionState(sectionName, defaultValue = false) {
         try {
-            const key = StorageStore.STORAGE_KEYS.SECTION_PREFIX + sectionName;
+            const key = StoreManager.STORAGE_KEYS.SECTION_PREFIX + sectionName;
             return localStorage.getItem(key) === 'collapsed';
         } catch (e) {
             return defaultValue;
@@ -173,7 +173,7 @@ class StorageStore {
     static loadAllSectionStates(sectionNames) {
         const states = {};
         sectionNames.forEach(name => {
-            states[name] = StorageStore.loadSectionState(name);
+            states[name] = StoreManager.loadSectionState(name);
         });
         return states;
     }
@@ -185,7 +185,7 @@ class StorageStore {
      */
     static clearSectionState(sectionName) {
         try {
-            const key = StorageStore.STORAGE_KEYS.SECTION_PREFIX + sectionName;
+            const key = StoreManager.STORAGE_KEYS.SECTION_PREFIX + sectionName;
             localStorage.removeItem(key);
             return true;
         } catch (e) {
@@ -202,7 +202,7 @@ class StorageStore {
      */
     static clearAll() {
         try {
-            Object.values(StorageStore.STORAGE_KEYS).forEach(key => {
+            Object.values(StoreManager.STORAGE_KEYS).forEach(key => {
                 if (key.endsWith('_')) {
                     // 处理前缀类型的键（如区块状态）
                     // 需要遍历所有 localStorage 键来匹配
@@ -240,14 +240,14 @@ class StorageStore {
                     totalSize += size;
                     items[key] = {
                         size: size,
-                        sizeFormatted: StorageStore._formatBytes(size)
+                        sizeFormatted: StoreManager._formatBytes(size)
                     };
                 }
             }
 
             return {
                 totalSize: totalSize,
-                totalSizeFormatted: StorageStore._formatBytes(totalSize),
+                totalSizeFormatted: StoreManager._formatBytes(totalSize),
                 items: items,
                 itemCount: Object.keys(items).length
             };
@@ -288,4 +288,4 @@ class StorageStore {
 }
 
 // 导出为全局对象
-window.StorageStore = StorageStore;
+window.StoreManager = StoreManager;
