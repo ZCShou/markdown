@@ -262,6 +262,109 @@ sequenceDiagram
         }
     }
 
+    /**
+     * 处理缩进
+     * @param {boolean} isRemove - 是否移除缩进（Shift+Tab）
+     */
+    handleIndent(isRemove = false) {
+        const editor = this.getElement('markdown-editor');
+        if (!editor) return;
+
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const value = editor.value;
+
+        // 获取选中文本
+        const selectedText = value.substring(start, end);
+
+        // 如果没有选中文本，在光标位置插入/移除缩进
+        if (selectedText.length === 0) {
+            if (isRemove) {
+                // 移除缩进：查找光标前的缩进字符
+                const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                const lineText = value.substring(lineStart, start);
+                const indentMatch = lineText.match(/^(\s*)/);
+                const indent = indentMatch ? indentMatch[1] : '';
+
+                if (indent.length > 0) {
+                    // 移除一个缩进级别（2个空格或1个tab）
+                    const indentSize = indent.startsWith('\t') ? 1 : Math.min(2, indent.length);
+                    const newValue = value.substring(0, lineStart) + 
+                                   indent.substring(indentSize) + 
+                                   value.substring(lineStart + indentSize);
+                    editor.value = newValue;
+                    editor.selectionStart = editor.selectionEnd = start - indentSize;
+                }
+            } else {
+                // 插入缩进
+                const indent = '  '; // 使用2个空格作为缩进
+                editor.value = value.substring(0, start) + indent + value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + indent.length;
+            }
+        } else {
+            // 有选中文本，处理多行缩进
+            const lines = selectedText.split('\n');
+            const indent = '  '; // 使用2个空格作为缩进
+
+            // 检查是否选中了整行
+            const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+            const lineEnd = value.indexOf('\n', end);
+            const fullLineText = value.substring(lineStart, lineEnd === -1 ? value.length : lineEnd);
+
+            // 如果选中了整行或多行，处理所有行
+            if (start <= lineStart || selectedText.includes('\n')) {
+                let newSelectedText;
+                let cursorOffset = 0;
+
+                if (isRemove) {
+                    // 移除缩进
+                    newSelectedText = lines.map((line, index) => {
+                        if (line.startsWith('\t')) {
+                            return line.substring(1);
+                        } else if (line.startsWith('  ')) {
+                            return line.substring(2);
+                        } else if (line.startsWith(' ')) {
+                            return line.substring(1);
+                        }
+                        return line;
+                    }).join('\n');
+                } else {
+                    // 添加缩进
+                    newSelectedText = lines.map(line => indent + line).join('\n');
+                    cursorOffset = indent.length;
+                }
+
+                editor.value = value.substring(0, start) + newSelectedText + value.substring(end);
+                
+                // 恢复选区
+                editor.selectionStart = start;
+                editor.selectionEnd = start + newSelectedText.length;
+            } else {
+                // 只选中了行的一部分，只在光标位置插入/移除缩进
+                if (isRemove) {
+                    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                    const lineText = value.substring(lineStart, start);
+                    const indentMatch = lineText.match(/^(\s*)/);
+                    const indent = indentMatch ? indentMatch[1] : '';
+
+                    if (indent.length > 0) {
+                        const indentSize = indent.startsWith('\t') ? 1 : Math.min(2, indent.length);
+                        editor.value = value.substring(0, lineStart) + 
+                                       value.substring(lineStart, start).substring(indentSize) + 
+                                       value.substring(start);
+                        editor.selectionStart = editor.selectionEnd = end - indentSize;
+                    }
+                } else {
+                    editor.value = value.substring(0, start) + indent + value.substring(end);
+                    editor.selectionStart = editor.selectionEnd = start + indent.length;
+                }
+            }
+        }
+
+        // 触发 input 事件以更新预览
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
     // ==================== Markdown 渲染 ====================
     
     /**
@@ -1152,6 +1255,14 @@ ${html}
             });
 
             editor.addEventListener('keydown', (e) => {
+                // Tab 缩进
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    this.handleIndent(e.shiftKey);
+                    return;
+                }
+
+                // Ctrl/Cmd + S 保存
                 if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                     e.preventDefault();
                     if (this.timers.save) {
