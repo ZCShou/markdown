@@ -83,6 +83,10 @@
     --md-checkbox-border: #dfe2e5;
     --md-checkbox-bg: #fff;
     --md-checkbox-checked-bg: #0366d6;
+    
+    /* 文本选中颜色 - VSCode 明亮主题风格 */
+    --md-selection-bg: rgba(51, 153, 255, 0.25);
+    --md-selection-text: #24292e;
 }
 
 [data-mode="dark"] {
@@ -169,6 +173,10 @@
     --md-checkbox-border: #3e3e3e;
     --md-checkbox-bg: #2d2d2d;
     --md-checkbox-checked-bg: #0d47a1;
+    
+    /* 文本选中颜色 - VSCode 黑暗主题风格 */
+    --md-selection-bg: rgba(65, 165, 245, 0.4);
+    --md-selection-text: #e0e0e0;
 }
 
 /* ==================== 滚动条样式 ==================== */
@@ -768,15 +776,15 @@ body {
     margin-bottom: 0 !important;
 }
 
-/* 选中文字样式 */
-.markdown-body::selection {
-    background-color: rgba(33, 150, 243, 0.3);
-    color: #24292e;
+/* 选中文字样式 - VSCode 风格，支持明暗主题 */
+::selection {
+    background-color: var(--md-selection-bg);
+    color: var(--md-selection-text);
 }
 
-.markdown-body::-moz-selection {
-    background-color: rgba(33, 150, 243, 0.3);
-    color: #24292e;
+::-moz-selection {
+    background-color: var(--md-selection-bg);
+    color: var(--md-selection-text);
 }
 
 .markdown-body a {
