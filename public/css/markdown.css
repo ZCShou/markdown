@@ -392,17 +392,6 @@ body {
 
 /* ==================== 特殊按钮样式 ==================== */
 
-/* 文档项删除按钮 */
-.md-doc-item-delete {
-    /* 继承基础按钮样式 */
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-.md-doc-item:hover .md-doc-item-delete {
-    opacity: 1;
-}
-
 /* 代码复制按钮 */
 .code-copy-btn {
     position: absolute;
@@ -414,10 +403,7 @@ body {
     transition: opacity 0.2s;
 }
 
-pre:hover .code-copy-btn {
-    opacity: 1;
-}
-
+pre:hover .code-copy-btn,
 .code-copy-btn:hover {
     opacity: 1;
 }
@@ -436,9 +422,9 @@ pre:hover .code-copy-btn {
     background-color: var(--md-bg-secondary);
     box-shadow: var(--md-shadow);
     z-index: 1000;
-    transition: transform 0.3s ease;
     display: flex;
     flex-direction: column;
+    transition: transform 0.3s ease;
 }
 
 .md-sidebar-left {
@@ -471,7 +457,6 @@ pre:hover .code-copy-btn {
 .md-sidebar-toolbar {
     display: flex;
     gap: 8px;
-    align-items: center;
 }
 
 .md-sidebar-header h3 {
@@ -482,33 +467,13 @@ pre:hover .code-copy-btn {
 }
 
 .md-sidebar-content {
-    flex: 1;
-    overflow-x: hidden;
-    padding: 16px 8px 16px 16px;
     display: flex;
     flex-direction: column;
+    flex: 1;
+    padding: 16px 8px 16px 16px;
     min-height: 0;
-    /* 默认显示滚动条 */
     overflow-y: auto;
     background-color: var(--md-bg-secondary);
-}
-
-/* 针对 Webkit 浏览器：让滚动条始终显示但不占用布局空间 */
-.md-sidebar-content::-webkit-scrollbar {
-    width: 8px;
-}
-
-.md-sidebar-content::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.md-sidebar-content::-webkit-scrollbar-thumb {
-    background: var(--md-text-tertiary);
-    border-radius: 4px;
-}
-
-.md-sidebar-content::-webkit-scrollbar-thumb:hover {
-    background: var(--md-text-secondary);
 }
 
 .md-doc-list {
@@ -516,15 +481,15 @@ pre:hover .code-copy-btn {
 }
 
 .md-doc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 8px 12px;
     margin-bottom: 4px;
     background: var(--md-bg-tertiary);
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     color: var(--md-text-primary);
 }
 
@@ -551,9 +516,9 @@ pre:hover .code-copy-btn {
     flex: 1;
     font-size: 14px;
     color: var(--md-text-primary);
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .md-doc-item-input {
@@ -561,10 +526,10 @@ pre:hover .code-copy-btn {
     font-size: 14px;
     padding: 4px 8px;
     border: none;
-    background: var(--md-bg-secondary);
-    color: var(--md-text-primary);
     border-radius: 4px;
     outline: none;
+    background: var(--md-bg-secondary);
+    color: var(--md-text-primary);
 }
 
 .md-doc-item-input:focus {
@@ -598,8 +563,8 @@ pre:hover .code-copy-btn {
 .md-toc-item {
     padding: 6px 0;
     cursor: pointer;
-    transition: color 0.2s;
     color: var(--md-text-primary);
+    transition: color 0.2s;
 }
 
 .md-toc-item:hover {
@@ -654,7 +619,6 @@ pre:hover .code-copy-btn {
     margin-bottom: 8px;
     display: flex;
     flex-direction: column;
-    /* 折叠状态：不占用空间 */
     flex: 0 0 auto;
     min-height: 0;
     border-radius: 8px;
@@ -665,7 +629,6 @@ pre:hover .code-copy-btn {
 /* 展开状态的区块：根据内容自适应高度 */
 .md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) {
     flex: 0 1 auto;
-    min-height: 0;
 }
 
 
@@ -675,7 +638,6 @@ pre:hover .code-copy-btn {
     gap: 8px;
     cursor: pointer;
     user-select: none;
-    transition: background-color 0.2s;
     border-radius: 6px;
     flex-shrink: 0;
 }
@@ -685,7 +647,6 @@ pre:hover .code-copy-btn {
     font-weight: 600;
     color: var(--md-text-primary);
     flex: 1;
-    padding: 8px 0;
 }
 
 .md-sidebar-section-toggle {
@@ -696,7 +657,6 @@ pre:hover .code-copy-btn {
     cursor: pointer;
     padding: 2px 4px;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    line-height: 1;
     flex-shrink: 0;
 }
 
@@ -719,7 +679,6 @@ pre:hover .code-copy-btn {
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
                 opacity 0.3s ease,
                 padding 0.3s ease;
-    opacity: 1;
     padding: 4px;
 }
 
@@ -727,14 +686,12 @@ pre:hover .code-copy-btn {
 .md-sidebar-section-content.collapsed {
     max-height: 0;
     opacity: 0;
-    padding: 0 12px 0 12px;
-    flex: 0 0 0;
+    padding: 0;
 }
 
 /* 内部内容包装器 */
 .md-sidebar-section-content > div {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: auto;
     max-height: calc(100vh - 150px);
 }
 
@@ -742,7 +699,6 @@ pre:hover .code-copy-btn {
 .md-sidebar-section-content.collapsed > div {
     visibility: hidden;
     pointer-events: none;
-    overflow: hidden;
 }
 
 /* 目录容器 */
@@ -753,8 +709,8 @@ pre:hover .code-copy-btn {
 /* 导出按钮容器 */
 #md-export-content > div {
     /* 导出按钮不需要滚动，内容简单 */
-    overflow: visible !important;
-    flex: 0 0 auto !important;
+    overflow: visible;
+    flex: 0 0 auto;
 }
 
 /* 侧边栏遮罩 */
@@ -768,7 +724,7 @@ pre:hover .code-copy-btn {
     z-index: 999;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .md-sidebar-overlay.show {
@@ -790,7 +746,6 @@ pre:hover .code-copy-btn {
 
 .markdown-toolbar-right {
     display: flex;
-    align-items: center;
     gap: 8px;
 }
 
@@ -808,24 +763,24 @@ pre:hover .code-copy-btn {
 .markdown-container {
     display: flex;
     flex: 1;
-    overflow: hidden;
     background-color: var(--md-bg-secondary);
+    overflow: hidden;
 }
 
 /* 编辑区域 */
 .markdown-editor-pane {
     display: flex;
     flex-direction: column;
-    background-color: var(--md-bg-secondary);
-    border-right: 1px solid var(--md-border-primary);
     flex: 1;
     min-width: 0;
+    background-color: var(--md-bg-secondary);
+    border-right: 1px solid var(--md-border-primary);
 }
 
 .markdown-editor-wrapper {
     flex: 1;
-    overflow: hidden;
     position: relative;
+    overflow: hidden;
 }
 
 #markdown-editor {
@@ -862,9 +817,9 @@ pre:hover .code-copy-btn {
 /* 分隔条 */
 .markdown-divider {
     width: 5px;
+    flex-shrink: 0;
     background-color: var(--md-divider-bg);
     cursor: col-resize;
-    flex-shrink: 0;
     transition: background-color 0.2s;
 }
 
@@ -880,16 +835,16 @@ pre:hover .code-copy-btn {
 .markdown-preview-pane {
     display: flex;
     flex-direction: column;
-    background-color: var(--md-bg-secondary);
-    overflow: hidden;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    background-color: var(--md-bg-secondary);
 }
 
 .markdown-preview-wrapper {
     flex: 1;
-    overflow-y: auto;
     padding: 16px 24px;
+    overflow-y: auto;
 }
 
 #markdown-preview {
@@ -904,8 +859,8 @@ pre:hover .code-copy-btn {
     line-height: 1.6;
     color: var(--md-markdown-text);
     word-wrap: break-word;
-    width: 100%;
     box-sizing: border-box;
+    width: 100%;
 }
 
 .markdown-body > *:first-child {
@@ -1007,26 +962,6 @@ pre:hover .code-copy-btn {
     color: var(--md-code-text);
 }
 
-.markdown-body pre {
-    padding: 16px;
-    overflow-x: auto;
-    font-size: 85%;
-    line-height: 1.45;
-    background-color: var(--md-code-bg);
-    border-radius: 6px;
-    margin-top: 0;
-    margin-bottom: 16px;
-    max-width: 100%;
-}
-
-.markdown-body pre code {
-    padding: 0;
-    margin: 0;
-    font-size: 100%;
-    background-color: transparent;
-    border-radius: 0;
-}
-
 .markdown-body blockquote {
     padding: 0 1em;
     color: var(--md-markdown-quote);
@@ -1105,9 +1040,6 @@ pre:hover .code-copy-btn {
     padding: 16px;
     border-radius: 6px;
     border: 1px solid var(--md-border-quaternary);
-    width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
 }
 
 /* Mermaid 图表内部容器 */
@@ -1117,30 +1049,10 @@ pre:hover .code-copy-btn {
     height: auto;
 }
 
-/* 滚动条样式 */
-.unified-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.unified-scrollbar::-webkit-scrollbar-track {
-    background: var(--md-scrollbar-track);
-}
-
-.unified-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--md-scrollbar-thumb);
-    border-radius: 4px;
-}
-
-.unified-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--md-scrollbar-thumb-hover);
-}
-
 /* 响应式 */
 @media (max-width: 768px) {
     .markdown-toolbar {
         flex-wrap: wrap;
-        padding: 8px 12px;
     }
 
     #markdown-editor,
@@ -1221,12 +1133,8 @@ pre:hover .code-copy-btn {
 }
 
 #theme-toggle {
-    background: none;
-    border: none;
     color: #fff;
     font-size: 18px;
-    cursor: pointer;
-    transition: opacity 0.2s;
 }
 
 #theme-toggle:hover .theme-icon {
