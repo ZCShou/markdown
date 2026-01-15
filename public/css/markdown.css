@@ -224,64 +224,45 @@ body {
     flex-direction: column;
 }
 
-/* ==================== 按钮系统 ==================== */
-/* 基础按钮样式 */
+/* ==================== 按钮样式 ==================== */
+/* 基础按钮 */
 .md-btn {
-    /* 布局 */
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    
-    /* 尺寸 */
     padding: 8px 12px;
     min-height: 36px;
     min-width: 36px;
-    
-    /* 字体 */
     font-size: 14px;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
-    
-    /* 颜色和背景 */
     color: var(--md-text-primary);
     background-color: var(--md-bg-secondary);
     border: 1px solid var(--md-border-secondary);
-    
-    /* 圆角 */
     border-radius: 6px;
-    
-    /* 鼠标 */
     cursor: pointer;
-    
-    /* 过渡效果 */
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    /* 其他 */
     outline: none;
     user-select: none;
     text-decoration: none;
 }
 
-/* 按钮悬停状态 */
 .md-btn:hover {
     background-color: var(--md-bg-hover);
     border-color: var(--md-text-secondary);
 }
 
-/* 按钮激活状态 */
 .md-btn:active {
     transform: scale(0.96);
 }
 
-/* 按钮聚焦状态 */
 .md-btn:focus-visible {
     outline: 2px solid var(--md-color-primary);
     outline-offset: 2px;
 }
 
-/* 按钮禁用状态 */
 .md-btn:disabled,
 .md-btn.md-btn-disabled {
     opacity: 0.5;
@@ -289,9 +270,7 @@ body {
     pointer-events: none;
 }
 
-/* ==================== 按钮变体 ==================== */
-
-/* 图标按钮 - 紧凑型，用于工具栏 */
+/* 图标按钮 */
 .md-btn.md-btn-icon {
     padding: 6px;
     min-height: 32px;
@@ -310,7 +289,7 @@ body {
     transform: scale(0.95);
 }
 
-/* 幽灵按钮 - 无背景，用于次要操作 */
+/* 幽灵按钮 */
 .md-btn.md-btn-ghost {
     background-color: transparent;
     border: 1px solid transparent;
@@ -321,19 +300,7 @@ body {
     border-color: transparent;
 }
 
-/* 主要按钮 - 强调操作 */
-.md-btn.md-btn-primary {
-    background-color: var(--md-color-primary);
-    color: #fff;
-    border-color: var(--md-color-primary);
-}
-
-.md-btn.md-btn-primary:hover {
-    background-color: var(--md-color-primary-dark);
-    border-color: var(--md-color-primary-dark);
-}
-
-/* 危险按钮 - 删除等操作 */
+/* 危险按钮 */
 .md-btn.md-btn-danger {
     color: var(--md-color-danger);
     border-color: var(--md-color-danger);
@@ -344,53 +311,11 @@ body {
     color: #fff;
 }
 
-/* 成功按钮 */
-.md-btn.md-btn-success {
-    color: var(--md-color-success);
-    border-color: var(--md-color-success);
-}
-
-.md-btn.md-btn-success:hover {
-    background-color: var(--md-color-success);
-    color: #fff;
-}
-
-/* 小尺寸按钮 */
-.md-btn.md-btn-sm {
-    padding: 4px 8px;
-    min-height: 28px;
-    min-width: 28px;
-    font-size: 12px;
-}
-
-.md-btn.md-btn-sm.md-btn-icon {
-    padding: 4px;
-    min-height: 24px;
-    min-width: 24px;
-    font-size: 14px;
-}
-
-/* 大尺寸按钮 */
-.md-btn.md-btn-lg {
-    padding: 12px 20px;
-    min-height: 44px;
-    min-width: 44px;
-    font-size: 16px;
-}
-
-/* 块级按钮 - 占满容器宽度 */
+/* 块级按钮 */
 .md-btn.md-btn-block {
     width: 100%;
     display: flex;
 }
-
-/* 圆形按钮 */
-.md-btn.md-btn-circle {
-    border-radius: 50%;
-    padding: 6px;
-}
-
-/* ==================== 特殊按钮样式 ==================== */
 
 /* 代码复制按钮 */
 .code-copy-btn {
