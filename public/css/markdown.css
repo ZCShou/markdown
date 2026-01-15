@@ -746,11 +746,9 @@ pre:hover .code-copy-btn,
 
 /* 分隔条 */
 .markdown-divider {
-    width: 5px;
+    width: 4px;
     flex-shrink: 0;
-    background-color: var(--md-divider-bg);
     cursor: col-resize;
-    transition: background-color 0.2s;
 }
 
 .markdown-divider:hover {
