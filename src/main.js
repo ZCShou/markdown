@@ -6,11 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editor = new MarkdownEditor();
     editor.init();
     
-    // 隐藏加载遮罩并显示内容
-    const loading = document.getElementById('md-loading');
-    if (loading) {
-        loading.classList.add('hidden');
-        setTimeout(() => loading.remove(), 300);
-    }
+    // 显示页面内容
     document.body.classList.add('loaded');
 });
