@@ -17,18 +17,27 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: true,
     cssCodeSplit: true,
+    minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {
           'markdown-vendor': ['marked', 'dompurify'],
+          'prism-vendor': ['prismjs'],
+          'mermaid-vendor': ['mermaid']
         },
       },
     },
   },
   optimizeDeps: {
-    include: ['marked', 'dompurify'],
+    include: ['marked', 'dompurify', 'prismjs', 'mermaid'],
   },
   resolve: {
-    alias: { '@': resolve(__dirname, 'src') },
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      '@components': resolve(__dirname, 'src/components'),
+      '@modules': resolve(__dirname, 'src/modules'),
+      '@utils': resolve(__dirname, 'src/utils'),
+      '@styles': resolve(__dirname, 'src/styles')
+    },
   },
 });

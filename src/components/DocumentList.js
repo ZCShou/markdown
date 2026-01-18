@@ -3,7 +3,7 @@
  * 负责文档列表的渲染和交互
  */
 import { BaseComponent } from './BaseComponent.js';
-import { StoreManager } from '@/modules/store.js';
+import { StoreManager } from '../modules/store.js';
 
 export class DocumentList extends BaseComponent {
     /**

@@ -3,7 +3,7 @@
  * 负责编辑器的输入、缩进、快捷键等功能
  */
 import { BaseComponent } from './BaseComponent.js';
-import { StoreManager } from '@/modules/store.js';
+import { StoreManager } from '../modules/store.js';
 
 export class Editor extends BaseComponent {
     /**

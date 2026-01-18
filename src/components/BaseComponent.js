@@ -1,6 +1,19 @@
 /**
  * UI 组件基类
  * 提供组件通用功能：状态订阅、DOM 缓存、事件管理
+ * 
+ * @example
+ * ```js
+ * class MyComponent extends BaseComponent {
+ *   constructor(state, containerId) {
+ *     super(state, containerId);
+ *   }
+ *   
+ *   render() {
+ *     this.container.innerHTML = '<h1>Hello</h1>';
+ *   }
+ * }
+ * ```
  */
 export class BaseComponent {
     /**

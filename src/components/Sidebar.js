@@ -3,7 +3,7 @@
  * 负责侧边栏的开关、区块折叠等功能
  */
 import { BaseComponent } from './BaseComponent.js';
-import { StoreManager } from '@/modules/store.js';
+import { StoreManager } from '../modules/store.js';
 
 export class Sidebar extends BaseComponent {
     /**

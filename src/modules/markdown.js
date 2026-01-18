@@ -2,14 +2,20 @@
  * Markdown 编辑器管理器 - 重构版
  * 采用状态驱动 UI 的架构模式
  * 组件化设计，职责分离
+ * 
+ * @example
+ * ```js
+ * const editor = new MarkdownEditor();
+ * editor.init();
+ * ```
  */
-import { editorState } from './state.js';
-import { DocumentList } from './components/DocumentList.js';
-import { Preview } from './components/Preview.js';
-import { Editor } from './components/Editor.js';
-import { Sidebar } from './components/Sidebar.js';
-import { TOC } from './components/TOC.js';
-import { StoreManager } from '@/modules/store.js';
+import { EditorState } from './state.js';
+import { DocumentList } from '../components/DocumentList.js';
+import { Preview } from '../components/Preview.js';
+import { Editor } from '../components/Editor.js';
+import { Sidebar } from '../components/Sidebar.js';
+import { TOC } from '../components/TOC.js';
+import { StoreManager } from './store.js';
 
 // 导入 Prism 语言包
 import 'prismjs/components/prism-java';
@@ -46,6 +52,7 @@ export class MarkdownEditor {
     
     /**
      * 防抖延迟配置（毫秒）
+     * @type {Object}
      */
     static DEBOUNCE_DELAY = {
         UPDATE: 300,   // 内容更新防抖延迟
@@ -54,6 +61,7 @@ export class MarkdownEditor {
     
     /**
      * 拖拽配置
+     * @type {Object}
      */
     static DRAG_CONFIG = {
         MIN_WIDTH: 100,    // 最小面板宽度（像素）
@@ -62,6 +70,7 @@ export class MarkdownEditor {
     
     /**
      * UI 常量配置
+     * @type {Object}
      */
     static UI_CONFIG = {
         MESSAGE_DURATION: 2000,      // 消息显示时长（毫秒）
@@ -69,7 +78,10 @@ export class MarkdownEditor {
         MAX_CONTENT_LENGTH: 1000000  // 最大内容长度限制
     };
     
-    // 默认 Markdown 内容
+    /**
+     * 默认 Markdown 内容
+     * @type {string}
+     */
     static DEFAULT_CONTENT = `# Markdown 语法指南
 
 ## 标题
@@ -265,17 +277,25 @@ sequenceDiagram
      * 构造函数 - 初始化编辑器实例
      */
     constructor() {
+        /** @type {boolean} 是否已初始化 */
         this.isInitialized = false;
+        
+        /** @type {boolean} 是否正在拖拽 */
         this.isDragging = false;
+        
+        /** @type {number} 上次左侧比例 */
         this.lastLeftRatio = 0.5;
         
-        // 组件实例
+        /** @type {EditorState} 状态管理器 */
+        this.state = new EditorState();
+        
+        /** @type {Object} 组件实例 */
         this.components = {};
         
-        // DOM 缓存
+        /** @type {Object} DOM 缓存 */
         this.domCache = {};
         
-        // 定时器
+        /** @type {Object} 定时器 */
         this.timers = {};
     }
 
@@ -330,22 +350,22 @@ sequenceDiagram
      */
     initComponents() {
         // 编辑器组件
-        this.components.editor = new Editor(editorState, 'markdown-editor');
+        this.components.editor = new Editor(this.state, 'markdown-editor');
         
         // 预览组件
-        this.components.preview = new Preview(editorState, 'markdown-preview');
+        this.components.preview = new Preview(this.state, 'markdown-preview');
         
         // 文档列表组件
-        this.components.documentList = new DocumentList(editorState, 'md-doc-list');
+        this.components.documentList = new DocumentList(this.state, 'md-doc-list');
         
         // 左侧边栏组件
-        this.components.leftSidebar = new Sidebar(editorState, 'md-sidebar-left', 'left');
+        this.components.leftSidebar = new Sidebar(this.state, 'md-sidebar-left', 'left');
         
         // 右侧边栏组件
-        this.components.rightSidebar = new Sidebar(editorState, 'md-sidebar-right', 'right');
+        this.components.rightSidebar = new Sidebar(this.state, 'md-sidebar-right', 'right');
         
         // 目录组件
-        this.components.toc = new TOC(editorState, 'md-toc', this.components.preview);
+        this.components.toc = new TOC(this.state, 'md-toc', this.components.preview);
         
         // 初始化所有组件
         Object.values(this.components).forEach(component => {
@@ -464,7 +484,7 @@ sequenceDiagram
      * 切换主题
      */
     toggleTheme() {
-        const newMode = editorState.toggleTheme();
+        const newMode = this.state.toggleTheme();
         StoreManager.saveTheme(newMode);
         this.applyTheme(newMode);
         this.updateThemeIcon(newMode);
@@ -486,7 +506,7 @@ sequenceDiagram
      */
     initTheme() {
         const mode = StoreManager.loadTheme('light');
-        editorState.setState({ theme: mode }, { silent: true });
+        this.state.setState({ theme: mode }, { silent: true });
         this.applyTheme(mode);
         this.updateThemeIcon(mode);
     }
@@ -497,7 +517,7 @@ sequenceDiagram
      * 切换布局模式
      */
     toggleLayout() {
-        const newLayout = editorState.toggleLayout();
+        const newLayout = this.state.toggleLayout();
         StoreManager.saveLayout(newLayout);
         this.applyLayout(newLayout);
     }
@@ -540,7 +560,7 @@ sequenceDiagram
      */
     initLayout() {
         const savedLayout = StoreManager.loadLayout() || 'layout-both';
-        editorState.setState({ layout: savedLayout }, { silent: true });
+        this.state.setState({ layout: savedLayout }, { silent: true });
         this.applyLayout(savedLayout);
     }
 
@@ -556,7 +576,7 @@ sequenceDiagram
             'md-toggle-right-sidebar': () => this.components.rightSidebar.toggle(),
             'md-close-left-sidebar': () => this.components.leftSidebar.toggle(),
             'md-close-right-sidebar': () => this.components.rightSidebar.toggle(),
-            'md-sidebar-overlay': () => editorState.closeAllSidebars()
+            'md-sidebar-overlay': () => this.state.closeAllSidebars()
         };
 
         Object.entries(sidebarButtons).forEach(([id, handler]) => {
@@ -606,7 +626,7 @@ sequenceDiagram
         this.initComponents();
 
         // 然后设置状态（组件会收到通知并渲染）
-        editorState.setState({
+        this.state.setState({
             documents,
             content,
             theme,
