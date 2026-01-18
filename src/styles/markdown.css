@@ -76,7 +76,6 @@ body.loaded {
     
     /* 阴影 */
     --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
-    --md-shadow-dark: 2px 0 8px rgba(0, 0, 0, 0.3);
     
     /* 状态消息颜色 */
     --md-status-bg: #fff;
@@ -166,7 +165,6 @@ body.loaded {
     
     /* 阴影 */
     --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
-    --md-shadow-dark: 2px 0 8px rgba(0, 0, 0, 0.5);
     
     /* 状态消息颜色 */
     --md-status-bg: #2d2d2d;
