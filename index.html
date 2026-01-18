@@ -1,113 +1,124 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="referrer" content="no-referrer">
     <title>Markdown</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <!-- 样式文件 -->
     <link rel="stylesheet" href="/src/styles/markdown.css">
 </head>
+
 <body>
-    <!-- Left Sidebar - Project Management -->
-    <aside class="md-sidebar md-sidebar-left" id="md-sidebar-left">
-        <div class="md-sidebar-header">
-            <div class="md-sidebar-toolbar">
-                <button class="md-btn md-btn-icon" id="md-new-file" title="新建文件">📄</button>
-                <button class="md-btn md-btn-icon" id="md-new-folder" title="新建目录">📁</button>
-                <button class="md-btn md-btn-icon" id="md-rename-item" title="重命名">✏️</button>
-                <button class="md-btn md-btn-icon md-btn-danger" id="md-delete-item" title="删除">🗑️</button>
-            </div>
-            <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-left-sidebar" title="关闭侧边栏">✕</button>
-        </div>
-        <div class="md-sidebar-content">
-            <div class="md-doc-list" id="md-doc-list">
-                <!-- Document list will be generated dynamically -->
-            </div>
-        </div>
-    </aside>
-
-    <!-- Right Sidebar - Tools -->
-    <aside class="md-sidebar md-sidebar-right" id="md-sidebar-right">
-        <div class="md-sidebar-header">
-            <h3>工具</h3>
-            <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-right-sidebar" title="关闭侧边栏">✕</button>
-        </div>
-        <div class="md-sidebar-content">
-            <!-- TOC Section -->
-            <div class="md-sidebar-section" id="md-toc-section">
-                <div class="md-sidebar-section-header">
-                    <button class="md-sidebar-section-toggle" data-section="toc" title="折叠/展开">›</button>
-                    <span class="md-sidebar-section-title">目录</span>
-                </div>
-                <div class="md-sidebar-section-content " id="md-toc-content">
-                    <div class="unified-scrollbar">
-                        <div class="md-toc" id="md-toc">
-                            <!-- TOC will be generated dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Export Section -->
-            <div class="md-sidebar-section" id="md-export-section">
-                <div class="md-sidebar-section-header">
-                    <button class="md-sidebar-section-toggle" data-section="export" title="折叠/展开">›</button>
-                    <span class="md-sidebar-section-title">导出</span>
-                </div>
-                <div class="md-sidebar-section-content" id="md-export-content">
-                    <div class="md-btn-group">
-                        <button class="md-btn md-btn-block" id="md-export-html">导出 HTML</button>
-                        <button class="md-btn md-btn-block" id="md-export-md">导出 Markdown</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Sidebar Overlay -->
-    <div class="md-sidebar-overlay" id="md-sidebar-overlay"></div>
-
-    <!-- Top Toolbar -->
-    <div class="markdown-toolbar">
-        <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-left-sidebar" title="项目管理">📁</button>
-        <div class="markdown-toolbar-right">
-            <button class="md-btn md-btn-icon md-btn-ghost" id="theme-toggle" title="切换主题">
-                <span class="theme-icon">🌙</span>
-            </button>
-            <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-right-sidebar" title="功能面板">☰</button>
-        </div>
-    </div>
-
     <!-- Status Display -->
     <div class="status-overlay" id="status-overlay"></div>
     <div class="status-message" id="status-message"></div>
 
-    <!-- Main Container -->
-    <div class="markdown-container" id="md-container">
-        <!-- Editor Pane -->
-        <div class="markdown-editor-pane" id="md-editor-pane">
-            <div class="markdown-editor-wrapper">
-                <textarea id="markdown-editor" class="unified-scrollbar" placeholder="在此输入 Markdown 内容..." spellcheck="false"></textarea>
+    <!-- Sidebar Overlay (for mobile) -->
+    <div class="md-sidebar-overlay" id="md-sidebar-overlay"></div>
+
+    <!-- Main Layout Container - 横向布局 -->
+    <div class="md-main-layout">
+        <!-- Left Sidebar - Project Management -->
+        <aside class="md-sidebar md-sidebar-left" id="md-sidebar-left">
+            <div class="md-sidebar-header">
+                <div class="md-sidebar-toolbar">
+                    <button class="md-btn md-btn-icon" id="md-new-file" title="新建文件">📄</button>
+                    <button class="md-btn md-btn-icon" id="md-new-folder" title="新建目录">📁</button>
+                    <button class="md-btn md-btn-icon" id="md-rename-item" title="重命名">✏️</button>
+                    <button class="md-btn md-btn-icon md-btn-danger" id="md-delete-item" title="删除">🗑️</button>
+                </div>
+                <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-left-sidebar" title="关闭侧边栏">✕</button>
+            </div>
+            <div class="md-sidebar-content">
+                <div class="md-doc-list" id="md-doc-list">
+                    <!-- Document list will be generated dynamically -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Middle Area - Toolbar + Container 垂直布局 -->
+        <div class="md-middle-area">
+            <!-- Top Toolbar -->
+            <div class="markdown-toolbar">
+                <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-left-sidebar" title="项目管理">📁</button>
+                <div class="markdown-toolbar-right">
+                    <button class="md-btn md-btn-icon md-btn-ghost" id="theme-toggle" title="切换主题">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-right-sidebar" title="功能面板">☰</button>
+                </div>
+            </div>
+
+            <!-- Main Container -->
+            <div class="markdown-container" id="md-container">
+                <!-- Editor Pane -->
+                <div class="markdown-editor-pane" id="md-editor-pane">
+                    <div class="markdown-editor-wrapper">
+                        <textarea id="markdown-editor" class="unified-scrollbar" placeholder="在此输入 Markdown 内容..."
+                            spellcheck="false"></textarea>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="markdown-divider" id="md-divider"></div>
+
+                <!-- Preview Pane -->
+                <div class="markdown-preview-pane" id="md-preview-pane">
+                    <div class="markdown-preview-wrapper unified-scrollbar" id="md-preview-wrapper">
+                        <div id="markdown-preview" class="markdown-body "></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Divider -->
-        <div class="markdown-divider" id="md-divider"></div>
-
-        <!-- Preview Pane -->
-        <div class="markdown-preview-pane" id="md-preview-pane">
-            <div class="markdown-preview-wrapper unified-scrollbar" id="md-preview-wrapper">
-                <div id="markdown-preview" class="markdown-body " ></div>
+        <!-- Right Sidebar - Tools -->
+        <aside class="md-sidebar md-sidebar-right" id="md-sidebar-right">
+            <div class="md-sidebar-header">
+                <h3>工具</h3>
+                <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-right-sidebar" title="关闭侧边栏">✕</button>
             </div>
-        </div>
+            <div class="md-sidebar-content">
+                <!-- TOC Section -->
+                <div class="md-sidebar-section" id="md-toc-section">
+                    <div class="md-sidebar-section-header">
+                        <button class="md-sidebar-section-toggle" data-section="toc" title="折叠/展开">›</button>
+                        <span class="md-sidebar-section-title">目录</span>
+                    </div>
+                    <div class="md-sidebar-section-content " id="md-toc-content">
+                        <div class="unified-scrollbar">
+                            <div class="md-toc" id="md-toc">
+                                <!-- TOC will be generated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Section -->
+                <div class="md-sidebar-section" id="md-export-section">
+                    <div class="md-sidebar-section-header">
+                        <button class="md-sidebar-section-toggle" data-section="export" title="折叠/展开">›</button>
+                        <span class="md-sidebar-section-title">导出</span>
+                    </div>
+                    <div class="md-sidebar-section-content" id="md-export-content">
+                        <div class="md-btn-group">
+                            <button class="md-btn md-btn-block" id="md-export-html">导出 HTML</button>
+                            <button class="md-btn md-btn-block" id="md-export-md">导出 Markdown</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <!-- Prism Themes -->
-    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-light-theme" />
-    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-dark-theme" disabled />
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" rel="stylesheet"
+        id="prism-light-theme" />
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"
+        id="prism-dark-theme" disabled />
 
     <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>

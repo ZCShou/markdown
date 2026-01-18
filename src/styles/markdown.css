@@ -242,6 +242,25 @@ html, body {
 body {
     display: flex;
     flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* 主布局容器 - 横向布局：左侧边栏 + 中间区域 + 右侧边栏 */
+.md-main-layout {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* 中间区域 - 垂直布局：toolbar 在上，container 在下 */
+.md-middle-area {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 /* ==================== 按钮样式 ==================== */
@@ -360,34 +379,30 @@ pre:hover .code-copy-btn,
 
 /* ==================== 侧边栏样式 ==================== */
 .md-sidebar {
-    position: fixed;
-    top: 0;
-    width: 280px;
-    height: 100%;
-    background-color: var(--md-bg-secondary);
-    box-shadow: var(--md-shadow);
-    z-index: 1000;
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease;
+    width: 0;
+    flex-shrink: 0;
+    background-color: var(--md-bg-secondary);
+    overflow: hidden;
 }
 
 .md-sidebar-left {
-    left: 0;
-    transform: translateX(-100%);
+    border-right: 1px solid transparent;
 }
 
 .md-sidebar-left.open {
-    transform: translateX(0);
+    width: 280px;
+    border-right-color: var(--md-border-primary);
 }
 
 .md-sidebar-right {
-    right: 0;
-    transform: translateX(100%);
+    border-left: 1px solid transparent;
 }
 
 .md-sidebar-right.open {
-    transform: translateX(0);
+    width: 280px;
+    border-left-color: var(--md-border-primary);
 }
 
 .md-sidebar-header {
@@ -395,8 +410,9 @@ pre:hover .code-copy-btn,
     justify-content: space-between;
     align-items: center;
     padding: 4px 4px 4px 16px;
-    border-bottom: 1px solid var(--md-border-primary);
-    background-color: var(--md-bg-tertiary);
+    border-bottom: 1px solid var(--md-toolbar-border);
+    background-color: var(--md-toolbar-bg);
+    color: var(--md-toolbar-text);
 }
 
 .md-sidebar-toolbar {
@@ -404,11 +420,20 @@ pre:hover .code-copy-btn,
     gap: 8px;
 }
 
+.md-sidebar-header .md-btn {
+    color: var(--md-toolbar-text);
+}
+
+.md-sidebar-header .md-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: transparent;
+}
+
 .md-sidebar-header h3 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: var(--md-text-primary);
+    color: var(--md-toolbar-text);
 }
 
 .md-sidebar-content {
@@ -667,21 +692,7 @@ pre:hover .code-copy-btn,
 
 /* 侧边栏遮罩 */
 .md-sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: var(--md-sidebar-overlay-bg);
-    z-index: 999;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-.md-sidebar-overlay.show {
-    opacity: 1;
-    visibility: visible;
+    display: none;
 }
 
 /* 顶部工具栏 */
@@ -696,6 +707,7 @@ pre:hover .code-copy-btn,
 }
 
 .markdown-toolbar-right {
+    flex-shrink: 0;
     display: flex;
     gap: 8px;
 }
@@ -714,6 +726,8 @@ pre:hover .code-copy-btn,
 .markdown-container {
     display: flex;
     flex: 1;
+    min-width: 0;
+    min-height: 0;
     background-color: var(--md-bg-secondary);
     overflow: hidden;
 }
@@ -724,12 +738,14 @@ pre:hover .code-copy-btn,
     flex-direction: column;
     flex: 1;
     min-width: 0;
+    min-height: 0;
     background-color: var(--md-bg-secondary);
     border-right: 1px solid var(--md-border-primary);
 }
 
 .markdown-editor-wrapper {
     flex: 1;
+    min-height: 0;
     position: relative;
     overflow: hidden;
 }
@@ -767,6 +783,7 @@ pre:hover .code-copy-btn,
 
 /* 分隔条 */
 .markdown-divider {
+    min-width: 4px;
     width: 4px;
     flex-shrink: 0;
     cursor: col-resize;
@@ -786,12 +803,14 @@ pre:hover .code-copy-btn,
     flex-direction: column;
     flex: 1;
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
     background-color: var(--md-bg-secondary);
 }
 
 .markdown-preview-wrapper {
     flex: 1;
+    min-height: 0;
     padding: 16px 24px;
     overflow-y: auto;
 }
@@ -1007,6 +1026,63 @@ pre:hover .code-copy-btn,
     #markdown-editor,
     .markdown-preview-wrapper {
         padding: 12px;
+    }
+
+    /* 移动端侧边栏处理 */
+    .md-sidebar {
+        position: fixed;
+        top: 0;
+        height: 100%;
+        z-index: 1000;
+        box-shadow: var(--md-shadow);
+    }
+
+    .md-sidebar-left {
+        left: 0;
+    }
+
+    .md-sidebar-left:not(.open) {
+        transform: translateX(-100%);
+        width: 280px;
+    }
+
+    .md-sidebar-left.open {
+        transform: translateX(0);
+        width: 280px;
+    }
+
+    .md-sidebar-right {
+        right: 0;
+    }
+
+    .md-sidebar-right:not(.open) {
+        transform: translateX(100%);
+        width: 280px;
+    }
+
+    .md-sidebar-right.open {
+        transform: translateX(0);
+        width: 280px;
+    }
+
+    /* 移动端显示遮罩层 */
+    .md-sidebar-overlay {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--md-sidebar-overlay-bg);
+        z-index: 999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .md-sidebar-overlay.show {
+        opacity: 1;
+        visibility: visible;
     }
 }
 

@@ -775,13 +775,28 @@ sequenceDiagram
      */
     toggleSidebar(side) {
         const sidebar = this.getElement(`md-sidebar-${side}`);
-        const overlay = this.getElement('md-sidebar-overlay');
         if (!sidebar) return;
 
         const isOpen = sidebar.classList.toggle('open');
-        if (overlay) {
-            overlay.classList.toggle('show', isOpen);
+
+        // 在移动端显示遮罩层
+        if (window.innerWidth <= 768) {
+            const overlay = this.getElement('md-sidebar-overlay');
+            if (overlay) {
+                overlay.classList.toggle('show', isOpen);
+            }
         }
+
+        // 强制重排并触发尺寸重算，确保滚动条立即可见
+        requestAnimationFrame(() => {
+            const targets = ['md-container', 'md-preview-pane', 'md-preview-wrapper', 'md-editor-pane'];
+            targets.forEach((id) => {
+                const el = this.getElement(id);
+                if (el) el.getBoundingClientRect(); // 触发 reflow
+            });
+            // 触发 resize，让分隔条逻辑重新计算左右面板宽度
+            window.dispatchEvent(new Event('resize'));
+        });
 
         if (isOpen && side === 'right') {
             this.generateTOC();
@@ -796,9 +811,12 @@ sequenceDiagram
             const sidebar = this.getElement(`md-sidebar-${side}`);
             if (sidebar) sidebar.classList.remove('open');
         });
-        
-        const overlay = this.getElement('md-sidebar-overlay');
-        if (overlay) overlay.classList.remove('show');
+
+        // 在移动端隐藏遮罩层
+        if (window.innerWidth <= 768) {
+            const overlay = this.getElement('md-sidebar-overlay');
+            if (overlay) overlay.classList.remove('show');
+        }
     }
 
     /**
