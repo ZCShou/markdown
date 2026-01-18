@@ -73,8 +73,6 @@ export class DocumentList extends BaseComponent {
 
         this.state.deleteDocument(docId);
         StoreManager.saveDocuments(this.state.get('documents'));
-
-        this.showMessage(`${itemType}已删除`, 'success');
     }
 
     /**
@@ -99,8 +97,6 @@ export class DocumentList extends BaseComponent {
         if (type === 'file') {
             this.state.setCurrentDocument(doc.id);
         }
-
-        this.showMessage(`${type === 'folder' ? '文件夹' : '文档'}已创建`, 'success');
     }
 
     /**
@@ -137,7 +133,6 @@ export class DocumentList extends BaseComponent {
 
             this.editingDocId = null;
             this.render();
-            this.showMessage('重命名成功', 'success');
         };
 
         const cancel = () => {
