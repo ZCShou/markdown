@@ -505,8 +505,7 @@ sequenceDiagram
      * 初始化主题
      */
     initTheme() {
-        const mode = StoreManager.loadTheme('light');
-        this.state.setState({ theme: mode }, { silent: true });
+        const mode = this.state.get('theme');
         this.applyTheme(mode);
         this.updateThemeIcon(mode);
     }
@@ -558,9 +557,8 @@ sequenceDiagram
      * 初始化布局
      */
     initLayout() {
-        const savedLayout = StoreManager.loadLayout() || 'layout-both';
-        this.state.setState({ layout: savedLayout }, { silent: true });
-        this.applyLayout(savedLayout);
+        const layout = this.state.get('layout');
+        this.applyLayout(layout);
     }
 
     // ==================== 事件绑定 ====================

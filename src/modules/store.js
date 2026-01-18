@@ -145,7 +145,7 @@ export class StoreManager {
      */
     static loadTheme(defaultTheme = 'light') {
         try {
-            const saved = localStorage.getItem(StoreManager.STORAGE_KEYS.THEME);
+            const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.THEME);
             return saved || defaultTheme;
         } catch (e) {
             console.warn('加载主题失败:', e);
