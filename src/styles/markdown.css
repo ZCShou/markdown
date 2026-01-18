@@ -705,6 +705,15 @@ pre:hover .code-copy-btn,
     border-color: transparent;
 }
 
+/* 侧边栏打开时隐藏对应的切换按钮 */
+.md-main-layout:has(.md-sidebar-left.open) #md-toggle-left-sidebar {
+    display: none;
+}
+
+.md-main-layout:has(.md-sidebar-right.open) #md-toggle-right-sidebar {
+    display: none;
+}
+
 /* 主容器 */
 .markdown-container {
     display: flex;
@@ -794,7 +803,7 @@ pre:hover .code-copy-btn,
 .markdown-preview-wrapper {
     flex: 1;
     min-height: 0;
-    padding: 16px 24px;
+    padding: 16px;
     overflow-y: auto;
 }
 
