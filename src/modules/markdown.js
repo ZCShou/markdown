@@ -2,7 +2,41 @@
  * Markdown 编辑器管理器 - 独立版
  * 去除了对 itexp 项目的依赖，可作为独立项目使用
  */
-class MarkdownEditor {
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-cpp';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-ruby';
+import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-swift';
+import 'prismjs/components/prism-kotlin';
+import 'prismjs/components/prism-scala';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-yaml';
+import 'prismjs/components/prism-markup';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-jsx';
+import 'prismjs/components/prism-tsx';
+import 'prismjs/components/prism-docker';
+import 'prismjs/components/prism-makefile';
+import 'prismjs/components/prism-nginx';
+import 'prismjs/components/prism-perl';
+import 'prismjs/components/prism-lua';
+import 'prismjs/components/prism-r';
+import 'prismjs/components/prism-matlab';
+import 'prismjs/components/prism-groovy';
+import mermaid from 'mermaid';
+import { StoreManager } from './store.js';
+
+export class MarkdownEditor {
     // ==================== 配置常量 ====================
     
     // 防抖延迟配置
@@ -371,13 +405,11 @@ sequenceDiagram
      * 初始化 Mermaid
      */
     initMermaid() {
-        if (typeof mermaid !== 'undefined') {
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: 'default',
-                securityLevel: 'loose'
-            });
-        }
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
     }
 
     /**
@@ -386,7 +418,7 @@ sequenceDiagram
     renderMarkdown(markdown) {
         try {
             let html = '';
-            if (typeof marked !== 'undefined' && marked.parse) {
+            if (marked && marked.parse) {
                 // 配置 marked 选项
                 const options = {
                     breaks: true,
@@ -397,7 +429,7 @@ sequenceDiagram
                 html = this.escapeHtml(markdown);
             }
 
-            if (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) {
+            if (DOMPurify && DOMPurify.sanitize) {
                 // 配置 DOMPurify 允许图片标签及其属性
                 html = DOMPurify.sanitize(html, {
                     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote', 
@@ -1164,9 +1196,9 @@ ${html}
      * 切换主题
      */
     toggleTheme() {
-        const currentMode = StoreManager.getThemeMode('light');
+        const currentMode = StoreManager.loadTheme('light');
         const newMode = currentMode === 'dark' ? 'light' : 'dark';
-        StoreManager.setThemeMode(newMode);
+        StoreManager.saveTheme(newMode);
         this.applyTheme(newMode);
         this.updateThemeIcon(newMode);
     }
@@ -1186,7 +1218,7 @@ ${html}
      * 初始化主题
      */
     initTheme() {
-        const mode = StoreManager.getThemeMode('light');
+        const mode = StoreManager.loadTheme('light');
         this.applyTheme(mode);
         this.updateThemeIcon(mode);
     }
@@ -1295,13 +1327,3 @@ ${html}
         this.isInitialized = true;
     }
 }
-
-// ==================== 全局初始化 ====================
-
-// 创建全局编辑器实例
-window.MarkdownEditor = new MarkdownEditor();
-
-// 等待DOM加载完成后初始化
-document.addEventListener('DOMContentLoaded', () => {
-    window.MarkdownEditor.init();
-});

@@ -13,6 +13,14 @@
 - 📤 导出为 HTML 或 Markdown 文件
 - 🔍 可拖拽调整编辑器和预览区域大小
 
+## 技术栈
+
+- **Vite** - 现代化的前端构建工具
+- **Marked** - Markdown 解析器
+- **DOMPurify** - HTML 净化
+- **Prism.js** - 代码高亮
+- **Mermaid** - 图表渲染
+
 ## 安装和运行
 
 ### 安装依赖
@@ -21,16 +29,22 @@
 npm install
 ```
 
-### 启动服务器
-
-```bash
-npm start
-```
-
-或者使用开发模式（自动重启）：
+### 开发模式
 
 ```bash
 npm run dev
+```
+
+### 构建生产版本
+
+```bash
+npm run build
+```
+
+### 预览生产版本
+
+```bash
+npm run preview
 ```
 
 ### 访问编辑器
@@ -41,13 +55,18 @@ npm run dev
 
 ```
 markdown-editor/
-├── public/
-│   ├── css/
+├── src/
+│   ├── index.html            # 主页面
+│   ├── main.js               # 入口文件
+│   ├── styles/
 │   │   └── markdown.css      # 编辑器样式
-│   └── js/
-│       └── markdown.js       # 编辑器逻辑
-├── views/
-│   └── markdown.html         # 主页面
+│   └── modules/
+│       ├── markdown.js       # 编辑器逻辑
+│       └── store.js          # 本地存储管理
+├── public/
+│   └── favicon.svg           # 网站图标
+├── vite.config.js            # Vite 配置
+└── package.json              # 项目配置
 ├── server.js                 # Express 服务器
 ├── package.json              # 项目配置
 └── README.md                 # 项目说明
