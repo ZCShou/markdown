@@ -509,7 +509,7 @@ pre:hover .code-copy-btn,
 }
 
 .md-toc {
-    margin: 8px;
+    margin: 0 0 0 32px;
     padding: 0;
 }
 
@@ -667,7 +667,7 @@ pre:hover .code-copy-btn,
 
 /* 按钮组容器 */
 .md-btn-group {
-    margin: 8px;
+    margin: 0 32px 0 32px;
     display: flex;
     flex-direction: column;
     gap: 8px;
