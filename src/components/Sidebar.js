@@ -129,14 +129,15 @@ export class Sidebar extends BaseComponent {
      */
     toggleSection(sectionName) {
         const sections = { ...this.state.get('sections') };
+        // sections 中存储的是"是否展开"，切换后取反
         sections[sectionName] = !sections[sectionName];
         this.state.setState({ sections });
         
-        // 保存到本地存储
-        StoreManager.saveSectionState(sectionName, sections[sectionName]);
+        // 保存到本地存储（saveSectionState 期望的是"是否折叠"，所以需要取反）
+        StoreManager.saveSectionState(sectionName, !sections[sectionName]);
         
-        // 更新 UI
-        this.updateSectionState(sectionName, sections[sectionName]);
+        // 更新 UI（updateSectionState 期望的是"是否折叠"，所以需要取反）
+        this.updateSectionState(sectionName, !sections[sectionName]);
     }
 
     /**
@@ -155,6 +156,7 @@ export class Sidebar extends BaseComponent {
     applySectionStates() {
         const sections = this.state.get('sections');
         Object.entries(sections).forEach(([sectionName, isExpanded]) => {
+            // updateSectionState 期望的是"是否折叠"，所以需要取反
             this.updateSectionState(sectionName, !isExpanded);
         });
     }
@@ -168,6 +170,7 @@ export class Sidebar extends BaseComponent {
         const isOpen = this.state.get(stateKey);
         this.updateVisibility(isOpen);
         
+        // 应用区块状态（确保初始状态正确）
         this.applySectionStates();
     }
 }
