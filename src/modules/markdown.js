@@ -544,13 +544,6 @@ sequenceDiagram
         // 清除内联样式
         if (editorPane) editorPane.style.width = '';
         if (previewPane) previewPane.style.width = '';
-
-        // 显示提示
-        const layoutNames = {
-            'layout-editor-only': '仅编辑器',
-            'layout-preview-only': '仅预览',
-            'layout-both': '编辑器 + 预览'
-        };
     }
 
     /**
