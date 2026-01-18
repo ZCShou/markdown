@@ -34,16 +34,35 @@ import 'prismjs/components/prism-r';
 import 'prismjs/components/prism-matlab';
 import 'prismjs/components/prism-groovy';
 import mermaid from 'mermaid';
-import { StoreManager } from './store.js';
+import { StoreManager } from '@/modules/store.js';
 
 export class MarkdownEditor {
     // ==================== 配置常量 ====================
     
-    // 防抖延迟配置
-    static DEBOUNCE_DELAY = { UPDATE: 300, SAVE: 1000 };
+    /**
+     * 防抖延迟配置（毫秒）
+     */
+    static DEBOUNCE_DELAY = {
+        UPDATE: 300,   // 内容更新防抖延迟
+        SAVE: 1000     // 自动保存防抖延迟
+    };
     
-    // 拖拽配置
-    static DRAG_CONFIG = { MIN_WIDTH: 100, BATCH_SIZE: 10 };
+    /**
+     * 拖拽配置
+     */
+    static DRAG_CONFIG = {
+        MIN_WIDTH: 100,    // 最小面板宽度（像素）
+        BATCH_SIZE: 10     // 批量处理大小
+    };
+    
+    /**
+     * UI 常量配置
+     */
+    static UI_CONFIG = {
+        MESSAGE_DURATION: 2000,      // 消息显示时长（毫秒）
+        MERMAID_RENDER_DELAY: 100,   // Mermaid 渲染延迟（毫秒）
+        MAX_CONTENT_LENGTH: 1000000  // 最大内容长度限制
+    };
     
     // 默认 Markdown 内容
     static DEFAULT_CONTENT = `# Markdown 语法指南
@@ -237,25 +256,42 @@ sequenceDiagram
 \`\`\`
 `;
 
+    /**
+     * 构造函数 - 初始化编辑器实例
+     * 
+     * @description
+     * 创建 MarkdownEditor 实例并初始化所有状态属性：
+     * - 状态标志：初始化状态、拖拽状态、渲染状态
+     * - 布局状态：左右面板比例
+     * - 数据缓存：文档列表、DOM 缓存、渲染缓存
+     * - 定时器管理：防抖定时器
+     */
     constructor() {
-        // 状态属性
-        this.isInitialized = false;
-        this.isDragging = false;
-        this.isRenderingMermaid = false;
-        this.lastLeftRatio = 0.5;
-        this.currentDocId = null;
+        // ==================== 状态标志 ====================
+        this.isInitialized = false;      // 编辑器是否已初始化
+        this.isDragging = false;         // 是否正在拖拽分隔条
+        this.isRenderingMermaid = false; // 是否正在渲染 Mermaid 图表
+        this.lastLeftRatio = 0.5;        // 左侧面板宽度比例（0-1）
+        this.currentDocId = null;        // 当前文档 ID
         
-        // 数据缓存
-        this.documents = [];
-        this.domCache = {};
-        this.lastRenderedContent = '';
-        this.timers = {};
+        // ==================== 数据缓存 ====================
+        this.documents = [];             // 文档列表缓存
+        this.domCache = {};              // DOM 元素缓存，避免重复查询
+        this.lastRenderedContent = '';   // 上次渲染的内容，用于避免重复渲染
+        this.timers = {};                // 防抖定时器集合
     }
 
     // ==================== 工具函数 ====================
     
     /**
      * 获取 DOM 元素（带缓存）
+     * 
+     * @param {string} id - 元素 ID
+     * @returns {HTMLElement|null} DOM 元素或 null
+     * 
+     * @description
+     * 通过 ID 获取 DOM 元素，使用缓存避免重复查询。
+     * 首次查询后缓存结果，后续调用直接返回缓存值。
      */
     getElement(id) {
         if (!this.domCache[id]) {
@@ -266,6 +302,14 @@ sequenceDiagram
 
     /**
      * 防抖函数
+     * 
+     * @param {string} key - 定时器唯一标识
+     * @param {Function} fn - 需要防抖的函数
+     * @param {number} delay - 延迟时间（毫秒）
+     * 
+     * @description
+     * 对函数进行防抖处理，确保在指定时间内只执行一次。
+     * 适用于频繁触发的事件，如输入、滚动等。
      */
     debounce(key, fn, delay) {
         if (this.timers[key]) {
@@ -275,9 +319,17 @@ sequenceDiagram
     }
 
     /**
-     * 显示消息
+     * 显示消息提示
+     * 
+     * @param {string} message - 消息内容
+     * @param {string} [type='info'] - 消息类型：'info' | 'success' | 'warning' | 'error'
+     * @param {number} [duration] - 显示时长（毫秒），默认使用 UI_CONFIG.MESSAGE_DURATION
+     * 
+     * @description
+     * 在页面顶部显示临时消息提示，支持不同类型的样式。
+     * 消息会在指定时间后自动消失。
      */
-    showMessage(message, type = 'info', duration = 2000) {
+    showMessage(message, type = 'info', duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION) {
         console.log(`[${type.toUpperCase()}] ${message}`);
         
         const overlay = this.getElement('status-overlay');

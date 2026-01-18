@@ -17,14 +17,26 @@ export class StoreManager {
     /**
      * 保存编辑器内容到本地存储
      * @param {string} content - 编辑器内容
+     * @returns {{success: boolean, error?: string}} 保存结果
      */
     static saveContent(content) {
         try {
             localStorage.setItem(StoreManager.STORAGE_KEYS.CONTENT, content);
-            return true;
+            return { success: true };
         } catch (e) {
-            console.warn('保存内容失败:', e);
-            return false;
+            let errorMsg = '保存内容失败';
+            
+            // 详细错误类型判断
+            if (e.name === 'QuotaExceededError') {
+                errorMsg = '存储空间不足，请清理浏览器缓存或删除部分文档';
+            } else if (e.name === 'SecurityError') {
+                errorMsg = '浏览器安全设置阻止了存储操作';
+            } else if (e.name === 'NS_ERROR_FILE_CORRUPTED') {
+                errorMsg = '存储数据已损坏，请清除浏览器缓存';
+            }
+            
+            console.warn(`${errorMsg}:`, e);
+            return { success: false, error: errorMsg };
         }
     }
 
@@ -39,6 +51,12 @@ export class StoreManager {
             return saved !== null ? saved : defaultContent;
         } catch (e) {
             console.warn('加载内容失败:', e);
+            // 尝试清除损坏的数据
+            try {
+                localStorage.removeItem(StoreManager.STORAGE_KEYS.CONTENT);
+            } catch (cleanupError) {
+                console.error('清理损坏数据失败:', cleanupError);
+            }
             return defaultContent;
         }
     }
@@ -61,14 +79,24 @@ export class StoreManager {
     /**
      * 保存文档列表
      * @param {Array} documents - 文档列表
+     * @returns {{success: boolean, error?: string}} 保存结果
      */
     static saveDocuments(documents) {
         try {
-            localStorage.setItem(StoreManager.STORAGE_KEYS.DOCUMENTS, JSON.stringify(documents));
-            return true;
+            const serialized = JSON.stringify(documents);
+            localStorage.setItem(StoreManager.STORAGE_KEYS.DOCUMENTS, serialized);
+            return { success: true };
         } catch (e) {
-            console.warn('保存文档列表失败:', e);
-            return false;
+            let errorMsg = '保存文档列表失败';
+            
+            if (e.name === 'QuotaExceededError') {
+                errorMsg = '存储空间不足，请删除部分文档后重试';
+            } else if (e instanceof TypeError) {
+                errorMsg = '文档数据格式错误，无法序列化';
+            }
+            
+            console.warn(`${errorMsg}:`, e);
+            return { success: false, error: errorMsg };
         }
     }
 
@@ -79,9 +107,23 @@ export class StoreManager {
     static loadDocuments() {
         try {
             const saved = localStorage.getItem(StoreManager.STORAGE_KEYS.DOCUMENTS);
-            return saved ? JSON.parse(saved) : [];
+            if (!saved) return [];
+            
+            const documents = JSON.parse(saved);
+            // 验证数据格式
+            if (!Array.isArray(documents)) {
+                console.warn('文档列表格式错误，已重置');
+                return [];
+            }
+            return documents;
         } catch (e) {
             console.warn('加载文档列表失败:', e);
+            // 尝试清除损坏的数据
+            try {
+                localStorage.removeItem(StoreManager.STORAGE_KEYS.DOCUMENTS);
+            } catch (cleanupError) {
+                console.error('清理损坏数据失败:', cleanupError);
+            }
             return [];
         }
     }
