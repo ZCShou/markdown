@@ -1274,6 +1274,76 @@ ${html}
     }
 
     /**
+     * 切换布局模式
+     */
+    toggleLayout() {
+        const container = this.getElement('md-container');
+        if (!container) return;
+
+        const currentLayout = container.dataset.layout || 'layout-both';
+        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
+        const currentIndex = layouts.indexOf(currentLayout);
+        const nextIndex = (currentIndex + 1) % layouts.length;
+        const nextLayout = layouts[nextIndex];
+
+        // 移除所有布局类
+        layouts.forEach(layout => container.classList.remove(layout));
+        // 添加新布局类
+        container.classList.add(nextLayout);
+        container.dataset.layout = nextLayout;
+
+        // 清除固定宽度类，让布局自适应
+        const editorPane = this.getElement('md-editor-pane');
+        const previewPane = this.getElement('md-preview-pane');
+        if (editorPane) editorPane.classList.remove('fixed-width');
+        if (previewPane) previewPane.classList.remove('fixed-width');
+
+        // 清除内联样式
+        if (editorPane) editorPane.style.width = '';
+        if (previewPane) previewPane.style.width = '';
+
+        // 保存布局设置
+        StoreManager.saveLayout(nextLayout);
+
+        // 显示提示
+        const layoutNames = {
+            'layout-editor-only': '仅编辑器',
+            'layout-preview-only': '仅预览',
+            'layout-both': '编辑器 + 预览'
+        };
+        this.showMessage(`已切换到：${layoutNames[nextLayout]}`, 'info', 1500);
+    }
+
+    /**
+     * 初始化布局
+     */
+    initLayout() {
+        const container = this.getElement('md-container');
+        if (!container) return;
+
+        const savedLayout = StoreManager.loadLayout() || 'layout-both';
+        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
+        
+        layouts.forEach(layout => container.classList.remove(layout));
+        container.classList.add(savedLayout);
+        container.dataset.layout = savedLayout;
+
+        // 如果不是分栏模式，清除固定宽度
+        if (savedLayout !== 'layout-both') {
+            const editorPane = this.getElement('md-editor-pane');
+            const previewPane = this.getElement('md-preview-pane');
+            if (editorPane) {
+                editorPane.classList.remove('fixed-width');
+                editorPane.style.width = '';
+            }
+            if (previewPane) {
+                previewPane.classList.remove('fixed-width');
+                previewPane.style.width = '';
+            }
+        }
+    }
+
+    /**
      * 更新主题图标
      */
     updateThemeIcon(mode) {
@@ -1321,6 +1391,7 @@ ${html}
             'md-delete-item': () => this.deleteCurrentItem(),
             'md-export-html': () => this.exportHTML(),
             'md-export-md': () => this.exportMarkdown(),
+            'md-layout-toggle': () => this.toggleLayout(),
             'theme-toggle': () => this.toggleTheme()
         };
 
@@ -1387,6 +1458,7 @@ ${html}
 
         this.initMermaid();
         this.initTheme();
+        this.initLayout();
         this.documents = StoreManager.loadDocuments();
         this.renderDocumentList();
         this.setContent(StoreManager.loadContent(MarkdownEditor.DEFAULT_CONTENT));

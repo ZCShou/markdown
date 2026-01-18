@@ -724,6 +724,43 @@ pre:hover .code-copy-btn,
     overflow: hidden;
 }
 
+/* 布局模式 */
+/* 仅编辑器模式 */
+.markdown-container.layout-editor-only .markdown-preview-pane,
+.markdown-container.layout-editor-only .markdown-divider {
+    display: none !important;
+}
+
+.markdown-container.layout-editor-only .markdown-editor-pane {
+    flex: 1;
+    border-right: none;
+}
+
+/* 仅预览模式 */
+.markdown-container.layout-preview-only .markdown-editor-pane,
+.markdown-container.layout-preview-only .markdown-divider {
+    display: none !important;
+}
+
+.markdown-container.layout-preview-only .markdown-preview-pane {
+    flex: 1;
+}
+
+/* 编辑器和预览模式（默认） */
+.markdown-container.layout-both .markdown-editor-pane {
+    display: flex;
+    flex: 1;
+}
+
+.markdown-container.layout-both .markdown-preview-pane {
+    display: flex;
+    flex: 1;
+}
+
+.markdown-container.layout-both .markdown-divider {
+    display: block;
+}
+
 /* 编辑区域 */
 .markdown-editor-pane {
     display: flex;
@@ -1156,6 +1193,35 @@ pre:hover .code-copy-btn,
 
 #theme-toggle:hover .theme-icon {
     transform: rotate(20deg);
+}
+
+/* ==================== 布局切换 ==================== */
+.layout-icon {
+    font-size: 18px;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+#md-layout-toggle {
+    color: #fff;
+    font-size: 18px;
+}
+
+#md-layout-toggle:hover .layout-icon {
+    transform: scale(1.1);
+}
+
+/* 布局模式对应的图标 */
+.markdown-container.layout-editor-only #md-layout-toggle .layout-icon::after {
+    content: " (仅编辑)";
+}
+
+.markdown-container.layout-preview-only #md-layout-toggle .layout-icon::after {
+    content: " (仅预览)";
+}
+
+.markdown-container.layout-both #md-layout-toggle .layout-icon::after {
+    content: " (分栏)";
 }
 
 /* ==================== 拖拽相关样式 ==================== */

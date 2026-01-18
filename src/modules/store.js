@@ -9,6 +9,7 @@ export class StoreManager {
         CONTENT: 'markdown_editor_content',
         DOCUMENTS: 'markdown_editor_documents',
         THEME: 'markdown_editor_theme',
+        LAYOUT: 'markdown_editor_layout',
         SECTION_PREFIX: 'markdown_editor_section_'
     };
 
@@ -156,6 +157,37 @@ export class StoreManager {
         } catch (e) {
             console.warn('加载主题失败:', e);
             return defaultTheme;
+        }
+    }
+
+    // ==================== 布局设置 ====================
+
+    /**
+     * 保存布局设置
+     * @param {string} layout - 布局模式
+     */
+    static saveLayout(layout) {
+        try {
+            localStorage.setItem(StoreManager.STORAGE_KEYS.LAYOUT, layout);
+            return true;
+        } catch (e) {
+            console.warn('保存布局失败:', e);
+            return false;
+        }
+    }
+
+    /**
+     * 加载布局设置
+     * @param {string} defaultLayout - 默认布局
+     * @returns {string} 布局模式
+     */
+    static loadLayout(defaultLayout = 'layout-both') {
+        try {
+            const saved = localStorage.getItem(StoreManager.STORAGE_KEYS.LAYOUT);
+            return saved || defaultLayout;
+        } catch (e) {
+            console.warn('加载布局失败:', e);
+            return defaultLayout;
         }
     }
 
