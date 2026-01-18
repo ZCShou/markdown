@@ -552,7 +552,6 @@ sequenceDiagram
             'layout-preview-only': '仅预览',
             'layout-both': '编辑器 + 预览'
         };
-        this.showMessage(`已切换到：${layoutNames[layout]}`, 'info', 1500);
     }
 
     /**
