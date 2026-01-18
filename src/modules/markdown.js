@@ -1,10 +1,17 @@
 /**
- * Markdown 编辑器管理器 - 独立版
- * 去除了对 itexp 项目的依赖，可作为独立项目使用
+ * Markdown 编辑器管理器 - 重构版
+ * 采用状态驱动 UI 的架构模式
+ * 组件化设计，职责分离
  */
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import Prism from 'prismjs';
+import { editorState } from './state.js';
+import { DocumentList } from './components/DocumentList.js';
+import { Preview } from './components/Preview.js';
+import { Editor } from './components/Editor.js';
+import { Sidebar } from './components/Sidebar.js';
+import { TOC } from './components/TOC.js';
+import { StoreManager } from '@/modules/store.js';
+
+// 导入 Prism 语言包
 import 'prismjs/components/prism-java';
 import 'prismjs/components/prism-c';
 import 'prismjs/components/prism-cpp';
@@ -33,8 +40,6 @@ import 'prismjs/components/prism-lua';
 import 'prismjs/components/prism-r';
 import 'prismjs/components/prism-matlab';
 import 'prismjs/components/prism-groovy';
-import mermaid from 'mermaid';
-import { StoreManager } from '@/modules/store.js';
 
 export class MarkdownEditor {
     // ==================== 配置常量 ====================
@@ -258,40 +263,26 @@ sequenceDiagram
 
     /**
      * 构造函数 - 初始化编辑器实例
-     * 
-     * @description
-     * 创建 MarkdownEditor 实例并初始化所有状态属性：
-     * - 状态标志：初始化状态、拖拽状态、渲染状态
-     * - 布局状态：左右面板比例
-     * - 数据缓存：文档列表、DOM 缓存、渲染缓存
-     * - 定时器管理：防抖定时器
      */
     constructor() {
-        // ==================== 状态标志 ====================
-        this.isInitialized = false;      // 编辑器是否已初始化
-        this.isDragging = false;         // 是否正在拖拽分隔条
-        this.isRenderingMermaid = false; // 是否正在渲染 Mermaid 图表
-        this.lastLeftRatio = 0.5;        // 左侧面板宽度比例（0-1）
-        this.currentDocId = null;        // 当前文档 ID
+        this.isInitialized = false;
+        this.isDragging = false;
+        this.lastLeftRatio = 0.5;
         
-        // ==================== 数据缓存 ====================
-        this.documents = [];             // 文档列表缓存
-        this.domCache = {};              // DOM 元素缓存，避免重复查询
-        this.lastRenderedContent = '';   // 上次渲染的内容，用于避免重复渲染
-        this.timers = {};                // 防抖定时器集合
+        // 组件实例
+        this.components = {};
+        
+        // DOM 缓存
+        this.domCache = {};
+        
+        // 定时器
+        this.timers = {};
     }
 
     // ==================== 工具函数 ====================
     
     /**
      * 获取 DOM 元素（带缓存）
-     * 
-     * @param {string} id - 元素 ID
-     * @returns {HTMLElement|null} DOM 元素或 null
-     * 
-     * @description
-     * 通过 ID 获取 DOM 元素，使用缓存避免重复查询。
-     * 首次查询后缓存结果，后续调用直接返回缓存值。
      */
     getElement(id) {
         if (!this.domCache[id]) {
@@ -302,14 +293,6 @@ sequenceDiagram
 
     /**
      * 防抖函数
-     * 
-     * @param {string} key - 定时器唯一标识
-     * @param {Function} fn - 需要防抖的函数
-     * @param {number} delay - 延迟时间（毫秒）
-     * 
-     * @description
-     * 对函数进行防抖处理，确保在指定时间内只执行一次。
-     * 适用于频繁触发的事件，如输入、滚动等。
      */
     debounce(key, fn, delay) {
         if (this.timers[key]) {
@@ -320,14 +303,6 @@ sequenceDiagram
 
     /**
      * 显示消息提示
-     * 
-     * @param {string} message - 消息内容
-     * @param {string} [type='info'] - 消息类型：'info' | 'success' | 'warning' | 'error'
-     * @param {number} [duration] - 显示时长（毫秒），默认使用 UI_CONFIG.MESSAGE_DURATION
-     * 
-     * @description
-     * 在页面顶部显示临时消息提示，支持不同类型的样式。
-     * 消息会在指定时间后自动消失。
      */
     showMessage(message, type = 'info', duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION) {
         console.log(`[${type.toUpperCase()}] ${message}`);
@@ -348,339 +323,33 @@ sequenceDiagram
         }
     }
 
-    /**
-     * 处理缩进
-     * @param {boolean} isRemove - 是否移除缩进（Shift+Tab）
-     */
-    handleIndent(isRemove = false) {
-        const editor = this.getElement('markdown-editor');
-        if (!editor) return;
-
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        const value = editor.value;
-
-        // 获取选中文本
-        const selectedText = value.substring(start, end);
-
-        // 如果没有选中文本，在光标位置插入/移除缩进
-        if (selectedText.length === 0) {
-            if (isRemove) {
-                // 移除缩进：查找光标前的缩进字符
-                const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-                const lineText = value.substring(lineStart, start);
-                const indentMatch = lineText.match(/^(\s*)/);
-                const indent = indentMatch ? indentMatch[1] : '';
-
-                if (indent.length > 0) {
-                    // 移除一个缩进级别（2个空格或1个tab）
-                    const indentSize = indent.startsWith('\t') ? 1 : Math.min(2, indent.length);
-                    const newValue = value.substring(0, lineStart) + 
-                                   indent.substring(indentSize) + 
-                                   value.substring(lineStart + indentSize);
-                    editor.value = newValue;
-                    editor.selectionStart = editor.selectionEnd = start - indentSize;
-                }
-            } else {
-                // 插入缩进
-                const indent = '  '; // 使用2个空格作为缩进
-                editor.value = value.substring(0, start) + indent + value.substring(end);
-                editor.selectionStart = editor.selectionEnd = start + indent.length;
-            }
-        } else {
-            // 有选中文本，处理多行缩进
-            const lines = selectedText.split('\n');
-            const indent = '  '; // 使用2个空格作为缩进
-
-            // 检查是否选中了整行
-            const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-            const lineEnd = value.indexOf('\n', end);
-            const fullLineText = value.substring(lineStart, lineEnd === -1 ? value.length : lineEnd);
-
-            // 如果选中了整行或多行，处理所有行
-            if (start <= lineStart || selectedText.includes('\n')) {
-                let newSelectedText;
-                let cursorOffset = 0;
-
-                if (isRemove) {
-                    // 移除缩进
-                    newSelectedText = lines.map((line, index) => {
-                        if (line.startsWith('\t')) {
-                            return line.substring(1);
-                        } else if (line.startsWith('  ')) {
-                            return line.substring(2);
-                        } else if (line.startsWith(' ')) {
-                            return line.substring(1);
-                        }
-                        return line;
-                    }).join('\n');
-                } else {
-                    // 添加缩进
-                    newSelectedText = lines.map(line => indent + line).join('\n');
-                    cursorOffset = indent.length;
-                }
-
-                editor.value = value.substring(0, start) + newSelectedText + value.substring(end);
-                
-                // 恢复选区
-                editor.selectionStart = start;
-                editor.selectionEnd = start + newSelectedText.length;
-            } else {
-                // 只选中了行的一部分，只在光标位置插入/移除缩进
-                if (isRemove) {
-                    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-                    const lineText = value.substring(lineStart, start);
-                    const indentMatch = lineText.match(/^(\s*)/);
-                    const indent = indentMatch ? indentMatch[1] : '';
-
-                    if (indent.length > 0) {
-                        const indentSize = indent.startsWith('\t') ? 1 : Math.min(2, indent.length);
-                        editor.value = value.substring(0, lineStart) + 
-                                       value.substring(lineStart, start).substring(indentSize) + 
-                                       value.substring(start);
-                        editor.selectionStart = editor.selectionEnd = end - indentSize;
-                    }
-                } else {
-                    editor.value = value.substring(0, start) + indent + value.substring(end);
-                    editor.selectionStart = editor.selectionEnd = start + indent.length;
-                }
-            }
-        }
-
-        // 触发 input 事件以更新预览
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    // ==================== Markdown 渲染 ====================
+    // ==================== 组件初始化 ====================
     
     /**
-     * 初始化 Mermaid
+     * 初始化所有组件
      */
-    initMermaid() {
-        mermaid.initialize({
-            startOnLoad: false,
-            theme: 'default',
-            securityLevel: 'loose'
-        });
-    }
-
-    /**
-     * 渲染 Markdown 为 HTML
-     */
-    renderMarkdown(markdown) {
-        try {
-            let html = '';
-            if (marked && marked.parse) {
-                // 配置 marked 选项
-                const options = {
-                    breaks: true,
-                    gfm: true
-                };
-                html = marked.parse(markdown, options);
-            } else {
-                html = this.escapeHtml(markdown);
-            }
-
-            if (DOMPurify && DOMPurify.sanitize) {
-                // 配置 DOMPurify 允许图片标签及其属性
-                html = DOMPurify.sanitize(html, {
-                    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote', 
-                                   'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                                   'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'img',
-                                   'input', 'span', 'div', 'dd', 'dt', 'dl', 's'],
-                    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'type', 'checked',
-                                   'width', 'height', 'loading', 'colspan', 'rowspan', 'start'],
-                    ALLOW_DATA_ATTR: true,
-                    ADD_ATTR: ['data-*']
-                });
-            }
-
-            return html;
-        } catch (e) {
-            console.warn('Markdown 渲染失败:', e);
-            return this.escapeHtml(markdown);
-        }
-    }
-
-    /**
-     * 转义 HTML
-     */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    /**
-     * 更新预览（带防抖）
-     */
-    updatePreview(immediate = false) {
-        const editor = this.getElement('markdown-editor');
-        if (!editor) return;
-
-        const markdown = editor.value;
-        if (markdown === this.lastRenderedContent && !immediate) return;
-
-        if (immediate) {
-            this._doUpdatePreview(markdown);
-        } else {
-            this.debounce('update', () => this._doUpdatePreview(markdown), MarkdownEditor.DEBOUNCE_DELAY.UPDATE);
-        }
-    }
-
-    /**
-     * 执行预览更新
-     */
-    _doUpdatePreview(markdown) {
-        const preview = this.getElement('markdown-preview');
-        if (!preview) return;
-
-        this.lastRenderedContent = markdown;
-        preview.innerHTML = this.renderMarkdown(markdown);
-
-        requestAnimationFrame(() => {
-            this.highlightCode();
-            this.renderMermaidCharts();
-            this.addCopyButtons();
-            this.checkImageLoad();
-        });
-    }
-
-    /**
-     * 检查图片加载状态
-     */
-    checkImageLoad() {
-        const preview = this.getElement('markdown-preview');
-        if (!preview) return;
-
-        const images = preview.querySelectorAll('img');
-        images.forEach((img) => {
-            // 监听图片加载失败事件
-            img.addEventListener('error', () => {
-                img.alt = `图片加载失败: ${img.src}`;
-                img.style.border = '2px dashed #f44336';
-                img.style.padding = '10px';
-            });
-        });
-    }
-
-    // ==================== 代码高亮和图表 ====================
-    
-    /**
-     * 应用代码高亮（分批处理）
-     */
-    highlightCode() {
-        if (typeof Prism === 'undefined') return;
-
-        const preview = this.getElement('markdown-preview');
-        if (!preview) return;
-
-        const codeBlocks = preview.querySelectorAll('pre code:not(.prism-highlighted)');
-        if (codeBlocks.length === 0) return;
-
-        const batchSize = MarkdownEditor.DRAG_CONFIG.BATCH_SIZE;
-        let index = 0;
-
-        const processBatch = () => {
-            const end = Math.min(index + batchSize, codeBlocks.length);
-            for (let i = index; i < end; i++) {
-                Prism.highlightElement(codeBlocks[i]);
-                codeBlocks[i].classList.add('prism-highlighted');
-            }
-            index = end;
-            if (index < codeBlocks.length) {
-                requestAnimationFrame(processBatch);
-            }
-        };
-
-        processBatch();
-    }
-
-    /**
-     * 渲染 Mermaid 图表
-     */
-    renderMermaidCharts() {
-        if (typeof mermaid === 'undefined' || this.isRenderingMermaid) return;
-
-        const preview = this.getElement('markdown-preview');
-        if (!preview) return;
-
-        const mermaidBlocks = preview.querySelectorAll('pre code.language-mermaid');
-        if (mermaidBlocks.length === 0) return;
-
-        this.isRenderingMermaid = true;
-        const containers = [];
-
-        mermaidBlocks.forEach((block) => {
-            const code = block.textContent.trim();
-            if (!code) return;
-
-            const preElement = block.parentElement;
-            const container = document.createElement('div');
-            container.className = 'mermaid';
-            container.textContent = code;
-
-            if (preElement && preElement.parentNode) {
-                preElement.parentNode.replaceChild(container, preElement);
-                containers.push(container);
-            }
-        });
-
-        if (containers.length === 0) {
-            this.isRenderingMermaid = false;
-            return;
-        }
-
-        mermaid.run({ nodes: containers })
-            .then(() => { this.isRenderingMermaid = false; })
-            .catch((err) => {
-                console.warn('Mermaid 渲染失败:', err);
-                containers.forEach((container) => {
-                    container.textContent = '图表渲染失败: ' + err.message;
-                    container.classList.add('render-error');
-                });
-                this.isRenderingMermaid = false;
-            });
-    }
-
-    /**
-     * 添加代码块复制按钮
-     */
-    addCopyButtons() {
-        const preview = this.getElement('markdown-preview');
-        if (!preview) return;
-
-        const preElements = preview.querySelectorAll('pre:not(.has-copy-btn)');
-        if (preElements.length === 0) return;
-
-        preElements.forEach((pre) => {
-            pre.classList.add('has-copy-btn');
-
-            const btn = document.createElement('button');
-            btn.className = 'md-btn md-btn-sm code-copy-btn';
-            btn.textContent = '📋';
-            btn.title = '复制代码';
-
-            btn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const code = pre.querySelector('code');
-                if (!code || btn.classList.contains('copied')) return;
-
-                navigator.clipboard.writeText(code.textContent).then(() => {
-                    btn.innerHTML = '✓';
-                    btn.classList.add('copied');
-                    setTimeout(() => {
-                        btn.innerHTML = '📋';
-                        btn.classList.remove('copied');
-                    }, 2000);
-                }).catch((err) => {
-                    console.error('复制失败:', err);
-                });
-            };
-
-            pre.appendChild(btn);
+    initComponents() {
+        // 编辑器组件
+        this.components.editor = new Editor(editorState, 'markdown-editor');
+        
+        // 预览组件
+        this.components.preview = new Preview(editorState, 'markdown-preview');
+        
+        // 文档列表组件
+        this.components.documentList = new DocumentList(editorState, 'md-doc-list');
+        
+        // 左侧边栏组件
+        this.components.leftSidebar = new Sidebar(editorState, 'md-sidebar-left', 'left');
+        
+        // 右侧边栏组件
+        this.components.rightSidebar = new Sidebar(editorState, 'md-sidebar-right', 'right');
+        
+        // 目录组件
+        this.components.toc = new TOC(editorState, 'md-toc', this.components.preview);
+        
+        // 初始化所有组件
+        Object.values(this.components).forEach(component => {
+            component.init();
         });
     }
 
@@ -712,8 +381,8 @@ sequenceDiagram
         };
 
         // 初始化宽度
-        setPaneWidths(0.5);
-        setTimeout(() => setPaneWidths(0.5), 100);
+        setPaneWidths(this.lastLeftRatio);
+        setTimeout(() => setPaneWidths(this.lastLeftRatio), 100);
 
         // 鼠标事件
         divider.addEventListener('mouseenter', () => {
@@ -768,466 +437,6 @@ sequenceDiagram
         });
     }
 
-    // ==================== 侧边栏管理 ====================
-    
-    /**
-     * 切换侧边栏
-     */
-    toggleSidebar(side) {
-        const sidebar = this.getElement(`md-sidebar-${side}`);
-        if (!sidebar) return;
-
-        const isOpen = sidebar.classList.toggle('open');
-
-        // 在移动端显示遮罩层
-        if (window.innerWidth <= 768) {
-            const overlay = this.getElement('md-sidebar-overlay');
-            if (overlay) {
-                overlay.classList.toggle('show', isOpen);
-            }
-        }
-
-        // 强制重排并触发尺寸重算，确保滚动条立即可见
-        requestAnimationFrame(() => {
-            const targets = ['md-container', 'md-preview-pane', 'md-preview-wrapper', 'md-editor-pane'];
-            targets.forEach((id) => {
-                const el = this.getElement(id);
-                if (el) el.getBoundingClientRect(); // 触发 reflow
-            });
-            // 触发 resize，让分隔条逻辑重新计算左右面板宽度
-            window.dispatchEvent(new Event('resize'));
-        });
-
-        if (isOpen && side === 'right') {
-            this.generateTOC();
-        }
-    }
-
-    /**
-     * 关闭所有侧边栏
-     */
-    closeAllSidebars() {
-        ['left', 'right'].forEach(side => {
-            const sidebar = this.getElement(`md-sidebar-${side}`);
-            if (sidebar) sidebar.classList.remove('open');
-        });
-
-        // 在移动端隐藏遮罩层
-        if (window.innerWidth <= 768) {
-            const overlay = this.getElement('md-sidebar-overlay');
-            if (overlay) overlay.classList.remove('show');
-        }
-    }
-
-    /**
-     * 切换侧边栏区块
-     */
-    toggleSection(sectionName) {
-        const section = document.getElementById(`md-${sectionName}-section`);
-        const content = document.getElementById(`md-${sectionName}-content`);
-        if (!section || !content) return;
-
-        const isCollapsed = content.classList.toggle('collapsed');
-        StoreManager.saveSectionState(sectionName, !isCollapsed);
-    }
-
-    /**
-     * 应用区块状态
-     */
-    applySectionStates() {
-        ['toc', 'export'].forEach((sectionName) => {
-            const isCollapsed = StoreManager.loadSectionState(sectionName);
-            const content = document.getElementById(`md-${sectionName}-content`);
-
-            if (content) content.classList.toggle('collapsed', isCollapsed);
-        });
-    }
-
-    // ==================== 文档管理 ====================
-
-    /**
-     * 渲染文档列表
-     */
-    renderDocumentList() {
-        const docList = this.getElement('md-doc-list');
-        if (!docList) return;
-
-        if (this.documents.length === 0) {
-            docList.innerHTML = `<p class="md-empty-state">暂无文档</p>`;
-            return;
-        }
-
-        const fragment = document.createDocumentFragment();
-
-        this.documents.forEach((doc) => {
-            const item = document.createElement('div');
-            item.className = 'md-doc-item' + (doc.id === this.currentDocId ? ' active' : '');
-            item.dataset.docId = doc.id;
-            item.dataset.docType = doc.type || 'file';
-            
-            const icon = document.createElement('span');
-            icon.className = 'md-doc-item-icon';
-            icon.textContent = (doc.type === 'folder') ? '📁' : '📄';
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'md-doc-item-name';
-            nameSpan.textContent = doc.name;
-            
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'md-btn md-btn-icon md-btn-sm md-btn-danger md-doc-item-delete';
-            deleteBtn.textContent = '🗑️';
-            deleteBtn.title = '删除';
-            deleteBtn.dataset.docId = doc.id;
-            
-            item.appendChild(icon);
-            item.appendChild(nameSpan);
-            item.appendChild(deleteBtn);
-            fragment.appendChild(item);
-        });
-
-        docList.innerHTML = '';
-        docList.appendChild(fragment);
-
-        // 事件委托
-        docList.onclick = (e) => {
-            const deleteBtn = e.target.closest('.md-doc-item-delete');
-            if (deleteBtn) {
-                e.stopPropagation();
-                this.deleteDocument(deleteBtn.dataset.docId);
-                return;
-            }
-
-            const item = e.target.closest('.md-doc-item');
-            if (item && item.dataset.docType !== 'folder') {
-                const docId = item.dataset.docId;
-                if (docId) this.openDocument(docId);
-            }
-        };
-    }
-
-    /**
-     * 新建文档
-     */
-    newDocument() {
-        this.createItem('file');
-    }
-
-    /**
-     * 创建文件或文件夹
-     */
-    createItem(type = 'file') {
-        const doc = {
-            id: Date.now().toString(),
-            name: type === 'folder' ? '新建文件夹' : '新建文档',
-            type: type,
-            content: type === 'file' ? '' : undefined,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        this.documents.push(doc);
-        StoreManager.saveDocuments(this.documents);
-        this.renderDocumentList();
-        
-        // 立即进入编辑模式
-        this.editItemName(doc.id);
-        
-        if (type === 'file') {
-            this.openDocument(doc.id);
-        }
-        
-        this.showMessage(`${type === 'folder' ? '文件夹' : '文档'}已创建`, 'success');
-    }
-
-    /**
-     * 编辑项目名称
-     */
-    editItemName(docId) {
-        const docList = this.getElement('md-doc-list');
-        if (!docList) return;
-
-        const item = docList.querySelector(`[data-doc-id="${docId}"]`);
-        if (!item) return;
-
-        const nameSpan = item.querySelector('.md-doc-item-name');
-        if (!nameSpan) return;
-
-        const currentName = nameSpan.textContent;
-        
-        // 创建输入框
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'md-doc-item-input';
-        input.value = currentName;
-        
-        // 替换名称显示为输入框
-        nameSpan.replaceWith(input);
-        item.classList.add('editing');
-        
-        // 选中文本
-        input.focus();
-        input.select();
-        
-        // 保存函数
-        const save = () => {
-            const newName = input.value.trim();
-            if (!newName) {
-                this.showMessage('名称不能为空', 'error');
-                input.focus();
-                return;
-            }
-            
-            const doc = this.documents.find(d => d.id === docId);
-            if (doc) {
-                doc.name = newName;
-                doc.updatedAt = new Date().toISOString();
-                StoreManager.saveDocuments(this.documents);
-                this.renderDocumentList();
-                this.showMessage('重命名成功', 'success');
-            }
-        };
-        
-        // 取消函数
-        const cancel = () => {
-            this.renderDocumentList();
-        };
-        
-        // 绑定事件
-        input.addEventListener('blur', save);
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                save();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancel();
-            }
-        });
-    }
-
-    /**
-     * 重命名当前选中的项目
-     */
-    renameCurrentItem() {
-        if (!this.currentDocId) {
-            this.showMessage('请先选择一个项目', 'warning');
-            return;
-        }
-        this.editItemName(this.currentDocId);
-    }
-
-    /**
-     * 删除当前选中的项目
-     */
-    deleteCurrentItem() {
-        if (!this.currentDocId) {
-            this.showMessage('请先选择一个项目', 'warning');
-            return;
-        }
-        this.deleteDocument(this.currentDocId);
-    }
-
-    /**
-     * 打开文档
-     */
-    openDocument(docId) {
-        const doc = this.documents.find((d) => d.id === docId);
-        if (!doc) return;
-
-        // 如果是文件夹，不执行打开操作
-        if (doc.type === 'folder') {
-            return;
-        }
-
-        this.currentDocId = docId;
-        const editor = this.getElement('markdown-editor');
-        if (editor) {
-            editor.value = doc.content || '';
-        }
-        this.updatePreview(true);
-        this.renderDocumentList();
-    }
-
-    /**
-     * 保存当前文档
-     */
-    saveCurrentDocument() {
-        if (!this.currentDocId) return;
-
-        this.debounce('saveDoc', () => {
-            const editor = this.getElement('markdown-editor');
-            if (!editor) return;
-
-            const doc = this.documents.find((d) => d.id === this.currentDocId);
-            if (!doc || doc.type === 'folder') return;
-
-            doc.content = editor.value;
-            doc.updatedAt = new Date().toISOString();
-            StoreManager.saveDocuments(this.documents);
-        }, MarkdownEditor.DEBOUNCE_DELAY.SAVE);
-    }
-
-    /**
-     * 删除文档
-     */
-    deleteDocument(docId) {
-        const doc = this.documents.find((d) => d.id === docId);
-        if (!doc) return;
-
-        const itemType = doc.type === 'folder' ? '文件夹' : '文档';
-        if (!confirm(`确定要删除这个${itemType}吗？`)) return;
-
-        const index = this.documents.findIndex((d) => d.id === docId);
-        if (index === -1) return;
-
-        this.documents.splice(index, 1);
-        StoreManager.saveDocuments(this.documents);
-
-        if (docId === this.currentDocId) {
-            this.currentDocId = null;
-            const editor = this.getElement('markdown-editor');
-            if (editor) editor.value = '';
-            this.lastRenderedContent = '';
-            this.updatePreview(true);
-        }
-
-        this.renderDocumentList();
-        this.showMessage(`${itemType}已删除`, 'success');
-    }
-
-    // ==================== 目录生成 ====================
-    
-    /**
-     * 生成目录
-     */
-    generateTOC() {
-        const preview = this.getElement('markdown-preview');
-        const tocContainer = this.getElement('md-toc');
-        if (!preview || !tocContainer) return;
-
-        const headings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        if (headings.length === 0) {
-            tocContainer.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
-            return;
-        }
-
-        const fragment = document.createDocumentFragment();
-
-        headings.forEach((heading, index) => {
-            if (!heading.id) heading.id = 'heading-' + index;
-
-            const level = parseInt(heading.tagName.substring(1));
-            const item = document.createElement('div');
-            item.className = 'md-toc-item level-' + level;
-            item.textContent = heading.textContent;
-            item.dataset.headingId = heading.id;
-            
-            fragment.appendChild(item);
-        });
-
-        tocContainer.innerHTML = '';
-        tocContainer.appendChild(fragment);
-
-        // 事件委托
-        tocContainer.onclick = (e) => {
-            const item = e.target.closest('.md-toc-item');
-            if (!item) return;
-
-            const heading = document.getElementById(item.dataset.headingId);
-            if (heading) {
-                heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        };
-    }
-
-    // ==================== 导出功能 ====================
-    
-    /**
-     * 导出为 HTML
-     */
-    exportHTML() {
-        const editor = this.getElement('markdown-editor');
-        if (!editor) return;
-
-        const markdown = editor.value;
-        const html = this.renderMarkdown(markdown);
-
-        const fullHtml = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown 导出</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; }
-        pre { background-color: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; }
-        code { background-color: rgba(27, 31, 35, 0.05); padding: 0.2em 0.4em; border-radius: 3px; }
-        blockquote { border-left: 0.25em solid #dfe2e5; padding-left: 1em; color: #6a737d; }
-        table { border-collapse: collapse; width: 100%; }
-        table th, table td { border: 1px solid #dfe2e5; padding: 6px 13px; }
-        img { max-width: 100%; }
-    </style>
-</head>
-<body>
-${html}
-</body>
-</html>`;
-
-        this.downloadFile(fullHtml, 'text/html', '.html');
-        this.showMessage('HTML 导出成功', 'success');
-    }
-
-    /**
-     * 导出为 Markdown
-     */
-    exportMarkdown() {
-        const editor = this.getElement('markdown-editor');
-        if (!editor) return;
-
-        this.downloadFile(editor.value, 'text/markdown', '.md');
-        this.showMessage('Markdown 导出成功', 'success');
-    }
-
-    /**
-     * 下载文件
-     */
-    downloadFile(content, mimeType, extension) {
-        const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'document-' + new Date().toISOString().slice(0, 10) + extension;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // ==================== 内容保存 ====================
-    
-    /**
-     * 保存内容到本地存储
-     */
-    saveContent() {
-        this.debounce('save', () => {
-            const editor = this.getElement('markdown-editor');
-            if (!editor) return;
-
-            StoreManager.saveContent(editor.value);
-        }, MarkdownEditor.DEBOUNCE_DELAY.SAVE);
-    }
-
-    /**
-     * 设置编辑器内容
-     */
-    setContent(content) {
-        const editor = this.getElement('markdown-editor');
-        if (!editor) return;
-
-        editor.value = content;
-        this.updatePreview(true);
-    }
-
     // ==================== 主题管理 ====================
 
     /**
@@ -1249,98 +458,16 @@ ${html}
                 darkTheme.disabled = true;
             }
         }
-
-        // 更新 Mermaid 主题
-        if (typeof mermaid !== 'undefined') {
-            mermaid.initialize({
-                startOnLoad: false,
-                theme: mode === 'dark' ? 'dark' : 'default',
-                securityLevel: 'loose'
-            });
-            // 重新渲染图表
-            this.renderMermaidCharts();
-        }
     }
 
     /**
      * 切换主题
      */
     toggleTheme() {
-        const currentMode = StoreManager.loadTheme('light');
-        const newMode = currentMode === 'dark' ? 'light' : 'dark';
+        const newMode = editorState.toggleTheme();
         StoreManager.saveTheme(newMode);
         this.applyTheme(newMode);
         this.updateThemeIcon(newMode);
-    }
-
-    /**
-     * 切换布局模式
-     */
-    toggleLayout() {
-        const container = this.getElement('md-container');
-        if (!container) return;
-
-        const currentLayout = container.dataset.layout || 'layout-both';
-        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
-        const currentIndex = layouts.indexOf(currentLayout);
-        const nextIndex = (currentIndex + 1) % layouts.length;
-        const nextLayout = layouts[nextIndex];
-
-        // 移除所有布局类
-        layouts.forEach(layout => container.classList.remove(layout));
-        // 添加新布局类
-        container.classList.add(nextLayout);
-        container.dataset.layout = nextLayout;
-
-        // 清除固定宽度类，让布局自适应
-        const editorPane = this.getElement('md-editor-pane');
-        const previewPane = this.getElement('md-preview-pane');
-        if (editorPane) editorPane.classList.remove('fixed-width');
-        if (previewPane) previewPane.classList.remove('fixed-width');
-
-        // 清除内联样式
-        if (editorPane) editorPane.style.width = '';
-        if (previewPane) previewPane.style.width = '';
-
-        // 保存布局设置
-        StoreManager.saveLayout(nextLayout);
-
-        // 显示提示
-        const layoutNames = {
-            'layout-editor-only': '仅编辑器',
-            'layout-preview-only': '仅预览',
-            'layout-both': '编辑器 + 预览'
-        };
-        this.showMessage(`已切换到：${layoutNames[nextLayout]}`, 'info', 1500);
-    }
-
-    /**
-     * 初始化布局
-     */
-    initLayout() {
-        const container = this.getElement('md-container');
-        if (!container) return;
-
-        const savedLayout = StoreManager.loadLayout() || 'layout-both';
-        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
-        
-        layouts.forEach(layout => container.classList.remove(layout));
-        container.classList.add(savedLayout);
-        container.dataset.layout = savedLayout;
-
-        // 如果不是分栏模式，清除固定宽度
-        if (savedLayout !== 'layout-both') {
-            const editorPane = this.getElement('md-editor-pane');
-            const previewPane = this.getElement('md-preview-pane');
-            if (editorPane) {
-                editorPane.classList.remove('fixed-width');
-                editorPane.style.width = '';
-            }
-            if (previewPane) {
-                previewPane.classList.remove('fixed-width');
-                previewPane.style.width = '';
-            }
-        }
     }
 
     /**
@@ -1359,8 +486,62 @@ ${html}
      */
     initTheme() {
         const mode = StoreManager.loadTheme('light');
+        editorState.setState({ theme: mode }, { silent: true });
         this.applyTheme(mode);
         this.updateThemeIcon(mode);
+    }
+
+    // ==================== 布局管理 ====================
+
+    /**
+     * 切换布局模式
+     */
+    toggleLayout() {
+        const newLayout = editorState.toggleLayout();
+        StoreManager.saveLayout(newLayout);
+        this.applyLayout(newLayout);
+    }
+
+    /**
+     * 应用布局
+     */
+    applyLayout(layout) {
+        const container = this.getElement('md-container');
+        if (!container) return;
+
+        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
+        
+        // 移除所有布局类
+        layouts.forEach(l => container.classList.remove(l));
+        // 添加新布局类
+        container.classList.add(layout);
+
+        // 清除固定宽度类，让布局自适应
+        const editorPane = this.getElement('md-editor-pane');
+        const previewPane = this.getElement('md-preview-pane');
+        if (editorPane) editorPane.classList.remove('fixed-width');
+        if (previewPane) previewPane.classList.remove('fixed-width');
+
+        // 清除内联样式
+        if (editorPane) editorPane.style.width = '';
+        if (previewPane) previewPane.style.width = '';
+
+        // 显示提示
+        const layoutNames = {
+            'layout-editor-only': '仅编辑器',
+            'layout-preview-only': '仅预览',
+            'layout-both': '编辑器 + 预览'
+        };
+        this.showMessage(`已切换到：${layoutNames[layout]}`, 'info', 1500);
+    }
+
+    /**
+     * 初始化布局
+     */
+    initLayout() {
+        const savedLayout = StoreManager.loadLayout() || 'layout-both';
+        editorState.setState({ layout: savedLayout }, { silent: true });
+        this.applyLayout(savedLayout);
     }
 
     // ==================== 事件绑定 ====================
@@ -1371,11 +552,11 @@ ${html}
     bindEvents() {
         // 侧边栏按钮
         const sidebarButtons = {
-            'md-toggle-left-sidebar': () => this.toggleSidebar('left'),
-            'md-toggle-right-sidebar': () => this.toggleSidebar('right'),
-            'md-close-left-sidebar': () => this.toggleSidebar('left'),
-            'md-close-right-sidebar': () => this.toggleSidebar('right'),
-            'md-sidebar-overlay': () => this.closeAllSidebars()
+            'md-toggle-left-sidebar': () => this.components.leftSidebar.toggle(),
+            'md-toggle-right-sidebar': () => this.components.rightSidebar.toggle(),
+            'md-close-left-sidebar': () => this.components.leftSidebar.toggle(),
+            'md-close-right-sidebar': () => this.components.rightSidebar.toggle(),
+            'md-sidebar-overlay': () => editorState.closeAllSidebars()
         };
 
         Object.entries(sidebarButtons).forEach(([id, handler]) => {
@@ -1385,12 +566,12 @@ ${html}
 
         // 文档操作按钮
         const docButtons = {
-            'md-new-file': () => this.createItem('file'),
-            'md-new-folder': () => this.createItem('folder'),
-            'md-rename-item': () => this.renameCurrentItem(),
-            'md-delete-item': () => this.deleteCurrentItem(),
-            'md-export-html': () => this.exportHTML(),
-            'md-export-md': () => this.exportMarkdown(),
+            'md-new-file': () => this.components.documentList.createItem('file'),
+            'md-new-folder': () => this.components.documentList.createItem('folder'),
+            'md-rename-item': () => this.components.documentList.renameCurrentItem(),
+            'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
+            'md-export-html': () => this.components.preview.exportHTML(),
+            'md-export-md': () => this.components.preview.exportMarkdown(),
             'md-layout-toggle': () => this.toggleLayout(),
             'theme-toggle': () => this.toggleTheme()
         };
@@ -1400,52 +581,11 @@ ${html}
             if (element) element.onclick = handler;
         });
 
-        // 侧边栏区块折叠
-        document.addEventListener('click', (e) => {
-            const toggle = e.target.closest('.md-sidebar-section-toggle');
-            if (toggle) {
-                e.stopPropagation();
-                this.toggleSection(toggle.getAttribute('data-section'));
-                return;
-            }
-
-            const header = e.target.closest('.md-sidebar-section-header');
-            if (header) {
-                const toggle = header.querySelector('.md-sidebar-section-toggle');
-                if (toggle) {
-                    this.toggleSection(toggle.getAttribute('data-section'));
-                }
-            }
+        // 监听消息显示事件
+        window.addEventListener('md:showMessage', (e) => {
+            const { message, type, duration } = e.detail;
+            this.showMessage(message, type, duration);
         });
-
-        // 编辑器事件
-        const editor = this.getElement('markdown-editor');
-        if (editor) {
-            editor.addEventListener('input', () => {
-                this.updatePreview();
-                this.saveContent();
-                this.saveCurrentDocument();
-            });
-
-            editor.addEventListener('keydown', (e) => {
-                // Tab 缩进
-                if (e.key === 'Tab') {
-                    e.preventDefault();
-                    this.handleIndent(e.shiftKey);
-                    return;
-                }
-
-                // Ctrl/Cmd + S 保存
-                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                    e.preventDefault();
-                    if (this.timers.save) {
-                        clearTimeout(this.timers.save);
-                    }
-                    StoreManager.saveContent(editor.value);
-                    this.showMessage('内容已保存', 'success');
-                }
-            });
-        }
     }
 
     // ==================== 初始化 ====================
@@ -1456,15 +596,39 @@ ${html}
     init() {
         if (this.isInitialized) return;
 
-        this.initMermaid();
+        // 加载保存的数据
+        const documents = StoreManager.loadDocuments();
+        const content = StoreManager.loadContent(MarkdownEditor.DEFAULT_CONTENT);
+        const theme = StoreManager.loadTheme('light');
+        const layout = StoreManager.loadLayout() || 'layout-both';
+
+        // 先初始化组件（组件会订阅状态）
+        this.initComponents();
+
+        // 然后设置状态（组件会收到通知并渲染）
+        editorState.setState({
+            documents,
+            content,
+            theme,
+            layout
+        });
+
+        // 保存文档到 StoreManager
+        StoreManager.saveDocuments(documents);
+
+        // 初始化主题和布局
         this.initTheme();
         this.initLayout();
-        this.documents = StoreManager.loadDocuments();
-        this.renderDocumentList();
-        this.setContent(StoreManager.loadContent(MarkdownEditor.DEFAULT_CONTENT));
+
+        // 绑定事件
         this.bindEvents();
+
+        // 设置分隔条
         this.setupDivider();
-        this.applySectionStates();
+
+        // 应用侧边栏区块状态
+        this.components.leftSidebar.applySectionStates();
+        this.components.rightSidebar.applySectionStates();
 
         this.isInitialized = true;
     }
