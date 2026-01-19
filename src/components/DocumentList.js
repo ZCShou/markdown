@@ -14,6 +14,7 @@ export class DocumentList extends BaseComponent {
         super(state, containerId);
         this.editingDocId = null;
         this.draggedItem = null;
+        this.clickTimeout = null;
     }
 
     /**
@@ -158,13 +159,25 @@ export class DocumentList extends BaseComponent {
             const docId = item.dataset.docId;
             const docType = item.dataset.docType;
 
-            if (docType === 'folder') {
-                // 点击文件夹：展开/折叠
-                this.state.toggleFolder(docId);
-            } else {
-                // 点击文件：打开
-                this.handleOpen(docId);
+            // 清除之前的延迟
+            if (this.clickTimeout) {
+                clearTimeout(this.clickTimeout);
+                this.clickTimeout = null;
             }
+
+            // 延迟执行单击操作，等待双击
+            this.clickTimeout = setTimeout(() => {
+                if (docType === 'folder') {
+                    // 点击文件夹：展开/折叠 + 选中文件夹
+                    this.state.toggleFolder(docId);
+                    // 选中文件夹（用于后续的重命名等操作）
+                    this.state.setState({ currentDocId: docId });
+                } else {
+                    // 点击文件：打开
+                    this.handleOpen(docId);
+                }
+                this.clickTimeout = null;
+            }, 200); // 200ms 延迟，足够检测双击
         }
     }
 
@@ -172,6 +185,12 @@ export class DocumentList extends BaseComponent {
      * 处理双击事件（重命名）
      */
     handleDoubleClick(e) {
+        // 取消单击的延迟执行
+        if (this.clickTimeout) {
+            clearTimeout(this.clickTimeout);
+            this.clickTimeout = null;
+        }
+
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
             const docId = item.dataset.docId;
