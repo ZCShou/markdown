@@ -552,6 +552,7 @@ sequenceDiagram
         const docButtons = {
             'md-new-file': () => this.components.documentList.createItem('file'),
             'md-new-folder': () => this.components.documentList.createItem('folder'),
+            'md-toggle-all-folders': () => this.components.documentList.toggleAllFolders(),
             'md-rename-item': () => this.components.documentList.renameCurrentItem(),
             'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
             'md-export-html': () => this.components.preview.exportHTML(),

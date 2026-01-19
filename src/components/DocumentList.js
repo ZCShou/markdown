@@ -480,6 +480,19 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
+     * 全部展开/折叠
+     */
+    toggleAllFolders() {
+        const expanded = this.state.get('expandedFolders');
+        const allFolders = this.state.get('documents').filter(d => d.type === 'folder');
+        if (expanded.size === allFolders.length) {
+            this.state.collapseAllFolders();
+        } else {
+            this.state.expandAllFolders();
+        }
+    }
+
+    /**
      * 渲染组件
      */
     render() {
@@ -512,10 +525,6 @@ export class DocumentList extends BaseComponent {
 
         const fragment = this.createFragment();
 
-        // 渲染工具栏
-        const toolbar = this.renderToolbar();
-        fragment.appendChild(toolbar);
-
         // 渲染树型结构
         const treeContainer = this.createElement('div', {
             className: 'md-tree-container'
@@ -530,52 +539,6 @@ export class DocumentList extends BaseComponent {
 
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
-    }
-
-    /**
-     * 渲染工具栏
-     */
-    renderToolbar() {
-        const toolbar = this.createElement('div', {
-            className: 'md-doc-toolbar'
-        });
-
-        // 新建文件按钮
-        const newFileBtn = this.createElement('button', {
-            className: 'md-btn md-btn-sm md-btn-primary',
-            textContent: '📄 新建',
-            attributes: { title: '新建文档' },
-            parent: toolbar
-        });
-        newFileBtn.addEventListener('click', () => this.createItem('file'));
-
-        // 新建文件夹按钮
-        const newFolderBtn = this.createElement('button', {
-            className: 'md-btn md-btn-sm md-btn-secondary',
-            textContent: '📁 新建',
-            attributes: { title: '新建文件夹' },
-            parent: toolbar
-        });
-        newFolderBtn.addEventListener('click', () => this.createItem('folder'));
-
-        // 全部展开/折叠按钮
-        const toggleAllBtn = this.createElement('button', {
-            className: 'md-btn md-btn-sm',
-            textContent: '📂',
-            attributes: { title: '全部展开/折叠' },
-            parent: toolbar
-        });
-        toggleAllBtn.addEventListener('click', () => {
-            const expanded = this.state.get('expandedFolders');
-            const allFolders = this.state.get('documents').filter(d => d.type === 'folder');
-            if (expanded.size === allFolders.length) {
-                this.state.collapseAllFolders();
-            } else {
-                this.state.expandAllFolders();
-            }
-        });
-
-        return toolbar;
     }
 
     /**
