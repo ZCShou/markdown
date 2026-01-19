@@ -229,10 +229,37 @@ export class EditorState {
     setCurrentDocument(docId) {
         const doc = this.#state.documents.find(d => d.id === docId);
         if (doc && doc.type !== 'folder') {
-            this.setState({
-                currentDocId: docId,
-                content: doc.content || ''
-            });
+            const oldContent = this.#state.content;
+            const oldDocId = this.#state.currentDocId;
+            const newContent = doc.content || '';
+            
+            // 更新状态
+            this.#state.currentDocId = docId;
+            this.#state.content = newContent;
+            
+            // 触发 content 监听器（即使内容相同也要触发，确保切换文件时编辑器更新）
+            const contentListeners = this.#listeners.get('content');
+            if (contentListeners) {
+                contentListeners.forEach(listener => {
+                    try {
+                        listener(newContent, oldContent, 'content');
+                    } catch (error) {
+                        console.error(`State listener error for key "content":`, error);
+                    }
+                });
+            }
+            
+            // 触发 currentDocId 监听器
+            const currentDocListeners = this.#listeners.get('currentDocId');
+            if (currentDocListeners) {
+                currentDocListeners.forEach(listener => {
+                    try {
+                        listener(docId, oldDocId, 'currentDocId');
+                    } catch (error) {
+                        console.error(`State listener error for key "currentDocId":`, error);
+                    }
+                });
+            }
         }
     }
 
@@ -243,12 +270,12 @@ export class EditorState {
     updateContent(content) {
         this.setState({ content });
 
-        // 同时更新当前文档
+        // 同时更新当前文档（使用 silent 选项避免触发 documents 监听器）
         if (this.#state.currentDocId) {
             this.updateDocument(this.#state.currentDocId, {
                 content,
                 updatedAt: new Date().toISOString()
-            });
+            }, { silent: true });
         }
     }
 

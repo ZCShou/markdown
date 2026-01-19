@@ -77,6 +77,9 @@ export class Editor extends BaseComponent {
         this.debounce('save', () => {
             const content = this.container.value;
             StoreManager.saveContent(content);
+            // 同时保存文档列表（确保所有文档内容都被保存）
+            const documents = this.state.get('documents');
+            StoreManager.saveDocuments(documents);
         }, 1000);
     }
 
@@ -86,6 +89,9 @@ export class Editor extends BaseComponent {
     saveNow() {
         const content = this.container.value;
         StoreManager.saveContent(content);
+        // 同时保存文档列表
+        const documents = this.state.get('documents');
+        StoreManager.saveDocuments(documents);
         this.showMessage('内容已保存', 'success');
     }
 
