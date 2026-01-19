@@ -16,6 +16,7 @@ export class Preview extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.mermaidInitialized = false;
+        this.renderTimeout = null;
     }
 
     /**
@@ -114,36 +115,68 @@ export class Preview extends BaseComponent {
     forceUpdatePreview() {
         const currentDocId = this.state.get('currentDocId');
         
+        // 快速检查：如果没有 currentDocId，直接返回
+        if (!currentDocId) return;
+        
         // 直接从 documents 中获取文档内容，确保是最新的
         const documents = this.state.get('documents');
         const doc = documents.find(d => d.id === currentDocId);
         
-        // 如果是文件夹，不渲染（保持之前的预览内容）
+        // 如果是文件夹或文档不存在，不渲染（保持之前的预览内容）
         if (!doc || doc.type === 'folder') {
             return;
         }
         
         const content = doc.content || '';
         
-        // 直接渲染，不使用 debounce
-        this.renderContent(content);
-        this.state.updateLastRenderedContent(content);
+        // 取消之前的渲染任务
+        if (this.renderTimeout) {
+            clearTimeout(this.renderTimeout);
+        }
+        
+        // 使用 setTimeout 将渲染推迟到下一个事件循环，避免阻塞 UI
+        this.renderTimeout = setTimeout(() => {
+            this.renderContent(content);
+            this.state.updateLastRenderedContent(content);
+            this.renderTimeout = null;
+        }, 0);
     }
 
     /**
      * 渲染内容
      */
     renderContent(markdown) {
-        const html = this.renderMarkdown(markdown);
-        this.container.innerHTML = html;
-
-        // 异步处理高亮和图表
+        // 显示加载状态
+        this.showLoading();
+        
+        // 使用 requestIdleCallback 或 setTimeout 分批处理
         requestAnimationFrame(() => {
-            this.highlightCode();
-            this.renderMermaidCharts();
-            this.addCopyButtons();
-            this.checkImageLoad();
+            const html = this.renderMarkdown(markdown);
+            this.container.innerHTML = html;
+            this.hideLoading();
+
+            // 异步处理高亮和图表
+            requestAnimationFrame(() => {
+                this.highlightCode();
+                this.renderMermaidCharts();
+                this.addCopyButtons();
+                this.checkImageLoad();
+            });
         });
+    }
+
+    /**
+     * 显示加载状态
+     */
+    showLoading() {
+        this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--md-text-secondary);">加载中...</div>';
+    }
+
+    /**
+     * 隐藏加载状态
+     */
+    hideLoading() {
+        // 渲染完成后自动隐藏
     }
 
     /**

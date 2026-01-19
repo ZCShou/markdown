@@ -171,7 +171,7 @@ export class DocumentList extends BaseComponent {
                     // 点击文件夹：展开/折叠 + 选中文件夹
                     this.state.toggleFolder(docId);
                     // 选中文件夹（用于后续的重命名等操作）
-                    // 只设置 currentDocId，不更新 content
+                    // 使用 silent 选项避免触发 Preview 更新
                     const currentContent = this.state.get('content');
                     this.state.setState({
                         currentDocId: docId,
