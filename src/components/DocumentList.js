@@ -1,6 +1,6 @@
 /**
- * 文档列表组件
- * 负责文档列表的渲染和交互
+ * 文档列表组件 - 树型结构
+ * 负责文档列表的渲染和交互，支持文件夹嵌套
  */
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
@@ -13,15 +13,91 @@ export class DocumentList extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.editingDocId = null;
+        this.draggedItem = null;
     }
 
     /**
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅文档列表变化
-        this.unsubscribe = this.state.subscribeTo(['documents', 'currentDocId'], () => {
-            this.render();
+        // 订阅文档列表和展开状态变化
+        this.unsubscribe = this.state.subscribeTo(['documents', 'currentDocId', 'expandedFolders'], (newValue, oldValue, key) => {
+            // 如果只是 currentDocId 变化，使用局部更新而不是完全重新渲染
+            if (key === 'currentDocId') {
+                this.updateActiveState(newValue, oldValue);
+            } else if (key === 'expandedFolders') {
+                // expandedFolders 变化时，使用局部更新展开/折叠状态
+                this.updateFolderExpandState(newValue, oldValue);
+            } else {
+                // documents 变化时，完全重新渲染
+                this.render();
+            }
+        });
+    }
+
+    /**
+     * 更新激活状态（局部更新，避免闪烁）
+     */
+    updateActiveState(newDocId, oldDocId) {
+        if (!this.container) return;
+
+        // 移除旧的激活状态
+        if (oldDocId) {
+            const oldItem = this.container.querySelector(`[data-doc-id="${oldDocId}"]`);
+            if (oldItem) {
+                oldItem.classList.remove('active');
+            }
+        }
+
+        // 添加新的激活状态
+        if (newDocId) {
+            const newItem = this.container.querySelector(`[data-doc-id="${newDocId}"]`);
+            if (newItem) {
+                newItem.classList.add('active');
+            }
+        }
+    }
+
+    /**
+     * 更新文件夹展开/折叠状态（局部更新，避免闪烁）
+     */
+    updateFolderExpandState(newExpanded, oldExpanded) {
+        if (!this.container) return;
+
+        // 找出变化的文件夹
+        const changed = [];
+        newExpanded.forEach(id => {
+            if (!oldExpanded.has(id)) changed.push({ id, expanded: true });
+        });
+        oldExpanded.forEach(id => {
+            if (!newExpanded.has(id)) changed.push({ id, expanded: false });
+        });
+
+        // 更新每个变化的文件夹
+        changed.forEach(({ id, expanded }) => {
+            const item = this.container.querySelector(`[data-doc-id="${id}"]`);
+            if (!item) return;
+
+            // 更新箭头状态
+            const toggle = item.querySelector('.md-tree-toggle');
+            if (toggle) {
+                toggle.classList.toggle('expanded', expanded);
+            }
+
+            // 更新图标
+            const icon = item.querySelector('.md-doc-item-icon');
+            if (icon) {
+                icon.textContent = expanded ? '📂' : '📁';
+            }
+
+            // 显示/隐藏子节点
+            const nodeContainer = item.closest('.md-tree-node');
+            if (nodeContainer) {
+                const childrenContainer = nodeContainer.querySelector('.md-tree-children');
+                if (childrenContainer) {
+                    childrenContainer.style.display = expanded ? 'flex' : 'none';
+                }
+            }
         });
     }
 
@@ -31,12 +107,26 @@ export class DocumentList extends BaseComponent {
     bindEvents() {
         // 使用事件委托处理列表项点击
         this.addEventListener(this.container, 'click', (e) => this.handleClick(e));
+        this.addEventListener(this.container, 'dblclick', (e) => this.handleDoubleClick(e));
+        this.addEventListener(this.container, 'dragstart', (e) => this.handleDragStart(e));
+        this.addEventListener(this.container, 'dragover', (e) => this.handleDragOver(e));
+        this.addEventListener(this.container, 'drop', (e) => this.handleDrop(e));
+        this.addEventListener(this.container, 'dragend', (e) => this.handleDragEnd(e));
     }
 
     /**
      * 处理点击事件
      */
     handleClick(e) {
+        // 展开/折叠箭头
+        const toggle = e.target.closest('.md-tree-toggle');
+        if (toggle) {
+            e.stopPropagation();
+            const folderId = toggle.dataset.folderId;
+            this.state.toggleFolder(folderId);
+            return;
+        }
+
         // 删除按钮
         const deleteBtn = e.target.closest('.md-doc-item-delete');
         if (deleteBtn) {
@@ -45,14 +135,117 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
+        // 新建按钮
+        const newFileBtn = e.target.closest('.md-new-file-btn');
+        if (newFileBtn) {
+            e.stopPropagation();
+            const folderId = newFileBtn.dataset.folderId || null;
+            this.createItem('file', folderId);
+            return;
+        }
+
+        const newFolderBtn = e.target.closest('.md-new-folder-btn');
+        if (newFolderBtn) {
+            e.stopPropagation();
+            const folderId = newFolderBtn.dataset.folderId || null;
+            this.createItem('folder', folderId);
+            return;
+        }
+
         // 文档项
         const item = e.target.closest('.md-doc-item');
-        if (item && item.dataset.docType !== 'folder') {
+        if (item && !this.editingDocId) {
             const docId = item.dataset.docId;
-            if (docId && !this.editingDocId) {
+            const docType = item.dataset.docType;
+
+            if (docType === 'folder') {
+                // 点击文件夹：展开/折叠
+                this.state.toggleFolder(docId);
+            } else {
+                // 点击文件：打开
                 this.handleOpen(docId);
             }
         }
+    }
+
+    /**
+     * 处理双击事件（重命名）
+     */
+    handleDoubleClick(e) {
+        const item = e.target.closest('.md-doc-item');
+        if (item && !this.editingDocId) {
+            const docId = item.dataset.docId;
+            this.editItemName(docId);
+        }
+    }
+
+    /**
+     * 处理拖拽开始
+     */
+    handleDragStart(e) {
+        const item = e.target.closest('.md-doc-item');
+        if (!item) return;
+
+        this.draggedItem = item.dataset.docId;
+        item.classList.add('md-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.draggedItem);
+    }
+
+    /**
+     * 处理拖拽经过
+     */
+    handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const item = e.target.closest('.md-doc-item');
+        if (!item) return;
+
+        // 移除所有高亮
+        this.container.querySelectorAll('.md-drop-target').forEach(el => {
+            el.classList.remove('md-drop-target');
+        });
+
+        // 添加高亮
+        const docType = item.dataset.docType;
+        if (docType === 'folder') {
+            item.classList.add('md-drop-target');
+        }
+    }
+
+    /**
+     * 处理放置
+     */
+    handleDrop(e) {
+        e.preventDefault();
+        const item = e.target.closest('.md-doc-item');
+        if (!item || !this.draggedItem) return;
+
+        const targetId = item.dataset.docId;
+        const targetType = item.dataset.docType;
+
+        // 只能拖拽到文件夹
+        if (targetType !== 'folder') return;
+
+        // 不能拖拽到自己或自己的子文件夹中
+        if (targetId === this.draggedItem) return;
+
+        this.state.moveDocument(this.draggedItem, targetId);
+        StoreManager.saveDocuments(this.state.get('documents'));
+    }
+
+    /**
+     * 处理拖拽结束
+     */
+    handleDragEnd(e) {
+        this.draggedItem = null;
+        this.container.querySelectorAll('.md-dragging').forEach(el => {
+            el.classList.remove('md-dragging');
+        });
+        this.container.querySelectorAll('.md-drop-target').forEach(el => {
+            el.classList.remove('md-drop-target');
+        });
     }
 
     /**
@@ -69,27 +262,58 @@ export class DocumentList extends BaseComponent {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
+        // 计算子项数量
+        const children = this.getAllChildren(docId);
+        const itemCount = children.length + 1;
+
         const itemType = doc.type === 'folder' ? '文件夹' : '文档';
-        if (!confirm(`确定要删除这个${itemType}吗？`)) return;
+        const message = itemCount > 1 && doc.type === 'folder'
+            ? `确定要删除这个${itemType}及其 ${children.length} 个子项吗？`
+            : `确定要删除这个${itemType}吗？`;
+
+        if (!confirm(message)) return;
 
         this.state.deleteDocument(docId);
         StoreManager.saveDocuments(this.state.get('documents'));
     }
 
     /**
+     * 获取所有子项（递归）
+     */
+    getAllChildren(folderId) {
+        const documents = this.state.get('documents');
+        const children = [];
+
+        const findChildren = (parentId) => {
+            documents.forEach(doc => {
+                if (doc.parentId === parentId) {
+                    children.push(doc);
+                    if (doc.type === 'folder') {
+                        findChildren(doc.id);
+                    }
+                }
+            });
+        };
+
+        findChildren(folderId);
+        return children;
+    }
+
+    /**
      * 创建新项目
      */
-    createItem(type = 'file') {
+    createItem(type = 'file', parentId = null) {
         const doc = {
             id: Date.now().toString(),
             name: type === 'folder' ? '新建文件夹' : '新建文档',
             type: type,
             content: type === 'file' ? '' : undefined,
+            parentId: parentId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
 
-        this.state.addDocument(doc);
+        this.state.addDocument(doc, parentId);
         StoreManager.saveDocuments(this.state.get('documents'));
 
         // 立即进入编辑模式
@@ -187,40 +411,151 @@ export class DocumentList extends BaseComponent {
 
         // 空状态
         if (documents.length === 0) {
-            this.container.innerHTML = `<p class="md-empty-state">暂无文档</p>`;
+            this.container.innerHTML = `
+                <div class="md-empty-state">
+                    <p>暂无文档</p>
+                    <button class="md-btn md-btn-primary" data-action="create-file">新建文档</button>
+                    <button class="md-btn md-btn-secondary" data-action="create-folder">新建文件夹</button>
+                </div>
+            `;
+            // 绑定空状态按钮事件
+            const createFileBtn = this.container.querySelector('[data-action="create-file"]');
+            const createFolderBtn = this.container.querySelector('[data-action="create-folder"]');
+            if (createFileBtn) {
+                createFileBtn.addEventListener('click', () => this.createItem('file'));
+            }
+            if (createFolderBtn) {
+                createFolderBtn.addEventListener('click', () => this.createItem('folder'));
+            }
             return;
         }
 
+        // 构建树型结构
+        const tree = this.state.buildTree();
+
         const fragment = this.createFragment();
 
-        documents.forEach((doc) => {
-            const item = this.renderDocItem(doc, currentDocId);
-            fragment.appendChild(item);
+        // 渲染工具栏
+        const toolbar = this.renderToolbar();
+        fragment.appendChild(toolbar);
+
+        // 渲染树型结构
+        const treeContainer = this.createElement('div', {
+            className: 'md-tree-container'
         });
+
+        tree.forEach((node) => {
+            const treeNode = this.renderTreeNode(node, currentDocId, 0);
+            treeContainer.appendChild(treeNode);
+        });
+
+        fragment.appendChild(treeContainer);
 
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
     }
 
     /**
-     * 渲染单个文档项
+     * 渲染工具栏
      */
-    renderDocItem(doc, currentDocId) {
-        const isEditing = doc.id === this.editingDocId;
-        const isActive = doc.id === currentDocId;
+    renderToolbar() {
+        const toolbar = this.createElement('div', {
+            className: 'md-doc-toolbar'
+        });
 
+        // 新建文件按钮
+        const newFileBtn = this.createElement('button', {
+            className: 'md-btn md-btn-sm md-btn-primary',
+            textContent: '📄 新建',
+            attributes: { title: '新建文档' },
+            parent: toolbar
+        });
+        newFileBtn.addEventListener('click', () => this.createItem('file'));
+
+        // 新建文件夹按钮
+        const newFolderBtn = this.createElement('button', {
+            className: 'md-btn md-btn-sm md-btn-secondary',
+            textContent: '📁 新建',
+            attributes: { title: '新建文件夹' },
+            parent: toolbar
+        });
+        newFolderBtn.addEventListener('click', () => this.createItem('folder'));
+
+        // 全部展开/折叠按钮
+        const toggleAllBtn = this.createElement('button', {
+            className: 'md-btn md-btn-sm',
+            textContent: '📂',
+            attributes: { title: '全部展开/折叠' },
+            parent: toolbar
+        });
+        toggleAllBtn.addEventListener('click', () => {
+            const expanded = this.state.get('expandedFolders');
+            const allFolders = this.state.get('documents').filter(d => d.type === 'folder');
+            if (expanded.size === allFolders.length) {
+                this.state.collapseAllFolders();
+            } else {
+                this.state.expandAllFolders();
+            }
+        });
+
+        return toolbar;
+    }
+
+    /**
+     * 递归渲染树节点
+     */
+    renderTreeNode(node, currentDocId, level) {
+        const isEditing = node.id === this.editingDocId;
+        const isActive = node.id === currentDocId;
+        const isFolder = node.type === 'folder';
+        const isExpanded = isFolder && this.state.isFolderExpanded(node.id);
+        const hasChildren = isFolder && node.children && node.children.length > 0;
+
+        // 创建节点容器
+        const nodeContainer = this.createElement('div', {
+            className: 'md-tree-node',
+            dataset: { level }
+        });
+
+        // 创建项目行
         const item = this.createElement('div', {
             className: `md-doc-item${isActive ? ' active' : ''}${isEditing ? ' editing' : ''}`,
             dataset: {
-                docId: doc.id,
-                docType: doc.type || 'file'
+                docId: node.id,
+                docType: node.type || 'file'
+            },
+            attributes: {
+                draggable: 'true'
             }
         });
+
+        // 缩进
+        const indent = this.createElement('span', {
+            className: 'md-tree-indent',
+            style: { width: `${level * 16}px` },
+            parent: item
+        });
+
+        // 展开/折叠箭头
+        if (isFolder) {
+            const toggle = this.createElement('span', {
+                className: `md-tree-toggle${isExpanded ? ' expanded' : ''}${hasChildren ? '' : ' leaf'}`,
+                dataset: { folderId: node.id },
+                parent: item
+            });
+        } else {
+            const spacer = this.createElement('span', {
+                className: 'md-tree-spacer',
+                parent: item
+            });
+        }
 
         // 图标
         const icon = this.createElement('span', {
             className: 'md-doc-item-icon',
-            textContent: doc.type === 'folder' ? '📁' : '📄',
+            textContent: isFolder
+                ? (isExpanded ? '📂' : '📁')
+                : '📄',
             parent: item
         });
 
@@ -229,31 +564,65 @@ export class DocumentList extends BaseComponent {
             const input = this.createElement('input', {
                 type: 'text',
                 className: 'md-doc-item-input',
-                attributes: {
-                    value: doc.name
-                },
+                attributes: { value: node.name },
                 parent: item
             });
         } else {
             // 普通模式：显示名称
             const nameSpan = this.createElement('span', {
                 className: 'md-doc-item-name',
-                textContent: doc.name,
+                textContent: node.name,
                 parent: item
+            });
+        }
+
+        // 操作按钮组
+        const actions = this.createElement('span', {
+            className: 'md-doc-item-actions',
+            parent: item
+        });
+
+        // 新建按钮（仅文件夹）
+        if (isFolder) {
+            const newFileBtn = this.createElement('button', {
+                className: 'md-btn md-btn-icon md-btn-xs md-new-file-btn',
+                textContent: '➕',
+                attributes: {
+                    title: '在此新建文档',
+                    'data-folder-id': node.id
+                },
+                parent: actions
             });
         }
 
         // 删除按钮
         const deleteBtn = this.createElement('button', {
-            className: 'md-btn md-btn-icon md-btn-sm md-btn-danger md-doc-item-delete',
+            className: 'md-btn md-btn-icon md-btn-xs md-btn-danger md-doc-item-delete',
             textContent: '🗑️',
             attributes: {
                 title: '删除',
-                'data-doc-id': doc.id
+                'data-doc-id': node.id
             },
-            parent: item
+            parent: actions
         });
 
-        return item;
+        nodeContainer.appendChild(item);
+
+        // 递归渲染子节点（始终渲染，通过 display 控制显示/隐藏）
+        if (isFolder && hasChildren) {
+            const childrenContainer = this.createElement('div', {
+                className: 'md-tree-children',
+                style: isExpanded ? {} : { display: 'none' }
+            });
+
+            node.children.forEach((child) => {
+                const childNode = this.renderTreeNode(child, currentDocId, level + 1);
+                childrenContainer.appendChild(childNode);
+            });
+
+            nodeContainer.appendChild(childrenContainer);
+        }
+
+        return nodeContainer;
     }
 }

@@ -86,6 +86,21 @@
     /* 文本选中颜色 - VSCode 明亮主题风格 */
     --md-selection-bg: rgba(51, 153, 255, 0.25);
     --md-selection-text: #24292e;
+
+    /* 树型条目选中效果 - 明亮主题 */
+    --md-tree-item-active-bg: rgba(51, 153, 255, 0.1);
+    --md-tree-item-active-border: #2196f3;
+    --md-tree-item-active-text: #1976d2;
+
+    /* 树型条目悬停效果 - 明亮主题 */
+    --md-tree-item-hover-bg: rgba(0, 0, 0, 0.04);
+    --md-tree-item-hover-text: #333;
+
+    /* 树型拖拽目标效果 - 明亮主题 */
+    --md-tree-drop-bg: rgba(76, 175, 80, 0.1);
+    --md-tree-drop-border: #4caf50;
+    --md-tree-drop-text: #2e7d32;
+    --md-tree-drop-label-bg: rgba(255, 255, 255, 0.9);
 }
 
 [data-mode="dark"] {
@@ -175,6 +190,21 @@
     /* 文本选中颜色 - VSCode 黑暗主题风格 */
     --md-selection-bg: rgba(65, 165, 245, 0.4);
     --md-selection-text: #e0e0e0;
+
+    /* 树型条目选中效果 - 暗黑主题 */
+    --md-tree-item-active-bg: rgba(66, 165, 245, 0.15);
+    --md-tree-item-active-border: #42a5f5;
+    --md-tree-item-active-text: #64b5f6;
+
+    /* 树型条目悬停效果 - 暗黑主题 */
+    --md-tree-item-hover-bg: rgba(255, 255, 255, 0.08);
+    --md-tree-item-hover-text: #e0e0e0;
+
+    /* 树型拖拽目标效果 - 暗黑主题 */
+    --md-tree-drop-bg: rgba(76, 175, 80, 0.15);
+    --md-tree-drop-border: #66bb6a;
+    --md-tree-drop-text: #81c784;
+    --md-tree-drop-label-bg: rgba(30, 30, 30, 0.9);
 }
 
 html, body {
@@ -1253,4 +1283,317 @@ pre.has-copy-btn {
     color: var(--md-text-tertiary);
     text-align: center;
     padding: 20px;
+}
+
+.md-empty-state button {
+    margin-top: 12px;
+    margin-right: 8px;
+}
+
+/* ==================== 树型结构样式 ==================== */
+/* 文档列表工具栏 */
+.md-doc-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: var(--md-bg-tertiary);
+    border-radius: 6px;
+    align-items: center;
+}
+
+.md-doc-toolbar .md-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    min-height: 28px;
+}
+
+/* 树型容器 */
+.md-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* 树节点 */
+.md-tree-node {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 文档项 - 树型版本 */
+.md-doc-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    margin-bottom: 2px;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    color: var(--md-text-primary);
+    position: relative;
+    user-select: none;
+}
+
+.md-doc-item:hover {
+    background-color: var(--md-tree-item-hover-bg);
+}
+
+.md-doc-item:hover .md-doc-item-icon,
+.md-doc-item:hover .md-doc-item-name {
+    color: var(--md-tree-item-hover-text);
+}
+
+.md-doc-item.active {
+    background-color: var(--md-tree-item-active-bg);
+    font-weight: 500;
+}
+
+.md-doc-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: var(--md-tree-item-active-border);
+    border-radius: 2px 0 0 2px;
+}
+
+.md-doc-item.active .md-doc-item-icon,
+.md-doc-item.active .md-doc-item-name {
+    color: var(--md-tree-item-active-text);
+}
+
+.md-doc-item.editing {
+    background-color: var(--md-bg-secondary);
+    border: 1px solid var(--md-color-primary);
+    border-radius: 4px;
+}
+
+/* 缩进 */
+.md-tree-indent {
+    flex-shrink: 0;
+}
+
+/* 展开/折叠箭头 */
+.md-tree-toggle,
+.md-tree-spacer {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--md-text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.md-tree-toggle {
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.md-tree-toggle:hover {
+    background-color: var(--md-bg-hover);
+}
+
+.md-tree-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+.md-tree-toggle.leaf {
+    visibility: hidden;
+}
+
+/* 图标 */
+.md-doc-item-icon {
+    font-size: 16px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+/* 名称 */
+.md-doc-item-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--md-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+/* 输入框 */
+.md-doc-item-input {
+    flex: 1;
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid var(--md-border-secondary);
+    border-radius: 4px;
+    outline: none;
+    background: var(--md-bg-secondary);
+    color: var(--md-text-primary);
+    min-width: 0;
+}
+
+.md-doc-item-input:focus {
+    background: var(--md-bg-primary);
+    border-color: var(--md-color-primary);
+}
+
+/* 操作按钮组 */
+.md-doc-item-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.md-doc-item:hover .md-doc-item-actions,
+.md-doc-item:focus-within .md-doc-item-actions {
+    opacity: 1;
+}
+
+/* 超小按钮 */
+.md-btn.md-btn-xs {
+    padding: 2px 6px;
+    min-height: 22px;
+    min-width: 22px;
+    font-size: 12px;
+}
+
+.md-btn.md-btn-icon.md-btn-xs {
+    padding: 2px;
+    font-size: 14px;
+}
+
+/* 删除按钮 */
+.md-doc-item-delete {
+    background: none;
+    border: none;
+    color: var(--md-text-tertiary);
+    cursor: pointer;
+    padding: 2px;
+    font-size: 14px;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+}
+
+.md-doc-item-delete:hover {
+    color: var(--md-color-danger);
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* 新建按钮 */
+.md-new-file-btn,
+.md-new-folder-btn {
+    background: none;
+    border: none;
+    color: var(--md-text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    font-size: 14px;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+}
+
+.md-new-file-btn:hover,
+.md-new-folder-btn:hover {
+    color: var(--md-color-success);
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+/* 子节点容器 */
+.md-tree-children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 拖拽相关样式 */
+.md-doc-item.draggable {
+    cursor: grab;
+}
+
+.md-doc-item.draggable:active {
+    cursor: grabbing;
+}
+
+.md-doc-item.md-dragging {
+    opacity: 0.5;
+    background-color: var(--md-bg-hover);
+}
+
+.md-doc-item.md-drop-target {
+    background-color: var(--md-tree-drop-bg);
+    border: 1px dashed var(--md-tree-drop-border);
+}
+
+.md-doc-item.md-drop-target::after {
+    content: '放置到此处';
+    position: absolute;
+    right: 8px;
+    font-size: 11px;
+    color: var(--md-tree-drop-text);
+    background-color: var(--md-tree-drop-label-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* 拖拽时的全局样式 */
+body.is-dragging-tree {
+    user-select: none;
+}
+
+body.is-dragging-tree .md-doc-item:not(.md-dragging) {
+    pointer-events: none;
+}
+
+/* VSCode 风格的树型连线（可选） */
+.md-tree-children {
+    position: relative;
+}
+
+.md-tree-children::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--md-border-primary);
+    opacity: 0.3;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .md-doc-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .md-doc-item {
+        padding: 8px;
+    }
+
+    .md-doc-item-actions {
+        opacity: 1;
+    }
 }

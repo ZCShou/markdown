@@ -19,28 +19,31 @@ export class EditorState {
         // 文档相关
         documents: [],
         currentDocId: null,
-        
+
         // 编辑器内容
         content: '',
-        
+
         // UI 状态
         theme: 'light',
         layout: 'layout-both',
         leftSidebarOpen: false,
         rightSidebarOpen: false,
-        
+
         // 侧边栏区块状态
         sections: {
             toc: true,
             export: true
         },
-        
+
         // 布局状态
         leftRatio: 0.5,
-        
+
         // 渲染状态
         isRenderingMermaid: false,
-        lastRenderedContent: ''
+        lastRenderedContent: '',
+
+        // 树型展开状态 (folderId -> boolean)
+        expandedFolders: new Set()
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -168,10 +171,17 @@ export class EditorState {
     /**
      * 添加文档
      * @param {Object} doc - 文档对象
+     * @param {string} [parentId] - 父文件夹ID
      */
-    addDocument(doc) {
-        const documents = [...this.#state.documents, doc];
+    addDocument(doc, parentId = null) {
+        const newDoc = { ...doc, parentId };
+        const documents = [...this.#state.documents, newDoc];
         this.setState({ documents });
+
+        // 如果添加到文件夹内，自动展开该文件夹
+        if (parentId) {
+            this.expandFolder(parentId);
+        }
     }
 
     /**
@@ -187,11 +197,25 @@ export class EditorState {
     }
 
     /**
-     * 删除文档
+     * 删除文档（及其所有子项）
      * @param {string} docId - 文档ID
      */
     deleteDocument(docId) {
-        const documents = this.#state.documents.filter(doc => doc.id !== docId);
+        // 递归删除所有子项
+        const toDelete = new Set([docId]);
+        let changed = true;
+
+        while (changed) {
+            changed = false;
+            this.#state.documents.forEach(doc => {
+                if (doc.parentId && toDelete.has(doc.parentId) && !toDelete.has(doc.id)) {
+                    toDelete.add(doc.id);
+                    changed = true;
+                }
+            });
+        }
+
+        const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
         const currentDocId = this.#state.currentDocId === docId ? null : this.#state.currentDocId;
         this.setState({ documents, currentDocId });
     }
@@ -216,7 +240,7 @@ export class EditorState {
      */
     updateContent(content) {
         this.setState({ content });
-        
+
         // 同时更新当前文档
         if (this.#state.currentDocId) {
             this.updateDocument(this.#state.currentDocId, {
@@ -224,6 +248,155 @@ export class EditorState {
                 updatedAt: new Date().toISOString()
             });
         }
+    }
+
+    // ==================== 树型结构操作 ====================
+
+    /**
+     * 构建树型结构
+     * @returns {Array} 树型结构的文档数组
+     */
+    buildTree() {
+        const docs = this.#state.documents;
+        const docMap = new Map();
+
+        // 创建所有节点的映射
+        docs.forEach(doc => {
+            docMap.set(doc.id, { ...doc, children: [] });
+        });
+
+        // 构建树型结构
+        const roots = [];
+        docMap.forEach(doc => {
+            if (doc.parentId && docMap.has(doc.parentId)) {
+                docMap.get(doc.parentId).children.push(doc);
+            } else {
+                roots.push(doc);
+            }
+        });
+
+        return roots;
+    }
+
+    /**
+     * 获取文档的所有子项
+     * @param {string} folderId - 文件夹ID
+     * @returns {Array} 子项数组
+     */
+    getChildren(folderId) {
+        return this.#state.documents.filter(doc => doc.parentId === folderId);
+    }
+
+    /**
+     * 检查文件夹是否展开
+     * @param {string} folderId - 文件夹ID
+     * @returns {boolean} 是否展开
+     */
+    isFolderExpanded(folderId) {
+        return this.#state.expandedFolders.has(folderId);
+    }
+
+    /**
+     * 切换文件夹展开状态
+     * @param {string} folderId - 文件夹ID
+     */
+    toggleFolder(folderId) {
+        const expanded = new Set(this.#state.expandedFolders);
+        if (expanded.has(folderId)) {
+            expanded.delete(folderId);
+        } else {
+            expanded.add(folderId);
+        }
+        this.setState({ expandedFolders: expanded });
+    }
+
+    /**
+     * 展开文件夹
+     * @param {string} folderId - 文件夹ID
+     */
+    expandFolder(folderId) {
+        const expanded = new Set(this.#state.expandedFolders);
+        expanded.add(folderId);
+        this.setState({ expandedFolders: expanded });
+    }
+
+    /**
+     * 折叠文件夹
+     * @param {string} folderId - 文件夹ID
+     */
+    collapseFolder(folderId) {
+        const expanded = new Set(this.#state.expandedFolders);
+        expanded.delete(folderId);
+        this.setState({ expandedFolders: expanded });
+    }
+
+    /**
+     * 展开所有文件夹
+     */
+    expandAllFolders() {
+        const folderIds = this.#state.documents
+            .filter(doc => doc.type === 'folder')
+            .map(doc => doc.id);
+        this.setState({ expandedFolders: new Set(folderIds) });
+    }
+
+    /**
+     * 折叠所有文件夹
+     */
+    collapseAllFolders() {
+        this.setState({ expandedFolders: new Set() });
+    }
+
+    /**
+     * 移动文档到另一个文件夹
+     * @param {string} docId - 文档ID
+     * @param {string} targetFolderId - 目标文件夹ID（null表示移到根目录）
+     */
+    moveDocument(docId, targetFolderId) {
+        // 防止将文件夹移动到其子文件夹中
+        if (targetFolderId) {
+            let current = this.#state.documents.find(d => d.id === targetFolderId);
+            while (current && current.parentId) {
+                if (current.parentId === docId) {
+                    this.showMessage('不能将文件夹移动到其子文件夹中', 'error');
+                    return;
+                }
+                current = this.#state.documents.find(d => d.id === current.parentId);
+            }
+        }
+
+        this.updateDocument(docId, {
+            parentId: targetFolderId,
+            updatedAt: new Date().toISOString()
+        });
+
+        // 如果移动到文件夹内，自动展开目标文件夹
+        if (targetFolderId) {
+            this.expandFolder(targetFolderId);
+        }
+    }
+
+    /**
+     * 复制文档
+     * @param {string} docId - 文档ID
+     * @param {string} [targetFolderId] - 目标文件夹ID
+     * @returns {string} 新文档ID
+     */
+    duplicateDocument(docId, targetFolderId = null) {
+        const original = this.#state.documents.find(d => d.id === docId);
+        if (!original) return null;
+
+        const newDoc = {
+            ...original,
+            id: Date.now().toString(),
+            name: `${original.name} (副本)`,
+            parentId: targetFolderId !== null ? targetFolderId : original.parentId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        this.addDocument(newDoc, targetFolderId);
+        return newDoc.id;
     }
 
     // ==================== UI 操作 ====================
