@@ -482,7 +482,6 @@ pre:hover .code-copy-btn,
 
 .md-doc-item.active {
     background-color: var(--md-bg-active);
-    border-left: 3px solid var(--md-color-primary);
 }
 
 .md-doc-item.editing {
@@ -1330,7 +1329,6 @@ pre.has-copy-btn {
     background: transparent;
     border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
     color: var(--md-text-primary);
     position: relative;
     user-select: none;
@@ -1348,17 +1346,6 @@ pre.has-copy-btn {
 .md-doc-item.active {
     background-color: var(--md-tree-item-active-bg);
     font-weight: 500;
-}
-
-.md-doc-item.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background-color: var(--md-tree-item-active-border);
-    border-radius: 2px 0 0 2px;
 }
 
 .md-doc-item.active .md-doc-item-icon,
@@ -1389,7 +1376,6 @@ pre.has-copy-btn {
     flex-shrink: 0;
     font-size: 10px;
     color: var(--md-text-secondary);
-    transition: transform 0.2s ease;
 }
 
 .md-tree-toggle {
@@ -1450,7 +1436,6 @@ pre.has-copy-btn {
     display: flex;
     gap: 2px;
     opacity: 0;
-    transition: opacity 0.2s ease;
     flex-shrink: 0;
     margin-left: 4px;
 }
@@ -1482,7 +1467,6 @@ pre.has-copy-btn {
     padding: 2px;
     font-size: 14px;
     border-radius: 3px;
-    transition: all 0.15s ease;
 }
 
 .md-doc-item-delete:hover {
@@ -1500,7 +1484,6 @@ pre.has-copy-btn {
     padding: 2px;
     font-size: 14px;
     border-radius: 3px;
-    transition: all 0.15s ease;
 }
 
 .md-new-file-btn:hover,
