@@ -31,10 +31,13 @@ export class Preview extends BaseComponent {
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅内容和主题变化
-        this.unsubscribe = this.state.subscribeTo(['content', 'theme'], (newValue, oldValue, key) => {
+        // 订阅内容、当前文档和主题变化
+        this.unsubscribe = this.state.subscribeTo(['content', 'currentDocId', 'theme'], (newValue, oldValue, key) => {
             if (key === 'content') {
                 this.updatePreview();
+            } else if (key === 'currentDocId') {
+                // 切换文档时强制更新预览
+                this.forceUpdatePreview();
             } else if (key === 'theme') {
                 this.updateMermaidTheme();
             }
@@ -103,6 +106,28 @@ export class Preview extends BaseComponent {
             this.renderContent(content);
             this.state.updateLastRenderedContent(content);
         }, 300);
+    }
+
+    /**
+     * 强制更新预览（用于切换文档时）
+     */
+    forceUpdatePreview() {
+        const currentDocId = this.state.get('currentDocId');
+        
+        // 直接从 documents 中获取文档内容，确保是最新的
+        const documents = this.state.get('documents');
+        const doc = documents.find(d => d.id === currentDocId);
+        
+        // 如果是文件夹，不渲染（保持之前的预览内容）
+        if (!doc || doc.type === 'folder') {
+            return;
+        }
+        
+        const content = doc.content || '';
+        
+        // 直接渲染，不使用 debounce
+        this.renderContent(content);
+        this.state.updateLastRenderedContent(content);
     }
 
     /**

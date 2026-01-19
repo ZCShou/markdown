@@ -171,7 +171,12 @@ export class DocumentList extends BaseComponent {
                     // 点击文件夹：展开/折叠 + 选中文件夹
                     this.state.toggleFolder(docId);
                     // 选中文件夹（用于后续的重命名等操作）
-                    this.state.setState({ currentDocId: docId });
+                    // 只设置 currentDocId，不更新 content
+                    const currentContent = this.state.get('content');
+                    this.state.setState({
+                        currentDocId: docId,
+                        content: currentContent  // 保持当前内容不变
+                    });
                 } else {
                     // 点击文件：打开
                     this.handleOpen(docId);
