@@ -642,7 +642,7 @@ export class DocumentList extends BaseComponent {
 
         // 删除按钮
         const deleteBtn = this.createElement('button', {
-            className: 'md-btn md-btn-icon md-btn-xs md-btn-danger md-doc-item-delete',
+            className: 'md-btn md-btn-icon md-btn-xs md-doc-item-delete',
             textContent: '🗑️',
             attributes: {
                 title: '删除',

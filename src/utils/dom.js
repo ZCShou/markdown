@@ -385,7 +385,6 @@ export const dom = {
         // 文档操作按钮
         newFile: new DOMElement('#md-new-file'),
         newFolder: new DOMElement('#md-new-folder'),
-        rename: new DOMElement('#md-rename-item'),
         delete: new DOMElement('#md-delete-item'),
         
         // 导出按钮
