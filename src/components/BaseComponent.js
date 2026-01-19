@@ -15,6 +15,8 @@
  * }
  * ```
  */
+import { debounce } from '../utils/helpers.js';
+
 export class BaseComponent {
     /**
      * 构造函数
@@ -201,19 +203,18 @@ export class BaseComponent {
     }
 
     /**
-     * 防抖函数
+     * 防抖函数（使用 helpers.js 中的 debounce 实现）
      */
     debounce(key, fn, delay) {
-        if (!this.timers) {
-            this.timers = new Map();
+        if (!this.debouncedFunctions) {
+            this.debouncedFunctions = new Map();
         }
 
-        if (this.timers.has(key)) {
-            clearTimeout(this.timers.get(key));
+        if (!this.debouncedFunctions.has(key)) {
+            this.debouncedFunctions.set(key, debounce(fn, delay));
         }
 
-        const timerId = setTimeout(fn, delay);
-        this.timers.set(key, timerId);
+        this.debouncedFunctions.get(key)();
     }
 
     /**

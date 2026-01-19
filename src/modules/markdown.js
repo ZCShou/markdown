@@ -312,16 +312,6 @@ sequenceDiagram
     }
 
     /**
-     * 防抖函数
-     */
-    debounce(key, fn, delay) {
-        if (this.timers[key]) {
-            clearTimeout(this.timers[key]);
-        }
-        this.timers[key] = setTimeout(fn, delay);
-    }
-
-    /**
      * 显示消息提示
      */
     showMessage(message, type = 'info', duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION) {
