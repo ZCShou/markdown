@@ -348,17 +348,34 @@ export class DocumentList extends BaseComponent {
      */
     editItemName(docId) {
         this.editingDocId = docId;
-        this.render(); // 重新渲染以显示输入框
 
         const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
         if (!item) return;
 
-        const input = dom.getIn(item, '.md-doc-item-input');
-        if (!input) return;
+        const nameSpan = dom.getIn(item, '.md-doc-item-name');
+        if (!nameSpan) return;
+
+        const currentName = nameSpan.textContent;
+
+        // 标记为编辑状态
+        item.classList.add('editing');
+
+        // 创建输入框
+        const input = this.createElement('input', {
+            type: 'text',
+            className: 'md-doc-item-input',
+            attributes: { value: currentName }
+        });
+
+        // 替换名称元素为输入框
+        nameSpan.replaceWith(input);
 
         // 选中文本
         input.focus();
         input.select();
+
+        // 标记是否应该保存
+        let shouldSave = false;
 
         // 绑定输入框事件
         const save = () => {
@@ -369,32 +386,73 @@ export class DocumentList extends BaseComponent {
                 return;
             }
 
+            // 使用 silent 选项避免触发重新渲染
             this.state.updateDocument(docId, {
                 name: newName,
                 updatedAt: new Date().toISOString()
-            });
+            }, { silent: true });
             StoreManager.saveDocuments(this.state.get('documents'));
 
-            this.editingDocId = null;
-            this.render();
+            // 恢复为普通模式
+            this.exitEditMode(docId, newName);
         };
 
         const cancel = () => {
-            this.editingDocId = null;
-            this.render();
+            // 恢复原始名称
+            this.exitEditMode(docId, currentName);
         };
 
-        input.addEventListener('blur', save, { once: true });
+        const handleBlur = () => {
+            if (shouldSave) {
+                save();
+            } else {
+                cancel();
+            }
+        };
+
+        input.addEventListener('blur', handleBlur, { once: true });
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                shouldSave = true;
                 input.blur();
             } else if (e.key === 'Escape') {
                 e.preventDefault();
-                input.removeEventListener('blur', save);
+                shouldSave = false;
+                input.removeEventListener('blur', handleBlur);
                 cancel();
             }
         });
+
+        // 输入内容时标记为需要保存
+        input.addEventListener('input', () => {
+            shouldSave = true;
+        });
+    }
+
+    /**
+     * 退出编辑模式（局部更新，避免闪烁）
+     */
+    exitEditMode(docId, name) {
+        this.editingDocId = null;
+
+        const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
+        if (!item) return;
+
+        const input = dom.getIn(item, '.md-doc-item-input');
+        if (!input) return;
+
+        // 创建新的名称元素
+        const nameSpan = this.createElement('span', {
+            className: 'md-doc-item-name',
+            textContent: name
+        });
+
+        // 替换输入框为名称元素
+        input.replaceWith(nameSpan);
+
+        // 移除编辑状态
+        item.classList.remove('editing');
     }
 
     /**

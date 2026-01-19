@@ -188,12 +188,14 @@ export class EditorState {
      * 更新文档
      * @param {string} docId - 文档ID
      * @param {Object} updates - 更新内容
+     * @param {Object} options - 选项
+     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
      */
-    updateDocument(docId, updates) {
+    updateDocument(docId, updates, options = {}) {
         const documents = this.#state.documents.map(doc =>
             doc.id === docId ? { ...doc, ...updates } : doc
         );
-        this.setState({ documents });
+        this.setState({ documents }, options);
     }
 
     /**
