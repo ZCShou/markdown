@@ -103,10 +103,17 @@ export class Preview extends BaseComponent {
         // 避免重复渲染（但允许初始渲染）
         if (content === lastRendered && lastRendered !== '') return;
 
-        this.debounce('updatePreview', () => {
+        // 取消之前的渲染任务
+        if (this.renderTimeout) {
+            clearTimeout(this.renderTimeout);
+        }
+
+        // 使用较短的延迟，确保输入时能及时更新
+        this.renderTimeout = setTimeout(() => {
             this.renderContent(content);
             this.state.updateLastRenderedContent(content);
-        }, 300);
+            this.renderTimeout = null;
+        }, 100);
     }
 
     /**
@@ -146,37 +153,17 @@ export class Preview extends BaseComponent {
      * 渲染内容
      */
     renderContent(markdown) {
-        // 显示加载状态
-        this.showLoading();
-        
-        // 使用 requestIdleCallback 或 setTimeout 分批处理
+        // 直接渲染内容，不显示加载状态
+        const html = this.renderMarkdown(markdown);
+        this.container.innerHTML = html;
+
+        // 异步处理高亮和图表
         requestAnimationFrame(() => {
-            const html = this.renderMarkdown(markdown);
-            this.container.innerHTML = html;
-            this.hideLoading();
-
-            // 异步处理高亮和图表
-            requestAnimationFrame(() => {
-                this.highlightCode();
-                this.renderMermaidCharts();
-                this.addCopyButtons();
-                this.checkImageLoad();
-            });
+            this.highlightCode();
+            this.renderMermaidCharts();
+            this.addCopyButtons();
+            this.checkImageLoad();
         });
-    }
-
-    /**
-     * 显示加载状态
-     */
-    showLoading() {
-        this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--md-text-secondary);">加载中...</div>';
-    }
-
-    /**
-     * 隐藏加载状态
-     */
-    hideLoading() {
-        // 渲染完成后自动隐藏
     }
 
     /**
