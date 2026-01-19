@@ -3,6 +3,7 @@
  * 负责生成和显示 Markdown 目录
  */
 import { BaseComponent } from './BaseComponent.js';
+import { dom } from '../utils/dom.js';
 
 export class TOC extends BaseComponent {
     /**
@@ -94,7 +95,7 @@ export class TOC extends BaseComponent {
      * 滚动到指定标题
      */
     scrollToHeading(headingId) {
-        const heading = document.getElementById(headingId);
+        const heading = dom.getById(headingId)?.element;
         if (heading) {
             heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }

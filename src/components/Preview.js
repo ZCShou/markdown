@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 import Prism from 'prismjs';
 import mermaid from 'mermaid';
 import { BaseComponent } from './BaseComponent.js';
+import { dom } from '../utils/dom.js';
 
 export class Preview extends BaseComponent {
     /**
@@ -162,7 +163,7 @@ export class Preview extends BaseComponent {
     highlightCode() {
         if (typeof Prism === 'undefined') return;
 
-        const codeBlocks = this.container.querySelectorAll('pre code:not(.prism-highlighted)');
+        const codeBlocks = dom.getAllIn(this.container, 'pre code:not(.prism-highlighted)');
         if (codeBlocks.length === 0) return;
 
         const batchSize = 10;
@@ -192,7 +193,7 @@ export class Preview extends BaseComponent {
         const isRendering = this.state.get('isRenderingMermaid');
         if (isRendering) return;
 
-        const mermaidBlocks = this.container.querySelectorAll('pre code.language-mermaid');
+        const mermaidBlocks = dom.getAllIn(this.container, 'pre code.language-mermaid');
         if (mermaidBlocks.length === 0) return;
 
         this.state.setRenderingState(true);
@@ -204,9 +205,10 @@ export class Preview extends BaseComponent {
             if (!code) return;
 
             const preElement = block.parentElement;
-            const container = document.createElement('div');
-            container.className = 'mermaid';
-            container.textContent = code;
+            const container = dom.create('div', {
+                className: 'mermaid',
+                textContent: code
+            });
 
             if (preElement && preElement.parentNode) {
                 preElement.parentNode.replaceChild(container, preElement);
@@ -237,7 +239,7 @@ export class Preview extends BaseComponent {
      * 添加代码块复制按钮
      */
     addCopyButtons() {
-        const preElements = this.container.querySelectorAll('pre:not(.has-copy-btn)');
+        const preElements = dom.getAllIn(this.container, 'pre:not(.has-copy-btn)');
         if (preElements.length === 0) return;
 
         preElements.forEach((pre) => {
@@ -254,7 +256,7 @@ export class Preview extends BaseComponent {
                 e.preventDefault();
                 e.stopPropagation();
 
-                const code = pre.querySelector('code');
+                const code = dom.getIn(pre, 'code');
                 if (!code || btn.classList.contains('copied')) return;
 
                 navigator.clipboard.writeText(code.textContent).then(() => {
@@ -275,7 +277,7 @@ export class Preview extends BaseComponent {
      * 检查图片加载状态
      */
     checkImageLoad() {
-        const images = this.container.querySelectorAll('img:not([data-error-handled])');
+        const images = dom.getAllIn(this.container, 'img:not([data-error-handled])');
         images.forEach((img) => {
             img.dataset.errorHandled = 'true';
         });
@@ -350,6 +352,6 @@ ${html}
      * 获取所有标题（用于生成目录）
      */
     getHeadings() {
-        return this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        return dom.getAllIn(this.container, 'h1, h2, h3, h4, h5, h6');
     }
 }

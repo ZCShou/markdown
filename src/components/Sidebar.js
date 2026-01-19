@@ -4,6 +4,7 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
+import { dom } from '../utils/dom.js';
 
 export class Sidebar extends BaseComponent {
     /**
@@ -80,19 +81,14 @@ export class Sidebar extends BaseComponent {
             
             // 在移动端显示遮罩层
             if (window.innerWidth <= 768) {
-                const overlay = document.getElementById('md-sidebar-overlay');
-                if (overlay) {
-                    overlay.classList.add('show');
-                }
+                dom.app.overlay?.addClass('show');
             }
 
             // 强制重排并触发尺寸重算
             requestAnimationFrame(() => {
-                const targets = ['md-container', 'md-preview-pane', 'md-preview-wrapper', 'md-editor-pane'];
-                targets.forEach((id) => {
-                    const el = document.getElementById(id);
-                    if (el) el.getBoundingClientRect();
-                });
+                dom.app.container?.element?.getBoundingClientRect();
+                dom.preview.pane?.element?.getBoundingClientRect();
+                dom.editor.pane?.element?.getBoundingClientRect();
                 window.dispatchEvent(new Event('resize'));
             });
 
@@ -106,19 +102,14 @@ export class Sidebar extends BaseComponent {
             
             // 在移动端隐藏遮罩层
             if (window.innerWidth <= 768) {
-                const overlay = document.getElementById('md-sidebar-overlay');
-                if (overlay) {
-                    overlay.classList.remove('show');
-                }
+                dom.app.overlay?.removeClass('show');
             }
 
             // 强制重排并触发尺寸重算（关闭时也需要）
             requestAnimationFrame(() => {
-                const targets = ['md-container', 'md-preview-pane', 'md-preview-wrapper', 'md-editor-pane'];
-                targets.forEach((id) => {
-                    const el = document.getElementById(id);
-                    if (el) el.getBoundingClientRect();
-                });
+                dom.app.container?.element?.getBoundingClientRect();
+                dom.preview.pane?.element?.getBoundingClientRect();
+                dom.editor.pane?.element?.getBoundingClientRect();
                 window.dispatchEvent(new Event('resize'));
             });
         }
@@ -144,7 +135,7 @@ export class Sidebar extends BaseComponent {
      * 更新区块状态
      */
     updateSectionState(sectionName, isCollapsed) {
-        const content = document.getElementById(`md-${sectionName}-content`);
+        const content = dom.getById(`md-${sectionName}-content`)?.element;
         if (content) {
             content.classList.toggle('collapsed', isCollapsed);
         }

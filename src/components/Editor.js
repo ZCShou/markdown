@@ -4,6 +4,7 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
+import { dom } from '../utils/dom.js';
 
 export class Editor extends BaseComponent {
     /**
@@ -19,7 +20,8 @@ export class Editor extends BaseComponent {
      */
     init() {
         super.init();
-        this.editorElement = this.container;
+        // 使用 dom.js 获取编辑器元素
+        this.editorElement = dom.editor.element || this.container;
     }
 
     /**

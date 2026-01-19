@@ -16,6 +16,7 @@ import { Editor } from '../components/Editor.js';
 import { Sidebar } from '../components/Sidebar.js';
 import { TOC } from '../components/TOC.js';
 import { StoreManager } from './store.js';
+import { dom } from '../utils/dom.js';
 
 // 导入 Prism 语言包
 import 'prismjs/components/prism-java';
@@ -291,34 +292,18 @@ sequenceDiagram
         
         /** @type {Object} 组件实例 */
         this.components = {};
-        
-        /** @type {Object} DOM 缓存 */
-        this.domCache = {};
-        
-        /** @type {Object} 定时器 */
-        this.timers = {};
     }
 
     // ==================== 工具函数 ====================
     
-    /**
-     * 获取 DOM 元素（带缓存）
-     */
-    getElement(id) {
-        if (!this.domCache[id]) {
-            this.domCache[id] = document.getElementById(id);
-        }
-        return this.domCache[id];
-    }
-
     /**
      * 显示消息提示
      */
     showMessage(message, type = 'info', duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION) {
         console.log(`[${type.toUpperCase()}] ${message}`);
         
-        const overlay = this.getElement('status-overlay');
-        const messageEl = this.getElement('status-message');
+        const overlay = dom.status.overlay?.element;
+        const messageEl = dom.status.message?.element;
 
         if (overlay && messageEl) {
             messageEl.textContent = message;
@@ -369,10 +354,10 @@ sequenceDiagram
      * 设置拖拽分隔条
      */
     setupDivider() {
-        const divider = this.getElement('md-divider');
-        const editorPane = this.getElement('md-editor-pane');
-        const previewPane = this.getElement('md-preview-pane');
-        const container = this.getElement('md-container');
+        const divider = dom.divider.element?.element;
+        const editorPane = dom.editor.pane?.element;
+        const previewPane = dom.preview.pane?.element;
+        const container = dom.app.container?.element;
 
         if (!divider || !editorPane || !previewPane || !container) return;
 
@@ -456,8 +441,8 @@ sequenceDiagram
         document.documentElement.dataset.mode = mode;
         
         // 更新 Prism 主题
-        const lightTheme = document.getElementById('prism-light-theme');
-        const darkTheme = document.getElementById('prism-dark-theme');
+        const lightTheme = dom.theme.light?.element;
+        const darkTheme = dom.theme.dark?.element;
         
         if (lightTheme && darkTheme) {
             if (mode === 'dark') {
@@ -484,8 +469,7 @@ sequenceDiagram
      * 更新主题图标
      */
     updateThemeIcon(mode) {
-        const themeToggle = this.getElement('theme-toggle');
-        const themeIcon = themeToggle?.querySelector('.theme-icon');
+        const themeIcon = dom.theme.icon?.element;
         if (themeIcon) {
             themeIcon.textContent = mode === 'dark' ? '☀️' : '🌙';
         }
@@ -515,7 +499,7 @@ sequenceDiagram
      * 应用布局
      */
     applyLayout(layout) {
-        const container = this.getElement('md-container');
+        const container = dom.app.container?.element;
         if (!container) return;
 
         const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
@@ -526,8 +510,8 @@ sequenceDiagram
         container.classList.add(layout);
 
         // 清除固定宽度类，让布局自适应
-        const editorPane = this.getElement('md-editor-pane');
-        const previewPane = this.getElement('md-preview-pane');
+        const editorPane = dom.editor.pane?.element;
+        const previewPane = dom.preview.pane?.element;
         if (editorPane) editorPane.classList.remove('fixed-width');
         if (previewPane) previewPane.classList.remove('fixed-width');
 
@@ -560,7 +544,7 @@ sequenceDiagram
         };
 
         Object.entries(sidebarButtons).forEach(([id, handler]) => {
-            const element = this.getElement(id);
+            const element = dom.getById(id)?.element;
             if (element) element.onclick = handler;
         });
 
@@ -577,7 +561,7 @@ sequenceDiagram
         };
 
         Object.entries(docButtons).forEach(([id, handler]) => {
-            const element = this.getElement(id);
+            const element = dom.getById(id)?.element;
             if (element) element.onclick = handler;
         });
 

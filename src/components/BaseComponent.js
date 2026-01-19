@@ -1,6 +1,10 @@
 /**
  * UI 组件基类
- * 提供组件通用功能：状态订阅、DOM 缓存、事件管理
+ * 提供组件通用功能：状态订阅、事件管理、工具方法
+ * 
+ * DOM 访问说明：
+ * - 全局元素：使用 dom.js（如 dom.editor.element）
+ * - 组件内查询：使用 dom.getIn() 或 dom.getAllIn()
  * 
  * @example
  * ```js
@@ -10,12 +14,24 @@
  *   }
  *   
  *   render() {
- *     this.container.innerHTML = '<h1>Hello</h1>';
+ *     // 使用 dom.js 访问全局元素
+ *     const editor = dom.editor.element;
+ *     
+ *     // 在组件内查询元素
+ *     const items = dom.getAllIn(this.container, '.item');
+ *     
+ *     // 创建元素
+ *     const btn = this.createElement('button', {
+ *       textContent: 'Click me'
+ *     });
+ *     
+ *     this.container.appendChild(btn);
  *   }
  * }
  * ```
  */
-import { debounce } from '../utils/helpers.js';
+import { debounce, escapeHtml } from '../utils/helpers.js';
+import { dom } from '../utils/dom.js';
 
 export class BaseComponent {
     /**
@@ -27,7 +43,6 @@ export class BaseComponent {
         this.state = state;
         this.containerId = containerId;
         this.container = null;
-        this.domCache = new Map();
         this.unsubscribe = null;
         this.eventHandlers = new Map();
     }
@@ -36,7 +51,8 @@ export class BaseComponent {
      * 初始化组件
      */
     init() {
-        this.container = document.getElementById(this.containerId);
+        // 使用 dom.js 获取容器
+        this.container = dom.getById(this.containerId)?.element;
         if (!this.container) {
             console.warn(`Container not found: ${this.containerId}`);
             return;
@@ -69,9 +85,6 @@ export class BaseComponent {
         if (this.container) {
             this.container.innerHTML = '';
         }
-
-        // 清空 DOM 缓存
-        this.domCache.clear();
     }
 
     /**
@@ -96,41 +109,12 @@ export class BaseComponent {
     }
 
     /**
-     * 获取 DOM 元素（带缓存）
-     */
-    getElement(id, container = this.container) {
-        if (!container) return null;
-
-        const cacheKey = container.id + '-' + id;
-        if (!this.domCache.has(cacheKey)) {
-            this.domCache.set(cacheKey, container.querySelector(`#${id}`) || 
-                                           document.getElementById(id));
-        }
-        return this.domCache.get(cacheKey);
-    }
-
-    /**
-     * 查询元素（带缓存）
-     */
-    querySelector(selector, container = this.container) {
-        if (!container) return null;
-        return container.querySelector(selector);
-    }
-
-    /**
-     * 查询所有元素
-     */
-    querySelectorAll(selector, container = this.container) {
-        if (!container) return [];
-        return Array.from(container.querySelectorAll(selector));
-    }
-
-    /**
      * 添加事件监听（自动管理清理）
      */
     addEventListener(element, event, handler, options) {
         if (!element) return;
 
+        // 使用 dom.js 的 on 方法
         element.addEventListener(event, handler, options);
 
         // 记录事件处理器以便后续清理
@@ -141,48 +125,10 @@ export class BaseComponent {
     }
 
     /**
-     * 创建元素
+     * 创建元素（使用 dom.js）
      */
     createElement(tag, options = {}) {
-        const element = document.createElement(tag);
-
-        if (options.className) {
-            element.className = options.className;
-        }
-
-        if (options.id) {
-            element.id = options.id;
-        }
-
-        if (options.textContent) {
-            element.textContent = options.textContent;
-        }
-
-        if (options.innerHTML) {
-            element.innerHTML = options.innerHTML;
-        }
-
-        if (options.dataset) {
-            Object.entries(options.dataset).forEach(([key, value]) => {
-                element.dataset[key] = value;
-            });
-        }
-
-        if (options.attributes) {
-            Object.entries(options.attributes).forEach(([key, value]) => {
-                element.setAttribute(key, value);
-            });
-        }
-
-        if (options.style) {
-            Object.assign(element.style, options.style);
-        }
-
-        if (options.parent) {
-            options.parent.appendChild(element);
-        }
-
-        return element;
+        return dom.create(tag, options);
     }
 
     /**
@@ -250,11 +196,9 @@ export class BaseComponent {
     }
 
     /**
-     * 转义 HTML
+     * 转义 HTML（使用 helpers.js）
      */
     escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        return escapeHtml(text);
     }
 }

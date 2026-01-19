@@ -4,6 +4,7 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
+import { dom } from '../utils/dom.js';
 
 export class DocumentList extends BaseComponent {
     /**
@@ -106,10 +107,10 @@ export class DocumentList extends BaseComponent {
         this.editingDocId = docId;
         this.render(); // 重新渲染以显示输入框
 
-        const item = this.container.querySelector(`[data-doc-id="${docId}"]`);
+        const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
         if (!item) return;
 
-        const input = item.querySelector('.md-doc-item-input');
+        const input = dom.getIn(item, '.md-doc-item-input');
         if (!input) return;
 
         // 选中文本
