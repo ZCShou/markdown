@@ -3,7 +3,6 @@
  * 负责生成和显示 Markdown 目录
  */
 import { BaseComponent } from './BaseComponent.js';
-import { dom } from '../utils/dom.js';
 
 export class TOC extends BaseComponent {
     /**
@@ -21,7 +20,7 @@ export class TOC extends BaseComponent {
     subscribe() {
         // 订阅最后渲染内容和当前文档ID变化，确保预览渲染完成后生成目录
         this.unsubscribe = this.state.subscribeTo(['lastRenderedContent', 'currentDocId'], () => {
-            this.scheduleTOCGeneration();
+            this.generateTOC();
         });
     }
 
@@ -42,14 +41,14 @@ export class TOC extends BaseComponent {
 
         // 监听目录生成事件（自动清理）
         this.addEventListener(window, 'md:generateTOC', () => {
-            this.scheduleTOCGeneration();
+            this.generateTOC();
         });
     }
 
     /**
-     * 调度目录生成（使用 requestAnimationFrame 确保 DOM 更新完成）
+     * 生成目录（使用 requestAnimationFrame 确保 DOM 更新完成）
      */
-    scheduleTOCGeneration() {
+    generateTOC() {
         // 清除之前的动画帧请求
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
@@ -57,62 +56,47 @@ export class TOC extends BaseComponent {
         
         // 在下一帧生成目录，确保预览组件已完成 DOM 更新
         this.animationFrameId = requestAnimationFrame(() => {
-            this.generateTOC();
             this.animationFrameId = null;
-        });
-    }
+            
+            const { previewComponent, container } = this;
+            if (!previewComponent) return;
 
-    /**
-     * 生成目录
-     */
-    generateTOC() {
-        if (!this.previewComponent) return;
-
-        const headings = this.previewComponent.getHeadings();
-        
-        if (headings.length === 0) {
-            this.container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
-            return;
-        }
-
-        const fragment = this.createFragment();
-
-        headings.forEach((heading, index) => {
-            // 为标题生成 ID（如果没有）
-            if (!heading.id) {
-                heading.id = 'heading-' + index;
+            const headings = previewComponent.getHeadings();
+            const headingCount = headings.length;
+            
+            if (headingCount === 0) {
+                container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
+                return;
             }
 
-            const item = this.renderTOCItem(heading);
-            fragment.appendChild(item);
-        });
-
-        this.container.innerHTML = '';
-        this.container.appendChild(fragment);
-    }
-
-    /**
-     * 渲染目录项
-     */
-    renderTOCItem(heading) {
-        const level = parseInt(heading.tagName.substring(1));
-
-        const item = this.createElement('div', {
-            className: 'md-toc-item level-' + level,
-            textContent: heading.textContent,
-            dataset: {
-                headingId: heading.id
+            // 使用字符串拼接构建目录 HTML，提升性能（使用 for 循环避免函数调用开销）
+            let html = '';
+            
+            for (let i = 0; i < headingCount; i++) {
+                const heading = headings[i];
+                
+                // 为标题生成 ID（如果没有）
+                if (!heading.id) {
+                    heading.id = 'heading-' + i;
+                }
+                
+                const level = parseInt(heading.tagName.substring(1));
+                const text = heading.textContent || '';
+                
+                html += `<div class="md-toc-item level-${level}" data-heading-id="${heading.id}">${text}</div>`;
             }
-        });
 
-        return item;
+            container.innerHTML = html;
+        });
     }
+
+
 
     /**
      * 滚动到指定标题
      */
     scrollToHeading(headingId) {
-        const heading = dom.getById(headingId)?.element;
+        const heading = document.getElementById(headingId);
         if (heading) {
             heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -135,6 +119,6 @@ export class TOC extends BaseComponent {
      * 渲染组件
      */
     render() {
-        this.scheduleTOCGeneration();
+        this.generateTOC();
     }
 }
