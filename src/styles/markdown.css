@@ -534,6 +534,8 @@ pre:hover .code-copy-btn,
 .md-toc {
     margin: 0 0 0 32px;
     padding: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .md-toc-item {
@@ -541,6 +543,12 @@ pre:hover .code-copy-btn,
     cursor: pointer;
     color: var(--md-text-primary);
     transition: color 0.2s;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .md-toc-item:hover {
@@ -666,7 +674,8 @@ pre:hover .code-copy-btn,
 
 /* 内部内容包装器 */
 .md-sidebar-section-content > div {
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     max-height: calc(100vh - 150px);
 }
 
