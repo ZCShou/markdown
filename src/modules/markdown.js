@@ -340,7 +340,7 @@ sequenceDiagram
         this.components.rightSidebar = new Sidebar(this.state, 'md-sidebar-right', 'right');
         
         // 目录组件
-        this.components.toc = new TOC(this.state, 'md-toc', this.components.preview);
+        this.components.toc = new TOC(this.state, 'md-toc');
         
         // 初始化所有组件
         Object.values(this.components).forEach(component => {
@@ -586,10 +586,7 @@ sequenceDiagram
         const theme = StoreManager.loadTheme('light');
         const layout = StoreManager.loadLayout() || 'layout-both';
 
-        // 先初始化组件（组件会订阅状态）
-        this.initComponents();
-
-        // 然后设置状态（组件会收到通知并渲染）
+        // 先设置初始状态
         this.state.setState({
             documents,
             content,
@@ -599,6 +596,9 @@ sequenceDiagram
 
         // 保存文档到 StoreManager
         StoreManager.saveDocuments(documents);
+
+        // 初始化组件（组件会订阅状态并渲染）
+        this.initComponents();
 
         // 初始化主题和布局
         this.initTheme();

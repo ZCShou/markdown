@@ -40,7 +40,8 @@ export class EditorState {
 
         // 渲染状态
         isRenderingMermaid: false,
-        lastRenderedContent: ''
+        lastRenderedContent: '',
+        headings: []  // 标题数据，用于目录生成
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -100,9 +101,9 @@ export class EditorState {
         // 更新状态
         Object.assign(this.#state, updates);
         
-        // 如果不是静默更新，通知监听器
+        // 如果不是静默更新，通知监听器（传递 force 选项）
         if (!options.silent) {
-            this.#notify(oldState, this.#state);
+            this.#notify(oldState, this.#state, options.force);
         }
     }
 
@@ -153,7 +154,7 @@ export class EditorState {
      * @param {Object} oldState - 旧状态
      * @param {Object} newState - 新状态
      */
-    #notify(oldState, newState) {
+    #notify(oldState, newState, force = false) {
         // 通知全局监听器
         this.#globalListeners.forEach(listener => {
             try {
@@ -165,7 +166,8 @@ export class EditorState {
 
         // 通知特定键的监听器
         Object.keys(newState).forEach(key => {
-            if (newState[key] !== oldState[key]) {
+            // 强制更新或值有变化时才通知
+            if (force || newState[key] !== oldState[key]) {
                 const listeners = this.#listeners.get(key);
                 if (listeners) {
                     listeners.forEach(listener => {
@@ -241,6 +243,7 @@ export class EditorState {
             const newContent = doc.content || '';
             
             // 使用 setState 更新，force: true 确保即使内容相同也触发更新
+            // 不清空 headings，让 Preview 渲染完成后自然更新，避免闪烁
             this.setState({ 
                 currentDocId: docId,
                 content: newContent
@@ -253,14 +256,17 @@ export class EditorState {
      * @param {string} content - 文档内容
      */
     updateContent(content) {
+        // 只更新 content 状态，不触发 documents 更新
+        // documents 的更新通过防抖保存机制处理，避免每次输入都重新渲染文档列表
         this.setState({ content });
-
-        // 同时更新当前文档（使用 silent 选项避免触发 documents 监听器）
+        
+        // 静默更新 documents 数组（不触发订阅者通知）
         if (this.#state.currentDocId) {
-            this.updateDocument(this.#state.currentDocId, {
-                content,
-                updatedAt: new Date().toISOString()
-            }, { silent: true });
+            const docIndex = this.#state.documents.findIndex(d => d.id === this.#state.currentDocId);
+            if (docIndex !== -1) {
+                this.#state.documents[docIndex].content = content;
+                this.#state.documents[docIndex].updatedAt = new Date().toISOString();
+            }
         }
     }
 

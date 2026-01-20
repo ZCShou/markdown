@@ -8,9 +8,8 @@ export class TOC extends BaseComponent {
     /**
      * 构造函数
      */
-    constructor(state, containerId, previewComponent) {
+    constructor(state, containerId) {
         super(state, containerId);
-        this.previewComponent = previewComponent;
         this.animationFrameId = null;
     }
 
@@ -18,8 +17,8 @@ export class TOC extends BaseComponent {
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅最后渲染内容和当前文档ID变化，确保预览渲染完成后生成目录
-        this.unsubscribe = this.state.subscribeTo(['lastRenderedContent', 'currentDocId'], () => {
+        // 订阅标题数据变化，生成目录
+        this.unsubscribe = this.state.subscribeTo('headings', () => {
             this.generateTOC();
         });
     }
@@ -54,22 +53,19 @@ export class TOC extends BaseComponent {
             cancelAnimationFrame(this.animationFrameId);
         }
         
-        // 在下一帧生成目录，确保预览组件已完成 DOM 更新
+        // 在下一帧生成目录
         this.animationFrameId = requestAnimationFrame(() => {
             this.animationFrameId = null;
             
-            const { previewComponent, container } = this;
-            if (!previewComponent) return;
-
-            const headings = previewComponent.getHeadings();
-            const headingCount = headings.length;
+            const headings = this.state.get('headings');
+            const headingCount = headings ? headings.length : 0;
             
             if (headingCount === 0) {
-                container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
+                this.container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
                 return;
             }
 
-            // 使用字符串拼接构建目录 HTML，提升性能（使用 for 循环避免函数调用开销）
+            // 使用字符串拼接构建目录 HTML，提升性能
             let html = '';
             
             for (let i = 0; i < headingCount; i++) {
@@ -86,7 +82,7 @@ export class TOC extends BaseComponent {
                 html += `<div class="md-toc-item level-${level}" data-heading-id="${heading.id}">${text}</div>`;
             }
 
-            container.innerHTML = html;
+            this.container.innerHTML = html;
         });
     }
 

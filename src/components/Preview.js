@@ -58,6 +58,17 @@ export class Preview extends BaseComponent {
     }
 
     /**
+     * 渲染组件
+     */
+    render() {
+        // 初始渲染预览内容
+        const content = this.state.get('content') || '';
+        if (content) {
+            this._scheduleRender(content, 0);
+        }
+    }
+
+    /**
      * 初始化 Mermaid
      */
     initMermaid() {
@@ -150,6 +161,10 @@ export class Preview extends BaseComponent {
             this.renderMermaidCharts();
             this.addCopyButtons();
             this.checkImageLoad();
+            
+            // 更新标题数据到状态（用于目录生成）
+            const headings = this.getHeadings();
+            this.state.setState({ headings });
         });
     }
 

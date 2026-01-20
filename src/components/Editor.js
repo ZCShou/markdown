@@ -41,8 +41,8 @@ export class Editor extends BaseComponent {
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅内容和当前文档变化，更新编辑器内容
-        this.unsubscribe = this.state.subscribeTo(['content', 'currentDocId'], (newValue, oldValue, key) => {
+        // 只订阅当前文档变化，不需要订阅 content（Editor 是输入源）
+        this.unsubscribe = this.state.subscribeTo('currentDocId', () => {
             this.loadContent();
         });
     }
@@ -74,6 +74,14 @@ export class Editor extends BaseComponent {
         } catch (error) {
             console.error('Failed to load content:', error);
         }
+    }
+
+    /**
+     * 渲染组件
+     */
+    render() {
+        // 初始加载内容
+        this.loadContent();
     }
 
     /**
