@@ -15,6 +15,200 @@
  * ```
  */
 export class StoreManager {
+    /**
+     * 默认 Markdown 内容
+     * @type {string}
+     */
+    static DEFAULT_CONTENT = `# Markdown 语法指南
+
+## 标题
+
+# 这是一级标题
+## 这是二级标题
+###### 这是六级标题
+
+## 强调
+
+*这段文本会是斜体*
+_这段文本也会是斜体_
+
+**这段文本会是粗体**
+__这段文本也会是粗体_
+
+_你可以**组合**使用它们_
+
+## 列表
+
+### 无序列表
+
+* 项目 1
+* 项目 2
+  * 项目 2a
+  * 项目 2b
+
+### 有序列表
+
+1. 项目 1
+2. 项目 2
+3. 项目 3
+  1. 项目 3a
+  2. 项目 3b
+
+## 代码
+
+### 行内代码
+
+这是一个 \`行内代码\` 示例。
+
+### 代码块
+
+#### JavaScript
+\`\`\`javascript
+function hello() {
+    console.log("Hello, World!");
+}
+\`\`\`
+
+#### Python
+\`\`\`python
+def hello():
+    print("Hello, World!")
+\`\`\`
+
+#### Java
+\`\`\`java
+public class Hello {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+\`\`\`
+
+#### C
+\`\`\`c
+#include <stdio.h>
+int main() {
+    printf("Hello, World!\\n");
+    return 0;
+}
+\`\`\`
+
+#### C++
+\`\`\`cpp
+#include <iostream>
+int main() {
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+\`\`\`
+
+#### C#
+\`\`\`csharp
+using System;
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello, World!");
+    }
+}
+\`\`\`
+
+#### Ruby
+\`\`\`ruby
+puts "Hello, World!"
+\`\`\`
+
+#### Go
+\`\`\`go
+package main
+import "fmt"
+func main() {
+    fmt.Println("Hello, World!")
+}
+\`\`\`
+
+#### Rust
+\`\`\`rust
+fn main() {
+    println!("Hello, World!");
+}
+\`\`\`
+
+#### Swift
+\`\`\`swift
+print("Hello, World!")
+\`\`\`
+
+#### Kotlin
+\`\`\`kotlin
+fun main() {
+    println("Hello, World!")
+}
+\`\`\`
+
+#### TypeScript
+\`\`\`typescript
+function hello(): void {
+    console.log("Hello, World!");
+}
+\`\`\`
+
+#### SQL
+\`\`\`sql
+SELECT * FROM users WHERE name = 'Alice';
+\`\`\`
+
+#### Bash
+\`\`\`bash
+echo "Hello, World!"
+\`\`\`
+
+#### JSON
+\`\`\`json
+{
+    "message": "Hello, World!"
+}
+\`\`\`
+
+#### YAML
+\`\`\`yaml
+message: Hello, World!
+\`\`\`
+
+## 引用
+
+> 这是一段引用文字。
+>> 这是嵌套引用。
+
+## 表格
+
+| 左列 | 右列 |
+| --- | --- |
+| 左 foo | 右 foo |
+| 左 bar | 右 bar |
+
+## 链接
+
+[访问 GitHub](https://github.com)
+
+## Mermaid 图表
+
+\`\`\`mermaid
+graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[执行]
+    B -->|否| D[跳过]
+    C --> E[结束]
+    D --> E
+\`\`\`
+
+\`\`\`mermaid
+sequenceDiagram
+    participant A as 用户
+    participant B as 系统
+    A->>B: 发送请求
+    B-->>A: 返回响应
+\`\`\`
+`;
     // ==================== 存储键名常量 ====================
     
     /** @type {Object} 存储键名映射 */

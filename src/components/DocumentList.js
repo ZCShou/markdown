@@ -402,7 +402,7 @@ export class DocumentList extends BaseComponent {
             id: Date.now().toString(),
             name: type === 'folder' ? '新建文件夹' : '新建文档',
             type: type,
-            content: type === 'file' ? '' : undefined,
+            content: type === 'file' ? StoreManager.DEFAULT_CONTENT : undefined,
             parentId: parentId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
