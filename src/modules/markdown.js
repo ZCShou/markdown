@@ -575,6 +575,34 @@ sequenceDiagram
     // ==================== 初始化 ====================
     
     /**
+     * 获取初始文档和内容
+     * @returns {{currentDocId: string|null, content: string}}
+     */
+    #getInitialDocument(documents) {
+        const savedDocId = StoreManager.loadCurrentDocId();
+        
+        // 尝试使用保存的文档 ID
+        if (savedDocId) {
+            const doc = documents.find(d => d.id === savedDocId && d.type !== 'folder');
+            if (doc) {
+                return { currentDocId: doc.id, content: doc.content || '' };
+            }
+        }
+        
+        // 选择第一个非文件夹文档
+        const firstDoc = documents.find(d => d.type !== 'folder');
+        if (firstDoc) {
+            return { currentDocId: firstDoc.id, content: firstDoc.content || '' };
+        }
+        
+        // 没有文档，使用保存的内容
+        return { 
+            currentDocId: null, 
+            content: StoreManager.loadContent(MarkdownEditor.DEFAULT_CONTENT) 
+        };
+    }
+    
+    /**
      * 初始化
      */
     init() {
@@ -582,34 +610,21 @@ sequenceDiagram
 
         // 加载保存的数据
         const documents = StoreManager.loadDocuments();
-        const content = StoreManager.loadContent(MarkdownEditor.DEFAULT_CONTENT);
         const theme = StoreManager.loadTheme('light');
         const layout = StoreManager.loadLayout() || 'layout-both';
+        const { currentDocId, content } = this.#getInitialDocument(documents);
 
-        // 先设置初始状态
-        this.state.setState({
-            documents,
-            content,
-            theme,
-            layout
-        });
-
-        // 保存文档到 StoreManager
+        // 设置初始状态
+        this.state.setState({ documents, content, theme, layout, currentDocId });
         StoreManager.saveDocuments(documents);
 
-        // 初始化组件（组件会订阅状态并渲染）
+        // 初始化组件
         this.initComponents();
-
-        // 初始化主题和布局
         this.initTheme();
         this.initLayout();
-
-        // 绑定事件
         this.bindEvents();
-
-        // 设置分隔条
         this.setupDivider();
-
+        
         // 应用侧边栏区块状态
         this.components.leftSidebar.applySectionStates();
         this.components.rightSidebar.applySectionStates();

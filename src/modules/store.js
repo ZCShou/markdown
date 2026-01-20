@@ -21,6 +21,7 @@ export class StoreManager {
     static #STORAGE_KEYS = {
         CONTENT: 'markdown_editor_content',
         DOCUMENTS: 'markdown_editor_documents',
+        CURRENT_DOC_ID: 'markdown_editor_current_doc_id',
         THEME: 'markdown_editor_theme',
         LAYOUT: 'markdown_editor_layout',
         SECTION_PREFIX: 'markdown_editor_section_',
@@ -118,6 +119,36 @@ export class StoreManager {
             console.warn('加载文档列表失败:', e);
             StoreManager.#clearCorruptedData(StoreManager.#STORAGE_KEYS.DOCUMENTS);
             return [];
+        }
+    }
+
+    /**
+     * 保存当前文档 ID
+     * @param {string} docId - 文档 ID
+     * @returns {{success: boolean, error?: string}} 保存结果
+     */
+    static saveCurrentDocId(docId) {
+        try {
+            localStorage.setItem(StoreManager.#STORAGE_KEYS.CURRENT_DOC_ID, docId);
+            return { success: true };
+        } catch (e) {
+            const errorMsg = StoreManager.#handleStorageError(e, '保存当前文档 ID 失败');
+            console.warn(`${errorMsg}:`, e);
+            return { success: false, error: errorMsg };
+        }
+    }
+
+    /**
+     * 加载当前文档 ID
+     * @returns {string|null} 文档 ID，如果不存在则返回 null
+     */
+    static loadCurrentDocId() {
+        try {
+            const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.CURRENT_DOC_ID);
+            return saved || null;
+        } catch (e) {
+            console.warn('加载当前文档 ID 失败:', e);
+            return null;
         }
     }
 

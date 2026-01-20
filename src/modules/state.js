@@ -11,6 +11,8 @@
  * state.setState({ content: 'Hello' });
  * ```
  */
+import { StoreManager } from './store.js';
+
 export class EditorState {
     // ==================== 私有字段 ====================
     
@@ -248,6 +250,9 @@ export class EditorState {
                 currentDocId: docId,
                 content: newContent
             }, { force: true });
+            
+            // 保存当前文档 ID 到本地存储
+            StoreManager.saveCurrentDocId(docId);
         }
     }
 
