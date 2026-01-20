@@ -69,34 +69,45 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 切换文件夹展开状态
+     * 设置文件夹展开状态
+     * @param {string} folderId - 文件夹ID
+     * @param {boolean} expanded - 是否展开
+     */
+    setFolderExpanded(folderId, expanded) {
+        const currentlyExpanded = this.expandedFolders.has(folderId);
+        if (expanded && !currentlyExpanded) {
+            this.expandedFolders.add(folderId);
+            this.updateFolderUI(folderId, true);
+        } else if (!expanded && currentlyExpanded) {
+            this.expandedFolders.delete(folderId);
+            this.updateFolderUI(folderId, false);
+        }
+        // 如果状态未改变，不做任何操作
+    }
+
+    /**
+     * 切换文件夹展开状态（兼容旧调用）
      * @param {string} folderId - 文件夹ID
      */
     toggleFolder(folderId) {
-        if (this.expandedFolders.has(folderId)) {
-            this.expandedFolders.delete(folderId);
-        } else {
-            this.expandedFolders.add(folderId);
-        }
-        this.updateFolderUI(folderId, this.expandedFolders.has(folderId));
+        const expanded = !this.expandedFolders.has(folderId);
+        this.setFolderExpanded(folderId, expanded);
     }
 
     /**
-     * 展开文件夹
+     * 展开文件夹（兼容旧调用）
      * @param {string} folderId - 文件夹ID
      */
     expandFolder(folderId) {
-        this.expandedFolders.add(folderId);
-        this.updateFolderUI(folderId, true);
+        this.setFolderExpanded(folderId, true);
     }
 
     /**
-     * 折叠文件夹
+     * 折叠文件夹（兼容旧调用）
      * @param {string} folderId - 文件夹ID
      */
     collapseFolder(folderId) {
-        this.expandedFolders.delete(folderId);
-        this.updateFolderUI(folderId, false);
+        this.setFolderExpanded(folderId, false);
     }
 
     /**
@@ -355,24 +366,38 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 获取所有子项（递归）
+     * 获取所有子项（迭代优化版）
      */
     getAllChildren(folderId) {
         const documents = this.state.get('documents');
         const children = [];
-
-        const findChildren = (parentId) => {
-            documents.forEach(doc => {
-                if (doc.parentId === parentId) {
-                    children.push(doc);
-                    if (doc.type === 'folder') {
-                        findChildren(doc.id);
+        
+        // 构建父节点到子项的映射
+        const childrenMap = new Map();
+        documents.forEach(doc => {
+            if (doc.parentId) {
+                if (!childrenMap.has(doc.parentId)) {
+                    childrenMap.set(doc.parentId, []);
+                }
+                childrenMap.get(doc.parentId).push(doc);
+            }
+        });
+        
+        // 使用栈进行迭代遍历
+        const stack = [folderId];
+        while (stack.length > 0) {
+            const currentId = stack.pop();
+            const currentChildren = childrenMap.get(currentId);
+            if (currentChildren) {
+                for (const child of currentChildren) {
+                    children.push(child);
+                    if (child.type === 'folder') {
+                        stack.push(child.id);
                     }
                 }
-            });
-        };
-
-        findChildren(folderId);
+            }
+        }
+        
         return children;
     }
 
@@ -726,5 +751,20 @@ export class DocumentList extends BaseComponent {
         }
 
         return nodeContainer;
+    }
+
+    /**
+     * 清理组件资源
+     */
+    destroy() {
+        // 清除点击超时
+        if (this.clickTimeout) {
+            clearTimeout(this.clickTimeout);
+            this.clickTimeout = null;
+        }
+        // 调用父类清理（如果存在）
+        if (super.destroy) {
+            super.destroy();
+        }
     }
 }

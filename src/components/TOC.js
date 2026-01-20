@@ -12,15 +12,16 @@ export class TOC extends BaseComponent {
     constructor(state, containerId, previewComponent) {
         super(state, containerId);
         this.previewComponent = previewComponent;
+        this.animationFrameId = null;
     }
 
     /**
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅内容变化，重新生成目录
-        this.unsubscribe = this.state.subscribeTo('content', () => {
-            this.generateTOC();
+        // 订阅最后渲染内容和当前文档ID变化，确保预览渲染完成后生成目录
+        this.unsubscribe = this.state.subscribeTo(['lastRenderedContent', 'currentDocId'], () => {
+            this.scheduleTOCGeneration();
         });
     }
 
@@ -39,9 +40,25 @@ export class TOC extends BaseComponent {
             }
         });
 
-        // 监听目录生成事件
-        window.addEventListener('md:generateTOC', () => {
+        // 监听目录生成事件（自动清理）
+        this.addEventListener(window, 'md:generateTOC', () => {
+            this.scheduleTOCGeneration();
+        });
+    }
+
+    /**
+     * 调度目录生成（使用 requestAnimationFrame 确保 DOM 更新完成）
+     */
+    scheduleTOCGeneration() {
+        // 清除之前的动画帧请求
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+        }
+        
+        // 在下一帧生成目录，确保预览组件已完成 DOM 更新
+        this.animationFrameId = requestAnimationFrame(() => {
             this.generateTOC();
+            this.animationFrameId = null;
         });
     }
 
@@ -102,9 +119,22 @@ export class TOC extends BaseComponent {
     }
 
     /**
+     * 销毁组件，清理动画帧请求
+     */
+    destroy() {
+        // 清理动画帧请求
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        // 调用父类销毁逻辑
+        super.destroy();
+    }
+
+    /**
      * 渲染组件
      */
     render() {
-        this.generateTOC();
+        this.scheduleTOCGeneration();
     }
 }
