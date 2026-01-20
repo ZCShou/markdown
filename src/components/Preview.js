@@ -103,17 +103,23 @@ export class Preview extends BaseComponent {
         // 避免重复渲染（但允许初始渲染）
         if (content === lastRendered && lastRendered !== '') return;
 
+        this._scheduleRender(content, 100);
+    }
+
+    /**
+     * 调度渲染（内部方法）
+     */
+    _scheduleRender(content, delay = 100) {
         // 取消之前的渲染任务
         if (this.renderTimeout) {
             clearTimeout(this.renderTimeout);
         }
-
-        // 使用较短的延迟，确保输入时能及时更新
+        
         this.renderTimeout = setTimeout(() => {
             this.renderContent(content);
             this.state.updateLastRenderedContent(content);
             this.renderTimeout = null;
-        }, 100);
+        }, delay);
     }
 
     /**
@@ -121,32 +127,13 @@ export class Preview extends BaseComponent {
      */
     forceUpdatePreview() {
         const currentDocId = this.state.get('currentDocId');
-        
-        // 快速检查：如果没有 currentDocId，直接返回
         if (!currentDocId) return;
         
-        // 直接从 documents 中获取文档内容，确保是最新的
         const documents = this.state.get('documents');
         const doc = documents.find(d => d.id === currentDocId);
+        if (!doc || doc.type === 'folder') return;
         
-        // 如果是文件夹或文档不存在，不渲染（保持之前的预览内容）
-        if (!doc || doc.type === 'folder') {
-            return;
-        }
-        
-        const content = doc.content || '';
-        
-        // 取消之前的渲染任务
-        if (this.renderTimeout) {
-            clearTimeout(this.renderTimeout);
-        }
-        
-        // 使用 setTimeout 将渲染推迟到下一个事件循环，避免阻塞 UI
-        this.renderTimeout = setTimeout(() => {
-            this.renderContent(content);
-            this.state.updateLastRenderedContent(content);
-            this.renderTimeout = null;
-        }, 0);
+        this._scheduleRender(doc.content || '', 0);
     }
 
     /**
@@ -203,7 +190,7 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 应用代码高亮（分批处理）
+     * 应用代码高亮
      */
     highlightCode() {
         if (typeof Prism === 'undefined') return;
@@ -211,22 +198,13 @@ export class Preview extends BaseComponent {
         const codeBlocks = dom.getAllIn(this.container, 'pre code:not(.prism-highlighted)');
         if (codeBlocks.length === 0) return;
 
-        const batchSize = 10;
-        let index = 0;
-
-        const processBatch = () => {
-            const end = Math.min(index + batchSize, codeBlocks.length);
-            for (let i = index; i < end; i++) {
+        // 在下一帧一次性处理所有代码块，避免阻塞UI
+        requestAnimationFrame(() => {
+            for (let i = 0; i < codeBlocks.length; i++) {
                 Prism.highlightElement(codeBlocks[i]);
                 codeBlocks[i].classList.add('prism-highlighted');
             }
-            index = end;
-            if (index < codeBlocks.length) {
-                requestAnimationFrame(processBatch);
-            }
-        };
-
-        processBatch();
+        });
     }
 
     /**
@@ -244,22 +222,23 @@ export class Preview extends BaseComponent {
         this.state.setRenderingState(true);
 
         const containers = [];
+        const { container } = this;
 
-        mermaidBlocks.forEach((block) => {
+        for (let i = 0; i < mermaidBlocks.length; i++) {
+            const block = mermaidBlocks[i];
             const code = block.textContent.trim();
-            if (!code) return;
+            if (!code) continue;
 
             const preElement = block.parentElement;
-            const container = dom.create('div', {
-                className: 'mermaid',
-                textContent: code
-            });
+            const mermaidContainer = document.createElement('div');
+            mermaidContainer.className = 'mermaid';
+            mermaidContainer.textContent = code;
 
             if (preElement && preElement.parentNode) {
-                preElement.parentNode.replaceChild(container, preElement);
-                containers.push(container);
+                preElement.parentNode.replaceChild(mermaidContainer, preElement);
+                containers.push(mermaidContainer);
             }
-        });
+        }
 
         if (containers.length === 0) {
             this.state.setRenderingState(false);
@@ -272,10 +251,11 @@ export class Preview extends BaseComponent {
             })
             .catch((err) => {
                 console.warn('Mermaid 渲染失败:', err);
-                containers.forEach((container) => {
-                    container.textContent = '图表渲染失败: ' + err.message;
-                    container.classList.add('render-error');
-                });
+                for (let i = 0; i < containers.length; i++) {
+                    const c = containers[i];
+                    c.textContent = '图表渲染失败: ' + err.message;
+                    c.classList.add('render-error');
+                }
                 this.state.setRenderingState(false);
             });
     }
@@ -287,7 +267,8 @@ export class Preview extends BaseComponent {
         const preElements = dom.getAllIn(this.container, 'pre:not(.has-copy-btn)');
         if (preElements.length === 0) return;
 
-        preElements.forEach((pre) => {
+        for (let i = 0; i < preElements.length; i++) {
+            const pre = preElements[i];
             pre.classList.add('has-copy-btn');
 
             const btn = this.createElement('button', {
@@ -301,7 +282,7 @@ export class Preview extends BaseComponent {
                 e.preventDefault();
                 e.stopPropagation();
 
-                const code = dom.getIn(pre, 'code');
+                const code = pre.querySelector('code');
                 if (!code || btn.classList.contains('copied')) return;
 
                 navigator.clipboard.writeText(code.textContent).then(() => {
@@ -315,7 +296,7 @@ export class Preview extends BaseComponent {
                     console.error('复制失败:', err);
                 });
             });
-        });
+        }
     }
 
     /**
@@ -323,9 +304,9 @@ export class Preview extends BaseComponent {
      */
     checkImageLoad() {
         const images = dom.getAllIn(this.container, 'img:not([data-error-handled])');
-        images.forEach((img) => {
-            img.dataset.errorHandled = 'true';
-        });
+        for (let i = 0; i < images.length; i++) {
+            images[i].dataset.errorHandled = 'true';
+        }
     }
 
     /**
