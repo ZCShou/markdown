@@ -15,20 +15,18 @@ export class DocumentList extends BaseComponent {
         this.editingDocId = null;
         this.draggedItem = null;
         this.clickTimeout = null;
+        this.expandedFolders = new Set(); // 本地文件夹展开状态
     }
 
     /**
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅文档列表和展开状态变化
-        this.unsubscribe = this.state.subscribeTo(['documents', 'currentDocId', 'expandedFolders'], (newValue, oldValue, key) => {
+        // 订阅文档列表变化
+        this.unsubscribe = this.state.subscribeTo(['documents', 'currentDocId'], (newValue, oldValue, key) => {
             // 如果只是 currentDocId 变化，使用局部更新而不是完全重新渲染
             if (key === 'currentDocId') {
                 this.updateActiveState(newValue, oldValue);
-            } else if (key === 'expandedFolders') {
-                // expandedFolders 变化时，使用局部更新展开/折叠状态
-                this.updateFolderExpandState(newValue, oldValue);
             } else {
                 // documents 变化时，完全重新渲染
                 this.render();
@@ -59,47 +57,98 @@ export class DocumentList extends BaseComponent {
         }
     }
 
+
+
     /**
-     * 更新文件夹展开/折叠状态（局部更新，避免闪烁）
+     * 检查文件夹是否展开
+     * @param {string} folderId - 文件夹ID
+     * @returns {boolean} 是否展开
      */
-    updateFolderExpandState(newExpanded, oldExpanded) {
+    isFolderExpanded(folderId) {
+        return this.expandedFolders.has(folderId);
+    }
+
+    /**
+     * 切换文件夹展开状态
+     * @param {string} folderId - 文件夹ID
+     */
+    toggleFolder(folderId) {
+        if (this.expandedFolders.has(folderId)) {
+            this.expandedFolders.delete(folderId);
+        } else {
+            this.expandedFolders.add(folderId);
+        }
+        this.updateFolderUI(folderId, this.expandedFolders.has(folderId));
+    }
+
+    /**
+     * 展开文件夹
+     * @param {string} folderId - 文件夹ID
+     */
+    expandFolder(folderId) {
+        this.expandedFolders.add(folderId);
+        this.updateFolderUI(folderId, true);
+    }
+
+    /**
+     * 折叠文件夹
+     * @param {string} folderId - 文件夹ID
+     */
+    collapseFolder(folderId) {
+        this.expandedFolders.delete(folderId);
+        this.updateFolderUI(folderId, false);
+    }
+
+    /**
+     * 展开所有文件夹
+     */
+    expandAllFolders() {
+        const folderIds = this.state.get('documents')
+            .filter(doc => doc.type === 'folder')
+            .map(doc => doc.id);
+        this.expandedFolders = new Set(folderIds);
+        this.render(); // 需要完全重新渲染
+    }
+
+    /**
+     * 折叠所有文件夹
+     */
+    collapseAllFolders() {
+        this.expandedFolders.clear();
+        this.render(); // 需要完全重新渲染
+    }
+
+    /**
+     * 更新文件夹UI状态
+     * @param {string} folderId - 文件夹ID
+     * @param {boolean} expanded - 是否展开
+     */
+    updateFolderUI(folderId, expanded) {
         if (!this.container) return;
+        
+        const item = this.container.querySelector(`[data-doc-id="${folderId}"]`);
+        if (!item) return;
 
-        // 找出变化的文件夹
-        const changed = [];
-        newExpanded.forEach(id => {
-            if (!oldExpanded.has(id)) changed.push({ id, expanded: true });
-        });
-        oldExpanded.forEach(id => {
-            if (!newExpanded.has(id)) changed.push({ id, expanded: false });
-        });
+        // 更新箭头状态
+        const toggle = item.querySelector('.md-tree-toggle');
+        if (toggle) {
+            toggle.classList.toggle('expanded', expanded);
+        }
 
-        // 更新每个变化的文件夹
-        changed.forEach(({ id, expanded }) => {
-            const item = this.container.querySelector(`[data-doc-id="${id}"]`);
-            if (!item) return;
+        // 更新图标
+        const icon = item.querySelector('.md-doc-item-icon');
+        if (icon) {
+            icon.textContent = expanded ? '📂' : '📁';
+        }
 
-            // 更新箭头状态
-            const toggle = item.querySelector('.md-tree-toggle');
-            if (toggle) {
-                toggle.classList.toggle('expanded', expanded);
+        // 显示/隐藏子节点
+        const nodeContainer = item.closest('.md-tree-node');
+        if (nodeContainer) {
+            const childrenContainer = nodeContainer.querySelector('.md-tree-children');
+            if (childrenContainer) {
+                childrenContainer.style.display = expanded ? 'flex' : 'none';
             }
-
-            // 更新图标
-            const icon = item.querySelector('.md-doc-item-icon');
-            if (icon) {
-                icon.textContent = expanded ? '📂' : '📁';
-            }
-
-            // 显示/隐藏子节点
-            const nodeContainer = item.closest('.md-tree-node');
-            if (nodeContainer) {
-                const childrenContainer = nodeContainer.querySelector('.md-tree-children');
-                if (childrenContainer) {
-                    childrenContainer.style.display = expanded ? 'flex' : 'none';
-                }
-            }
-        });
+        }
     }
 
     /**
@@ -124,7 +173,7 @@ export class DocumentList extends BaseComponent {
         if (toggle) {
             e.stopPropagation();
             const folderId = toggle.dataset.folderId;
-            this.state.toggleFolder(folderId);
+            this.toggleFolder(folderId);
             return;
         }
 
@@ -169,7 +218,7 @@ export class DocumentList extends BaseComponent {
             this.clickTimeout = setTimeout(() => {
                 if (docType === 'folder') {
                     // 点击文件夹：展开/折叠 + 选中文件夹
-                    this.state.toggleFolder(docId);
+                    this.toggleFolder(docId);
                     // 选中文件夹（用于后续的重命名等操作）
                     // 使用 silent 选项避免触发 Preview 更新
                     const currentContent = this.state.get('content');
@@ -255,8 +304,12 @@ export class DocumentList extends BaseComponent {
         // 不能拖拽到自己或自己的子文件夹中
         if (targetId === this.draggedItem) return;
 
-        this.state.moveDocument(this.draggedItem, targetId);
-        StoreManager.saveDocuments(this.state.get('documents'));
+        const moved = this.state.moveDocument(this.draggedItem, targetId);
+        if (moved) {
+            StoreManager.saveDocuments(this.state.get('documents'));
+            // 如果移动到文件夹内，自动展开目标文件夹
+            this.expandFolder(targetId);
+        }
     }
 
     /**
@@ -339,6 +392,11 @@ export class DocumentList extends BaseComponent {
 
         this.state.addDocument(doc, parentId);
         StoreManager.saveDocuments(this.state.get('documents'));
+        
+        // 如果添加到文件夹内，自动展开该文件夹
+        if (parentId) {
+            this.expandFolder(parentId);
+        }
 
         // 立即进入编辑模式
         this.editItemName(doc.id);
@@ -488,12 +546,11 @@ export class DocumentList extends BaseComponent {
      * 全部展开/折叠
      */
     toggleAllFolders() {
-        const expanded = this.state.get('expandedFolders');
         const allFolders = this.state.get('documents').filter(d => d.type === 'folder');
-        if (expanded.size === allFolders.length) {
-            this.state.collapseAllFolders();
+        if (this.expandedFolders.size === allFolders.length) {
+            this.collapseAllFolders();
         } else {
-            this.state.expandAllFolders();
+            this.expandAllFolders();
         }
     }
 
@@ -553,7 +610,7 @@ export class DocumentList extends BaseComponent {
         const isEditing = node.id === this.editingDocId;
         const isActive = node.id === currentDocId;
         const isFolder = node.type === 'folder';
-        const isExpanded = isFolder && this.state.isFolderExpanded(node.id);
+        const isExpanded = isFolder && this.isFolderExpanded(node.id);
         const hasChildren = isFolder && node.children && node.children.length > 0;
 
         // 创建节点容器

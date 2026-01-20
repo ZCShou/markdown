@@ -40,10 +40,7 @@ export class EditorState {
 
         // 渲染状态
         isRenderingMermaid: false,
-        lastRenderedContent: '',
-
-        // 树型展开状态 (folderId -> boolean)
-        expandedFolders: new Set()
+        lastRenderedContent: ''
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -79,9 +76,26 @@ export class EditorState {
      * @param {Object} updates - 要更新的状态对象
      * @param {Object} options - 选项
      * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
+     * @param {boolean} [options.force=false] - 是否强制更新（即使值相同也触发通知）
      */
     setState(updates, options = {}) {
         const oldState = { ...this.#state };
+        let hasChanges = false;
+        
+        // 检查是否有实际变化（除非强制更新）
+        if (!options.force) {
+            for (const key in updates) {
+                if (!Object.is(this.#state[key], updates[key])) {
+                    hasChanges = true;
+                    break;
+                }
+            }
+            
+            // 如果没有变化且不是静默更新，可以跳过
+            if (!hasChanges && !options.silent) {
+                return;
+            }
+        }
         
         // 更新状态
         Object.assign(this.#state, updates);
@@ -177,11 +191,6 @@ export class EditorState {
         const newDoc = { ...doc, parentId };
         const documents = [...this.#state.documents, newDoc];
         this.setState({ documents });
-
-        // 如果添加到文件夹内，自动展开该文件夹
-        if (parentId) {
-            this.expandFolder(parentId);
-        }
     }
 
     /**
@@ -229,37 +238,13 @@ export class EditorState {
     setCurrentDocument(docId) {
         const doc = this.#state.documents.find(d => d.id === docId);
         if (doc && doc.type !== 'folder') {
-            const oldContent = this.#state.content;
-            const oldDocId = this.#state.currentDocId;
             const newContent = doc.content || '';
             
-            // 更新状态
-            this.#state.currentDocId = docId;
-            this.#state.content = newContent;
-            
-            // 触发 content 监听器（即使内容相同也要触发，确保切换文件时编辑器更新）
-            const contentListeners = this.#listeners.get('content');
-            if (contentListeners) {
-                contentListeners.forEach(listener => {
-                    try {
-                        listener(newContent, oldContent, 'content');
-                    } catch (error) {
-                        console.error(`State listener error for key "content":`, error);
-                    }
-                });
-            }
-            
-            // 触发 currentDocId 监听器
-            const currentDocListeners = this.#listeners.get('currentDocId');
-            if (currentDocListeners) {
-                currentDocListeners.forEach(listener => {
-                    try {
-                        listener(docId, oldDocId, 'currentDocId');
-                    } catch (error) {
-                        console.error(`State listener error for key "currentDocId":`, error);
-                    }
-                });
-            }
+            // 使用 setState 更新，force: true 确保即使内容相同也触发更新
+            this.setState({ 
+                currentDocId: docId,
+                content: newContent
+            }, { force: true });
         }
     }
 
@@ -316,70 +301,13 @@ export class EditorState {
         return this.#state.documents.filter(doc => doc.parentId === folderId);
     }
 
-    /**
-     * 检查文件夹是否展开
-     * @param {string} folderId - 文件夹ID
-     * @returns {boolean} 是否展开
-     */
-    isFolderExpanded(folderId) {
-        return this.#state.expandedFolders.has(folderId);
-    }
 
-    /**
-     * 切换文件夹展开状态
-     * @param {string} folderId - 文件夹ID
-     */
-    toggleFolder(folderId) {
-        const expanded = new Set(this.#state.expandedFolders);
-        if (expanded.has(folderId)) {
-            expanded.delete(folderId);
-        } else {
-            expanded.add(folderId);
-        }
-        this.setState({ expandedFolders: expanded });
-    }
-
-    /**
-     * 展开文件夹
-     * @param {string} folderId - 文件夹ID
-     */
-    expandFolder(folderId) {
-        const expanded = new Set(this.#state.expandedFolders);
-        expanded.add(folderId);
-        this.setState({ expandedFolders: expanded });
-    }
-
-    /**
-     * 折叠文件夹
-     * @param {string} folderId - 文件夹ID
-     */
-    collapseFolder(folderId) {
-        const expanded = new Set(this.#state.expandedFolders);
-        expanded.delete(folderId);
-        this.setState({ expandedFolders: expanded });
-    }
-
-    /**
-     * 展开所有文件夹
-     */
-    expandAllFolders() {
-        const folderIds = this.#state.documents
-            .filter(doc => doc.type === 'folder')
-            .map(doc => doc.id);
-        this.setState({ expandedFolders: new Set(folderIds) });
-    }
-
-    /**
-     * 折叠所有文件夹
-     */
-    collapseAllFolders() {
-        this.setState({ expandedFolders: new Set() });
-    }
 
     /**
      * 移动文档到另一个文件夹
      * @param {string} docId - 文档ID
      * @param {string} targetFolderId - 目标文件夹ID（null表示移到根目录）
+     * @returns {boolean} 是否移动成功
      */
     moveDocument(docId, targetFolderId) {
         // 防止将文件夹移动到其子文件夹中
@@ -387,8 +315,8 @@ export class EditorState {
             let current = this.#state.documents.find(d => d.id === targetFolderId);
             while (current && current.parentId) {
                 if (current.parentId === docId) {
-                    this.showMessage('不能将文件夹移动到其子文件夹中', 'error');
-                    return;
+                    // 无效移动，不执行操作
+                    return false;
                 }
                 current = this.#state.documents.find(d => d.id === current.parentId);
             }
@@ -399,10 +327,7 @@ export class EditorState {
             updatedAt: new Date().toISOString()
         });
 
-        // 如果移动到文件夹内，自动展开目标文件夹
-        if (targetFolderId) {
-            this.expandFolder(targetFolderId);
-        }
+        return true;
     }
 
     /**
