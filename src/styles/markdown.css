@@ -864,7 +864,9 @@ pre:hover .code-copy-btn,
     flex: 1;
     min-height: 0;
     padding: 16px;
+    overflow-x: hidden;
     overflow-y: auto;
+    box-sizing: border-box;
 }
 
 #markdown-preview {
@@ -879,8 +881,17 @@ pre:hover .code-copy-btn,
     line-height: 1.6;
     color: var(--md-markdown-text);
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
     box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.markdown-body pre {
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .markdown-body > *:first-child {
@@ -1065,7 +1076,7 @@ pre:hover .code-copy-btn,
 /* Mermaid 图表内部容器 */
 .markdown-body .mermaid svg {
     display: inline-block;
-    max-width: none;
+    max-width: 100%;
     height: auto;
 }
 
