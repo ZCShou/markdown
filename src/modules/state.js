@@ -240,16 +240,20 @@ export class EditorState {
      * @param {string} docId - 文档ID
      */
     setCurrentDocument(docId) {
+        // 如果文档 ID 没有变化，直接返回
+        if (this.#state.currentDocId === docId) {
+            return;
+        }
+        
         const doc = this.#state.documents.find(d => d.id === docId);
         if (doc && doc.type !== 'folder') {
             const newContent = doc.content || '';
             
-            // 使用 setState 更新，force: true 确保即使内容相同也触发更新
-            // 不清空 headings，让 Preview 渲染完成后自然更新，避免闪烁
+            // 更新状态（不需要 force，因为 currentDocId 已经改变）
             this.setState({ 
                 currentDocId: docId,
                 content: newContent
-            }, { force: true });
+            });
             
             // 保存当前文档 ID 到本地存储
             StoreManager.saveCurrentDocId(docId);

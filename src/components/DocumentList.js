@@ -228,15 +228,8 @@ export class DocumentList extends BaseComponent {
             // 延迟执行单击操作，等待双击
             this.clickTimeout = setTimeout(() => {
                 if (docType === 'folder') {
-                    // 点击文件夹：展开/折叠 + 选中文件夹
+                    // 点击文件夹：只展开/折叠，不选中
                     this.toggleFolder(docId);
-                    // 选中文件夹（用于后续的重命名等操作）
-                    // 使用 silent 选项避免触发 Preview 更新
-                    const currentContent = this.state.get('content');
-                    this.state.setState({
-                        currentDocId: docId,
-                        content: currentContent  // 保持当前内容不变
-                    });
                 } else {
                     // 点击文件：打开
                     this.handleOpen(docId);
