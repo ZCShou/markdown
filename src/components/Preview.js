@@ -839,7 +839,7 @@ export class Preview extends BaseComponent {
             // 使用 marked 解析 Markdown
             let html;
             if (marked?.parse) {
-                html = marked.parse(processedMarkdown, { breaks: true, gfm: true });
+                html = marked.parse(processedMarkdown, { breaks: false, gfm: true });
             } else {
                 html = this.escapeHtml(processedMarkdown);
             }
