@@ -1370,6 +1370,14 @@ pre.has-copy-btn {
     color: var(--md-text-primary);
     position: relative;
     user-select: none;
+    z-index: 1;
+    min-height: 34px;
+}
+
+/* 确保文档项的子元素在连接线上方 */
+.md-doc-item > * {
+    position: relative;
+    z-index: 2;
 }
 
 .md-doc-item:hover {
@@ -1401,13 +1409,16 @@ pre.has-copy-btn {
 /* 缩进 */
 .md-tree-indent {
     flex-shrink: 0;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* 展开/折叠箭头 */
 .md-tree-toggle,
 .md-tree-spacer {
     width: 16px;
-    height: 16px;
+    height: 22px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1437,8 +1448,12 @@ pre.has-copy-btn {
 /* 图标 */
 .md-doc-item-icon {
     font-size: 16px;
+    height: 22px;
+    line-height: 22px;
     margin-right: 6px;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* 名称 */
@@ -1452,6 +1467,8 @@ pre.has-copy-btn {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* 输入框 */
@@ -1467,6 +1484,8 @@ pre.has-copy-btn {
     background: var(--md-bg-secondary);
     color: var(--md-text-primary);
     min-width: 0;
+    display: inline-flex;
+    align-items: center;
 }
 
 .md-doc-item-input:focus {
@@ -1477,7 +1496,9 @@ pre.has-copy-btn {
 /* 操作按钮组 */
 .md-doc-item-actions {
     display: flex;
+    align-items: center;
     gap: 2px;
+    height: 22px;
     opacity: 0;
     flex-shrink: 0;
     margin-left: 4px;
