@@ -13,10 +13,7 @@ export class Preview extends BaseComponent {
     // ==================== 私有字段声明 ====================
     
     /** @private */
-    #renderCache;
-    
-    /** @private */
-    #cleanupInterval;
+    #lastRenderedData;
 
     /**
      * 构造函数
@@ -26,143 +23,143 @@ export class Preview extends BaseComponent {
         this.mermaidInitialized = false;
         this.renderTimeout = null;
         
-        // 渲染缓存（私有字段）
-        this.#renderCache = {
-            cache: new Map(),
-            memoryUsage: 0,
-            hitCount: 0,
-            missCount: 0,
-            maxSize: 50,
-            maxMemory: 10 * 1024 * 1024 // 10MB
+        // 增量渲染：存储上次渲染的数据
+        this.#lastRenderedData = {
+            markdown: '',
+            codeBlocks: new Map(),      // hash -> code content
+            mermaidBlocks: new Map(),   // hash -> mermaid content
+            headings: []                // heading texts
         };
-        
-        // 定期清理过期缓存
-        this.#cleanupInterval = setInterval(() => {
-            this.#cleanupRenderCache();
-        }, 60 * 1000);
     }
 
-    // ==================== 渲染缓存私有方法 ====================
-    
     /**
-     * 生成缓存键
+     * 生成简单哈希（用于差异检测）
      * @private
      */
-    #generateCacheKey(content) {
-        let hash = 2166136261;
-        for (let i = 0; i < content.length; i++) {
-            hash ^= content.charCodeAt(i);
-            hash = Math.imul(hash, 16777619);
+    #generateSimpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0; // 转换为32位整数
         }
         return hash.toString(36);
     }
 
     /**
-     * 估算字符串内存占用
+     * 提取所有代码块内容
      * @private
      */
-    #estimateSize(str) {
-        return str.length * 2;
+    #extractCodeBlocks(markdown) {
+        const codeBlocks = new Map();
+        const regex = /```(\w*)\n([\s\S]*?)```/g;
+        let match;
+        let index = 0;
+
+        while ((match = regex.exec(markdown)) !== null) {
+            const lang = match[1] || 'text';
+            const code = match[2];
+            const hash = this.#generateSimpleHash(lang + code);
+            codeBlocks.set(hash, { lang, code, index });
+            index++;
+        }
+
+        return codeBlocks;
     }
 
     /**
-     * 检查缓存是否过期
+     * 提取所有 Mermaid 图表内容
      * @private
      */
-    #isCacheExpired(entry) {
-        const ttl = 5 * 60 * 1000; // 5 分钟
-        return Date.now() - entry.timestamp > ttl;
+    #extractMermaidBlocks(markdown) {
+        const mermaidBlocks = new Map();
+        const regex = /```mermaid\n([\s\S]*?)```/g;
+        let match;
+        let index = 0;
+
+        while ((match = regex.exec(markdown)) !== null) {
+            const code = match[1].trim();
+            const hash = this.#generateSimpleHash(code);
+            mermaidBlocks.set(hash, { code, index });
+            index++;
+        }
+
+        return mermaidBlocks;
     }
 
     /**
-     * 驱逐最旧的缓存条目
+     * 提取所有标题
      * @private
      */
-    #evictCache() {
-        const firstKey = this.#renderCache.cache.keys().next().value;
-        if (firstKey) {
-            const entry = this.#renderCache.cache.get(firstKey);
-            this.#renderCache.memoryUsage -= this.#estimateSize(entry.html);
-            this.#renderCache.cache.delete(firstKey);
+    #extractHeadings(markdown) {
+        const headings = [];
+        const regex = /^(#{1,6})\s+(.+)$/gm;
+        let match;
+
+        while ((match = regex.exec(markdown)) !== null) {
+            headings.push(match[2]); // 只存储标题文本
         }
+
+        return headings;
     }
 
     /**
-     * 从缓存获取渲染结果
+     * 检测内容变化
      * @private
      */
-    #getFromCache(content) {
-        const key = this.#generateCacheKey(content);
-        const entry = this.#renderCache.cache.get(key);
+    #detectChanges(newMarkdown) {
+        const oldData = this.#lastRenderedData;
+        
+        // 提取新内容的数据
+        const newCodeBlocks = this.#extractCodeBlocks(newMarkdown);
+        const newMermaidBlocks = this.#extractMermaidBlocks(newMarkdown);
+        const newHeadings = this.#extractHeadings(newMarkdown);
 
-        if (!entry) {
-            this.#renderCache.missCount++;
-            return null;
-        }
+        // 比较代码块变化
+        const codeBlocksChanged = !this.#areMapsEqual(oldData.codeBlocks, newCodeBlocks);
+        
+        // 比较 Mermaid 图表变化
+        const mermaidBlocksChanged = !this.#areMapsEqual(oldData.mermaidBlocks, newMermaidBlocks);
+        
+        // 比较标题变化
+        const headingsChanged = !this.#areArraysEqual(oldData.headings, newHeadings);
 
-        if (this.#isCacheExpired(entry)) {
-            this.#renderCache.cache.delete(key);
-            this.#renderCache.missCount++;
-            return null;
-        }
-
-        entry.timestamp = Date.now();
-        this.#renderCache.hitCount++;
-        return entry.html;
+        return {
+            codeBlocksChanged,
+            mermaidBlocksChanged,
+            headingsChanged,
+            newCodeBlocks,
+            newMermaidBlocks,
+            newHeadings
+        };
     }
 
     /**
-     * 存入缓存
+     * 比较两个 Map 是否相等
      * @private
      */
-    #setToCache(content, html) {
-        const key = this.#generateCacheKey(content);
-        const size = this.#estimateSize(html);
-
-        if (this.#renderCache.cache.has(key)) {
-            const oldEntry = this.#renderCache.cache.get(key);
-            this.#renderCache.memoryUsage -= this.#estimateSize(oldEntry.html);
+    #areMapsEqual(map1, map2) {
+        if (map1.size !== map2.size) return false;
+        
+        for (const [key, value] of map1) {
+            if (!map2.has(key)) return false;
+            // 简单比较，只比较哈希键
         }
-
-        // 检查内存限制
-        while (this.#renderCache.memoryUsage + size > this.#renderCache.maxMemory && this.#renderCache.cache.size > 0) {
-            this.#evictCache();
-        }
-
-        // 检查条目数限制
-        while (this.#renderCache.cache.size >= this.#renderCache.maxSize && this.#renderCache.cache.size > 0) {
-            this.#evictCache();
-        }
-
-        this.#renderCache.cache.set(key, { html, timestamp: Date.now() });
-        this.#renderCache.memoryUsage += size;
+        
+        return true;
     }
 
     /**
-     * 清理过期缓存
+     * 比较两个数组是否相等
      * @private
      */
-    #cleanupRenderCache() {
-        const now = Date.now();
-        const ttl = 5 * 60 * 1000;
-
-        for (const [key, entry] of this.#renderCache.cache.entries()) {
-            if (now - entry.timestamp > ttl) {
-                this.#renderCache.memoryUsage -= this.#estimateSize(entry.html);
-                this.#renderCache.cache.delete(key);
-            }
+    #areArraysEqual(arr1, arr2) {
+        if (arr1.length !== arr2.length) return false;
+        
+        for (let i = 0; i < arr1.length; i++) {
+            if (arr1[i] !== arr2[i]) return false;
         }
-    }
-
-    /**
-     * 清空缓存
-     * @private
-     */
-    #clearRenderCache() {
-        this.#renderCache.cache.clear();
-        this.#renderCache.memoryUsage = 0;
-        this.#renderCache.hitCount = 0;
-        this.#renderCache.missCount = 0;
+        
+        return true;
     }
 
     /**
@@ -284,11 +281,129 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 渲染内容（性能优化版 - 合并 DOM 查询）
+     * 智能更新 DOM（保留未变化的渲染结果）
+     * @private
+     */
+    #updateDOMSmart(newHTML, changes) {
+        // 创建临时容器解析新 HTML
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = newHTML;
+        
+        // 如果是首次渲染或所有内容都变了，直接替换
+        if (!this.#lastRenderedData.markdown) {
+            this.container.innerHTML = newHTML;
+            return;
+        }
+        
+        // 获取当前 DOM 中的所有代码块和 Mermaid 图表
+        const oldCodeBlocks = new Map();
+        const oldMermaidBlocks = new Map();
+        
+        // 1. 收集已高亮的代码块
+        this.container.querySelectorAll('pre code[class*="language-"]').forEach((el, index) => {
+            // 跳过 Mermaid 代码块
+            if (el.classList.contains('language-mermaid')) {
+                return;
+            }
+            const hash = this.#generateSimpleHash(el.textContent);
+            oldCodeBlocks.set(hash, el);
+        });
+        
+        // 2. 收集已渲染的 Mermaid 图表（注意：渲染后是 div.mermaid，不是 pre）
+        this.container.querySelectorAll('div.mermaid').forEach((el) => {
+            // 从 data-mermaid 属性获取原始文本
+            let originalText = el.getAttribute('data-mermaid');
+            
+            // 如果没有 data-mermaid 属性，尝试从 DOM 中提取
+            if (!originalText) {
+                // Mermaid 渲染后，原始文本可能在第一个文本节点中
+                const textNodes = [];
+                for (let child of el.childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+                        textNodes.push(child.textContent.trim());
+                    }
+                }
+                originalText = textNodes.join('').trim();
+            }
+            
+            if (originalText) {
+                const hash = this.#generateSimpleHash(originalText);
+                oldMermaidBlocks.set(hash, el);
+            }
+        });
+        
+        // 3. 遍历新 HTML 中的代码块（跳过 Mermaid）
+        tempContainer.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach((newEl) => {
+            const hash = this.#generateSimpleHash(newEl.textContent);
+            
+            // 如果这个代码块没有变化，保留旧的 DOM（保留高亮效果）
+            if (!changes.codeBlocksChanged || oldCodeBlocks.has(hash)) {
+                const oldEl = oldCodeBlocks.get(hash);
+                if (oldEl && oldEl.parentElement) {
+                    // 用旧的 DOM 替换新的（保留 Prism 高亮类）
+                    const oldPre = oldEl.parentElement.cloneNode(true);
+                    const newPre = newEl.parentElement;
+                    newPre.replaceWith(oldPre);
+                }
+            }
+        });
+        
+        // 4. 处理 Mermaid 图表 - 标记未变化的 Mermaid
+        const mermaidPreserveMap = new Map(); // hash -> { oldDiv, newPre }
+        const newMermaidBlocks = tempContainer.querySelectorAll('pre code.language-mermaid');
+        
+        newMermaidBlocks.forEach((newEl) => {
+            const text = newEl.textContent.trim();
+            const hash = this.#generateSimpleHash(text);
+            
+            // 如果这个 Mermaid 图表没有变化，记录需要保留的旧 DOM
+            // 注意：即使 mermaidBlocksChanged 为 true，单个图表也可能没变
+            if (oldMermaidBlocks.has(hash)) {
+                const oldEl = oldMermaidBlocks.get(hash);
+                if (oldEl && oldEl.tagName === 'DIV') {
+                    // 记录旧的 div 和新的 pre 元素（在 tempContainer 中）
+                    const newPre = newEl.parentElement;
+                    mermaidPreserveMap.set(hash, { oldDiv: oldEl, newPre: newPre });
+                }
+            }
+        });
+        
+        // 5. 在 tempContainer 中直接替换需要保留的 Mermaid（在添加到容器之前）
+        mermaidPreserveMap.forEach(({ oldDiv, newPre }) => {
+            if (newPre && newPre.parentNode) {
+                // 用旧的已渲染的 div.mermaid 替换新的 pre
+                newPre.parentNode.replaceChild(oldDiv.cloneNode(true), newPre);
+            }
+        });
+        
+        // 6. 使用 DocumentFragment 更新 DOM（避免 innerHTML 序列化问题）
+        const fragment = document.createDocumentFragment();
+        while (tempContainer.firstChild) {
+            fragment.appendChild(tempContainer.firstChild);
+        }
+        
+        // 7. 清空容器并添加新内容
+        this.container.innerHTML = '';
+        this.container.appendChild(fragment);
+    }
+
+    /**
+     * 渲染内容（增量渲染优化版）
      */
     renderContent(markdown) {
+        // 检测变化
+        const changes = this.#detectChanges(markdown);
+        
+        // 如果 Markdown 完全没变，跳过渲染
+        if (markdown === this.#lastRenderedData.markdown) {
+            return;
+        }
+
+        // 渲染 Markdown 为 HTML
         const html = this.renderMarkdown(markdown);
-        this.container.innerHTML = html;
+        
+        // 智能更新 DOM：保留未变化的代码块和 Mermaid 图表
+        this.#updateDOMSmart(html, changes);
 
         // 合并所有 DOM 查询为一次，减少重排
         requestAnimationFrame(() => {
@@ -299,29 +414,62 @@ export class Preview extends BaseComponent {
             const images = this.container.querySelectorAll('img:not([data-error-handled])');
             const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
-            // 批量处理所有元素
-            this.processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings);
+            // 增量处理：只处理变化的部分
+            this.processAllElements(
+                codeBlocks, 
+                mermaidBlocks, 
+                preElements, 
+                images, 
+                headings,
+                changes  // 传递变化信息
+            );
+
+            // 更新上次渲染的数据
+            this.#lastRenderedData = {
+                markdown: markdown,
+                codeBlocks: changes.newCodeBlocks,
+                mermaidBlocks: changes.newMermaidBlocks,
+                headings: changes.newHeadings
+            };
         });
     }
 
     /**
-     * 批量处理所有 DOM 元素（性能优化）
+     * 批量处理所有 DOM 元素（增量渲染优化版）
      */
-    processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings) {
-        // 处理代码高亮
-        this.highlightCodeBlocks(codeBlocks);
+    processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings, changes = null) {
+        // 如果没有变化信息，处理所有元素（兼容旧逻辑）
+        if (!changes) {
+            this.highlightCodeBlocks(codeBlocks);
+            this.renderMermaidChartsBlocks(mermaidBlocks);
+            this.addCopyButtonsToElements(preElements);
+            this.markImagesHandled(images);
+            this.state.setState({ headings: Array.from(headings) });
+            return;
+        }
+
+        // 增量渲染：只处理变化的部分
         
-        // 处理 Mermaid 图表
-        this.renderMermaidChartsBlocks(mermaidBlocks);
-        
-        // 添加复制按钮
+        // 1. 代码高亮：只在代码块变化时处理
+        if (changes.codeBlocksChanged) {
+            this.highlightCodeBlocks(codeBlocks);
+        }
+
+        // 2. Mermaid 图表：只在图表变化时处理
+        if (changes.mermaidBlocksChanged) {
+            this.renderMermaidChartsBlocks(mermaidBlocks);
+        }
+
+        // 3. 复制按钮：总是处理（因为 innerHTML 替换后按钮会丢失）
         this.addCopyButtonsToElements(preElements);
-        
-        // 处理图片加载
+
+        // 4. 图片处理：总是处理（因为 innerHTML 替换后标记会丢失）
         this.markImagesHandled(images);
-        
-        // 更新标题数据
-        this.state.setState({ headings: Array.from(headings) });
+
+        // 5. 标题更新：只在标题变化时更新
+        if (changes.headingsChanged) {
+            this.state.setState({ headings: Array.from(headings) });
+        }
     }
 
     /**
@@ -377,6 +525,8 @@ export class Preview extends BaseComponent {
             const mermaidContainer = document.createElement('div');
             mermaidContainer.className = 'mermaid';
             mermaidContainer.textContent = code;
+            // 保存原始文本，用于增量渲染时识别
+            mermaidContainer.setAttribute('data-mermaid', code);
 
             if (preElement?.parentNode) {
                 preElement.parentNode.replaceChild(mermaidContainer, preElement);
@@ -463,23 +613,18 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 渲染 Markdown 为 HTML（带缓存）
+     * 渲染 Markdown 为 HTML
      */
     renderMarkdown(markdown) {
-        // 尝试从缓存获取
-        let html = this.#getFromCache(markdown);
-        
-        if (html) return html;
-        
-        // 缓存未命中，执行渲染
         try {
+            let html;
             if (marked?.parse) {
                 html = marked.parse(markdown, { breaks: true, gfm: true });
             } else {
                 html = this.escapeHtml(markdown);
             }
 
-            // 净化 HTML
+            // 净化 HTML（防止 XSS）
             if (DOMPurify?.sanitize) {
                 html = DOMPurify.sanitize(html, {
                     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
@@ -493,8 +638,6 @@ export class Preview extends BaseComponent {
                 });
             }
 
-            // 存入缓存
-            this.#setToCache(markdown, html);
             return html;
         } catch (e) {
             console.warn('Markdown 渲染失败:', e);
@@ -570,12 +713,6 @@ ${html}
      * 销毁组件，清理资源
      */
     destroy() {
-        if (this.#cleanupInterval) {
-            clearInterval(this.#cleanupInterval);
-            this.#cleanupInterval = null;
-        }
-        
-        this.#clearRenderCache();
         super.destroy();
     }
 }
