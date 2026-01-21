@@ -412,7 +412,12 @@ export class MarkdownEditor {
                 clearTimeout(resizeTimeout);
             }
             resizeTimeout = setTimeout(() => {
-                setPaneWidths(this.lastLeftRatio);
+                // 只在双面板模式下设置固定宽度
+                // 单面板模式由CSS flex自动处理，不需要JavaScript干预
+                const currentLayout = this.state.get('layout');
+                if (currentLayout === 'layout-both') {
+                    setPaneWidths(this.lastLeftRatio);
+                }
             }, 100);
         });
     }
