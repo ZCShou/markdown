@@ -272,7 +272,7 @@ export class MarkdownEditor {
     // ==================== 分隔条拖拽 ====================
     
     /**
-     * 设置拖拽分隔条（性能优化版 - 使用 flex-basis）
+     * 设置拖拽分隔条（简化版）
      */
     setupDivider() {
         const divider = dom.divider.element?.element;
@@ -282,33 +282,17 @@ export class MarkdownEditor {
 
         if (!divider || !editorPane || !previewPane || !container) return;
 
-        // 性能优化：使用 requestAnimationFrame 节流
-        let rafId = null;
-        let pendingUpdate = false;
-        
-        // 缓存布局值，避免频繁查询 DOM
-        let cachedContainerRect = null;
-        let cachedDividerWidth = null;
-        let cachedTotalWidth = null;
-        let cachedAvailableWidth = null;
+        const MIN_WIDTH = 100; // 最小面板宽度
 
-        // 更新缓存的布局值
-        const updateLayoutCache = () => {
-            cachedContainerRect = container.getBoundingClientRect();
-            cachedDividerWidth = divider.offsetWidth;
-            cachedTotalWidth = cachedContainerRect.width;
-            cachedAvailableWidth = cachedTotalWidth - cachedDividerWidth;
-        };
-
-        // 设置面板宽度的辅助函数（使用 flex 代替 width，避免重排）
+        // 设置面板宽度
         const setPaneWidths = (ratio) => {
-            updateLayoutCache();
+            const containerWidth = container.offsetWidth;
+            const dividerWidth = divider.offsetWidth;
+            const availableWidth = containerWidth - dividerWidth;
             
-            const leftWidth = cachedAvailableWidth * ratio;
-            const rightWidth = cachedAvailableWidth - leftWidth;
+            const leftWidth = availableWidth * ratio;
+            const rightWidth = availableWidth - leftWidth;
 
-            // 使用 flex 属性代替 width，只触发 composite，不触发 layout
-            // flex: grow shrink basis
             editorPane.style.flex = '1 1 ' + leftWidth + 'px';
             editorPane.style.maxWidth = leftWidth + 'px';
             editorPane.classList.add('fixed-width');
@@ -318,12 +302,10 @@ export class MarkdownEditor {
             previewPane.classList.add('fixed-width');
         };
 
-        // 初始化宽度（等待 DOM 渲染完成）
-        requestAnimationFrame(() => {
-            setPaneWidths(this.lastLeftRatio);
-        });
+        // 初始化宽度
+        setPaneWidths(this.lastLeftRatio);
 
-        // 鼠标事件
+        // 鼠标悬停效果
         divider.addEventListener('mouseenter', () => {
             if (!this.isDragging) divider.classList.add('hover');
         });
@@ -332,88 +314,57 @@ export class MarkdownEditor {
             if (!this.isDragging) divider.classList.remove('hover');
         });
 
+        // 开始拖拽
         divider.addEventListener('mousedown', (e) => {
             this.isDragging = true;
             divider.classList.add('dragging');
             divider.classList.remove('hover');
             document.body.classList.add('is-dragging');
-            
-            // 拖拽开始时更新缓存
-            updateLayoutCache();
-            
-            // 提示浏览器优化（使用 flex）
-            editorPane.style.willChange = 'flex';
-            previewPane.style.willChange = 'flex';
-            
             e.preventDefault();
         });
 
+        // 双击重置为50%
         divider.addEventListener('dblclick', () => {
             setPaneWidths(0.5);
             this.lastLeftRatio = 0.5;
         });
 
-        // 性能优化：使用 requestAnimationFrame 节流 mousemove
+        // 拖拽过程
         document.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
 
-            // 如果已经有待处理的更新，只更新数据，不请求新的帧
-            if (pendingUpdate) {
-                return;
-            }
+            const containerRect = container.getBoundingClientRect();
+            const containerWidth = container.offsetWidth;
+            const dividerWidth = divider.offsetWidth;
+            const availableWidth = containerWidth - dividerWidth;
 
-            pendingUpdate = true;
+            const minWidth = MIN_WIDTH;
+            const maxWidth = availableWidth - minWidth;
+            const leftWidth = Math.max(minWidth, Math.min(e.clientX - containerRect.left, maxWidth));
+            const rightWidth = availableWidth - leftWidth;
 
-            // 使用 requestAnimationFrame 确保在浏览器准备好绘制时更新
-            if (!rafId) {
-                rafId = requestAnimationFrame(() => {
-                    const minWidth = MarkdownEditor.DRAG_CONFIG.MIN_WIDTH;
-                    const maxWidth = cachedAvailableWidth - minWidth;
-                    const leftWidth = Math.max(minWidth, Math.min(e.clientX - cachedContainerRect.left, maxWidth));
-                    const rightWidth = cachedAvailableWidth - leftWidth;
+            editorPane.style.flex = '1 1 ' + leftWidth + 'px';
+            editorPane.style.maxWidth = leftWidth + 'px';
+            previewPane.style.flex = '1 1 ' + rightWidth + 'px';
+            previewPane.style.maxWidth = rightWidth + 'px';
 
-                    // 使用 flex 属性代替 width，减少重排
-                    editorPane.style.flex = '1 1 ' + leftWidth + 'px';
-                    editorPane.style.maxWidth = leftWidth + 'px';
-                    previewPane.style.flex = '1 1 ' + rightWidth + 'px';
-                    previewPane.style.maxWidth = rightWidth + 'px';
-
-                    this.lastLeftRatio = leftWidth / cachedAvailableWidth;
-                    
-                    pendingUpdate = false;
-                    rafId = null;
-                });
-            }
+            this.lastLeftRatio = leftWidth / availableWidth;
         });
 
+        // 结束拖拽
         document.addEventListener('mouseup', () => {
             if (this.isDragging) {
                 this.isDragging = false;
                 divider.classList.remove('dragging', 'hover');
                 document.body.classList.remove('is-dragging');
-                
-                // 清除优化提示
-                editorPane.style.willChange = '';
-                previewPane.style.willChange = '';
-                
-                // 取消可能存在的待处理帧
-                if (rafId) {
-                    cancelAnimationFrame(rafId);
-                    rafId = null;
-                }
-                pendingUpdate = false;
             }
         });
 
-        // 窗口大小变化时使用防抖
+        // 窗口大小变化时重新计算
         let resizeTimeout;
         window.addEventListener('resize', () => {
-            if (resizeTimeout) {
-                clearTimeout(resizeTimeout);
-            }
+            if (resizeTimeout) clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                // 只在双面板模式下设置固定宽度
-                // 单面板模式由CSS flex自动处理，不需要JavaScript干预
                 const currentLayout = this.state.get('layout');
                 if (currentLayout === 'layout-both') {
                     setPaneWidths(this.lastLeftRatio);
