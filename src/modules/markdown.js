@@ -302,8 +302,11 @@ export class MarkdownEditor {
             previewPane.classList.add('fixed-width');
         };
 
-        // 初始化宽度
-        setPaneWidths(this.lastLeftRatio);
+        // 初始化宽度（只在双面板模式下设置固定宽度）
+        const currentLayout = this.state.get('layout');
+        if (currentLayout === 'layout-both') {
+            setPaneWidths(this.lastLeftRatio);
+        }
 
         // 鼠标悬停效果
         divider.addEventListener('mouseenter', () => {

@@ -595,6 +595,10 @@ export class Preview extends BaseComponent {
     renderMermaidChartsBlocks(mermaidBlocks) {
         if (typeof mermaid === 'undefined' || mermaidBlocks.length === 0) return;
 
+        // 检查预览容器是否可见（放在开头，避免执行不必要的代码）
+        // 如果容器不可见（display: none），Mermaid 无法正确计算位置，会报错
+        if (this.container.offsetParent === null) return;
+
         const isRendering = this.state.get('isRenderingMermaid');
         if (isRendering) return;
 
@@ -658,6 +662,9 @@ export class Preview extends BaseComponent {
      */
     renderMermaidCharts() {
         if (typeof mermaid === 'undefined') return;
+
+        // 检查预览容器是否可见（放在开头，避免执行不必要的代码）
+        if (this.container.offsetParent === null) return;
 
         // 查找所有已渲染的 Mermaid 图表
         const mermaidDivs = this.container.querySelectorAll('div.mermaid');
