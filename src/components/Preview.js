@@ -863,7 +863,7 @@ export class Preview extends BaseComponent {
                                    'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'img',
                                    'input', 'span', 'div', 'dd', 'dt', 'dl', 's'],
                     ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'type', 'checked',
-                                   'width', 'height', 'loading', 'colspan', 'rowspan', 'start'],
+                                   'width', 'height', 'loading', 'colspan', 'rowspan', 'start', 'align', 'style'],
                     ALLOW_DATA_ATTR: true,
                     ADD_ATTR: ['data-*']
                 });
