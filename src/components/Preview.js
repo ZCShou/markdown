@@ -752,13 +752,31 @@ export class Preview extends BaseComponent {
 
         for (let i = 0; i < preElements.length; i++) {
             const pre = preElements[i];
-            pre.classList.add('has-copy-btn');
-
+            
+            // 安全检查：确保元素仍在 DOM 中
+            if (!pre.parentNode) {
+                continue;
+            }
+            
+            // 检查是否已经有包装器，避免重复处理
+            if (pre.parentElement && pre.parentElement.classList.contains('code-block-wrapper')) {
+                continue;
+            }
+            
+            // 创建包装器，将复制按钮放在 pre 外部
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block-wrapper';
+            
+            // 将 pre 插入到包装器中
+            pre.parentNode.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+            
+            // 添加复制按钮到包装器
             const btn = this.createElement('button', {
                 className: 'md-btn md-btn-sm code-copy-btn',
                 textContent: '📋',
                 attributes: { title: '复制代码' },
-                parent: pre
+                parent: wrapper
             });
 
             this.addEventListener(btn, 'click', (e) => {
