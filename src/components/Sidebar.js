@@ -67,20 +67,6 @@ export class Sidebar extends BaseComponent {
     }
 
     /**
-     * 触发布局重算（性能优化 - 使用防抖减少重排）
-     */
-    _triggerLayoutRecalc() {
-        // 使用防抖避免频繁触发重排
-        this.debounce('layout-recalc', () => {
-            requestAnimationFrame(() => {
-                // 只触发一次 resize 事件，让浏览器自然处理布局
-                // 移除了不必要的 getBoundingClientRect 调用（这些会强制同步重排）
-                window.dispatchEvent(new Event('resize'));
-            });
-        }, 100);
-    }
-
-    /**
      * 更新可见性
      */
     updateVisibility(isOpen) {
@@ -93,8 +79,6 @@ export class Sidebar extends BaseComponent {
                 dom.app.overlay?.addClass('show');
             }
 
-            this._triggerLayoutRecalc();
-
             // 如果是右侧边栏，生成目录
             if (this.side === 'right') {
                 window.dispatchEvent(new CustomEvent('md:generateTOC'));
@@ -105,9 +89,9 @@ export class Sidebar extends BaseComponent {
             if (isMobile) {
                 dom.app.overlay?.removeClass('show');
             }
-
-            this._triggerLayoutRecalc();
         }
+        
+        // flex布局会自动处理，无需手动干预
     }
 
     /**
