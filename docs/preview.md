@@ -56,7 +56,20 @@ export class Preview extends BaseComponent {
 
 ## 渲染触发机制
 
-### 触发源
+### 触发源概览
+
+Preview 组件有三种主要的渲染触发源：
+
+```mermaid
+graph LR
+    A[渲染触发源] --> B[内容变化]
+    A --> C[文档切换]
+    A --> D[主题切换]
+    
+    B --> E[用户输入]
+    C --> F[点击文档列表]
+    D --> G[切换明暗主题]
+```
 
 Preview 组件通过**状态订阅**机制监听以下状态变化：
 
@@ -116,6 +129,40 @@ _scheduleRender(content, delay = 100) {
 }
 ```
 
+**渲染流程**：
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Editor as Editor
+    participant State as State
+    participant Preview as Preview
+    participant Cache as 缓存
+    participant Browser as 浏览器
+
+    User->>Editor: 输入字符
+    Editor->>Editor: handleInput()
+    Note over Editor: 50ms 防抖
+    Editor->>State: updateContent(content)
+    State->>Preview: content 变化通知
+    Preview->>Preview: updatePreview()
+    Note over Preview: 100ms 防抖
+    Preview->>Preview: _scheduleRender(content)
+    Preview->>Cache: 检查缓存
+    alt 缓存命中
+        Cache-->>Preview: 返回 HTML
+    else 缓存未命中
+        Preview->>Preview: marked.parse()
+        Preview->>Preview: DOMPurify.sanitize()
+        Preview->>Cache: 存入缓存
+    end
+    Preview->>Browser: innerHTML = html
+    Browser->>Preview: requestAnimationFrame
+    Preview->>Preview: querySelectorAll()
+    Preview->>Preview: processAllElements()
+    Preview->>Browser: 渲染最终结果
+    Browser-->>User: 显示内容
+```
+
 ### 2. 文档切换触发
 
 **触发路径**：
@@ -140,6 +187,29 @@ forceUpdatePreview() {
 }
 ```
 
+**渲染流程**：
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant DocList as DocumentList
+    participant State as State
+    participant Preview as Preview
+    participant Browser as 浏览器
+
+    User->>DocList: 点击文档
+    DocList->>State: setCurrentDocument(docId)
+    State->>Preview: currentDocId 变化通知
+    Preview->>Preview: forceUpdatePreview()
+    Note over Preview: 立即渲染，无延迟
+    Preview->>Preview: _scheduleRender(content, 0)
+    Preview->>Preview: renderContent(markdown)
+    Preview->>Browser: innerHTML = html
+    Browser->>Preview: requestAnimationFrame
+    Preview->>Preview: 处理代码高亮、图表等
+    Preview->>Browser: 渲染最终结果
+    Browser-->>User: 显示新文档内容
+```
+
 ### 3. 主题切换触发
 
 **触发路径**：
@@ -160,6 +230,26 @@ updateMermaidTheme() {
     });
     this.renderMermaidCharts();  // 重新渲染图表
 }
+```
+
+**渲染流程**：
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Editor as MarkdownEditor
+    participant State as State
+    participant Preview as Preview
+    participant Mermaid as Mermaid
+
+    User->>Editor: 点击主题切换
+    Editor->>State: setState({ theme })
+    State->>Preview: theme 变化通知
+    Preview->>Preview: updateMermaidTheme()
+    Preview->>Mermaid: mermaid.initialize(theme)
+    Preview->>Preview: renderMermaidCharts()
+    Preview->>Mermaid: mermaid.run({ nodes })
+    Mermaid-->>Preview: 渲染完成
+    Preview-->>User: 显示新主题图表
 ```
 
 ---
@@ -189,6 +279,110 @@ renderContent(markdown) {
         this.processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings);
     });
 }
+```
+
+**完整渲染流程图**：
+
+```mermaid
+flowchart TD
+    subgraph Triggers ["渲染触发源"]
+        Input[用户输入<br/>Editor.handleInput]
+        Switch[文档切换<br/>DocumentList.handleOpen]
+        Theme[主题切换<br/>MarkdownEditor.toggleTheme]
+    end
+
+    subgraph StateUpdate ["状态更新"]
+        Input --> |updateContent| State1[State.updateContent]
+        Switch --> |setCurrentDocument| State2[State.setCurrentDocument]
+        Theme --> |setState theme| State3[State.setState theme]
+    end
+
+    subgraph PreviewUpdate ["Preview 更新"]
+        State1 --> |content 变化| Update1[Preview.updatePreview]
+        State2 --> |currentDocId 变化| Update2[Preview.forceUpdatePreview]
+        State3 --> |theme 变化| Update3[Preview.updateMermaidTheme]
+    end
+
+    subgraph Schedule ["调度渲染"]
+        Update1 --> |100ms 防抖| Schedule1[_scheduleRender]
+        Update2 --> |立即渲染| Schedule2[_scheduleRender]
+        Update3 --> |重新渲染图表| RenderM[renderMermaidCharts]
+    end
+
+    subgraph RenderMain ["渲染内容"]
+        Schedule1 --> RenderContent[renderContent]
+        Schedule2 --> RenderContent
+        
+        RenderContent --> MD[renderMarkdown]
+        
+        subgraph Cache ["缓存检查"]
+            MD --> CacheCheck{缓存命中?}
+            CacheCheck --> |是| Return[返回缓存的 HTML]
+            CacheCheck --> |否| Parse[marked.parse]
+        end
+        
+        Parse --> Sanitize[DOMPurify.sanitize]
+        Sanitize --> SaveCache[存入缓存]
+        SaveCache --> Insert[container.innerHTML = html]
+    end
+
+    subgraph AsyncProcess ["异步处理"]
+        Insert --> RAF[requestAnimationFrame]
+        RAF --> Query[querySelectorAll<br/>一次性查询所有元素]
+        
+        Query --> Elements[提取元素]
+        Elements --> Code[代码块]
+        Elements --> MermaidBlock[Mermaid 代码块]
+        Elements --> Pre[Pre 元素]
+        Elements --> Img[图片]
+        Elements --> Heading[标题]
+    end
+
+    subgraph ProcessElements ["处理元素"]
+        Code --> Highlight[highlightCodeBlocks<br/>批处理 Prism 高亮]
+        MermaidBlock --> RenderM2[renderMermaidChartsBlocks<br/>替换并渲染图表]
+        Pre --> CopyBtn[addCopyButtonsToElements<br/>添加复制按钮]
+        Img --> MarkImg[markImagesHandled<br/>标记已处理]
+        Heading --> UpdateHeadings[setState headings<br/>触发 TOC 更新]
+    end
+
+    subgraph HighlightDetail ["代码高亮详情"]
+        Highlight --> Batch[分批处理<br/>每批 5 个]
+        Batch --> Idle1[requestIdleCallback<br/>时间分片]
+        Idle1 --> Prism[Prism.highlightElement]
+        Prism --> Mark[标记 prism-highlighted]
+    end
+
+    subgraph MermaidDetail ["Mermaid 渲染详情"]
+        RenderM2 --> CheckState{正在渲染?}
+        CheckState --> |是| Skip[跳过]
+        CheckState --> |否| SetState[setRenderingState true]
+        SetState --> Replace[替换 pre code 为 div.mermaid]
+        Replace --> MermaidRun[mermaid.run]
+        MermaidRun --> Timeout[5 秒超时保护]
+        Timeout --> Success{渲染成功?}
+        Success --> |是| Done[标记 mermaid-done]
+        Success --> |否| Error[显示错误信息]
+    end
+
+    subgraph Final ["最终呈现"]
+        Mark --> Browser[浏览器渲染]
+        Done --> Browser
+        Error --> Browser
+        CopyBtn --> Browser
+        UpdateHeadings --> TOC[TOC 组件更新]
+        TOC --> Browser
+        Browser --> User[用户看到最终结果]
+    end
+
+    style Triggers fill:#e1f5ff
+    style StateUpdate fill:#fff4e1
+    style PreviewUpdate fill:#e8f5e9
+    style Schedule fill:#fce4ec
+    style RenderMain fill:#f3e5f5
+    style AsyncProcess fill:#e0f2f1
+    style ProcessElements fill:#fff9c4
+    style Final fill:#e1bee7
 ```
 
 ---
@@ -725,6 +919,30 @@ requestAnimationFrame(() => {
 
 ## 性能优化策略
 
+### 性能优化概览
+
+```mermaid
+graph TB
+    subgraph Opt ["性能优化策略"]
+        Cache1[LRU 缓存<br/>50 条目 / 10MB]
+        Debounce[防抖机制<br/>100ms 延迟]
+        Batch[批处理<br/>每批 5 个代码块]
+        Idle[时间分片<br/>requestIdleCallback]
+        Async[异步处理<br/>requestAnimationFrame]
+        Timeout[超时保护<br/>5 秒限制]
+    end
+
+    Cache1 --> |减少重复渲染| Perf[提升性能]
+    Debounce --> |减少渲染频率| Perf
+    Batch --> |避免阻塞主线程| Perf
+    Idle --> |分时处理| Perf
+    Async --> |流畅渲染| Perf
+    Timeout --> |防止卡死| Perf
+
+    style Opt fill:#e8f5e9
+    style Perf fill:#fff9c4
+```
+
 ### 1. LRU 缓存
 
 **缓存配置**：
@@ -782,80 +1000,6 @@ if (isRendering) return;  // 正在渲染，跳过
 setInterval(() => {
     this.#cleanupRenderCache();
 }, 60 * 1000);  // 每 60 秒清理一次
-```
-
----
-
-## 完整渲染流程图
-
-```
-用户输入/切换文档
-    ↓
-Editor.handleInput()
-    ↓
-State.updateContent(content)
-    ↓
-Preview.updatePreview()
-    ↓
-_scheduleRender(content, 100ms)
-    ↓
-renderContent(markdown)
-    ↓
-┌─────────────────────────────────────┐
-│ 1. renderMarkdown(markdown)         │
-│    ├─ #getFromCache(markdown)       │
-│    │   └─ 命中？返回 HTML            │
-│    └─ 未命中                        │
-│        ├─ marked.parse(markdown)    │
-│        ├─ DOMPurify.sanitize(html)  │
-│        └─ #setToCache(markdown, html)│
-└─────────────────────────────────────┘
-    ↓
-container.innerHTML = html
-    ↓
-requestAnimationFrame()
-    ↓
-┌─────────────────────────────────────┐
-│ 2. querySelectorAll()               │
-│    ├─ codeBlocks                    │
-│    ├─ mermaidBlocks                 │
-│    ├─ preElements                   │
-│    ├─ images                        │
-│    └─ headings                      │
-└─────────────────────────────────────┘
-    ↓
-processAllElements(...)
-    ↓
-┌─────────────────────────────────────┐
-│ 3. highlightCodeBlocks()            │
-│    └─ 批处理 Prism.highlightElement │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ 4. renderMermaidChartsBlocks()      │
-│    ├─ 替换 <pre><code> 为 <div>     │
-│    ├─ mermaid.run({ nodes })        │
-│    └─ 超时保护 (5秒)                │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ 5. addCopyButtonsToElements()       │
-│    └─ 为每个 <pre> 添加复制按钮     │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ 6. markImagesHandled()              │
-│    └─ 标记图片已处理                │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ 7. setState({ headings })           │
-│    └─ 触发 TOC 组件更新              │
-└─────────────────────────────────────┘
-    ↓
-浏览器渲染
-    ↓
-用户看到最终结果
 ```
 
 ---
