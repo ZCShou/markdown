@@ -1,6 +1,7 @@
 /**
  * 本地存储管理器
  * 负责管理所有与 localStorage 相关的数据存储和读取
+ * 支持异步操作以避免阻塞主线程
  * 
  * @example
  * ```js
@@ -15,6 +16,78 @@
  * ```
  */
 export class StoreManager {
+    // ==================== 异步存储队列 ====================
+    
+    /** @type {Map} 待处理的存储操作队列 */
+    static #pendingOperations = new Map();
+    
+    /** @type {boolean} 是否正在处理队列 */
+    static #isProcessing = false;
+
+    /**
+     * 调度存储操作（异步）
+     * @private
+     * @param {Function} operation - 存储操作
+     * @returns {Promise} 操作结果
+     */
+    static #scheduleAsync(operation) {
+        return new Promise((resolve, reject) => {
+            const id = Date.now() + Math.random();
+            StoreManager.#pendingOperations.set(id, { operation, resolve, reject });
+            
+            if (!StoreManager.#isProcessing) {
+                StoreManager.#processQueue();
+            }
+        });
+    }
+
+    /**
+     * 处理操作队列
+     * @private
+     */
+    static #processQueue() {
+        if (StoreManager.#pendingOperations.size === 0) {
+            StoreManager.#isProcessing = false;
+            return;
+        }
+
+        StoreManager.#isProcessing = true;
+
+        const process = () => {
+            const [id, entry] = StoreManager.#pendingOperations.entries().next().value;
+            if (!entry) {
+                StoreManager.#isProcessing = false;
+                return;
+            }
+
+            StoreManager.#pendingOperations.delete(id);
+
+            try {
+                const result = entry.operation();
+                entry.resolve(result);
+            } catch (error) {
+                entry.reject(error);
+            }
+
+            // 继续处理下一个操作
+            if (StoreManager.#pendingOperations.size > 0) {
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(process, { timeout: 50 });
+                } else {
+                    setTimeout(process, 0);
+                }
+            } else {
+                StoreManager.#isProcessing = false;
+            }
+        };
+
+        // 开始处理
+        if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(process, { timeout: 50 });
+        } else {
+            setTimeout(process, 0);
+        }
+    }
     /**
      * 默认 Markdown 内容
      * @type {string}
@@ -229,7 +302,25 @@ sequenceDiagram
     // ==================== 内容存储 ====================
     
     /**
-     * 保存编辑器内容到本地存储
+     * 保存编辑器内容到本地存储（异步）
+     * @param {string} content - 编辑器内容
+     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
+     */
+    static async saveContentAsync(content) {
+        try {
+            await StoreManager.#scheduleAsync(() => {
+                localStorage.setItem(StoreManager.#STORAGE_KEYS.CONTENT, content);
+            });
+            return { success: true };
+        } catch (e) {
+            const errorMsg = StoreManager.#handleStorageError(e, '保存内容失败');
+            console.warn(`${errorMsg}:`, e);
+            return { success: false, error: errorMsg };
+        }
+    }
+
+    /**
+     * 保存编辑器内容到本地存储（同步，兼容旧代码）
      * @param {string} content - 编辑器内容
      * @returns {{success: boolean, error?: string}} 保存结果
      */
@@ -277,7 +368,26 @@ sequenceDiagram
     // ==================== 文档管理 ====================
 
     /**
-     * 保存文档列表
+     * 保存文档列表（异步）
+     * @param {Array} documents - 文档列表
+     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
+     */
+    static async saveDocumentsAsync(documents) {
+        try {
+            const serialized = JSON.stringify(documents);
+            await StoreManager.#scheduleAsync(() => {
+                localStorage.setItem(StoreManager.#STORAGE_KEYS.DOCUMENTS, serialized);
+            });
+            return { success: true };
+        } catch (e) {
+            const errorMsg = StoreManager.#handleStorageError(e, '保存文档列表失败');
+            console.warn(`${errorMsg}:`, e);
+            return { success: false, error: errorMsg };
+        }
+    }
+
+    /**
+     * 保存文档列表（同步，兼容旧代码）
      * @param {Array} documents - 文档列表
      * @returns {{success: boolean, error?: string}} 保存结果
      */

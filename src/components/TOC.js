@@ -45,7 +45,7 @@ export class TOC extends BaseComponent {
     }
 
     /**
-     * 生成目录（使用 requestAnimationFrame 确保 DOM 更新完成）
+     * 生成目录（增量更新优化）
      */
     generateTOC() {
         // 清除之前的动画帧请求
@@ -65,25 +65,82 @@ export class TOC extends BaseComponent {
                 return;
             }
 
-            // 使用字符串拼接构建目录 HTML，提升性能
-            let html = '';
-            
-            for (let i = 0; i < headingCount; i++) {
-                const heading = headings[i];
-                
-                // 为标题生成 ID（如果没有）
-                if (!heading.id) {
-                    heading.id = 'heading-' + i;
-                }
-                
-                const level = parseInt(heading.tagName.substring(1));
-                const text = heading.textContent || '';
-                
-                html += `<div class="md-toc-item level-${level}" data-heading-id="${heading.id}">${text}</div>`;
-            }
+            // 检查是否需要完全重建
+            const currentItems = this.container.querySelectorAll('.md-toc-item');
+            const needsFullRebuild = currentItems.length !== headingCount;
 
-            this.container.innerHTML = html;
+            if (needsFullRebuild) {
+                // 完全重建
+                this._rebuildTOC(headings);
+            } else {
+                // 增量更新
+                this._updateTOC(headings, currentItems);
+            }
         });
+    }
+
+    /**
+     * 完全重建目录
+     * @private
+     */
+    _rebuildTOC(headings) {
+        const headingCount = headings.length;
+
+        // 使用 DocumentFragment 提升性能
+        const fragment = document.createDocumentFragment();
+        
+        for (let i = 0; i < headingCount; i++) {
+            const heading = headings[i];
+            
+            // 为标题生成 ID（如果没有）
+            if (!heading.id) {
+                heading.id = 'heading-' + i;
+            }
+            
+            const level = parseInt(heading.tagName.substring(1));
+            const text = heading.textContent || '';
+            
+            const item = document.createElement('div');
+            item.className = 'md-toc-item level-' + level;
+            item.dataset.headingId = heading.id;
+            item.textContent = text;
+            
+            fragment.appendChild(item);
+        }
+
+        this.container.innerHTML = '';
+        this.container.appendChild(fragment);
+    }
+
+    /**
+     * 增量更新目录
+     * @private
+     */
+    _updateTOC(headings, currentItems) {
+        for (let i = 0; i < headings.length; i++) {
+            const heading = headings[i];
+            const currentItem = currentItems[i];
+            
+            // 为标题生成 ID（如果没有）
+            if (!heading.id) {
+                heading.id = 'heading-' + i;
+            }
+            
+            const level = parseInt(heading.tagName.substring(1));
+            const text = heading.textContent || '';
+            
+            // 检查是否需要更新
+            const currentId = currentItem.dataset.headingId;
+            const currentText = currentItem.textContent;
+            const currentLevel = parseInt(currentItem.className.match(/level-(\d)/)[1]);
+            
+            if (currentId !== heading.id || currentText !== text || currentLevel !== level) {
+                // 更新现有项
+                currentItem.dataset.headingId = heading.id;
+                currentItem.textContent = text;
+                currentItem.className = 'md-toc-item level-' + level;
+            }
+        }
     }
 
 

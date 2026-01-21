@@ -1277,7 +1277,7 @@ body.is-dragging {
 /* 固定宽度的面板 */
 .markdown-editor-pane.fixed-width,
 .markdown-preview-pane.fixed-width {
-    flex: none !important;
+    /* 不再使用 flex: none，允许通过内联样式控制 flex 属性 */
 }
 
 /* ==================== 代码块相关样式 ==================== */

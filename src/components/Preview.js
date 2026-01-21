@@ -10,6 +10,14 @@ import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
 
 export class Preview extends BaseComponent {
+    // ==================== 私有字段声明 ====================
+    
+    /** @private */
+    #renderCache;
+    
+    /** @private */
+    #cleanupInterval;
+
     /**
      * 构造函数
      */
@@ -17,6 +25,144 @@ export class Preview extends BaseComponent {
         super(state, containerId);
         this.mermaidInitialized = false;
         this.renderTimeout = null;
+        
+        // 渲染缓存（私有字段）
+        this.#renderCache = {
+            cache: new Map(),
+            memoryUsage: 0,
+            hitCount: 0,
+            missCount: 0,
+            maxSize: 50,
+            maxMemory: 10 * 1024 * 1024 // 10MB
+        };
+        
+        // 定期清理过期缓存
+        this.#cleanupInterval = setInterval(() => {
+            this.#cleanupRenderCache();
+        }, 60 * 1000);
+    }
+
+    // ==================== 渲染缓存私有方法 ====================
+    
+    /**
+     * 生成缓存键
+     * @private
+     */
+    #generateCacheKey(content) {
+        let hash = 2166136261;
+        for (let i = 0; i < content.length; i++) {
+            hash ^= content.charCodeAt(i);
+            hash = Math.imul(hash, 16777619);
+        }
+        return hash.toString(36);
+    }
+
+    /**
+     * 估算字符串内存占用
+     * @private
+     */
+    #estimateSize(str) {
+        return str.length * 2;
+    }
+
+    /**
+     * 检查缓存是否过期
+     * @private
+     */
+    #isCacheExpired(entry) {
+        const ttl = 5 * 60 * 1000; // 5 分钟
+        return Date.now() - entry.timestamp > ttl;
+    }
+
+    /**
+     * 驱逐最旧的缓存条目
+     * @private
+     */
+    #evictCache() {
+        const firstKey = this.#renderCache.cache.keys().next().value;
+        if (firstKey) {
+            const entry = this.#renderCache.cache.get(firstKey);
+            this.#renderCache.memoryUsage -= this.#estimateSize(entry.html);
+            this.#renderCache.cache.delete(firstKey);
+        }
+    }
+
+    /**
+     * 从缓存获取渲染结果
+     * @private
+     */
+    #getFromCache(content) {
+        const key = this.#generateCacheKey(content);
+        const entry = this.#renderCache.cache.get(key);
+
+        if (!entry) {
+            this.#renderCache.missCount++;
+            return null;
+        }
+
+        if (this.#isCacheExpired(entry)) {
+            this.#renderCache.cache.delete(key);
+            this.#renderCache.missCount++;
+            return null;
+        }
+
+        entry.timestamp = Date.now();
+        this.#renderCache.hitCount++;
+        return entry.html;
+    }
+
+    /**
+     * 存入缓存
+     * @private
+     */
+    #setToCache(content, html) {
+        const key = this.#generateCacheKey(content);
+        const size = this.#estimateSize(html);
+
+        if (this.#renderCache.cache.has(key)) {
+            const oldEntry = this.#renderCache.cache.get(key);
+            this.#renderCache.memoryUsage -= this.#estimateSize(oldEntry.html);
+        }
+
+        // 检查内存限制
+        while (this.#renderCache.memoryUsage + size > this.#renderCache.maxMemory && this.#renderCache.cache.size > 0) {
+            this.#evictCache();
+        }
+
+        // 检查条目数限制
+        while (this.#renderCache.cache.size >= this.#renderCache.maxSize && this.#renderCache.cache.size > 0) {
+            this.#evictCache();
+        }
+
+        this.#renderCache.cache.set(key, { html, timestamp: Date.now() });
+        this.#renderCache.memoryUsage += size;
+    }
+
+    /**
+     * 清理过期缓存
+     * @private
+     */
+    #cleanupRenderCache() {
+        const now = Date.now();
+        const ttl = 5 * 60 * 1000;
+
+        for (const [key, entry] of this.#renderCache.cache.entries()) {
+            if (now - entry.timestamp > ttl) {
+                this.#renderCache.memoryUsage -= this.#estimateSize(entry.html);
+                this.#renderCache.cache.delete(key);
+            }
+        }
+    }
+
+    /**
+     * 清空缓存
+     * @private
+     */
+    #clearRenderCache() {
+        this.#renderCache.cache.clear();
+        this.#renderCache.memoryUsage = 0;
+        this.#renderCache.hitCount = 0;
+        this.#renderCache.missCount = 0;
     }
 
     /**
@@ -25,7 +171,6 @@ export class Preview extends BaseComponent {
     init() {
         super.init();
         this.initMermaid();
-        this.initPrism();
     }
 
     /**
@@ -37,7 +182,6 @@ export class Preview extends BaseComponent {
             if (key === 'content') {
                 this.updatePreview();
             } else if (key === 'currentDocId') {
-                // 切换文档时强制更新预览
                 this.forceUpdatePreview();
             } else if (key === 'theme') {
                 this.updateMermaidTheme();
@@ -81,14 +225,6 @@ export class Preview extends BaseComponent {
         });
 
         this.mermaidInitialized = true;
-    }
-
-    /**
-     * 初始化 Prism
-     */
-    initPrism() {
-        // Prism 已经通过 import 加载了所有需要的语言包
-        // 这里不需要额外初始化
     }
 
     /**
@@ -151,7 +287,7 @@ export class Preview extends BaseComponent {
      * 渲染内容
      */
     renderContent(markdown) {
-        // 直接渲染内容，不显示加载状态
+        // 直接渲染内容
         const html = this.renderMarkdown(markdown);
         this.container.innerHTML = html;
 
@@ -163,28 +299,29 @@ export class Preview extends BaseComponent {
             this.checkImageLoad();
             
             // 更新标题数据到状态（用于目录生成）
-            const headings = this.getHeadings();
-            this.state.setState({ headings });
+            this.state.setState({ headings: this.getHeadings() });
         });
     }
 
     /**
-     * 渲染 Markdown 为 HTML
+     * 渲染 Markdown 为 HTML（带缓存）
      */
     renderMarkdown(markdown) {
+        // 尝试从缓存获取
+        let html = this.#getFromCache(markdown);
+        
+        if (html) return html;
+        
+        // 缓存未命中，执行渲染
         try {
-            let html = '';
-            if (marked && marked.parse) {
-                const options = {
-                    breaks: true,
-                    gfm: true
-                };
-                html = marked.parse(markdown, options);
+            if (marked?.parse) {
+                html = marked.parse(markdown, { breaks: true, gfm: true });
             } else {
                 html = this.escapeHtml(markdown);
             }
 
-            if (DOMPurify && DOMPurify.sanitize) {
+            // 净化 HTML
+            if (DOMPurify?.sanitize) {
                 html = DOMPurify.sanitize(html, {
                     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
                                    'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -197,6 +334,8 @@ export class Preview extends BaseComponent {
                 });
             }
 
+            // 存入缓存
+            this.#setToCache(markdown, html);
             return html;
         } catch (e) {
             console.warn('Markdown 渲染失败:', e);
@@ -205,7 +344,7 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 应用代码高亮
+     * 应用代码高亮（异步分批处理）
      */
     highlightCode() {
         if (typeof Prism === 'undefined') return;
@@ -213,17 +352,36 @@ export class Preview extends BaseComponent {
         const codeBlocks = dom.getAllIn(this.container, 'pre code:not(.prism-highlighted)');
         if (codeBlocks.length === 0) return;
 
-        // 在下一帧一次性处理所有代码块，避免阻塞UI
-        requestAnimationFrame(() => {
-            for (let i = 0; i < codeBlocks.length; i++) {
-                Prism.highlightElement(codeBlocks[i]);
-                codeBlocks[i].classList.add('prism-highlighted');
+        const BATCH_SIZE = 5;
+        let index = 0;
+
+        // 处理一批代码块
+        const processBatch = () => {
+            const batch = codeBlocks.slice(index, index + BATCH_SIZE);
+            
+            for (let i = 0; i < batch.length; i++) {
+                Prism.highlightElement(batch[i]);
+                batch[i].classList.add('prism-highlighted');
             }
-        });
+
+            index += BATCH_SIZE;
+
+            // 如果还有剩余代码块，继续处理
+            if (index < codeBlocks.length) {
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(processBatch, { timeout: 50 });
+                } else {
+                    setTimeout(processBatch, 0);
+                }
+            }
+        };
+
+        // 开始处理
+        requestAnimationFrame(processBatch);
     }
 
     /**
-     * 渲染 Mermaid 图表
+     * 渲染 Mermaid 图表（带超时机制）
      */
     renderMermaidCharts() {
         if (typeof mermaid === 'undefined') return;
@@ -237,7 +395,6 @@ export class Preview extends BaseComponent {
         this.state.setRenderingState(true);
 
         const containers = [];
-        const { container } = this;
 
         for (let i = 0; i < mermaidBlocks.length; i++) {
             const block = mermaidBlocks[i];
@@ -249,7 +406,7 @@ export class Preview extends BaseComponent {
             mermaidContainer.className = 'mermaid';
             mermaidContainer.textContent = code;
 
-            if (preElement && preElement.parentNode) {
+            if (preElement?.parentNode) {
                 preElement.parentNode.replaceChild(mermaidContainer, preElement);
                 containers.push(mermaidContainer);
             }
@@ -260,17 +417,31 @@ export class Preview extends BaseComponent {
             return;
         }
 
+        // 添加超时机制（5秒）
+        const timeoutId = setTimeout(() => {
+            console.warn('Mermaid 渲染超时');
+            containers.forEach(c => {
+                if (!c.classList.contains('mermaid-done')) {
+                    c.textContent = '图表渲染超时';
+                    c.classList.add('render-error');
+                }
+            });
+            this.state.setRenderingState(false);
+        }, 5000);
+
         mermaid.run({ nodes: containers })
             .then(() => {
+                clearTimeout(timeoutId);
+                containers.forEach(c => c.classList.add('mermaid-done'));
                 this.state.setRenderingState(false);
             })
             .catch((err) => {
+                clearTimeout(timeoutId);
                 console.warn('Mermaid 渲染失败:', err);
-                for (let i = 0; i < containers.length; i++) {
-                    const c = containers[i];
+                containers.forEach(c => {
                     c.textContent = '图表渲染失败: ' + err.message;
                     c.classList.add('render-error');
-                }
+                });
                 this.state.setRenderingState(false);
             });
     }
@@ -319,9 +490,7 @@ export class Preview extends BaseComponent {
      */
     checkImageLoad() {
         const images = dom.getAllIn(this.container, 'img:not([data-error-handled])');
-        for (let i = 0; i < images.length; i++) {
-            images[i].dataset.errorHandled = 'true';
-        }
+        images.forEach(img => img.dataset.errorHandled = 'true');
     }
 
     /**
@@ -329,8 +498,7 @@ export class Preview extends BaseComponent {
      */
     handleImageError(img) {
         img.alt = `图片加载失败: ${img.src}`;
-        img.style.border = '2px dashed #f44336';
-        img.style.padding = '10px';
+        img.style.cssText = 'border: 2px dashed #f44336; padding: 10px;';
     }
 
     /**
@@ -394,5 +562,22 @@ ${html}
      */
     getHeadings() {
         return dom.getAllIn(this.container, 'h1, h2, h3, h4, h5, h6');
+    }
+
+    /**
+     * 销毁组件，清理资源
+     */
+    destroy() {
+        // 清理缓存清理定时器
+        if (this.#cleanupInterval) {
+            clearInterval(this.#cleanupInterval);
+            this.#cleanupInterval = null;
+        }
+        
+        // 清理渲染缓存
+        this.#clearRenderCache();
+        
+        // 调用父类销毁逻辑
+        super.destroy();
     }
 }

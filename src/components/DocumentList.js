@@ -22,14 +22,22 @@ export class DocumentList extends BaseComponent {
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅文档列表变化
         this.unsubscribe = this.state.subscribeTo(['documents', 'currentDocId'], (newValue, oldValue, key) => {
-            // 如果只是 currentDocId 变化，使用局部更新而不是完全重新渲染
             if (key === 'currentDocId') {
                 this.updateActiveState(newValue, oldValue);
-            } else {
-                // documents 变化时，完全重新渲染
-                this.render();
+            } else if (key === 'documents') {
+                // 内联检查是否需要重新渲染
+                const needsFullRender = newValue.length !== oldValue.length ||
+                    newValue.some(d => !oldValue.find(o => o.id === d.id)) ||
+                    oldValue.some(o => !newValue.find(n => n.id === o.id)) ||
+                    newValue.some(n => {
+                        const o = oldValue.find(old => old.id === n.id);
+                        return o && (o.parentId !== n.parentId || o.name !== n.name);
+                    });
+                
+                if (needsFullRender) {
+                    this.render();
+                }
             }
         });
     }
@@ -60,51 +68,50 @@ export class DocumentList extends BaseComponent {
 
 
     /**
-     * 检查文件夹是否展开
-     * @param {string} folderId - 文件夹ID
-     * @returns {boolean} 是否展开
-     */
-    isFolderExpanded(folderId) {
-        return this.expandedFolders.has(folderId);
-    }
-
-    /**
      * 设置文件夹展开状态
-     * @param {string} folderId - 文件夹ID
-     * @param {boolean} expanded - 是否展开
      */
     setFolderExpanded(folderId, expanded) {
         const currentlyExpanded = this.expandedFolders.has(folderId);
         if (expanded && !currentlyExpanded) {
             this.expandedFolders.add(folderId);
-            this.updateFolderUI(folderId, true);
         } else if (!expanded && currentlyExpanded) {
             this.expandedFolders.delete(folderId);
-            this.updateFolderUI(folderId, false);
+        } else {
+            return; // 状态未改变
         }
-        // 如果状态未改变，不做任何操作
+
+        // 内联更新 UI
+        if (!this.container) return;
+        const item = this.container.querySelector(`[data-doc-id="${folderId}"]`);
+        if (!item) return;
+
+        const toggle = item.querySelector('.md-tree-toggle');
+        toggle?.classList.toggle('expanded', expanded);
+
+        const icon = item.querySelector('.md-doc-item-icon');
+        if (icon) icon.textContent = expanded ? '📂' : '📁';
+
+        const nodeContainer = item.closest('.md-tree-node');
+        const childrenContainer = nodeContainer?.querySelector('.md-tree-children');
+        if (childrenContainer) childrenContainer.style.display = expanded ? 'flex' : 'none';
     }
 
     /**
-     * 切换文件夹展开状态（兼容旧调用）
-     * @param {string} folderId - 文件夹ID
+     * 切换文件夹展开状态
      */
     toggleFolder(folderId) {
-        const expanded = !this.expandedFolders.has(folderId);
-        this.setFolderExpanded(folderId, expanded);
+        this.setFolderExpanded(folderId, !this.expandedFolders.has(folderId));
     }
 
     /**
-     * 展开文件夹（兼容旧调用）
-     * @param {string} folderId - 文件夹ID
+     * 展开文件夹
      */
     expandFolder(folderId) {
         this.setFolderExpanded(folderId, true);
     }
 
     /**
-     * 折叠文件夹（兼容旧调用）
-     * @param {string} folderId - 文件夹ID
+     * 折叠文件夹
      */
     collapseFolder(folderId) {
         this.setFolderExpanded(folderId, false);
@@ -118,7 +125,7 @@ export class DocumentList extends BaseComponent {
             .filter(doc => doc.type === 'folder')
             .map(doc => doc.id);
         this.expandedFolders = new Set(folderIds);
-        this.render(); // 需要完全重新渲染
+        this.render();
     }
 
     /**
@@ -126,40 +133,7 @@ export class DocumentList extends BaseComponent {
      */
     collapseAllFolders() {
         this.expandedFolders.clear();
-        this.render(); // 需要完全重新渲染
-    }
-
-    /**
-     * 更新文件夹UI状态
-     * @param {string} folderId - 文件夹ID
-     * @param {boolean} expanded - 是否展开
-     */
-    updateFolderUI(folderId, expanded) {
-        if (!this.container) return;
-        
-        const item = this.container.querySelector(`[data-doc-id="${folderId}"]`);
-        if (!item) return;
-
-        // 更新箭头状态
-        const toggle = item.querySelector('.md-tree-toggle');
-        if (toggle) {
-            toggle.classList.toggle('expanded', expanded);
-        }
-
-        // 更新图标
-        const icon = item.querySelector('.md-doc-item-icon');
-        if (icon) {
-            icon.textContent = expanded ? '📂' : '📁';
-        }
-
-        // 显示/隐藏子节点
-        const nodeContainer = item.closest('.md-tree-node');
-        if (nodeContainer) {
-            const childrenContainer = nodeContainer.querySelector('.md-tree-children');
-            if (childrenContainer) {
-                childrenContainer.style.display = expanded ? 'flex' : 'none';
-            }
-        }
+        this.render();
     }
 
     /**
@@ -179,16 +153,13 @@ export class DocumentList extends BaseComponent {
      * 处理点击事件
      */
     handleClick(e) {
-        // 展开/折叠箭头
         const toggle = e.target.closest('.md-tree-toggle');
         if (toggle) {
             e.stopPropagation();
-            const folderId = toggle.dataset.folderId;
-            this.toggleFolder(folderId);
+            this.toggleFolder(toggle.dataset.folderId);
             return;
         }
 
-        // 删除按钮
         const deleteBtn = e.target.closest('.md-doc-item-delete');
         if (deleteBtn) {
             e.stopPropagation();
@@ -196,46 +167,37 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
-        // 新建按钮
         const newFileBtn = e.target.closest('.md-new-file-btn');
         if (newFileBtn) {
             e.stopPropagation();
-            const folderId = newFileBtn.dataset.folderId || null;
-            this.createItem('file', folderId);
+            this.createItem('file', newFileBtn.dataset.folderId || null);
             return;
         }
 
         const newFolderBtn = e.target.closest('.md-new-folder-btn');
         if (newFolderBtn) {
             e.stopPropagation();
-            const folderId = newFolderBtn.dataset.folderId || null;
-            this.createItem('folder', folderId);
+            this.createItem('folder', newFolderBtn.dataset.folderId || null);
             return;
         }
 
-        // 文档项
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
-            const docId = item.dataset.docId;
-            const docType = item.dataset.docType;
+            const { docId, docType } = item.dataset;
 
-            // 清除之前的延迟
             if (this.clickTimeout) {
                 clearTimeout(this.clickTimeout);
                 this.clickTimeout = null;
             }
 
-            // 延迟执行单击操作，等待双击
             this.clickTimeout = setTimeout(() => {
                 if (docType === 'folder') {
-                    // 点击文件夹：只展开/折叠，不选中
                     this.toggleFolder(docId);
                 } else {
-                    // 点击文件：打开
                     this.handleOpen(docId);
                 }
                 this.clickTimeout = null;
-            }, 200); // 200ms 延迟，足够检测双击
+            }, 200);
         }
     }
 
@@ -243,7 +205,6 @@ export class DocumentList extends BaseComponent {
      * 处理双击事件（重命名）
      */
     handleDoubleClick(e) {
-        // 取消单击的延迟执行
         if (this.clickTimeout) {
             clearTimeout(this.clickTimeout);
             this.clickTimeout = null;
@@ -251,8 +212,7 @@ export class DocumentList extends BaseComponent {
 
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
-            const docId = item.dataset.docId;
-            this.editItemName(docId);
+            this.editItemName(item.dataset.docId);
         }
     }
 
@@ -279,14 +239,11 @@ export class DocumentList extends BaseComponent {
         const item = e.target.closest('.md-doc-item');
         if (!item) return;
 
-        // 移除所有高亮
         this.container.querySelectorAll('.md-drop-target').forEach(el => {
             el.classList.remove('md-drop-target');
         });
 
-        // 添加高亮
-        const docType = item.dataset.docType;
-        if (docType === 'folder') {
+        if (item.dataset.docType === 'folder') {
             item.classList.add('md-drop-target');
         }
     }
@@ -297,21 +254,14 @@ export class DocumentList extends BaseComponent {
     handleDrop(e) {
         e.preventDefault();
         const item = e.target.closest('.md-doc-item');
-        if (!item || !this.draggedItem) return;
+        if (!item || !this.draggedItem || item.dataset.docType !== 'folder') return;
 
         const targetId = item.dataset.docId;
-        const targetType = item.dataset.docType;
-
-        // 只能拖拽到文件夹
-        if (targetType !== 'folder') return;
-
-        // 不能拖拽到自己或自己的子文件夹中
         if (targetId === this.draggedItem) return;
 
         const moved = this.state.moveDocument(this.draggedItem, targetId);
         if (moved) {
             StoreManager.saveDocuments(this.state.get('documents'));
-            // 如果移动到文件夹内，自动展开目标文件夹
             this.expandFolder(targetId);
         }
     }
@@ -321,11 +271,8 @@ export class DocumentList extends BaseComponent {
      */
     handleDragEnd(e) {
         this.draggedItem = null;
-        this.container.querySelectorAll('.md-dragging').forEach(el => {
-            el.classList.remove('md-dragging');
-        });
-        this.container.querySelectorAll('.md-drop-target').forEach(el => {
-            el.classList.remove('md-drop-target');
+        this.container.querySelectorAll('.md-dragging, .md-drop-target').forEach(el => {
+            el.classList.remove('md-dragging', 'md-drop-target');
         });
     }
 
@@ -343,12 +290,32 @@ export class DocumentList extends BaseComponent {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
-        // 计算子项数量
-        const children = this.getAllChildren(docId);
-        const itemCount = children.length + 1;
+        // 内联获取所有子项
+        const documents = this.state.get('documents');
+        const children = [];
+        const childrenMap = new Map();
+        
+        documents.forEach(d => {
+            if (d.parentId) {
+                if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
+                childrenMap.get(d.parentId).push(d);
+            }
+        });
+        
+        const stack = [docId];
+        while (stack.length > 0) {
+            const currentId = stack.pop();
+            const currentChildren = childrenMap.get(currentId);
+            if (currentChildren) {
+                for (const child of currentChildren) {
+                    children.push(child);
+                    if (child.type === 'folder') stack.push(child.id);
+                }
+            }
+        }
 
         const itemType = doc.type === 'folder' ? '文件夹' : '文档';
-        const message = itemCount > 1 && doc.type === 'folder'
+        const message = children.length > 0 && doc.type === 'folder'
             ? `确定要删除这个${itemType}及其 ${children.length} 个子项吗？`
             : `确定要删除这个${itemType}吗？`;
 
@@ -356,42 +323,6 @@ export class DocumentList extends BaseComponent {
 
         this.state.deleteDocument(docId);
         StoreManager.saveDocuments(this.state.get('documents'));
-    }
-
-    /**
-     * 获取所有子项（迭代优化版）
-     */
-    getAllChildren(folderId) {
-        const documents = this.state.get('documents');
-        const children = [];
-        
-        // 构建父节点到子项的映射
-        const childrenMap = new Map();
-        documents.forEach(doc => {
-            if (doc.parentId) {
-                if (!childrenMap.has(doc.parentId)) {
-                    childrenMap.set(doc.parentId, []);
-                }
-                childrenMap.get(doc.parentId).push(doc);
-            }
-        });
-        
-        // 使用栈进行迭代遍历
-        const stack = [folderId];
-        while (stack.length > 0) {
-            const currentId = stack.pop();
-            const currentChildren = childrenMap.get(currentId);
-            if (currentChildren) {
-                for (const child of currentChildren) {
-                    children.push(child);
-                    if (child.type === 'folder') {
-                        stack.push(child.id);
-                    }
-                }
-            }
-        }
-        
-        return children;
     }
 
     /**
@@ -411,17 +342,9 @@ export class DocumentList extends BaseComponent {
         this.state.addDocument(doc, parentId);
         StoreManager.saveDocuments(this.state.get('documents'));
         
-        // 如果添加到文件夹内，自动展开该文件夹
-        if (parentId) {
-            this.expandFolder(parentId);
-        }
-
-        // 立即进入编辑模式
+        if (parentId) this.expandFolder(parentId);
         this.editItemName(doc.id);
-
-        if (type === 'file') {
-            this.state.setCurrentDocument(doc.id);
-        }
+        if (type === 'file') this.state.setCurrentDocument(doc.id);
     }
 
     /**
@@ -431,34 +354,24 @@ export class DocumentList extends BaseComponent {
         this.editingDocId = docId;
 
         const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
-        if (!item) return;
-
         const nameSpan = dom.getIn(item, '.md-doc-item-name');
-        if (!nameSpan) return;
+        if (!item || !nameSpan) return;
 
         const currentName = nameSpan.textContent;
-
-        // 标记为编辑状态
         item.classList.add('editing');
 
-        // 创建输入框
         const input = this.createElement('input', {
             type: 'text',
             className: 'md-doc-item-input',
             attributes: { value: currentName }
         });
 
-        // 替换名称元素为输入框
         nameSpan.replaceWith(input);
-
-        // 选中文本
         input.focus();
         input.select();
 
-        // 标记是否应该保存
         let shouldSave = false;
 
-        // 绑定输入框事件
         const save = () => {
             const newName = input.value.trim();
             if (!newName) {
@@ -467,28 +380,43 @@ export class DocumentList extends BaseComponent {
                 return;
             }
 
-            // 使用 silent 选项避免触发重新渲染
             this.state.updateDocument(docId, {
                 name: newName,
                 updatedAt: new Date().toISOString()
             }, { silent: true });
             StoreManager.saveDocuments(this.state.get('documents'));
 
-            // 恢复为普通模式
-            this.exitEditMode(docId, newName);
+            // 内联退出编辑模式
+            this.editingDocId = null;
+            const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
+            const input = dom.getIn(item, '.md-doc-item-input');
+            if (item && input) {
+                const nameSpan = this.createElement('span', {
+                    className: 'md-doc-item-name',
+                    textContent: newName
+                });
+                input.replaceWith(nameSpan);
+                item.classList.remove('editing');
+            }
         };
 
         const cancel = () => {
-            // 恢复原始名称
-            this.exitEditMode(docId, currentName);
+            this.editingDocId = null;
+            const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
+            const input = dom.getIn(item, '.md-doc-item-input');
+            if (item && input) {
+                const nameSpan = this.createElement('span', {
+                    className: 'md-doc-item-name',
+                    textContent: currentName
+                });
+                input.replaceWith(nameSpan);
+                item.classList.remove('editing');
+            }
         };
 
         const handleBlur = () => {
-            if (shouldSave) {
-                save();
-            } else {
-                cancel();
-            }
+            if (shouldSave) save();
+            else cancel();
         };
 
         input.addEventListener('blur', handleBlur, { once: true });
@@ -505,35 +433,9 @@ export class DocumentList extends BaseComponent {
             }
         });
 
-        // 输入内容时标记为需要保存
         input.addEventListener('input', () => {
             shouldSave = true;
         });
-    }
-
-    /**
-     * 退出编辑模式（局部更新，避免闪烁）
-     */
-    exitEditMode(docId, name) {
-        this.editingDocId = null;
-
-        const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
-        if (!item) return;
-
-        const input = dom.getIn(item, '.md-doc-item-input');
-        if (!input) return;
-
-        // 创建新的名称元素
-        const nameSpan = this.createElement('span', {
-            className: 'md-doc-item-name',
-            textContent: name
-        });
-
-        // 替换输入框为名称元素
-        input.replaceWith(nameSpan);
-
-        // 移除编辑状态
-        item.classList.remove('editing');
     }
 
     /**
@@ -543,9 +445,9 @@ export class DocumentList extends BaseComponent {
         const currentDocId = this.state.get('currentDocId');
         if (!currentDocId) {
             this.showMessage('请先选择一个项目', 'warning');
-            return;
+        } else {
+            this.editItemName(currentDocId);
         }
-        this.editItemName(currentDocId);
     }
 
     /**
@@ -555,9 +457,9 @@ export class DocumentList extends BaseComponent {
         const currentDocId = this.state.get('currentDocId');
         if (!currentDocId) {
             this.showMessage('请先选择一个项目', 'warning');
-            return;
+        } else {
+            this.handleDelete(currentDocId);
         }
-        this.handleDelete(currentDocId);
     }
 
     /**
@@ -579,7 +481,6 @@ export class DocumentList extends BaseComponent {
         const documents = this.state.get('documents');
         const currentDocId = this.state.get('currentDocId');
 
-        // 空状态
         if (documents.length === 0) {
             this.container.innerHTML = `
                 <div class="md-empty-state">
@@ -588,35 +489,22 @@ export class DocumentList extends BaseComponent {
                     <button class="md-btn md-btn-secondary" data-action="create-folder">新建文件夹</button>
                 </div>
             `;
-            // 绑定空状态按钮事件
-            const createFileBtn = this.container.querySelector('[data-action="create-file"]');
-            const createFolderBtn = this.container.querySelector('[data-action="create-folder"]');
-            if (createFileBtn) {
-                createFileBtn.addEventListener('click', () => this.createItem('file'));
-            }
-            if (createFolderBtn) {
-                createFolderBtn.addEventListener('click', () => this.createItem('folder'));
-            }
+            this.container.querySelector('[data-action="create-file"]')?.addEventListener('click', () => this.createItem('file'));
+            this.container.querySelector('[data-action="create-folder"]')?.addEventListener('click', () => this.createItem('folder'));
             return;
         }
 
-        // 构建树型结构
         const tree = this.state.buildTree();
-
         const fragment = this.createFragment();
-
-        // 渲染树型结构
         const treeContainer = this.createElement('div', {
             className: 'md-tree-container'
         });
 
         tree.forEach((node) => {
-            const treeNode = this.renderTreeNode(node, currentDocId, 0);
-            treeContainer.appendChild(treeNode);
+            treeContainer.appendChild(this.renderTreeNode(node, currentDocId, 0));
         });
 
         fragment.appendChild(treeContainer);
-
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
     }
@@ -628,83 +516,70 @@ export class DocumentList extends BaseComponent {
         const isEditing = node.id === this.editingDocId;
         const isActive = node.id === currentDocId;
         const isFolder = node.type === 'folder';
-        const isExpanded = isFolder && this.isFolderExpanded(node.id);
-        const hasChildren = isFolder && node.children && node.children.length > 0;
+        const isExpanded = isFolder && this.expandedFolders.has(node.id);
+        const hasChildren = isFolder && node.children?.length > 0;
 
-        // 创建节点容器
         const nodeContainer = this.createElement('div', {
             className: 'md-tree-node',
             dataset: { level }
         });
 
-        // 创建项目行
         const item = this.createElement('div', {
             className: `md-doc-item${isActive ? ' active' : ''}${isEditing ? ' editing' : ''}`,
             dataset: {
                 docId: node.id,
                 docType: node.type || 'file'
             },
-            attributes: {
-                draggable: 'true'
-            }
+            attributes: { draggable: 'true' }
         });
 
-        // 缩进
-        const indent = this.createElement('span', {
+        this.createElement('span', {
             className: 'md-tree-indent',
             style: { width: `${level * 16}px` },
             parent: item
         });
 
-        // 展开/折叠箭头
         if (isFolder) {
-            const toggle = this.createElement('span', {
+            this.createElement('span', {
                 className: `md-tree-toggle${isExpanded ? ' expanded' : ''}${hasChildren ? '' : ' leaf'}`,
                 dataset: { folderId: node.id },
                 parent: item
             });
         } else {
-            const spacer = this.createElement('span', {
+            this.createElement('span', {
                 className: 'md-tree-spacer',
                 parent: item
             });
         }
 
-        // 图标
-        const icon = this.createElement('span', {
+        this.createElement('span', {
             className: 'md-doc-item-icon',
-            textContent: isFolder
-                ? (isExpanded ? '📂' : '📁')
-                : '📄',
+            textContent: isFolder ? (isExpanded ? '📂' : '📁') : '📄',
             parent: item
         });
 
         if (isEditing) {
-            // 编辑模式：显示输入框
-            const input = this.createElement('input', {
+            this.createElement('input', {
                 type: 'text',
                 className: 'md-doc-item-input',
                 attributes: { value: node.name },
                 parent: item
             });
         } else {
-            // 普通模式：显示名称
-            const nameSpan = this.createElement('span', {
+            this.createElement('span', {
                 className: 'md-doc-item-name',
                 textContent: node.name,
                 parent: item
             });
         }
 
-        // 操作按钮组
         const actions = this.createElement('span', {
             className: 'md-doc-item-actions',
             parent: item
         });
 
-        // 新建按钮（仅文件夹）
         if (isFolder) {
-            const newFileBtn = this.createElement('button', {
+            this.createElement('button', {
                 className: 'md-btn md-btn-icon md-btn-xs md-new-file-btn',
                 textContent: '➕',
                 attributes: {
@@ -715,8 +590,7 @@ export class DocumentList extends BaseComponent {
             });
         }
 
-        // 删除按钮
-        const deleteBtn = this.createElement('button', {
+        this.createElement('button', {
             className: 'md-btn md-btn-icon md-btn-xs md-doc-item-delete',
             textContent: '🗑️',
             attributes: {
@@ -728,7 +602,6 @@ export class DocumentList extends BaseComponent {
 
         nodeContainer.appendChild(item);
 
-        // 递归渲染子节点（始终渲染，通过 display 控制显示/隐藏）
         if (isFolder && hasChildren) {
             const childrenContainer = this.createElement('div', {
                 className: 'md-tree-children',
@@ -736,8 +609,7 @@ export class DocumentList extends BaseComponent {
             });
 
             node.children.forEach((child) => {
-                const childNode = this.renderTreeNode(child, currentDocId, level + 1);
-                childrenContainer.appendChild(childNode);
+                childrenContainer.appendChild(this.renderTreeNode(child, currentDocId, level + 1));
             });
 
             nodeContainer.appendChild(childrenContainer);
@@ -750,14 +622,10 @@ export class DocumentList extends BaseComponent {
      * 清理组件资源
      */
     destroy() {
-        // 清除点击超时
         if (this.clickTimeout) {
             clearTimeout(this.clickTimeout);
             this.clickTimeout = null;
         }
-        // 调用父类清理（如果存在）
-        if (super.destroy) {
-            super.destroy();
-        }
+        super.destroy?.();
     }
 }

@@ -156,7 +156,7 @@ export class MarkdownEditor {
     // ==================== 分隔条拖拽 ====================
     
     /**
-     * 设置拖拽分隔条（性能优化版）
+     * 设置拖拽分隔条（性能优化版 - 使用 flex-basis）
      */
     setupDivider() {
         const divider = dom.divider.element?.element;
@@ -184,23 +184,28 @@ export class MarkdownEditor {
             cachedAvailableWidth = cachedTotalWidth - cachedDividerWidth;
         };
 
-        // 设置面板宽度的辅助函数
+        // 设置面板宽度的辅助函数（使用 flex 代替 width，避免重排）
         const setPaneWidths = (ratio) => {
             updateLayoutCache();
             
             const leftWidth = cachedAvailableWidth * ratio;
+            const rightWidth = cachedAvailableWidth - leftWidth;
 
-            // 使用 width（与 CSS 中的 flex 布局配合）
-            editorPane.style.width = leftWidth + 'px';
+            // 使用 flex 属性代替 width，只触发 composite，不触发 layout
+            // flex: grow shrink basis
+            editorPane.style.flex = '1 1 ' + leftWidth + 'px';
+            editorPane.style.maxWidth = leftWidth + 'px';
             editorPane.classList.add('fixed-width');
             
-            previewPane.style.width = (cachedAvailableWidth - leftWidth) + 'px';
+            previewPane.style.flex = '1 1 ' + rightWidth + 'px';
+            previewPane.style.maxWidth = rightWidth + 'px';
             previewPane.classList.add('fixed-width');
         };
 
-        // 初始化宽度
-        setPaneWidths(this.lastLeftRatio);
-        setTimeout(() => setPaneWidths(this.lastLeftRatio), 100);
+        // 初始化宽度（等待 DOM 渲染完成）
+        requestAnimationFrame(() => {
+            setPaneWidths(this.lastLeftRatio);
+        });
 
         // 鼠标事件
         divider.addEventListener('mouseenter', () => {
@@ -220,9 +225,9 @@ export class MarkdownEditor {
             // 拖拽开始时更新缓存
             updateLayoutCache();
             
-            // 提示浏览器优化（使用 width）
-            editorPane.style.willChange = 'width';
-            previewPane.style.willChange = 'width';
+            // 提示浏览器优化（使用 flex）
+            editorPane.style.willChange = 'flex';
+            previewPane.style.willChange = 'flex';
             
             e.preventDefault();
         });
@@ -249,10 +254,13 @@ export class MarkdownEditor {
                     const minWidth = MarkdownEditor.DRAG_CONFIG.MIN_WIDTH;
                     const maxWidth = cachedAvailableWidth - minWidth;
                     const leftWidth = Math.max(minWidth, Math.min(e.clientX - cachedContainerRect.left, maxWidth));
+                    const rightWidth = cachedAvailableWidth - leftWidth;
 
-                    // 批量更新 DOM，减少重排
-                    editorPane.style.width = leftWidth + 'px';
-                    previewPane.style.width = (cachedAvailableWidth - leftWidth) + 'px';
+                    // 使用 flex 属性代替 width，减少重排
+                    editorPane.style.flex = '1 1 ' + leftWidth + 'px';
+                    editorPane.style.maxWidth = leftWidth + 'px';
+                    previewPane.style.flex = '1 1 ' + rightWidth + 'px';
+                    previewPane.style.maxWidth = rightWidth + 'px';
 
                     this.lastLeftRatio = leftWidth / cachedAvailableWidth;
                     
@@ -376,9 +384,17 @@ export class MarkdownEditor {
         if (editorPane) editorPane.classList.remove('fixed-width');
         if (previewPane) previewPane.classList.remove('fixed-width');
 
-        // 清除内联样式
-        if (editorPane) editorPane.style.width = '';
-        if (previewPane) previewPane.style.width = '';
+        // 清除内联样式（包括 flex 和 maxWidth）
+        if (editorPane) {
+            editorPane.style.flex = '';
+            editorPane.style.maxWidth = '';
+            editorPane.style.width = '';
+        }
+        if (previewPane) {
+            previewPane.style.flex = '';
+            previewPane.style.maxWidth = '';
+            previewPane.style.width = '';
+        }
     }
 
     /**

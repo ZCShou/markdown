@@ -61,7 +61,8 @@ export class EditorState {
      * @returns {Object} 状态的浅拷贝
      */
     getState() {
-        return { ...this.#state };
+        // 返回冻结的浅拷贝，防止外部修改
+        return Object.freeze({ ...this.#state });
     }
 
     /**
@@ -82,15 +83,15 @@ export class EditorState {
      * @param {boolean} [options.force=false] - 是否强制更新（即使值相同也触发通知）
      */
     setState(updates, options = {}) {
-        const oldState = { ...this.#state };
         let hasChanges = false;
+        const changedKeys = [];
         
         // 检查是否有实际变化（除非强制更新）
         if (!options.force) {
             for (const key in updates) {
                 if (!Object.is(this.#state[key], updates[key])) {
                     hasChanges = true;
-                    break;
+                    changedKeys.push(key);
                 }
             }
             
@@ -100,12 +101,15 @@ export class EditorState {
             }
         }
         
+        // 只在需要通知时创建旧状态副本
+        const oldState = (!options.silent && hasChanges) ? { ...this.#state } : null;
+        
         // 更新状态
         Object.assign(this.#state, updates);
         
         // 如果不是静默更新，通知监听器（传递 force 选项）
-        if (!options.silent) {
-            this.#notify(oldState, this.#state, options.force);
+        if (!options.silent && oldState) {
+            this.#notify(oldState, this.#state, options.force, changedKeys);
         }
     }
 
@@ -155,8 +159,10 @@ export class EditorState {
      * @private
      * @param {Object} oldState - 旧状态
      * @param {Object} newState - 新状态
+     * @param {boolean} force - 是否强制更新
+     * @param {Array<string>} changedKeys - 变化的键列表
      */
-    #notify(oldState, newState, force = false) {
+    #notify(oldState, newState, force = false, changedKeys = []) {
         // 通知全局监听器
         this.#globalListeners.forEach(listener => {
             try {
@@ -166,20 +172,19 @@ export class EditorState {
             }
         });
 
-        // 通知特定键的监听器
-        Object.keys(newState).forEach(key => {
-            // 强制更新或值有变化时才通知
-            if (force || newState[key] !== oldState[key]) {
-                const listeners = this.#listeners.get(key);
-                if (listeners) {
-                    listeners.forEach(listener => {
-                        try {
-                            listener(newState[key], oldState[key], key);
-                        } catch (error) {
-                            console.error(`State listener error for key "${key}":`, error);
-                        }
-                    });
-                }
+        // 通知特定键的监听器（只通知变化的键）
+        const keysToNotify = force ? Object.keys(newState) : changedKeys;
+        
+        keysToNotify.forEach(key => {
+            const listeners = this.#listeners.get(key);
+            if (listeners) {
+                listeners.forEach(listener => {
+                    try {
+                        listener(newState[key], oldState[key], key);
+                    } catch (error) {
+                        console.error(`State listener error for key "${key}":`, error);
+                    }
+                });
             }
         });
     }
