@@ -30,7 +30,6 @@ export class Sidebar extends BaseComponent {
      * 绑定事件
      */
     bindEvents() {
-        // 侧边栏区块折叠
         this.addEventListener(this.container, 'click', (e) => {
             this.handleSectionClick(e);
         });
@@ -90,8 +89,6 @@ export class Sidebar extends BaseComponent {
                 dom.app.overlay?.removeClass('show');
             }
         }
-        
-        // flex布局会自动处理，无需手动干预
     }
 
     /**

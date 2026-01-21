@@ -8,7 +8,6 @@ import Prism from 'prismjs';
 import mermaid from 'mermaid';
 import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
-import { dom } from '../utils/dom.js';
 
 export class Preview extends BaseComponent {
     // ==================== 私有字段声明 ====================

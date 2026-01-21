@@ -165,8 +165,6 @@ export class TOC extends BaseComponent {
         }
     }
 
-
-
     /**
      * 滚动到指定标题
      */

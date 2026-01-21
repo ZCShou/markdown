@@ -4,7 +4,6 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
-import { dom } from '../utils/dom.js';
 
 export class Editor extends BaseComponent {
     /**
