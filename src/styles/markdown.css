@@ -1274,12 +1274,6 @@ body.is-dragging {
     user-select: none !important;
 }
 
-/* 固定宽度的面板 */
-.markdown-editor-pane.fixed-width,
-.markdown-preview-pane.fixed-width {
-    /* 不再使用 flex: none，允许通过内联样式控制 flex 属性 */
-}
-
 /* ==================== 代码块相关样式 ==================== */
 /* 带复制按钮的代码块 */
 pre.has-copy-btn {
@@ -1586,4 +1580,50 @@ body.is-dragging-tree .md-doc-item:not(.md-dragging) {
     .md-doc-item-actions {
         opacity: 1;
     }
+}
+
+/* ==================== 数学公式样式 ==================== */
+
+/* 块级数学公式 */
+.markdown-body .math-block {
+    display: block;
+    overflow-x: auto;
+    text-align: center;
+    background-color: transparent;
+    border-radius: 2px;
+    line-height: 1.4;
+}
+
+/* 行内数学公式 */
+.markdown-body .math-inline {
+    display: inline;
+    padding: 0 2px;
+    vertical-align: baseline;
+}
+
+/* 数学公式字体大小 */
+.markdown-body .math-block .katex {
+    font-size: 1.05em;
+}
+
+.markdown-body .math-inline .katex {
+    font-size: 1em;
+}
+
+/* 数学公式错误样式 */
+.markdown-body .math-error {
+    color: #cc0000;
+    font-family: monospace;
+    background-color: #ffeeee;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* 暗色主题下的数学公式 */
+body.dark-mode .markdown-body .math-block {
+    background-color: transparent;
+}
+
+body.dark-mode .markdown-body .math-error {
+    background-color: #3a1d1d;
 }

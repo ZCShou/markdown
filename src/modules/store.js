@@ -281,6 +281,112 @@ sequenceDiagram
     A->>B: 发送请求
     B-->>A: 返回响应
 \`\`\`
+
+## 数学公式
+
+### 行内公式
+
+爱因斯坦质能方程是 $E = mc^2$，这是物理学中最著名的公式之一。
+
+勾股定理：$a^2 + b^2 = c^2$
+
+圆的面积：$A = \\pi r^2$
+
+### 块级公式
+
+#### 基础运算
+
+$$
+E = mc^2
+$$
+
+$$
+a^2 + b^2 = c^2
+$$
+
+#### 分数和根号
+
+$$
+\\frac{a}{b} = \\frac{c}{d}
+$$
+
+$$
+\\sqrt{x^2 + y^2}
+$$
+
+$$
+\\sqrt[3]{x}
+$$
+
+#### 求和与积分
+
+$$
+\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
+$$
+
+$$
+\\sum_{i=1}^{\\infty} \\frac{1}{i^2} = \\frac{\\pi^2}{6}
+$$
+
+$$
+\\int_{a}^{b} f(x) dx
+$$
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+$$
+
+#### 极限
+
+$$
+\\lim_{x \\to \\infty} \\frac{1}{x} = 0
+$$
+
+$$
+\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1
+$$
+
+#### 矩阵
+
+$$
+\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix}
+$$
+
+$$
+\\begin{bmatrix}
+1 & 2 & 3 \\\\
+4 & 5 & 6 \\\\
+7 & 8 & 9
+\\end{bmatrix}
+$$
+
+#### 方程组
+
+$$
+\\begin{cases}
+x + y = 10 \\\\
+x - y = 2
+\\end{cases}
+$$
+
+解得：$x = 6, y = 4$
+
+#### 复杂公式
+
+$$
+e^{i\\pi} + 1 = 0
+$$
+
+$$
+\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}
+$$
+
+$$
+i\\hbar \\frac{\\partial}{\\partial t}\\Psi(x,t) = \\hat{H}\\Psi(x,t)
+$$
 `;
     // ==================== 存储键名常量 ====================
     

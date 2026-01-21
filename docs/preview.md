@@ -8,9 +8,10 @@
   - [1. Markdown 渲染](#1-markdown-渲染)
   - [2. 代码高亮渲染](#2-代码高亮渲染)
   - [3. Mermaid 图表渲染](#3-mermaid-图表渲染)
-  - [4. 复制按钮添加](#4-复制按钮添加)
-  - [5. 图片处理](#5-图片处理)
-  - [6. 标题数据更新](#6-标题数据更新)
+  - [4. 数学公式渲染](#4-数学公式渲染)
+  - [5. 复制按钮添加](#5-复制按钮添加)
+  - [6. 图片处理](#6-图片处理)
+  - [7. 标题数据更新](#7-标题数据更新)
 - [DOM 呈现过程](#dom-呈现过程)
 - [性能优化策略](#性能优化策略)
 - [完整渲染流程图](#完整渲染流程图)
@@ -28,6 +29,7 @@ import { marked } from 'marked';        // Markdown 解析器
 import DOMPurify from 'dompurify';       // HTML 净化器
 import Prism from 'prismjs';             // 代码高亮库
 import mermaid from 'mermaid';           // 图表渲染库
+import katex from 'katex';               // 数学公式渲染库
 ```
 
 ### 主要职责
@@ -36,7 +38,8 @@ import mermaid from 'mermaid';           // 图表渲染库
 2. **HTML 安全净化**：使用 `DOMPurify` 清除潜在的 XSS 攻击
 3. **代码语法高亮**：使用 `Prism` 为代码块添加语法高亮
 4. **Mermaid 图表渲染**：将 Mermaid 代码块渲染为可视化图表
-5. **交互功能**：添加代码复制按钮、图片错误处理等
+5. **数学公式渲染**：使用 `KaTeX` 渲染 LaTeX 数学公式
+6. **交互功能**：添加代码复制按钮、图片错误处理等
 
 ### 组件结构
 
@@ -570,6 +573,7 @@ this.#lastRenderedData = {
     markdown: '',              // 上次渲染的 Markdown 文本
     codeBlocks: new Map(),     // hash -> code content
     mermaidBlocks: new Map(),  // hash -> mermaid content
+    mathBlocks: new Map(),     // hash -> { latex, displayMode }
     headings: []               // heading texts
 };
 ```
@@ -579,6 +583,7 @@ this.#lastRenderedData = {
 {
     codeBlocksChanged: boolean,      // 代码块是否变化
     mermaidBlocksChanged: boolean,   // Mermaid 图表是否变化
+    mathBlocksChanged: boolean,      // 数学公式是否变化
     headingsChanged: boolean,        // 标题是否变化
     newCodeBlocks: Map,              // 新的代码块
     newMermaidBlocks: Map,           // 新的 Mermaid 图表
@@ -621,6 +626,32 @@ this.#lastRenderedData = {
     }
     
     return mermaidBlocks;
+}
+
+#extractMathBlocks(markdown) {
+    const mathBlocks = new Map();
+    let index = 0;
+    
+    // 提取块级数学公式 $$...$$
+    const blockRegex = /\$\$([\s\S]*?)\$\$/g;
+    let match;
+    while ((match = blockRegex.exec(markdown)) !== null) {
+        const latex = match[1].trim();
+        const hash = this.#generateSimpleHash(latex);
+        mathBlocks.set(hash, { latex, displayMode: true, index });
+        index++;
+    }
+    
+    // 提取行内数学公式 $...$
+    const inlineRegex = /\$([^\$\n]+?)\$/g;
+    while ((match = inlineRegex.exec(markdown)) !== null) {
+        const latex = match[1].trim();
+        const hash = this.#generateSimpleHash(latex);
+        mathBlocks.set(hash, { latex, displayMode: false, index });
+        index++;
+    }
+    
+    return mathBlocks;
 }
 
 #extractHeadings(markdown) {
@@ -766,6 +797,7 @@ renderContent(markdown) {
             markdown,
             codeBlocks: changes.newCodeBlocks,
             mermaidBlocks: changes.newMermaidBlocks,
+            mathBlocks: changes.newMathBlocks,
             headings: changes.newHeadings
         };
     });
@@ -809,15 +841,18 @@ flowchart TD
         Detect --> Extract[提取内容]
         Extract --> CodeExtract[#extractCodeBlocks<br/>提取代码块]
         Extract --> MermaidExtract[#extractMermaidBlocks<br/>提取 Mermaid 图表]
+        Extract --> MathExtract[#extractMathBlocks<br/>提取数学公式]
         Extract --> HeadingExtract[#extractHeadings<br/>提取标题]
         
         CodeExtract --> Compare[比较变化]
         MermaidExtract --> Compare
+        MathExtract --> Compare
         HeadingExtract --> Compare
         
         Compare --> Changes{哪些部分变化了?}
         Changes --> CodeChanged[代码块变化]
         Changes --> MermaidChanged[Mermaid 变化]
+        Changes --> MathChanged[数学公式变化]
         Changes --> HeadingChanged[标题变化]
         
         RenderContent --> MD[renderMarkdown]
@@ -828,6 +863,7 @@ flowchart TD
         UpdateSmart --> Preserve[保留未变化的部分]
         Preserve --> PreserveCode[保留代码高亮]
         Preserve --> PreserveMermaid[保留 Mermaid SVG]
+        Preserve --> PreserveMath[保留数学公式渲染]
         
         UpdateSmart --> Insert[更新容器内容]
     end
@@ -839,6 +875,7 @@ flowchart TD
         Query --> Elements[提取元素]
         Elements --> Code[代码块]
         Elements --> MermaidBlock[Mermaid 代码块]
+        Elements --> MathBlock[数学公式占位符]
         Elements --> Pre[Pre 元素]
         Elements --> Img[图片]
         Elements --> Heading[标题]
@@ -852,6 +889,10 @@ flowchart TD
         MermaidBlock --> CheckMermaid{Mermaid 变化?}
         CheckMermaid --> |是| RenderM2[renderMermaidChartsBlocks<br/>替换并渲染图表]
         CheckMermaid --> |否| SkipMermaid[跳过 Mermaid 渲染]
+        
+        MathBlock --> CheckMath{数学公式变化?}
+        CheckMath --> |是| RenderMath[renderMathBlocks<br/>KaTeX 渲染公式]
+        CheckMath --> |否| SkipMath[跳过公式渲染]
         
         Pre --> CopyBtn[addCopyButtonsToElements<br/>添加复制按钮]
         Img --> MarkImg[markImagesHandled<br/>标记已处理]
@@ -917,6 +958,7 @@ this.#lastRenderedData = {
     markdown: '',              // 上次渲染的 Markdown
     codeBlocks: new Map(),     // hash -> code content
     mermaidBlocks: new Map(),  // hash -> mermaid content
+    mathBlocks: new Map(),     // hash -> { latex, displayMode }
     headings: []               // heading texts
 };
 ```
@@ -929,15 +971,18 @@ this.#lastRenderedData = {
     // 提取新内容
     const newCodeBlocks = this.#extractCodeBlocks(newMarkdown);
     const newMermaidBlocks = this.#extractMermaidBlocks(newMarkdown);
+    const newMathBlocks = this.#extractMathBlocks(newMarkdown);
     const newHeadings = this.#extractHeadings(newMarkdown);
     
     // 比较变化
     return {
         codeBlocksChanged: !this.#areMapsEqual(oldData.codeBlocks, newCodeBlocks),
         mermaidBlocksChanged: !this.#areMapsEqual(oldData.mermaidBlocks, newMermaidBlocks),
+        mathBlocksChanged: !this.#areMapsEqual(oldData.mathBlocks, newMathBlocks),
         headingsChanged: !this.#areArraysEqual(oldData.headings, newHeadings),
         newCodeBlocks,
         newMermaidBlocks,
+        newMathBlocks,
         newHeadings
     };
 }
@@ -953,6 +998,7 @@ this.#lastRenderedData = {
     // 2. 收集旧的渲染结果
     const oldCodeBlocks = new Map();
     const oldMermaidBlocks = new Map();
+    const oldMathBlocks = new Map();
     
     // 收集已高亮的代码块
     this.container.querySelectorAll('pre code[class*="language-"]').forEach((el) => {
@@ -968,6 +1014,15 @@ this.#lastRenderedData = {
         if (originalText) {
             const hash = this.#generateSimpleHash(originalText);
             oldMermaidBlocks.set(hash, el);
+        }
+    });
+    
+    // 收集已渲染的数学公式
+    this.container.querySelectorAll('.math-block, .math-inline').forEach((el) => {
+        const latex = el.getAttribute('data-latex');
+        if (latex) {
+            const hash = this.#generateSimpleHash(latex);
+            oldMathBlocks.set(hash, el);
         }
     });
     
@@ -1001,7 +1056,21 @@ this.#lastRenderedData = {
         }
     });
     
-    // 6. 使用 DocumentFragment 更新 DOM
+    // 6. 处理数学公式 - 保留未变化的数学公式
+    tempContainer.querySelectorAll('.math-block, .math-inline').forEach((newEl) => {
+        const latex = newEl.getAttribute('data-latex');
+        if (latex) {
+            const hash = this.#generateSimpleHash(latex);
+            if (oldMathBlocks.has(hash)) {
+                const oldEl = oldMathBlocks.get(hash);
+                if (oldEl) {
+                    newEl.replaceWith(oldEl.cloneNode(true));
+                }
+            }
+        }
+    });
+    
+    // 7. 使用 DocumentFragment 更新 DOM
     const fragment = document.createDocumentFragment();
     while (tempContainer.firstChild) {
         fragment.appendChild(tempContainer.firstChild);
@@ -1013,9 +1082,10 @@ this.#lastRenderedData = {
 ```
 
 **性能优势**：
-- 编辑纯文本时：跳过代码高亮和 Mermaid 渲染
+- 编辑纯文本时：跳过代码高亮、Mermaid 渲染和数学公式渲染
 - 修改代码时：只重新高亮变化的代码块
 - 修改 Mermaid 时：只重新渲染变化的图表
+- 修改数学公式时：只重新渲染变化的公式
 - 大型文档性能提升 90%+
 
 #### 1.2 Markdown 解析（marked）
@@ -1268,7 +1338,274 @@ this.state.setRenderingState(true);  // 设置渲染状态
 
 ---
 
-### 4. 复制按钮添加
+### 4. 数学公式渲染
+
+Preview 组件使用 **KaTeX** 库来渲染数学公式，支持块级公式（`$$...$$`）和行内公式（`$...$`）。
+
+#### 4.1 渲染机制
+
+**占位符机制**：
+
+为了避免 Markdown 解析器破坏数学公式，采用**占位符替换**策略：
+
+```javascript
+renderMarkdown(markdown) {
+    const mathBlocks = [];
+    let processedMarkdown = markdown;
+
+    // 1. 替换块级数学公式 $$...$$
+    processedMarkdown = processedMarkdown.replace(
+        /\$\$([\s\S]*?)\$\$/g, 
+        (match, latex) => {
+            const index = mathBlocks.length;
+            mathBlocks.push({ latex, displayMode: true });
+            return `<x-math-block data-index="${index}"></x-math-block>`;
+        }
+    );
+
+    // 2. 替换行内数学公式 $...$
+    processedMarkdown = processedMarkdown.replace(
+        /\$([^\$\n]+?)\$/g, 
+        (match, latex) => {
+            const index = mathBlocks.length;
+            mathBlocks.push({ latex, displayMode: false });
+            return `<x-math-inline data-index="${index}"></x-math-inline>`;
+        }
+    );
+
+    // 3. 使用 marked 解析 Markdown
+    let html = marked.parse(processedMarkdown);
+
+    // 4. 将占位符替换为最终的 HTML 标签
+    html = html.replace(
+        /<x-math-block data-index="(\d+)"><\/x-math-block>/g, 
+        (match, index) => {
+            const block = mathBlocks[parseInt(index)];
+            return `<div class="math-block" data-latex="${block.latex}"></div>`;
+        }
+    );
+
+    html = html.replace(
+        /<x-math-inline data-index="(\d+)"><\/x-math-inline>/g, 
+        (match, index) => {
+            const block = mathBlocks[parseInt(index)];
+            return `<span class="math-inline" data-latex="${block.latex}"></span>`;
+        }
+    );
+
+    return html;
+}
+```
+
+**流程图**：
+
+```mermaid
+graph LR
+    A[原始 Markdown] --> B[提取 $$...$$ 公式]
+    A --> C[提取 $...$ 公式]
+    B --> D["替换为 <x-math-block>"]
+    C --> E["替换为 <x-math-inline>"]
+    D --> F[marked 解析]
+    E --> F
+    F --> G["替换为 <div class=math-block>"]
+    F --> H["替换为 <span class=math-inline>"]
+    G --> I[DOMPurify 净化]
+    H --> I
+    I --> J[最终 HTML]
+```
+
+#### 4.2 KaTeX 渲染
+
+**渲染函数**：
+
+```javascript
+renderMathBlocks() {
+    if (typeof katex === 'undefined') return;
+
+    // 渲染块级数学公式
+    const blockMathElements = this.container.querySelectorAll('.math-block');
+    blockMathElements.forEach(el => {
+        const latex = el.getAttribute('data-latex');
+        if (!latex || el.classList.contains('math-rendered')) return;
+
+        try {
+            katex.render(latex, el, {
+                displayMode: true,
+                throwOnError: false,
+                errorColor: '#cc0000'
+            });
+            el.classList.add('math-rendered');
+        } catch (err) {
+            console.warn('KaTeX 渲染失败:', err);
+            el.textContent = latex;
+            el.classList.add('math-error');
+        }
+    });
+
+    // 渲染行内数学公式
+    const inlineMathElements = this.container.querySelectorAll('.math-inline');
+    inlineMathElements.forEach(el => {
+        const latex = el.getAttribute('data-latex');
+        if (!latex || el.classList.contains('math-rendered')) return;
+
+        try {
+            katex.render(latex, el, {
+                displayMode: false,
+                throwOnError: false,
+                errorColor: '#cc0000'
+            });
+            el.classList.add('math-rendered');
+        } catch (err) {
+            console.warn('KaTeX 渲染失败:', err);
+            el.textContent = latex;
+            el.classList.add('math-error');
+        }
+    });
+}
+```
+
+**关键特性**：
+- **防重复渲染**：通过 `math-rendered` 类标记已渲染的公式
+- **错误处理**：渲染失败时显示原始 LaTeX 文本
+- **分离渲染**：块级公式和行内公式分别处理
+
+#### 4.3 增量渲染中的公式保留
+
+**问题**：在增量更新 DOM 时，如何保留已渲染的数学公式？
+
+**解决方案**：在 `#updateDOMSmart()` 中收集和保留未变化的数学公式
+
+```javascript
+#updateDOMSmart(newHTML, changes) {
+    // ... 其他代码 ...
+
+    // 1. 收集已渲染的数学公式
+    const oldMathBlocks = new Map();
+    this.container.querySelectorAll('.math-block, .math-inline').forEach((el) => {
+        const latex = el.getAttribute('data-latex');
+        if (latex) {
+            const hash = this.#generateSimpleHash(latex);
+            oldMathBlocks.set(hash, el);
+        }
+    });
+
+    // 2. 在新 HTML 中保留未变化的数学公式
+    const newMathBlocks = tempContainer.querySelectorAll('.math-block, .math-inline');
+    newMathBlocks.forEach((newEl) => {
+        const latex = newEl.getAttribute('data-latex');
+        if (latex) {
+            const hash = this.#generateSimpleHash(latex);
+            
+            // 如果公式未变化，用旧的已渲染公式替换
+            if (oldMathBlocks.has(hash)) {
+                const oldEl = oldMathBlocks.get(hash);
+                if (oldEl) {
+                    newEl.replaceWith(oldEl.cloneNode(true));
+                }
+            }
+        }
+    });
+
+    // ... 其他代码 ...
+}
+```
+
+**保留流程**：
+
+```mermaid
+graph LR
+    A[旧 DOM] --> B[收集已渲染公式]
+    B --> C[建立 LaTeX 哈希索引]
+    D[新 HTML] --> E[解析公式占位符]
+    E --> F[计算 LaTeX 哈希]
+    F --> G{哈希匹配?}
+    G -->|是| H[保留旧渲染结果]
+    G -->|否| I[使用新占位符]
+    H --> J[更新 DOM]
+    I --> J
+```
+
+#### 4.4 样式定制
+
+**CSS 样式**（[src/styles/markdown.css](src/styles/markdown.css#L1594)）：
+
+```css
+/* 块级数学公式 */
+.markdown-body .math-block {
+    display: block;
+    margin: 0.2em 0;           /* 紧凑的上下边距 */
+    padding: 0.1em 0.3em;      /* 最小内边距 */
+    overflow-x: auto;
+    text-align: center;
+    background-color: transparent;  /* 透明背景，融入文本 */
+    border-radius: 2px;
+    line-height: 1.4;          /* 紧凑行高 */
+}
+
+/* 行内数学公式 */
+.markdown-body .math-inline {
+    display: inline;
+    padding: 0 2px;
+    vertical-align: baseline;   /* 与文本基线对齐 */
+}
+
+/* 字体大小微调 */
+.markdown-body .math-block .katex {
+    font-size: 1.05em;
+}
+
+.markdown-body .math-inline .katex {
+    font-size: 1em;
+}
+
+/* 错误样式 */
+.markdown-body .math-error {
+    color: #cc0000;
+    font-family: monospace;
+    background-color: #ffeeee;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+```
+
+**设计原则**：
+- **紧凑布局**：减少上下边距，让公式与文本更协调
+- **透明背景**：公式不使用代码块背景，融入文本流
+- **基线对齐**：行内公式与文本基线对齐，视觉更自然
+- **错误提示**：渲染失败时显示红色错误样式
+
+#### 4.5 使用示例
+
+**块级公式**：
+
+```markdown
+$$
+E = mc^2
+$$
+```
+
+**行内公式**：
+
+```markdown
+质能方程是 $E = mc^2$，其中 $E$ 是能量，$m$ 是质量，$c$ 是光速。
+```
+
+**复杂公式**：
+
+```markdown
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+```
+
+**渲染效果**：
+- 块级公式：独立居中显示，上下间距紧凑
+- 行内公式：与文本在同一行，基线对齐
+- 支持所有 KaTeX 语法：分数、矩阵、积分、求和等
+
+---
+
+### 5. 复制按钮添加
 
 #### 4.1 按钮创建
 
@@ -1328,7 +1665,7 @@ if (btn.classList.contains('copied')) return;  // 已复制，跳过
 
 ---
 
-### 5. 图片处理
+### 6. 图片处理
 
 #### 5.1 错误处理
 
@@ -1367,7 +1704,7 @@ markImagesHandled(images) {
 
 ---
 
-### 6. 标题数据更新
+### 7. 标题数据更新
 
 #### 6.1 标题提取
 

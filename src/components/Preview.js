@@ -1,11 +1,12 @@
 /**
  * 预览组件
- * 负责 Markdown 渲染、代码高亮、Mermaid 图表
+ * 负责 Markdown 渲染、代码高亮、Mermaid 图表、数学公式
  */
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import Prism from 'prismjs';
 import mermaid from 'mermaid';
+import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
 
@@ -28,6 +29,7 @@ export class Preview extends BaseComponent {
             markdown: '',
             codeBlocks: new Map(),      // hash -> code content
             mermaidBlocks: new Map(),   // hash -> mermaid content
+            mathBlocks: new Map(),      // hash -> math content
             headings: []                // heading texts
         };
     }
@@ -103,6 +105,38 @@ export class Preview extends BaseComponent {
     }
 
     /**
+     * 提取所有数学公式内容
+     * @private
+     */
+    #extractMathBlocks(markdown) {
+        const mathBlocks = new Map();
+        let index = 0;
+
+        // 提取块级数学公式 $$...$$
+        const blockRegex = /\$\$([\s\S]*?)\$\$/g;
+        let match;
+
+        while ((match = blockRegex.exec(markdown)) !== null) {
+            const latex = match[1].trim();
+            const hash = this.#generateSimpleHash(latex);
+            mathBlocks.set(hash, { latex, displayMode: true, index });
+            index++;
+        }
+
+        // 提取行内数学公式 $...$
+        const inlineRegex = /\$([^\$\n]+?)\$/g;
+
+        while ((match = inlineRegex.exec(markdown)) !== null) {
+            const latex = match[1].trim();
+            const hash = this.#generateSimpleHash(latex);
+            mathBlocks.set(hash, { latex, displayMode: false, index });
+            index++;
+        }
+
+        return mathBlocks;
+    }
+
+    /**
      * 检测内容变化
      * @private
      */
@@ -112,6 +146,7 @@ export class Preview extends BaseComponent {
         // 提取新内容的数据
         const newCodeBlocks = this.#extractCodeBlocks(newMarkdown);
         const newMermaidBlocks = this.#extractMermaidBlocks(newMarkdown);
+        const newMathBlocks = this.#extractMathBlocks(newMarkdown);
         const newHeadings = this.#extractHeadings(newMarkdown);
 
         // 比较代码块变化
@@ -120,15 +155,20 @@ export class Preview extends BaseComponent {
         // 比较 Mermaid 图表变化
         const mermaidBlocksChanged = !this.#areMapsEqual(oldData.mermaidBlocks, newMermaidBlocks);
         
+        // 比较数学公式变化
+        const mathBlocksChanged = !this.#areMapsEqual(oldData.mathBlocks, newMathBlocks);
+        
         // 比较标题变化
         const headingsChanged = !this.#areArraysEqual(oldData.headings, newHeadings);
 
         return {
             codeBlocksChanged,
             mermaidBlocksChanged,
+            mathBlocksChanged,
             headingsChanged,
             newCodeBlocks,
             newMermaidBlocks,
+            newMathBlocks,
             newHeadings
         };
     }
@@ -295,9 +335,10 @@ export class Preview extends BaseComponent {
             return;
         }
         
-        // 获取当前 DOM 中的所有代码块和 Mermaid 图表
+        // 获取当前 DOM 中的所有代码块、Mermaid 图表和数学公式
         const oldCodeBlocks = new Map();
         const oldMermaidBlocks = new Map();
+        const oldMathBlocks = new Map();
         
         // 1. 收集已高亮的代码块
         this.container.querySelectorAll('pre code[class*="language-"]').forEach((el, index) => {
@@ -332,7 +373,16 @@ export class Preview extends BaseComponent {
             }
         });
         
-        // 3. 遍历新 HTML 中的代码块（跳过 Mermaid）
+        // 3. 收集已渲染的数学公式
+        this.container.querySelectorAll('.math-block, .math-inline').forEach((el) => {
+            const latex = el.getAttribute('data-latex');
+            if (latex) {
+                const hash = this.#generateSimpleHash(latex);
+                oldMathBlocks.set(hash, el);
+            }
+        });
+        
+        // 4. 遍历新 HTML 中的代码块（跳过 Mermaid）
         tempContainer.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach((newEl) => {
             const hash = this.#generateSimpleHash(newEl.textContent);
             
@@ -348,7 +398,7 @@ export class Preview extends BaseComponent {
             }
         });
         
-        // 4. 处理 Mermaid 图表 - 标记未变化的 Mermaid
+        // 5. 处理 Mermaid 图表 - 标记未变化的 Mermaid
         const mermaidPreserveMap = new Map(); // hash -> { oldDiv, newPre }
         const newMermaidBlocks = tempContainer.querySelectorAll('pre code.language-mermaid');
         
@@ -368,7 +418,7 @@ export class Preview extends BaseComponent {
             }
         });
         
-        // 5. 在 tempContainer 中直接替换需要保留的 Mermaid（在添加到容器之前）
+        // 6. 在 tempContainer 中直接替换需要保留的 Mermaid（在添加到容器之前）
         mermaidPreserveMap.forEach(({ oldDiv, newPre }) => {
             if (newPre && newPre.parentNode) {
                 // 用旧的已渲染的 div.mermaid 替换新的 pre
@@ -376,13 +426,31 @@ export class Preview extends BaseComponent {
             }
         });
         
-        // 6. 使用 DocumentFragment 更新 DOM（避免 innerHTML 序列化问题）
+        // 7. 处理数学公式 - 保留未变化的数学公式
+        const newMathBlocks = tempContainer.querySelectorAll('.math-block, .math-inline');
+        
+        newMathBlocks.forEach((newEl) => {
+            const latex = newEl.getAttribute('data-latex');
+            if (latex) {
+                const hash = this.#generateSimpleHash(latex);
+                
+                // 如果这个数学公式没有变化，用旧的已渲染的公式替换
+                if (oldMathBlocks.has(hash)) {
+                    const oldEl = oldMathBlocks.get(hash);
+                    if (oldEl) {
+                        newEl.replaceWith(oldEl.cloneNode(true));
+                    }
+                }
+            }
+        });
+        
+        // 8. 使用 DocumentFragment 更新 DOM（避免 innerHTML 序列化问题）
         const fragment = document.createDocumentFragment();
         while (tempContainer.firstChild) {
             fragment.appendChild(tempContainer.firstChild);
         }
         
-        // 7. 清空容器并添加新内容
+        // 9. 清空容器并添加新内容
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
     }
@@ -429,6 +497,7 @@ export class Preview extends BaseComponent {
                 markdown: markdown,
                 codeBlocks: changes.newCodeBlocks,
                 mermaidBlocks: changes.newMermaidBlocks,
+                mathBlocks: changes.newMathBlocks,
                 headings: changes.newHeadings
             };
         });
@@ -460,13 +529,18 @@ export class Preview extends BaseComponent {
             this.renderMermaidChartsBlocks(mermaidBlocks);
         }
 
-        // 3. 复制按钮：总是处理（因为 innerHTML 替换后按钮会丢失）
+        // 3. 数学公式：只在公式变化时处理
+        if (changes.mathBlocksChanged) {
+            this.renderMathBlocks();
+        }
+
+        // 4. 复制按钮：总是处理（因为 innerHTML 替换后按钮会丢失）
         this.addCopyButtonsToElements(preElements);
 
-        // 4. 图片处理：总是处理（因为 innerHTML 替换后标记会丢失）
+        // 5. 图片处理：总是处理（因为 innerHTML 替换后标记会丢失）
         this.markImagesHandled(images);
 
-        // 5. 标题更新：只在标题变化时更新
+        // 6. 标题更新：只在标题变化时更新
         if (changes.headingsChanged) {
             this.state.setState({ headings: Array.from(headings) });
         }
@@ -568,6 +642,53 @@ export class Preview extends BaseComponent {
     }
 
     /**
+     * 处理数学公式渲染（分离逻辑）
+     */
+    renderMathBlocks() {
+        if (typeof katex === 'undefined') return;
+
+        // 渲染块级数学公式 $$...$$
+        const blockMathElements = this.container.querySelectorAll('.math-block');
+        blockMathElements.forEach(el => {
+            const latex = el.getAttribute('data-latex');
+            if (!latex || el.classList.contains('math-rendered')) return;
+
+            try {
+                katex.render(latex, el, {
+                    displayMode: true,
+                    throwOnError: false,
+                    errorColor: '#cc0000'
+                });
+                el.classList.add('math-rendered');
+            } catch (err) {
+                console.warn('KaTeX 渲染失败:', err);
+                el.textContent = latex;
+                el.classList.add('math-error');
+            }
+        });
+
+        // 渲染行内数学公式 $...$
+        const inlineMathElements = this.container.querySelectorAll('.math-inline');
+        inlineMathElements.forEach(el => {
+            const latex = el.getAttribute('data-latex');
+            if (!latex || el.classList.contains('math-rendered')) return;
+
+            try {
+                katex.render(latex, el, {
+                    displayMode: false,
+                    throwOnError: false,
+                    errorColor: '#cc0000'
+                });
+                el.classList.add('math-rendered');
+            } catch (err) {
+                console.warn('KaTeX 渲染失败:', err);
+                el.textContent = latex;
+                el.classList.add('math-error');
+            }
+        });
+    }
+
+    /**
      * 添加复制按钮（分离逻辑）
      */
     addCopyButtonsToElements(preElements) {
@@ -617,12 +738,42 @@ export class Preview extends BaseComponent {
      */
     renderMarkdown(markdown) {
         try {
+            // 预处理数学公式：先提取并替换为占位符
+            const mathBlocks = [];
+            let processedMarkdown = markdown;
+
+            // 替换块级数学公式 $$...$$
+            processedMarkdown = processedMarkdown.replace(/\$\$([\s\S]*?)\$\$/g, (match, latex) => {
+                const index = mathBlocks.length;
+                mathBlocks.push({ latex, displayMode: true });
+                return `<x-math-block data-index="${index}"></x-math-block>`;
+            });
+
+            // 替换行内数学公式 $...$
+            processedMarkdown = processedMarkdown.replace(/\$([^\$\n]+?)\$/g, (match, latex) => {
+                const index = mathBlocks.length;
+                mathBlocks.push({ latex, displayMode: false });
+                return `<x-math-inline data-index="${index}"></x-math-inline>`;
+            });
+
+            // 使用 marked 解析 Markdown
             let html;
             if (marked?.parse) {
-                html = marked.parse(markdown, { breaks: true, gfm: true });
+                html = marked.parse(processedMarkdown, { breaks: true, gfm: true });
             } else {
-                html = this.escapeHtml(markdown);
+                html = this.escapeHtml(processedMarkdown);
             }
+
+            // 将占位符替换为数学公式的 HTML 标签
+            html = html.replace(/<x-math-block data-index="(\d+)"><\/x-math-block>/g, (match, index) => {
+                const block = mathBlocks[parseInt(index)];
+                return `<div class="math-block" data-latex="${block.latex}"></div>`;
+            });
+
+            html = html.replace(/<x-math-inline data-index="(\d+)"><\/x-math-inline>/g, (match, index) => {
+                const block = mathBlocks[parseInt(index)];
+                return `<span class="math-inline" data-latex="${block.latex}"></span>`;
+            });
 
             // 净化 HTML（防止 XSS）
             if (DOMPurify?.sanitize) {
