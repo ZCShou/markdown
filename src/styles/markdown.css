@@ -28,8 +28,8 @@
     --md-color-info: #2196f3;
     
     /* 代码块颜色 */
-    --md-code-bg: #f6f8fa;
-    --md-code-bg-inline: rgba(27, 31, 35, 0.05);
+    --md-code-bg: #f3f4f6;
+    --md-code-bg-inline: rgba(0, 0, 0, 0.06);
     --md-code-text: #24292e;
     
     /* Markdown 内容颜色 */
@@ -901,6 +901,12 @@ pre:hover .code-copy-btn,
 .markdown-body pre {
     max-width: 100%;
     overflow-x: auto;
+    padding: 16px;
+    margin: 16px 0;
+    background-color: var(--md-code-bg) !important;
+    border-radius: 6px;
+    /* 防止主题切换时的抖动 */
+    min-height: 3em;
 }
 
 .markdown-body > *:first-child {
@@ -1000,6 +1006,18 @@ pre:hover .code-copy-btn,
     border-radius: 3px;
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     color: var(--md-code-text);
+}
+
+/* pre code 特殊样式：移除背景和内边距 */
+.markdown-body pre code {
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+    border-radius: 0;
+    font-size: inherit;
+    /* 防止主题切换时的抖动 */
+    display: block;
+    line-height: 1.5;
 }
 
 .markdown-body blockquote {
