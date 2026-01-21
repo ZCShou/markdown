@@ -885,27 +885,63 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 导出为 HTML
+     * 导出为 HTML（直接使用渲染好的内容）
      */
     exportHTML() {
-        const content = this.state.get('content');
-        const html = this.renderMarkdown(content);
+        // 直接获取预览容器中已经渲染好的 HTML
+        let html = this.container.innerHTML;
+
+        // 清理不需要的属性和类
+        html = html
+            .replace(/ class="prism-highlighted"/g, '')
+            .replace(/ class="mermaid-done"/g, '')
+            .replace(/ data-error-handled="true"/g, '')
+            .replace(/ class="math-rendered"/g, '');
 
         const fullHtml = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown 导出</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; }
-        pre { background-color: #f6f8fa; padding: 16px; border-radius: 6px; overflow-x: auto; }
-        code { background-color: rgba(27, 31, 35, 0.05); padding: 0.2em 0.4em; border-radius: 3px; }
-        blockquote { border-left: 0.25em solid #dfe2e5; padding-left: 1em; color: #6a737d; }
-        table { border-collapse: collapse; width: 100%; }
-        table th, table td { border: 1px solid #dfe2e5; padding: 6px 13px; }
-        img { max-width: 100%; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Markdown 导出</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.6;max-width:900px;margin:0 auto;padding:20px;color:#24292e;word-wrap:break-word}
+pre{background:#f3f4f6;padding:16px;margin:0;border-radius:6px;overflow-x:auto;min-height:3em;box-sizing:border-box}
+code{padding:.2em .4em;margin:0;font-size:85%;background:rgba(0,0,0,.06);border-radius:3px;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;color:#24292e}
+pre code{padding:0;margin:0;background:transparent;border-radius:0;font-size:inherit;display:inline-block;min-width:100%;line-height:1.5;box-sizing:border-box}
+blockquote{padding:0 1em;color:#6a737d;border-left:.25em solid #dfe2e5;margin:0 0 16px}
+blockquote>:first-child{margin-top:0}
+blockquote>:last-child{margin-bottom:0}
+table{border-spacing:0;border-collapse:collapse;margin-top:0;margin-bottom:16px;width:100%;max-width:100%;overflow-x:auto;display:block}
+table th{font-weight:600;background:#f3f4f6}
+table th,table td{padding:6px 13px;border:1px solid #dfe2e5}
+table tr{background:#fff;border-top:1px solid #c6cbd1}
+table tr:nth-child(2n){background:#f3f4f6}
+img{max-width:100%;height:auto}
+a{color:#0366d6;text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,h4,h5,h6{margin-top:24px;margin-bottom:16px;font-weight:600;line-height:1.25}
+h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid #e0e0e0}
+h2{font-size:1.75em;padding-bottom:.3em;border-bottom:1px solid #e0e0e0}
+h3{font-size:1.5em}
+h4{font-size:1.25em}
+h5{font-size:1.1em}
+h6{font-size:1em;color:#6a737d}
+p{margin-top:0;margin-bottom:16px}
+ul,ol{margin-top:0;margin-bottom:16px;padding-left:2em}
+li{margin-top:.25em}
+hr{height:.25em;padding:0;margin:24px 0;background:#e1e4e8;border:0}
+.mermaid{text-align:center;margin:1.5em 0;background:#fff;padding:10px;border-radius:6px}
+/* Prism 代码高亮样式*/
+.token.comment,.token.prolog,.token.doctype,.token.cdata{color:#6a737d}.token.punctuation{color:#24292e}.token.property,.token.tag,.token.boolean,.token.number,.token.constant,.token.symbol,.token.deleted{color:#0366d6}.token.selector,.token.attr-name,.token.string,.token.char,.token.builtin,.token.inserted{color:#22863a}.token.operator,.token.entity,.token.url,.language-css .token.string,.style .token.string{color:#d73a49}.token.atrule,.token.attr-value,.token.keyword{color:#6f42c1}.token.function,.token.class-name{color:#6f42c1}.token.regex,.token.important,.token.variable{color:#e90fc9}
+/* 代码块包装器和复制按钮*/
+.code-block-wrapper{position:relative;margin:16px 0}
+.code-copy-btn{position:absolute;top:8px;right:8px;padding:4px 8px;font-size:12px;opacity:0;transition:opacity .2s;z-index:10;cursor:pointer;border:1px solid #dfe2e5;background:#fff;border-radius:3px}
+.code-block-wrapper:hover .code-copy-btn,.code-copy-btn:hover{opacity:1}
+.code-copy-btn.copied{background:#4caf50;color:#fff;border-color:#4caf50}
+/* KaTeX 数学公式样式*/
+.katex-display{margin:1em 0;overflow-x:auto}.katex{font-size:1.1em}.katex-display>.katex{white-space:nowrap}.katex-display{overflow-x:auto;overflow-y:hidden;padding:.5em 0}
+</style>
 </head>
 <body>
 ${html}
