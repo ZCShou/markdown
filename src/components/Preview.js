@@ -255,10 +255,15 @@ export class Preview extends BaseComponent {
     initMermaid() {
         if (this.mermaidInitialized) return;
 
+        // 根据当前主题初始化 Mermaid
+        const currentTheme = this.state.get('theme') || 'light';
+        const themeConfig = currentTheme === 'dark' ? 'dark' : 'default';
+
         mermaid.initialize({
             startOnLoad: false,
-            theme: 'default',
-            securityLevel: 'loose'
+            theme: themeConfig,
+            securityLevel: 'loose',
+            logLevel: 'error'
         });
 
         this.mermaidInitialized = true;
@@ -269,11 +274,19 @@ export class Preview extends BaseComponent {
      */
     updateMermaidTheme() {
         const theme = this.state.get('theme');
+        
+        // 使用明确的主题配置
+        const themeConfig = theme === 'dark' ? 'dark' : 'default';
+        
+        // 重新初始化 Mermaid
         mermaid.initialize({
             startOnLoad: false,
-            theme: theme === 'dark' ? 'dark' : 'default',
-            securityLevel: 'loose'
+            theme: themeConfig,
+            securityLevel: 'loose',
+            logLevel: 'error'  // 减少日志输出
         });
+        
+        // 重新渲染所有图表
         this.renderMermaidCharts();
     }
 
@@ -638,6 +651,49 @@ export class Preview extends BaseComponent {
                     c.classList.add('render-error');
                 });
                 this.state.setRenderingState(false);
+            });
+    }
+
+    /**
+     * 重新渲染所有 Mermaid 图表（用于主题切换）
+     */
+    renderMermaidCharts() {
+        if (typeof mermaid === 'undefined') return;
+
+        // 查找所有已渲染的 Mermaid 图表
+        const mermaidDivs = this.container.querySelectorAll('div.mermaid');
+        
+        if (mermaidDivs.length === 0) return;
+
+        // 直接替换为新的 Mermaid 容器
+        const containers = [];
+        mermaidDivs.forEach(oldDiv => {
+            const code = oldDiv.getAttribute('data-mermaid');
+            if (!code) return;
+
+            // 创建新元素并直接替换旧元素
+            const newDiv = document.createElement('div');
+            newDiv.className = 'mermaid';
+            newDiv.textContent = code;
+            newDiv.setAttribute('data-mermaid', code);
+            
+            oldDiv.replaceWith(newDiv);
+            containers.push(newDiv);
+        });
+
+        if (containers.length === 0) return;
+
+        // 使用新的主题配置重新渲染
+        mermaid.run({ nodes: containers })
+            .then(() => {
+                containers.forEach(c => c.classList.add('mermaid-done'));
+            })
+            .catch((err) => {
+                console.warn('Mermaid 重新渲染失败:', err);
+                containers.forEach(c => {
+                    c.textContent = '图表渲染失败: ' + err.message;
+                    c.classList.add('render-error');
+                });
             });
     }
 
