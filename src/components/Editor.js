@@ -63,16 +63,21 @@ export class Editor extends BaseComponent {
     }
 
     /**
-     * 处理输入
+     * 处理输入（性能优化 - 添加防抖减少状态更新频率）
      */
     handleInput() {
         if (!this.container) return;
         
-        const content = this.container.value || '';
-        this.state.updateContent(content);
+        // 使用防抖减少状态更新频率（50ms）
+        // 在回调中重新获取最新内容，避免闭包陷阱
+        this.debounce('editor-input', () => {
+            const content = this.container.value || '';
+            this.state.updateContent(content);
+        }, 50);
+        
         // 后台静默保存（防抖，1秒延迟，使用异步保存）
         this.debounce('editor-auto-save', () => {
-            this.saveAsync(); // 异步静默保存，不显示消息
+            this.saveAsync();
         }, 1000);
     }
 

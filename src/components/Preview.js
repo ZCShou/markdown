@@ -284,23 +284,182 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 渲染内容
+     * 渲染内容（性能优化版 - 合并 DOM 查询）
      */
     renderContent(markdown) {
-        // 直接渲染内容
         const html = this.renderMarkdown(markdown);
         this.container.innerHTML = html;
 
-        // 异步处理高亮和图表
+        // 合并所有 DOM 查询为一次，减少重排
         requestAnimationFrame(() => {
-            this.highlightCode();
-            this.renderMermaidCharts();
-            this.addCopyButtons();
-            this.checkImageLoad();
-            
-            // 更新标题数据到状态（用于目录生成）
-            this.state.setState({ headings: this.getHeadings() });
+            // 一次性查询所有需要的元素
+            const codeBlocks = this.container.querySelectorAll('pre code:not(.prism-highlighted)');
+            const mermaidBlocks = this.container.querySelectorAll('pre code.language-mermaid');
+            const preElements = this.container.querySelectorAll('pre:not(.has-copy-btn)');
+            const images = this.container.querySelectorAll('img:not([data-error-handled])');
+            const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+            // 批量处理所有元素
+            this.processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings);
         });
+    }
+
+    /**
+     * 批量处理所有 DOM 元素（性能优化）
+     */
+    processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings) {
+        // 处理代码高亮
+        this.highlightCodeBlocks(codeBlocks);
+        
+        // 处理 Mermaid 图表
+        this.renderMermaidChartsBlocks(mermaidBlocks);
+        
+        // 添加复制按钮
+        this.addCopyButtonsToElements(preElements);
+        
+        // 处理图片加载
+        this.markImagesHandled(images);
+        
+        // 更新标题数据
+        this.state.setState({ headings: Array.from(headings) });
+    }
+
+    /**
+     * 处理代码高亮（分离逻辑）
+     */
+    highlightCodeBlocks(codeBlocks) {
+        if (typeof Prism === 'undefined' || codeBlocks.length === 0) return;
+
+        const BATCH_SIZE = 5;
+        let index = 0;
+
+        const processBatch = () => {
+            const batch = Array.from(codeBlocks).slice(index, index + BATCH_SIZE);
+            
+            for (let i = 0; i < batch.length; i++) {
+                Prism.highlightElement(batch[i]);
+                batch[i].classList.add('prism-highlighted');
+            }
+
+            index += BATCH_SIZE;
+
+            if (index < codeBlocks.length) {
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(processBatch, { timeout: 50 });
+                } else {
+                    setTimeout(processBatch, 0);
+                }
+            }
+        };
+
+        requestAnimationFrame(processBatch);
+    }
+
+    /**
+     * 处理 Mermaid 图表（分离逻辑）
+     */
+    renderMermaidChartsBlocks(mermaidBlocks) {
+        if (typeof mermaid === 'undefined' || mermaidBlocks.length === 0) return;
+
+        const isRendering = this.state.get('isRenderingMermaid');
+        if (isRendering) return;
+
+        this.state.setRenderingState(true);
+
+        const containers = [];
+
+        for (let i = 0; i < mermaidBlocks.length; i++) {
+            const block = mermaidBlocks[i];
+            const code = block.textContent.trim();
+            if (!code) continue;
+
+            const preElement = block.parentElement;
+            const mermaidContainer = document.createElement('div');
+            mermaidContainer.className = 'mermaid';
+            mermaidContainer.textContent = code;
+
+            if (preElement?.parentNode) {
+                preElement.parentNode.replaceChild(mermaidContainer, preElement);
+                containers.push(mermaidContainer);
+            }
+        }
+
+        if (containers.length === 0) {
+            this.state.setRenderingState(false);
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            console.warn('Mermaid 渲染超时');
+            containers.forEach(c => {
+                if (!c.classList.contains('mermaid-done')) {
+                    c.textContent = '图表渲染超时';
+                    c.classList.add('render-error');
+                }
+            });
+            this.state.setRenderingState(false);
+        }, 5000);
+
+        mermaid.run({ nodes: containers })
+            .then(() => {
+                clearTimeout(timeoutId);
+                containers.forEach(c => c.classList.add('mermaid-done'));
+                this.state.setRenderingState(false);
+            })
+            .catch((err) => {
+                clearTimeout(timeoutId);
+                console.warn('Mermaid 渲染失败:', err);
+                containers.forEach(c => {
+                    c.textContent = '图表渲染失败: ' + err.message;
+                    c.classList.add('render-error');
+                });
+                this.state.setRenderingState(false);
+            });
+    }
+
+    /**
+     * 添加复制按钮（分离逻辑）
+     */
+    addCopyButtonsToElements(preElements) {
+        if (preElements.length === 0) return;
+
+        for (let i = 0; i < preElements.length; i++) {
+            const pre = preElements[i];
+            pre.classList.add('has-copy-btn');
+
+            const btn = this.createElement('button', {
+                className: 'md-btn md-btn-sm code-copy-btn',
+                textContent: '📋',
+                attributes: { title: '复制代码' },
+                parent: pre
+            });
+
+            this.addEventListener(btn, 'click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const code = pre.querySelector('code');
+                if (!code || btn.classList.contains('copied')) return;
+
+                navigator.clipboard.writeText(code.textContent).then(() => {
+                    btn.innerHTML = '✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = '📋';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }).catch((err) => {
+                    console.error('复制失败:', err);
+                });
+            });
+        }
+    }
+
+    /**
+     * 标记图片已处理（分离逻辑）
+     */
+    markImagesHandled(images) {
+        images.forEach(img => img.dataset.errorHandled = 'true');
     }
 
     /**
@@ -341,156 +500,6 @@ export class Preview extends BaseComponent {
             console.warn('Markdown 渲染失败:', e);
             return this.escapeHtml(markdown);
         }
-    }
-
-    /**
-     * 应用代码高亮（异步分批处理）
-     */
-    highlightCode() {
-        if (typeof Prism === 'undefined') return;
-
-        const codeBlocks = dom.getAllIn(this.container, 'pre code:not(.prism-highlighted)');
-        if (codeBlocks.length === 0) return;
-
-        const BATCH_SIZE = 5;
-        let index = 0;
-
-        // 处理一批代码块
-        const processBatch = () => {
-            const batch = codeBlocks.slice(index, index + BATCH_SIZE);
-            
-            for (let i = 0; i < batch.length; i++) {
-                Prism.highlightElement(batch[i]);
-                batch[i].classList.add('prism-highlighted');
-            }
-
-            index += BATCH_SIZE;
-
-            // 如果还有剩余代码块，继续处理
-            if (index < codeBlocks.length) {
-                if (typeof requestIdleCallback !== 'undefined') {
-                    requestIdleCallback(processBatch, { timeout: 50 });
-                } else {
-                    setTimeout(processBatch, 0);
-                }
-            }
-        };
-
-        // 开始处理
-        requestAnimationFrame(processBatch);
-    }
-
-    /**
-     * 渲染 Mermaid 图表（带超时机制）
-     */
-    renderMermaidCharts() {
-        if (typeof mermaid === 'undefined') return;
-
-        const isRendering = this.state.get('isRenderingMermaid');
-        if (isRendering) return;
-
-        const mermaidBlocks = dom.getAllIn(this.container, 'pre code.language-mermaid');
-        if (mermaidBlocks.length === 0) return;
-
-        this.state.setRenderingState(true);
-
-        const containers = [];
-
-        for (let i = 0; i < mermaidBlocks.length; i++) {
-            const block = mermaidBlocks[i];
-            const code = block.textContent.trim();
-            if (!code) continue;
-
-            const preElement = block.parentElement;
-            const mermaidContainer = document.createElement('div');
-            mermaidContainer.className = 'mermaid';
-            mermaidContainer.textContent = code;
-
-            if (preElement?.parentNode) {
-                preElement.parentNode.replaceChild(mermaidContainer, preElement);
-                containers.push(mermaidContainer);
-            }
-        }
-
-        if (containers.length === 0) {
-            this.state.setRenderingState(false);
-            return;
-        }
-
-        // 添加超时机制（5秒）
-        const timeoutId = setTimeout(() => {
-            console.warn('Mermaid 渲染超时');
-            containers.forEach(c => {
-                if (!c.classList.contains('mermaid-done')) {
-                    c.textContent = '图表渲染超时';
-                    c.classList.add('render-error');
-                }
-            });
-            this.state.setRenderingState(false);
-        }, 5000);
-
-        mermaid.run({ nodes: containers })
-            .then(() => {
-                clearTimeout(timeoutId);
-                containers.forEach(c => c.classList.add('mermaid-done'));
-                this.state.setRenderingState(false);
-            })
-            .catch((err) => {
-                clearTimeout(timeoutId);
-                console.warn('Mermaid 渲染失败:', err);
-                containers.forEach(c => {
-                    c.textContent = '图表渲染失败: ' + err.message;
-                    c.classList.add('render-error');
-                });
-                this.state.setRenderingState(false);
-            });
-    }
-
-    /**
-     * 添加代码块复制按钮
-     */
-    addCopyButtons() {
-        const preElements = dom.getAllIn(this.container, 'pre:not(.has-copy-btn)');
-        if (preElements.length === 0) return;
-
-        for (let i = 0; i < preElements.length; i++) {
-            const pre = preElements[i];
-            pre.classList.add('has-copy-btn');
-
-            const btn = this.createElement('button', {
-                className: 'md-btn md-btn-sm code-copy-btn',
-                textContent: '📋',
-                attributes: { title: '复制代码' },
-                parent: pre
-            });
-
-            this.addEventListener(btn, 'click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const code = pre.querySelector('code');
-                if (!code || btn.classList.contains('copied')) return;
-
-                navigator.clipboard.writeText(code.textContent).then(() => {
-                    btn.innerHTML = '✓';
-                    btn.classList.add('copied');
-                    setTimeout(() => {
-                        btn.innerHTML = '📋';
-                        btn.classList.remove('copied');
-                    }, 2000);
-                }).catch((err) => {
-                    console.error('复制失败:', err);
-                });
-            });
-        }
-    }
-
-    /**
-     * 检查图片加载状态
-     */
-    checkImageLoad() {
-        const images = dom.getAllIn(this.container, 'img:not([data-error-handled])');
-        images.forEach(img => img.dataset.errorHandled = 'true');
     }
 
     /**
@@ -558,26 +567,15 @@ ${html}
     }
 
     /**
-     * 获取所有标题（用于生成目录）
-     */
-    getHeadings() {
-        return dom.getAllIn(this.container, 'h1, h2, h3, h4, h5, h6');
-    }
-
-    /**
      * 销毁组件，清理资源
      */
     destroy() {
-        // 清理缓存清理定时器
         if (this.#cleanupInterval) {
             clearInterval(this.#cleanupInterval);
             this.#cleanupInterval = null;
         }
         
-        // 清理渲染缓存
         this.#clearRenderCache();
-        
-        // 调用父类销毁逻辑
         super.destroy();
     }
 }

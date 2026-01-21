@@ -113,10 +113,14 @@ export class TOC extends BaseComponent {
     }
 
     /**
-     * 增量更新目录
+     * 增量更新目录（性能优化 - 减少不必要的 DOM 操作）
      * @private
      */
     _updateTOC(headings, currentItems) {
+        // 使用 DocumentFragment 批量更新，减少重排
+        const fragment = document.createDocumentFragment();
+        const itemsToUpdate = [];
+        
         for (let i = 0; i < headings.length; i++) {
             const heading = headings[i];
             const currentItem = currentItems[i];
@@ -129,17 +133,35 @@ export class TOC extends BaseComponent {
             const level = parseInt(heading.tagName.substring(1));
             const text = heading.textContent || '';
             
-            // 检查是否需要更新
+            // 缓存当前值，避免重复查询 DOM
             const currentId = currentItem.dataset.headingId;
             const currentText = currentItem.textContent;
-            const currentLevel = parseInt(currentItem.className.match(/level-(\d)/)[1]);
+            const currentLevelMatch = currentItem.className.match(/level-(\d)/);
+            const currentLevel = currentLevelMatch ? parseInt(currentLevelMatch[1]) : -1;
             
+            // 检查是否需要更新
             if (currentId !== heading.id || currentText !== text || currentLevel !== level) {
-                // 更新现有项
-                currentItem.dataset.headingId = heading.id;
-                currentItem.textContent = text;
-                currentItem.className = 'md-toc-item level-' + level;
+                itemsToUpdate.push({
+                    index: i,
+                    element: currentItem,
+                    headingId: heading.id,
+                    text: text,
+                    level: level
+                });
             }
+        }
+        
+        // 只在有变化时批量更新 DOM
+        if (itemsToUpdate.length > 0) {
+            // 使用 requestAnimationFrame 在浏览器准备好时批量更新
+            requestAnimationFrame(() => {
+                for (let i = 0; i < itemsToUpdate.length; i++) {
+                    const item = itemsToUpdate[i];
+                    item.element.dataset.headingId = item.headingId;
+                    item.element.textContent = item.text;
+                    item.element.className = 'md-toc-item level-' + item.level;
+                }
+            });
         }
     }
 
