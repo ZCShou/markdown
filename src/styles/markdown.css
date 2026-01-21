@@ -295,10 +295,13 @@ html::-webkit-scrollbar-thumb:hover,
     border: 1px solid var(--md-border-secondary);
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
     outline: none;
     user-select: none;
     text-decoration: none;
+    will-change: transform;
 }
 
 .md-btn:hover {
@@ -732,6 +735,36 @@ html::-webkit-scrollbar-thumb:hover,
     flex-shrink: 0;
     display: flex;
     gap: 8px;
+    align-items: center;
+}
+
+/* 同步滚动复选框 */
+.md-sync-scroll {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--md-toolbar-text);
+    cursor: pointer;
+    user-select: none;
+}
+
+.md-sync-scroll input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: var(--md-color-primary);
+}
+
+.md-sync-scroll span {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.md-sync-scroll:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
 }
 
 /* 顶部工具栏按钮 - 继承 .md-btn.md-btn-icon.md-btn-ghost 样式 */
@@ -816,6 +849,8 @@ html::-webkit-scrollbar-thumb:hover,
     min-height: 0;
     position: relative;
     overflow: hidden;
+    /* 优化滚动性能 */
+    contain: strict;
 }
 
 #markdown-editor {
@@ -831,6 +866,10 @@ html::-webkit-scrollbar-thumb:hover,
     color: var(--md-text-primary);
     background-color: var(--md-bg-secondary);
     box-sizing: border-box;
+    /* 优化滚动性能 */
+    overflow: auto;
+    scroll-behavior: auto;
+    will-change: scroll-position;
 }
 
 #markdown-editor::placeholder {
@@ -1221,9 +1260,13 @@ html::-webkit-scrollbar-thumb:hover,
     z-index: 10000;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transform: translate(-50%, -50%) scale(0.9);
+    transition: opacity 0.3s ease,
+                visibility 0.3s ease,
+                transform 0.3s ease;
     max-width: 400px;
     text-align: center;
+    will-change: opacity, transform;
 }
 
 .status-message.show {

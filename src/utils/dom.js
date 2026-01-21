@@ -314,6 +314,7 @@ export const dom = {
     preview: {
         pane: new DOMElement('#md-preview-pane'),
         element: new DOMElement('#markdown-preview'),
+        wrapper: new DOMElement('#md-preview-wrapper'),
         container: new DOMElement('#md-preview-container')
     },
 

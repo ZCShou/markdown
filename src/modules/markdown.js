@@ -92,6 +92,12 @@ export class MarkdownEditor {
         /** @type {number} 上次左侧比例 */
         this.lastLeftRatio = 0.5;
         
+        /** @type {boolean} 是否启用同步滚动 */
+        this.syncScrollEnabled = true;
+        
+        /** @type {boolean} 是否正在同步滚动（防止循环触发） */
+        this.isSyncing = false;
+        
         /** @type {EditorState} 状态管理器 */
         this.state = new EditorState();
         
@@ -151,6 +157,116 @@ export class MarkdownEditor {
         Object.values(this.components).forEach(component => {
             component.init();
         });
+    }
+
+    // ==================== 同步滚动 ====================
+    
+    /**
+     * 设置同步滚动（性能优化版 - 修复滚轮抖动）
+     */
+    setupSyncScroll() {
+        const editor = dom.editor.element?.element;
+        const previewWrapper = dom.preview.wrapper?.element;
+        const syncScrollCheckbox = dom.getById('md-sync-scroll')?.element;
+
+        if (!editor || !previewWrapper || !syncScrollCheckbox) return;
+
+        // 从本地存储加载同步滚动状态
+        const savedSyncScroll = localStorage.getItem('md-sync-scroll');
+        if (savedSyncScroll !== null) {
+            this.syncScrollEnabled = savedSyncScroll === 'true';
+            syncScrollCheckbox.checked = this.syncScrollEnabled;
+        }
+
+        // 缓存可滚动高度，避免频繁查询 DOM
+        let editorScrollableHeight = 0;
+        let previewScrollableHeight = 0;
+        let rafId = null;
+        let lastSyncTime = 0;
+
+        // 更新缓存的滚动高度
+        const updateScrollHeights = () => {
+            editorScrollableHeight = editor.scrollHeight - editor.clientHeight;
+            previewScrollableHeight = previewWrapper.scrollHeight - previewWrapper.clientHeight;
+        };
+
+        // 初始化缓存
+        updateScrollHeights();
+
+        // 监听内容变化，更新缓存
+        const resizeObserver = new ResizeObserver(() => {
+            updateScrollHeights();
+        });
+        resizeObserver.observe(editor);
+        resizeObserver.observe(previewWrapper);
+
+        // 监听复选框变化
+        syncScrollCheckbox.addEventListener('change', (e) => {
+            this.syncScrollEnabled = e.target.checked;
+            localStorage.setItem('md-sync-scroll', this.syncScrollEnabled);
+        });
+
+        // 优化的同步函数：使用更激进的节流
+        const syncScroll = (source, target, sourceHeight, targetHeight) => {
+            const now = performance.now();
+            const SYNC_DELAY = 50; // 增加到 50ms，减少滚轮抖动
+
+            // 距离上次同步太近，跳过
+            if (now - lastSyncTime < SYNC_DELAY) {
+                return false;
+            }
+
+            // 取消之前的待处理同步
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            // 立即同步，不等待 rAF
+            const scrollRatio = source.scrollTop / sourceHeight;
+            target.scrollTop = scrollRatio * targetHeight;
+            lastSyncTime = now;
+
+            return true;
+        };
+
+        // 编辑器滚动时同步预览
+        editor.addEventListener('scroll', () => {
+            if (!this.syncScrollEnabled || this.isSyncing) return;
+            if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
+
+            this.isSyncing = true;
+            const synced = syncScroll(editor, previewWrapper, editorScrollableHeight, previewScrollableHeight);
+            
+            if (synced) {
+                // 使用 setTimeout 而不是 rAF，避免延迟
+                setTimeout(() => {
+                    this.isSyncing = false;
+                }, 50);
+            } else {
+                this.isSyncing = false;
+            }
+        }, { passive: true });
+
+        // 预览滚动时同步编辑器
+        previewWrapper.addEventListener('scroll', () => {
+            if (!this.syncScrollEnabled || this.isSyncing) return;
+            if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
+
+            this.isSyncing = true;
+            const synced = syncScroll(previewWrapper, editor, previewScrollableHeight, editorScrollableHeight);
+            
+            if (synced) {
+                setTimeout(() => {
+                    this.isSyncing = false;
+                }, 50);
+            } else {
+                this.isSyncing = false;
+            }
+        }, { passive: true });
+
+        // 保存 observer 引用，用于清理
+        this._syncScrollResizeObserver = resizeObserver;
     }
 
     // ==================== 分隔条拖拽 ====================
@@ -501,11 +617,23 @@ export class MarkdownEditor {
         this.initLayout();
         this.bindEvents();
         this.setupDivider();
+        this.setupSyncScroll();
         
         // 应用侧边栏区块状态
         this.components.leftSidebar.applySectionStates();
         this.components.rightSidebar.applySectionStates();
 
         this.isInitialized = true;
+    }
+
+    /**
+     * 清理资源
+     */
+    destroy() {
+        // 清理同步滚动的 ResizeObserver
+        if (this._syncScrollResizeObserver) {
+            this._syncScrollResizeObserver.disconnect();
+            this._syncScrollResizeObserver = null;
+        }
     }
 }
