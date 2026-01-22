@@ -7,6 +7,9 @@ import { StoreManager } from '../modules/store.js';
 import { dom } from '../utils/dom.js';
 
 export class DocumentList extends BaseComponent {
+    /** @private */
+    #lastDocCount = 0; // 用于增量更新
+
     /**
      * 构造函数
      */
@@ -492,6 +495,14 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
+        // 增量更新：只更新激活状态（最常见场景）
+        if (this.#lastDocCount === documents.length) {
+            this.#updateActiveState(currentDocId);
+            return;
+        }
+
+        // 完全重建
+        this.#lastDocCount = documents.length;
         const tree = this.state.buildTree();
         const fragment = this.createFragment();
         const treeContainer = this.createElement('div', {
@@ -505,6 +516,22 @@ export class DocumentList extends BaseComponent {
         fragment.appendChild(treeContainer);
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
+    }
+
+    /**
+     * 增量更新激活状态（性能优化）
+     * @private
+     */
+    #updateActiveState(currentDocId) {
+        // 移除旧的激活状态
+        const oldActive = this.container.querySelector('.md-doc-item.active');
+        if (oldActive) oldActive.classList.remove('active');
+
+        // 添加新的激活状态
+        if (currentDocId) {
+            const newActive = this.container.querySelector(`[data-doc-id="${currentDocId}"]`);
+            if (newActive) newActive.classList.add('active');
+        }
     }
 
     /**

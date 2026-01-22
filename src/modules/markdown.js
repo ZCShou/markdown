@@ -332,26 +332,32 @@ export class MarkdownEditor {
             this.lastLeftRatio = 0.5;
         });
 
-        // 拖拽过程
+        // 拖拽过程（使用 rAF 节流）
+        let dragRafId = null;
         document.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
+            
+            if (dragRafId) return;
+            
+            dragRafId = requestAnimationFrame(() => {
+                const containerRect = container.getBoundingClientRect();
+                const containerWidth = container.offsetWidth;
+                const dividerWidth = divider.offsetWidth;
+                const availableWidth = containerWidth - dividerWidth;
 
-            const containerRect = container.getBoundingClientRect();
-            const containerWidth = container.offsetWidth;
-            const dividerWidth = divider.offsetWidth;
-            const availableWidth = containerWidth - dividerWidth;
+                const minWidth = MIN_WIDTH;
+                const maxWidth = availableWidth - minWidth;
+                const leftWidth = Math.max(minWidth, Math.min(e.clientX - containerRect.left, maxWidth));
+                const rightWidth = availableWidth - leftWidth;
 
-            const minWidth = MIN_WIDTH;
-            const maxWidth = availableWidth - minWidth;
-            const leftWidth = Math.max(minWidth, Math.min(e.clientX - containerRect.left, maxWidth));
-            const rightWidth = availableWidth - leftWidth;
+                editorPane.style.flex = '1 1 ' + leftWidth + 'px';
+                editorPane.style.maxWidth = leftWidth + 'px';
+                previewPane.style.flex = '1 1 ' + rightWidth + 'px';
+                previewPane.style.maxWidth = rightWidth + 'px';
 
-            editorPane.style.flex = '1 1 ' + leftWidth + 'px';
-            editorPane.style.maxWidth = leftWidth + 'px';
-            previewPane.style.flex = '1 1 ' + rightWidth + 'px';
-            previewPane.style.maxWidth = rightWidth + 'px';
-
-            this.lastLeftRatio = leftWidth / availableWidth;
+                this.lastLeftRatio = leftWidth / availableWidth;
+                dragRafId = null;
+            });
         });
 
         // 结束拖拽

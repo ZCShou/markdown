@@ -566,7 +566,7 @@ export class Preview extends BaseComponent {
     highlightCodeBlocks(codeBlocks) {
         if (typeof Prism === 'undefined' || codeBlocks.length === 0) return;
 
-        const BATCH_SIZE = 5;
+        const BATCH_SIZE = 10;
         let index = 0;
 
         const processBatch = () => {

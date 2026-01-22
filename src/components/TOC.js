@@ -92,17 +92,15 @@ export class TOC extends BaseComponent {
         for (let i = 0; i < headingCount; i++) {
             const heading = headings[i];
             
-            // 为标题生成 ID（如果没有）
-            if (!heading.id) {
-                heading.id = 'heading-' + i;
-            }
+            // 使用 Preview 组件生成的 ID，不再修改 DOM
+            const headingId = heading.id || 'heading-' + i;
             
             const level = parseInt(heading.tagName.substring(1));
             const text = heading.textContent || '';
             
             const item = document.createElement('div');
             item.className = 'md-toc-item level-' + level;
-            item.dataset.headingId = heading.id;
+            item.dataset.headingId = headingId;
             item.textContent = text;
             
             fragment.appendChild(item);
@@ -125,10 +123,8 @@ export class TOC extends BaseComponent {
             const heading = headings[i];
             const currentItem = currentItems[i];
             
-            // 为标题生成 ID（如果没有）
-            if (!heading.id) {
-                heading.id = 'heading-' + i;
-            }
+            // 使用 Preview 组件生成的 ID，不再修改 DOM
+            const headingId = heading.id || 'heading-' + i;
             
             const level = parseInt(heading.tagName.substring(1));
             const text = heading.textContent || '';
@@ -140,11 +136,11 @@ export class TOC extends BaseComponent {
             const currentLevel = currentLevelMatch ? parseInt(currentLevelMatch[1]) : -1;
             
             // 检查是否需要更新
-            if (currentId !== heading.id || currentText !== text || currentLevel !== level) {
+            if (currentId !== headingId || currentText !== text || currentLevel !== level) {
                 itemsToUpdate.push({
                     index: i,
                     element: currentItem,
-                    headingId: heading.id,
+                    headingId: headingId,
                     text: text,
                     level: level
                 });
