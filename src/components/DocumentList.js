@@ -389,7 +389,6 @@ export class DocumentList extends BaseComponent {
             // 内联退出编辑模式
             this.editingDocId = null;
             const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
-            const input = dom.getIn(item, '.md-doc-item-input');
             if (item && input) {
                 const nameSpan = this.createElement('span', {
                     className: 'md-doc-item-name',
@@ -403,7 +402,6 @@ export class DocumentList extends BaseComponent {
         const cancel = () => {
             this.editingDocId = null;
             const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
-            const input = dom.getIn(item, '.md-doc-item-input');
             if (item && input) {
                 const nameSpan = this.createElement('span', {
                     className: 'md-doc-item-name',
