@@ -344,6 +344,9 @@ export class Preview extends BaseComponent {
         // 如果是首次渲染或所有内容都变了，直接替换
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
+            // 首次渲染时也要更新 headings，否则 TOC 组件无法生成目录
+            const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            this.state.setState({ headings: Array.from(headings) });
             return;
         }
         
@@ -465,6 +468,13 @@ export class Preview extends BaseComponent {
         // 9. 清空容器并添加新内容
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
+
+        // 10. 只在标题变化时更新 headings（性能优化）
+        // 避免不必要的 state 更新和 TOC 重新生成
+        if (changes.headingsChanged) {
+            const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            this.state.setState({ headings: Array.from(headings) });
+        }
     }
 
     /**
@@ -487,12 +497,11 @@ export class Preview extends BaseComponent {
 
         // 合并所有 DOM 查询为一次，减少重排
         requestAnimationFrame(() => {
-            // 一次性查询所有需要的元素
+            // 一次性查询所有需要的元素（移除不必要的 headings 查询）
             const codeBlocks = this.container.querySelectorAll('pre code:not(.prism-highlighted)');
             const mermaidBlocks = this.container.querySelectorAll('pre code.language-mermaid');
             const preElements = this.container.querySelectorAll('pre:not(.has-copy-btn)');
             const images = this.container.querySelectorAll('img:not([data-error-handled])');
-            const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
             // 增量处理：只处理变化的部分
             this.processAllElements(
@@ -500,7 +509,6 @@ export class Preview extends BaseComponent {
                 mermaidBlocks, 
                 preElements, 
                 images, 
-                headings,
                 changes  // 传递变化信息
             );
 
@@ -518,14 +526,13 @@ export class Preview extends BaseComponent {
     /**
      * 批量处理所有 DOM 元素（增量渲染优化版）
      */
-    processAllElements(codeBlocks, mermaidBlocks, preElements, images, headings, changes = null) {
+    processAllElements(codeBlocks, mermaidBlocks, preElements, images, changes = null) {
         // 如果没有变化信息，处理所有元素（兼容旧逻辑）
         if (!changes) {
             this.highlightCodeBlocks(codeBlocks);
             this.renderMermaidChartsBlocks(mermaidBlocks);
             this.addCopyButtonsToElements(preElements);
             this.markImagesHandled(images);
-            this.state.setState({ headings: Array.from(headings) });
             return;
         }
 
@@ -551,11 +558,6 @@ export class Preview extends BaseComponent {
 
         // 5. 图片处理：总是处理（因为 innerHTML 替换后标记会丢失）
         this.markImagesHandled(images);
-
-        // 6. 标题更新：只在标题变化时更新
-        if (changes.headingsChanged) {
-            this.state.setState({ headings: Array.from(headings) });
-        }
     }
 
     /**
@@ -839,7 +841,25 @@ export class Preview extends BaseComponent {
             // 使用 marked 解析 Markdown
             let html;
             if (marked?.parse) {
-                html = marked.parse(processedMarkdown, { breaks: false, gfm: true });
+                // 配置 marked renderer，为标题生成 id
+                const renderer = new marked.Renderer();
+                const headingIds = new Map();
+                let headingIndex = 0;
+
+                // 重写 heading 方法，为每个标题生成唯一 id
+                renderer.heading = function(text, level, raw) {
+                    // 生成唯一的 id
+                    const id = 'heading-' + headingIndex++;
+                    
+                    // 返回带 id 的标题 HTML
+                    return `<h${level} id="${id}">${text}</h${level}>`;
+                };
+
+                html = marked.parse(processedMarkdown, { 
+                    renderer,
+                    breaks: false, 
+                    gfm: true 
+                });
             } else {
                 html = this.escapeHtml(processedMarkdown);
             }
