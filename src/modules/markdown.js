@@ -103,6 +103,12 @@ export class MarkdownEditor {
         
         /** @type {Object} 组件实例 */
         this.components = {};
+        
+        /** @type {number|null} resize 定时器 ID */
+        this._resizeTimeout = null;
+        
+        /** @type {number|null} 拖拽 rAF ID */
+        this._dragRafId = null;
     }
 
     // ==================== 工具函数 ====================
@@ -334,13 +340,12 @@ export class MarkdownEditor {
         });
 
         // 拖拽过程（使用 rAF 节流）
-        let dragRafId = null;
         document.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
             
-            if (dragRafId) return;
+            if (this._dragRafId) return;
             
-            dragRafId = requestAnimationFrame(() => {
+            this._dragRafId = requestAnimationFrame(() => {
                 const containerRect = container.getBoundingClientRect();
                 const containerWidth = container.offsetWidth;
                 const dividerWidth = divider.offsetWidth;
@@ -357,7 +362,7 @@ export class MarkdownEditor {
                 previewPane.style.maxWidth = rightWidth + 'px';
 
                 this.lastLeftRatio = leftWidth / availableWidth;
-                dragRafId = null;
+                this._dragRafId = null;
             });
         });
 
@@ -371,10 +376,9 @@ export class MarkdownEditor {
         });
 
         // 窗口大小变化时重新计算
-        let resizeTimeout;
         window.addEventListener('resize', () => {
-            if (resizeTimeout) clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
+            if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
+            this._resizeTimeout = setTimeout(() => {
                 const currentLayout = this.state.get('layout');
                 if (currentLayout === 'layout-both') {
                     setPaneWidths(this.lastLeftRatio);
@@ -600,6 +604,18 @@ export class MarkdownEditor {
         if (this._syncScrollResizeObserver) {
             this._syncScrollResizeObserver.disconnect();
             this._syncScrollResizeObserver = null;
+        }
+        
+        // 清理 resize 定时器
+        if (this._resizeTimeout) {
+            clearTimeout(this._resizeTimeout);
+            this._resizeTimeout = null;
+        }
+        
+        // 清理拖拽 rAF
+        if (this._dragRafId) {
+            cancelAnimationFrame(this._dragRafId);
+            this._dragRafId = null;
         }
     }
 }

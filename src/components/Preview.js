@@ -14,6 +14,8 @@ export class Preview extends BaseComponent {
     
     /** @private */
     #lastRenderedData;
+    /** @private */
+    #mermaidTimeoutIds = [];
 
     /**
      * 构造函数
@@ -648,13 +650,26 @@ export class Preview extends BaseComponent {
                 }
             });
             this.state.setRenderingState(false);
+            // 从数组中移除已执行的定时器
+            const index = this.#mermaidTimeoutIds.indexOf(timeoutId);
+            if (index > -1) {
+                this.#mermaidTimeoutIds.splice(index, 1);
+            }
         }, 5000);
+
+        // 保存定时器 ID，用于清理
+        this.#mermaidTimeoutIds.push(timeoutId);
 
         mermaid.run({ nodes: containers })
             .then(() => {
                 clearTimeout(timeoutId);
                 containers.forEach(c => c.classList.add('mermaid-done'));
                 this.state.setRenderingState(false);
+                // 从数组中移除已完成的定时器
+                const index = this.#mermaidTimeoutIds.indexOf(timeoutId);
+                if (index > -1) {
+                    this.#mermaidTimeoutIds.splice(index, 1);
+                }
             })
             .catch((err) => {
                 clearTimeout(timeoutId);
@@ -664,6 +679,11 @@ export class Preview extends BaseComponent {
                     c.classList.add('render-error');
                 });
                 this.state.setRenderingState(false);
+                // 从数组中移除已失败的定时器
+                const index = this.#mermaidTimeoutIds.indexOf(timeoutId);
+                if (index > -1) {
+                    this.#mermaidTimeoutIds.splice(index, 1);
+                }
             });
     }
 
@@ -1008,6 +1028,18 @@ ${html}
      * 销毁组件，清理资源
      */
     destroy() {
+        // 清理渲染定时器
+        if (this.renderTimeout) {
+            clearTimeout(this.renderTimeout);
+            this.renderTimeout = null;
+        }
+        
+        // 清理所有 Mermaid 超时定时器
+        this.#mermaidTimeoutIds.forEach(timeoutId => {
+            clearTimeout(timeoutId);
+        });
+        this.#mermaidTimeoutIds = [];
+        
         super.destroy();
     }
 }

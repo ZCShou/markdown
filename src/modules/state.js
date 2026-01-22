@@ -467,6 +467,21 @@ export class EditorState {
     updateLastRenderedContent(content) {
         this.setState({ lastRenderedContent: content });
     }
+
+    /**
+     * 清理资源（通常不需要调用，因为这是全局单例）
+     */
+    destroy() {
+        // 清理 updatedAt 更新定时器
+        if (this.#updateTimestampTimeout) {
+            clearTimeout(this.#updateTimestampTimeout);
+            this.#updateTimestampTimeout = null;
+        }
+        
+        // 清理所有监听器
+        this.#listeners.clear();
+        this.#globalListeners.clear();
+    }
 }
 
 /**
