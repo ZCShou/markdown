@@ -519,6 +519,7 @@ export class MarkdownEditor {
             'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
             'md-export-html': () => this.components.preview.exportHTML(),
             'md-export-md': () => this.components.preview.exportMarkdown(),
+            'md-export-pdf': () => this.components.preview.exportPDF(),
             'md-layout-toggle': () => this.toggleLayout(),
             'theme-toggle': () => this.toggleTheme()
         };

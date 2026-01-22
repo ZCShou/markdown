@@ -1010,6 +1010,32 @@ ${html}
     }
 
     /**
+     * 导出为 PDF（使用浏览器打印功能）
+     */
+    exportPDF() {
+        const content = this.state.get('content');
+        if (!content) {
+            this.showMessage('没有内容可导出', 'warning');
+            return;
+        }
+
+        // 添加打印专用类，用于优化打印样式
+        document.body.classList.add('printing-pdf');
+
+        // 触发浏览器打印对话框
+        window.print().then(() => {
+            // 打印完成后移除打印类
+            document.body.classList.remove('printing-pdf');
+        }).catch((error) => {
+            console.error('打印失败:', error);
+            document.body.classList.remove('printing-pdf');
+            this.showMessage('打印失败: ' + error.message, 'error');
+        });
+
+        this.showMessage('请在打印对话框中选择"另存为 PDF"', 'info');
+    }
+
+    /**
      * 下载文件
      */
     downloadFile(content, mimeType, extension) {
