@@ -466,8 +466,6 @@ html::-webkit-scrollbar-thumb:hover,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px;
-    margin-bottom: 8px;
     background: var(--md-bg-tertiary);
     border-radius: 6px;
     cursor: pointer;
@@ -1405,7 +1403,6 @@ pre.has-copy-btn {
 .md-doc-item {
     display: flex;
     align-items: center;
-    padding: 6px 8px;
     margin-bottom: 2px;
     background: transparent;
     border-radius: 4px;
