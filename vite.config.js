@@ -7,6 +7,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig({
+  // GitHub Pages 部署配置：使用仓库名作为基础路径
+  // 本地开发时使用根路径 '/'，部署时使用 '/markdown/'
+  base: process.env.BASE_URL || '/markdown/',
   server: {
     port: 3000,
     host: '0.0.0.0',
