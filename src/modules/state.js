@@ -16,6 +16,9 @@ import { StoreManager } from './store.js';
 export class EditorState {
     // ==================== 私有字段 ====================
     
+    /** @private */
+    #updateTimestampTimeout = null;
+    
     /** @type {Object} 核心状态对象 */
     #state = {
         // 文档相关
@@ -279,7 +282,15 @@ export class EditorState {
             const docIndex = this.#state.documents.findIndex(d => d.id === this.#state.currentDocId);
             if (docIndex !== -1) {
                 this.#state.documents[docIndex].content = content;
-                this.#state.documents[docIndex].updatedAt = new Date().toISOString();
+                
+                // 延迟更新 updatedAt（2秒），避免每次输入都创建新的 Date 对象
+                if (this.#updateTimestampTimeout) {
+                    clearTimeout(this.#updateTimestampTimeout);
+                }
+                this.#updateTimestampTimeout = setTimeout(() => {
+                    this.#state.documents[docIndex].updatedAt = new Date().toISOString();
+                    this.#updateTimestampTimeout = null;
+                }, 2000);
             }
         }
     }

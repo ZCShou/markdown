@@ -59,8 +59,8 @@ export class DocumentList extends BaseComponent {
             }
         }
 
-        // 添加新的激活状态
-        if (newDocId) {
+        // 添加新的激活状态（复用查询结果）
+        if (newDocId && newDocId !== oldDocId) {
             const newItem = this.container.querySelector(`[data-doc-id="${newDocId}"]`);
             if (newItem) {
                 newItem.classList.add('active');

@@ -350,23 +350,30 @@ export class Preview extends BaseComponent {
             return;
         }
         
-        // 获取当前 DOM 中的所有代码块、Mermaid 图表和数学公式
+        // 获取当前 DOM 中的所有代码块、Mermaid 图表和数学公式（合并查询）
         const oldCodeBlocks = new Map();
         const oldMermaidBlocks = new Map();
         const oldMathBlocks = new Map();
         
+        // 一次性查询所有需要处理的元素
+        const allCodeElements = this.container.querySelectorAll('pre code[class*="language-"]');
+        const allMermaidDivs = this.container.querySelectorAll('div.mermaid');
+        const allMathElements = this.container.querySelectorAll('.math-block, .math-inline');
+        
         // 1. 收集已高亮的代码块
-        this.container.querySelectorAll('pre code[class*="language-"]').forEach((el, index) => {
+        for (let i = 0; i < allCodeElements.length; i++) {
+            const el = allCodeElements[i];
             // 跳过 Mermaid 代码块
             if (el.classList.contains('language-mermaid')) {
-                return;
+                continue;
             }
             const hash = this.#generateSimpleHash(el.textContent);
             oldCodeBlocks.set(hash, el);
-        });
+        }
         
-        // 2. 收集已渲染的 Mermaid 图表（注意：渲染后是 div.mermaid，不是 pre）
-        this.container.querySelectorAll('div.mermaid').forEach((el) => {
+        // 2. 收集已渲染的 Mermaid 图表
+        for (let i = 0; i < allMermaidDivs.length; i++) {
+            const el = allMermaidDivs[i];
             // 从 data-mermaid 属性获取原始文本
             let originalText = el.getAttribute('data-mermaid');
             
@@ -386,16 +393,17 @@ export class Preview extends BaseComponent {
                 const hash = this.#generateSimpleHash(originalText);
                 oldMermaidBlocks.set(hash, el);
             }
-        });
+        }
         
         // 3. 收集已渲染的数学公式
-        this.container.querySelectorAll('.math-block, .math-inline').forEach((el) => {
+        for (let i = 0; i < allMathElements.length; i++) {
+            const el = allMathElements[i];
             const latex = el.getAttribute('data-latex');
             if (latex) {
                 const hash = this.#generateSimpleHash(latex);
                 oldMathBlocks.set(hash, el);
             }
-        });
+        }
         
         // 4. 遍历新 HTML 中的代码块（跳过 Mermaid）
         tempContainer.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach((newEl) => {

@@ -115,8 +115,6 @@ export class TOC extends BaseComponent {
      * @private
      */
     _updateTOC(headings, currentItems) {
-        // 使用 DocumentFragment 批量更新，减少重排
-        const fragment = document.createDocumentFragment();
         const itemsToUpdate = [];
         
         for (let i = 0; i < headings.length; i++) {
@@ -147,17 +145,14 @@ export class TOC extends BaseComponent {
             }
         }
         
-        // 只在有变化时批量更新 DOM
+        // 只在有变化时批量更新 DOM（移除嵌套的 rAF）
         if (itemsToUpdate.length > 0) {
-            // 使用 requestAnimationFrame 在浏览器准备好时批量更新
-            requestAnimationFrame(() => {
-                for (let i = 0; i < itemsToUpdate.length; i++) {
-                    const item = itemsToUpdate[i];
-                    item.element.dataset.headingId = item.headingId;
-                    item.element.textContent = item.text;
-                    item.element.className = 'md-toc-item level-' + item.level;
-                }
-            });
+            for (let i = 0; i < itemsToUpdate.length; i++) {
+                const item = itemsToUpdate[i];
+                item.element.dataset.headingId = item.headingId;
+                item.element.textContent = item.text;
+                item.element.className = 'md-toc-item level-' + item.level;
+            }
         }
     }
 

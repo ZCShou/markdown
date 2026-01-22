@@ -239,10 +239,10 @@ export class MarkdownEditor {
             const synced = syncScroll(editor, previewWrapper, editorScrollableHeight, previewScrollableHeight);
             
             if (synced) {
-                // 使用 setTimeout 而不是 rAF，避免延迟
-                setTimeout(() => {
+                // 使用 requestAnimationFrame 确保在下一帧重置
+                requestAnimationFrame(() => {
                     this.isSyncing = false;
-                }, 50);
+                });
             } else {
                 this.isSyncing = false;
             }
@@ -257,9 +257,10 @@ export class MarkdownEditor {
             const synced = syncScroll(previewWrapper, editor, previewScrollableHeight, editorScrollableHeight);
             
             if (synced) {
-                setTimeout(() => {
+                // 使用 requestAnimationFrame 确保在下一帧重置
+                requestAnimationFrame(() => {
                     this.isSyncing = false;
-                }, 50);
+                });
             } else {
                 this.isSyncing = false;
             }
