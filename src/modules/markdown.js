@@ -601,10 +601,28 @@ export class MarkdownEditor {
         const documents = StoreManager.loadDocuments();
         const theme = StoreManager.loadTheme('light');
         const layout = StoreManager.loadLayout() || 'layout-both';
+        const leftSidebarOpen = StoreManager.loadSidebarState('left', false);
+        const rightSidebarOpen = StoreManager.loadSidebarState('right', false);
+        
+        // 加载区块状态
+        const sections = {
+            toc: !StoreManager.loadSectionState('toc', false),
+            export: !StoreManager.loadSectionState('export', false)
+        };
+        
         const { currentDocId, content } = this.#getInitialDocument(documents);
 
         // 设置初始状态
-        this.state.setState({ documents, content, theme, layout, currentDocId });
+        this.state.setState({ 
+            documents, 
+            content, 
+            theme, 
+            layout, 
+            currentDocId,
+            leftSidebarOpen,
+            rightSidebarOpen,
+            sections
+        });
         StoreManager.saveDocuments(documents);
 
         // 初始化组件
