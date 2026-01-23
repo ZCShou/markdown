@@ -528,7 +528,6 @@ export class MarkdownEditor {
         const docButtons = {
             'md-new-file': () => this.components.documentList.createItem('file'),
             'md-new-folder': () => this.components.documentList.createItem('folder'),
-            'md-toggle-all-folders': () => this.components.documentList.toggleAllFolders(),
             'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
             'md-export-html': () => this.components.preview.exportHTML(),
             'md-export-md': () => this.components.preview.exportMarkdown(),

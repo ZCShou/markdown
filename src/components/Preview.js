@@ -929,7 +929,7 @@ export class Preview extends BaseComponent {
      */
     handleImageError(img) {
         img.alt = `图片加载失败: ${img.src}`;
-        img.style.cssText = 'border: 2px dashed #f44336; padding: 10px;';
+        img.classList.add('markdown-image-error');
     }
 
     /**

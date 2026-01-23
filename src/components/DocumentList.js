@@ -104,7 +104,9 @@ export class DocumentList extends BaseComponent {
 
         const nodeContainer = item.closest('.md-tree-node');
         const childrenContainer = nodeContainer?.querySelector('.md-tree-children');
-        if (childrenContainer) childrenContainer.style.display = expanded ? 'flex' : 'none';
+        if (childrenContainer) {
+            childrenContainer.classList.toggle('collapsed', !expanded);
+        }
     }
 
     /**
@@ -126,25 +128,6 @@ export class DocumentList extends BaseComponent {
      */
     collapseFolder(folderId) {
         this.setFolderExpanded(folderId, false);
-    }
-
-    /**
-     * 展开所有文件夹
-     */
-    expandAllFolders() {
-        const folderIds = this.state.get('documents')
-            .filter(doc => doc.type === 'folder')
-            .map(doc => doc.id);
-        this.expandedFolders = new Set(folderIds);
-        this.render();
-    }
-
-    /**
-     * 折叠所有文件夹
-     */
-    collapseAllFolders() {
-        this.expandedFolders.clear();
-        this.render();
     }
 
     /**
@@ -460,27 +443,37 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 删除当前项目
+     * 清空所有文件
      */
     deleteCurrentItem() {
-        const currentDocId = this.state.get('currentDocId');
-        if (!currentDocId) {
-            this.showMessage('请先选择一个项目', 'warning');
-        } else {
-            this.handleDelete(currentDocId);
+        const documents = this.state.get('documents');
+        if (documents.length === 0) {
+            this.showMessage('当前没有文件', 'info');
+            return;
         }
-    }
 
-    /**
-     * 全部展开/折叠
-     */
-    toggleAllFolders() {
-        const allFolders = this.state.get('documents').filter(d => d.type === 'folder');
-        if (this.expandedFolders.size === allFolders.length) {
-            this.collapseAllFolders();
-        } else {
-            this.expandAllFolders();
+        // 显示确认对话框
+        const confirmed = confirm(`确定要清空所有文件吗？\n\n这将删除 ${documents.length} 个文件/文件夹，此操作不可恢复！`);
+        if (!confirmed) {
+            return;
         }
+
+        // 清空所有文档和内容
+        this.state.setState({
+            documents: [],
+            currentDocId: null,
+            content: ''
+        });
+        StoreManager.saveDocuments([]);
+        StoreManager.saveContent('');
+
+        // 清空展开状态
+        this.expandedFolders.clear();
+
+        // 重新渲染
+        this.render();
+
+        this.showMessage('已清空所有文件', 'success');
     }
 
     /**
@@ -654,8 +647,7 @@ export class DocumentList extends BaseComponent {
 
         if (isFolder && hasChildren) {
             const childrenContainer = this.createElement('div', {
-                className: 'md-tree-children',
-                style: isExpanded ? {} : { display: 'none' }
+                className: `md-tree-children${isExpanded ? '' : ' collapsed'}`
             });
 
             node.children.forEach((child) => {

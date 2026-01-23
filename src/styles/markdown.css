@@ -1102,6 +1102,11 @@ html::-webkit-scrollbar-thumb:hover,
     box-sizing: border-box;
 }
 
+.markdown-body img.markdown-image-error {
+    border: 2px dashed var(--md-color-danger);
+    padding: 10px;
+}
+
 .markdown-body hr {
     height: 0.25em;
     padding: 0;
@@ -1585,6 +1590,10 @@ pre.has-copy-btn {
     display: flex;
     flex-direction: column;
     gap: 2px;
+}
+
+.md-tree-children.collapsed {
+    display: none;
 }
 
 /* 拖拽相关样式 */
