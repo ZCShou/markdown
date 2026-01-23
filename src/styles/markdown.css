@@ -715,6 +715,33 @@ html::-webkit-scrollbar-thumb:hover,
     min-height: 0;
     background-color: var(--md-bg-secondary);
     overflow: hidden;
+    
+    /* 分割比例变量（0-1之间） */
+    --split-ratio: 0.5;
+    
+    /* 性能优化：提示浏览器这个元素会改变 */
+    will-change: --split-ratio;
+}
+
+/* 拖拽时的性能优化 */
+.markdown-container.is-resizing {
+    /* 限制重排范围，提升性能 */
+    contain: layout style;
+    
+    /* 提示浏览器即将发生变换 */
+    will-change: --split-ratio;
+    
+    /* 拖拽时禁用过渡效果，提升响应速度 */
+    transition: none !important;
+}
+
+.markdown-container.is-resizing .markdown-editor-pane,
+.markdown-container.is-resizing .markdown-preview-pane {
+    /* 拖拽时禁用过渡效果 */
+    transition: none !important;
+    
+    /* 提示浏览器这些元素会改变 */
+    will-change: flex, max-width;
 }
 
 /* 布局模式 */
@@ -763,6 +790,15 @@ html::-webkit-scrollbar-thumb:hover,
     min-height: 0;
     background-color: var(--md-bg-secondary);
     border-right: 1px solid var(--md-border-primary);
+    
+    /* 性能优化：限制重排范围 */
+    contain: layout style paint;
+}
+
+/* 当使用固定分割比例时 */
+.markdown-container.has-split-ratio .markdown-editor-pane {
+    flex: var(--split-ratio);
+    max-width: calc(var(--split-ratio) * (100% - 4px));
 }
 
 .markdown-editor-wrapper {
@@ -834,6 +870,15 @@ html::-webkit-scrollbar-thumb:hover,
     min-height: 0;
     overflow: hidden;
     background-color: var(--md-bg-secondary);
+    
+    /* 性能优化：限制重排范围 */
+    contain: layout style paint;
+}
+
+/* 当使用固定分割比例时 */
+.markdown-container.has-split-ratio .markdown-preview-pane {
+    flex: calc(1 - var(--split-ratio));
+    max-width: calc((1 - var(--split-ratio)) * (100% - 4px));
 }
 
 .markdown-preview-wrapper {

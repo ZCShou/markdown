@@ -279,41 +279,54 @@ export class MarkdownEditor {
     // ==================== 分隔条拖拽 ====================
     
     /**
-     * 设置拖拽分隔条（简化版）
+     * 设置拖拽分隔条（性能优化版）
      */
     setupDivider() {
         const divider = dom.divider.element?.element;
-        const editorPane = dom.editor.pane?.element;
-        const previewPane = dom.preview.pane?.element;
         const container = dom.app.container?.element;
 
-        if (!divider || !editorPane || !previewPane || !container) return;
+        if (!divider || !container) return;
 
         const MIN_WIDTH = 100; // 最小面板宽度
+        let frameCount = 0; // 帧计数器，用于降低更新频率
+        let lastUpdateTime = 0; // 上次更新时间
 
-        // 设置面板宽度
-        const setPaneWidths = (ratio) => {
-            const containerWidth = container.offsetWidth;
-            const dividerWidth = divider.offsetWidth;
-            const availableWidth = containerWidth - dividerWidth;
-            
-            const leftWidth = availableWidth * ratio;
-            const rightWidth = availableWidth - leftWidth;
-
-            editorPane.style.flex = '1 1 ' + leftWidth + 'px';
-            editorPane.style.maxWidth = leftWidth + 'px';
-            editorPane.classList.add('fixed-width');
-            
-            previewPane.style.flex = '1 1 ' + rightWidth + 'px';
-            previewPane.style.maxWidth = rightWidth + 'px';
-            previewPane.classList.add('fixed-width');
+        // 更新分割比例（只更新 CSS 变量，让 CSS 自动处理布局）
+        const updateSplitRatio = (ratio) => {
+            container.style.setProperty('--split-ratio', ratio);
+            container.classList.add('has-split-ratio');
+            this.lastLeftRatio = ratio;
         };
 
-        // 初始化宽度（只在双面板模式下设置固定宽度）
+        // 清除分割比例（恢复自适应布局）
+        const clearSplitRatio = () => {
+            container.classList.remove('has-split-ratio');
+        };
+
+        // 重新计算分割比例（响应侧边栏变化）
+        const recalculateSplitRatio = () => {
+            const currentLayout = this.state.get('layout');
+            if (currentLayout !== 'layout-both') {
+                clearSplitRatio();
+                return;
+            }
+
+            // 延迟一帧，确保侧边栏动画完成后再应用比例
+            requestAnimationFrame(() => {
+                updateSplitRatio(this.lastLeftRatio);
+            });
+        };
+
+        // 初始化宽度（只在双面板模式下设置固定比例）
         const currentLayout = this.state.get('layout');
         if (currentLayout === 'layout-both') {
-            setPaneWidths(this.lastLeftRatio);
+            updateSplitRatio(this.lastLeftRatio);
         }
+
+        // 监听侧边栏状态变化，重新计算分割比例
+        this.state.subscribeTo(['leftSidebarOpen', 'rightSidebarOpen'], () => {
+            recalculateSplitRatio();
+        });
 
         // 鼠标悬停效果
         divider.addEventListener('mouseenter', () => {
@@ -330,38 +343,52 @@ export class MarkdownEditor {
             divider.classList.add('dragging');
             divider.classList.remove('hover');
             document.body.classList.add('is-dragging');
+            
+            // 添加拖拽优化类，启用 CSS 优化
+            container.classList.add('is-resizing');
+            
+            // 重置计数器
+            frameCount = 0;
+            lastUpdateTime = performance.now();
+            
             e.preventDefault();
         });
 
         // 双击重置为50%
         divider.addEventListener('dblclick', () => {
-            setPaneWidths(0.5);
-            this.lastLeftRatio = 0.5;
+            updateSplitRatio(0.5);
         });
 
-        // 拖拽过程（使用 rAF 节流）
+        // 拖拽过程（性能优化版：降低更新频率）
         document.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
             
             if (this._dragRafId) return;
             
             this._dragRafId = requestAnimationFrame(() => {
-                const containerRect = container.getBoundingClientRect();
-                const containerWidth = container.offsetWidth;
-                const dividerWidth = divider.offsetWidth;
-                const availableWidth = containerWidth - dividerWidth;
+                const now = performance.now();
+                frameCount++;
+                
+                // 性能优化：每 3 帧更新一次，或者距离上次更新超过 16ms
+                const shouldUpdate = frameCount % 3 === 0 || (now - lastUpdateTime) > 16;
+                
+                if (shouldUpdate) {
+                    const containerRect = container.getBoundingClientRect();
+                    const containerWidth = container.offsetWidth;
+                    const dividerWidth = divider.offsetWidth;
+                    const availableWidth = containerWidth - dividerWidth;
 
-                const minWidth = MIN_WIDTH;
-                const maxWidth = availableWidth - minWidth;
-                const leftWidth = Math.max(minWidth, Math.min(e.clientX - containerRect.left, maxWidth));
-                const rightWidth = availableWidth - leftWidth;
+                    const minWidth = MIN_WIDTH;
+                    const maxWidth = availableWidth - minWidth;
+                    const leftWidth = Math.max(minWidth, Math.min(e.clientX - containerRect.left, maxWidth));
 
-                editorPane.style.flex = '1 1 ' + leftWidth + 'px';
-                editorPane.style.maxWidth = leftWidth + 'px';
-                previewPane.style.flex = '1 1 ' + rightWidth + 'px';
-                previewPane.style.maxWidth = rightWidth + 'px';
-
-                this.lastLeftRatio = leftWidth / availableWidth;
+                    // 只更新 CSS 变量，CSS 自动处理布局
+                    const ratio = leftWidth / availableWidth;
+                    container.style.setProperty('--split-ratio', ratio);
+                    this.lastLeftRatio = ratio;
+                    lastUpdateTime = now;
+                }
+                
                 this._dragRafId = null;
             });
         });
@@ -372,6 +399,14 @@ export class MarkdownEditor {
                 this.isDragging = false;
                 divider.classList.remove('dragging', 'hover');
                 document.body.classList.remove('is-dragging');
+                
+                // 移除拖拽优化类
+                container.classList.remove('is-resizing');
+                
+                // 拖拽结束后，确保最终比例正确应用
+                requestAnimationFrame(() => {
+                    updateSplitRatio(this.lastLeftRatio);
+                });
             }
         });
 
@@ -379,10 +414,7 @@ export class MarkdownEditor {
         window.addEventListener('resize', () => {
             if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
             this._resizeTimeout = setTimeout(() => {
-                const currentLayout = this.state.get('layout');
-                if (currentLayout === 'layout-both') {
-                    setPaneWidths(this.lastLeftRatio);
-                }
+                recalculateSplitRatio();
             }, 100);
         });
     }
@@ -464,22 +496,15 @@ export class MarkdownEditor {
         // 添加新布局类
         container.classList.add(layout);
 
-        // 清除固定宽度类，让布局自适应
-        const editorPane = dom.editor.pane?.element;
-        const previewPane = dom.preview.pane?.element;
-        if (editorPane) editorPane.classList.remove('fixed-width');
-        if (previewPane) previewPane.classList.remove('fixed-width');
+        // 清除分割比例类，让布局自适应
+        container.classList.remove('has-split-ratio');
 
-        // 清除内联样式（包括 flex 和 maxWidth）
-        if (editorPane) {
-            editorPane.style.flex = '';
-            editorPane.style.maxWidth = '';
-            editorPane.style.width = '';
-        }
-        if (previewPane) {
-            previewPane.style.flex = '';
-            previewPane.style.maxWidth = '';
-            previewPane.style.width = '';
+        // 如果切换到双面板模式，延迟一帧后重新应用保存的比例
+        if (layout === 'layout-both') {
+            requestAnimationFrame(() => {
+                container.style.setProperty('--split-ratio', this.lastLeftRatio);
+                container.classList.add('has-split-ratio');
+            });
         }
     }
 
