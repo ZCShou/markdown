@@ -26,6 +26,7 @@ export class DocumentList extends BaseComponent {
         super(state, containerId);
         this.editingDocId = null;
         this.draggedItem = null;
+        this.dragTarget = null; // 缓存当前拖拽目标
         this.clickTimeout = null;
         this.expandedFolders = new Set(); // 本地文件夹展开状态
     }
@@ -313,6 +314,9 @@ export class DocumentList extends BaseComponent {
         item.classList.add('md-dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedItem);
+        
+        // 添加拖拽状态类，禁用过渡效果
+        document.body.classList.add('is-dragging-tree');
     }
 
     /**
@@ -322,16 +326,86 @@ export class DocumentList extends BaseComponent {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
 
-        const item = e.target.closest('.md-doc-item');
-        if (!item) return;
-
-        this.container.querySelectorAll('.md-drop-target').forEach(el => {
-            el.classList.remove('md-drop-target');
-        });
-
-        if (item.dataset.docType === 'folder') {
-            item.classList.add('md-drop-target');
+        const targetItem = e.target.closest('.md-doc-item');
+        if (!targetItem) {
+            this.#clearDropTarget();
+            return;
         }
+
+        // 检查是否在展开的文件夹内
+        const targetNode = targetItem.closest('.md-tree-node');
+        if (!targetNode) {
+            this.#clearDropTarget();
+            return;
+        }
+
+        // 向上查找展开的文件夹
+        const folderNode = this.#findExpandedFolder(targetNode);
+        
+        if (folderNode) {
+            // 高亮展开的文件夹区域
+            this.#setDropTarget(folderNode, 'expanded');
+        } else if (targetItem.dataset.docType === 'folder') {
+            // 高亮文件夹项本身
+            this.#setDropTarget(targetItem, 'item');
+        } else {
+            this.#clearDropTarget();
+        }
+    }
+
+    /**
+     * 查找包含指定节点的展开文件夹
+     * @private
+     */
+    #findExpandedFolder(node) {
+        let current = node.parentElement;
+        
+        while (current && !current.classList.contains('md-tree-container')) {
+            if (current.classList.contains('md-tree-children') && 
+                !current.classList.contains('collapsed')) {
+                const folderNode = current.parentElement;
+                if (folderNode && folderNode !== node && 
+                    folderNode.classList.contains('md-tree-node')) {
+                    const folderItem = folderNode.querySelector('.md-doc-item');
+                    if (folderItem?.dataset.docType === 'folder') {
+                        return folderNode;
+                    }
+                }
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    /**
+     * 设置拖拽目标高亮
+     * @private
+     */
+    #setDropTarget(element, type) {
+        // 如果目标未改变，不做任何操作
+        if (this.dragTarget === element) return;
+        
+        // 清除旧的高亮
+        this.#clearDropTarget();
+        
+        // 设置新的高亮
+        this.dragTarget = element;
+        if (type === 'expanded') {
+            element.classList.add('md-drop-target-expanded');
+        } else {
+            element.classList.add('md-drop-target');
+        }
+    }
+
+    /**
+     * 清除拖拽目标高亮
+     * @private
+     */
+    #clearDropTarget() {
+        if (!this.dragTarget) return;
+        
+        this.dragTarget.classList.remove('md-drop-target', 'md-drop-target-expanded');
+        this.dragTarget = null;
     }
 
     /**
@@ -339,27 +413,46 @@ export class DocumentList extends BaseComponent {
      */
     handleDrop(e) {
         e.preventDefault();
-        const item = e.target.closest('.md-doc-item');
-        if (!item || !this.draggedItem || item.dataset.docType !== 'folder') return;
 
-        const targetId = item.dataset.docId;
+        if (!this.draggedItem || !this.dragTarget) return;
+
+        // 获取目标文件夹 ID
+        const targetFolderItem = this.dragTarget.classList.contains('md-drop-target-expanded')
+            ? this.dragTarget.querySelector('.md-doc-item')
+            : this.dragTarget;
+
+        if (!targetFolderItem) return;
+
+        const targetId = targetFolderItem.dataset.docId;
         if (targetId === this.draggedItem) return;
 
+        // 移动文档
         const moved = this.state.moveDocument(this.draggedItem, targetId);
         if (moved) {
             StoreManager.saveDocuments(this.state.get('documents'));
             this.expandFolder(targetId);
         }
+
+        // 立即清除高亮，避免闪烁
+        this.#clearDropTarget();
     }
 
     /**
      * 处理拖拽结束
      */
     handleDragEnd(e) {
+        // 清除拖拽项样式
+        const draggingItem = this.container.querySelector('.md-dragging');
+        draggingItem?.classList.remove('md-dragging');
+        
+        // 清除目标高亮
+        this.#clearDropTarget();
+        
+        // 移除拖拽状态类，恢复过渡效果
+        document.body.classList.remove('is-dragging-tree');
+        
+        // 重置拖拽状态
         this.draggedItem = null;
-        this.container.querySelectorAll('.md-dragging, .md-drop-target').forEach(el => {
-            el.classList.remove('md-dragging', 'md-drop-target');
-        });
     }
 
     /**
@@ -814,9 +907,14 @@ export class DocumentList extends BaseComponent {
             this.clickTimeout = null;
         }
         
-        // 清空缓存
+        // 清空缓存和状态
         this.#clearDomCache();
         this.#pendingUpdates.clear();
+        this.dragTarget = null;
+        this.draggedItem = null;
+        
+        // 移除拖拽状态类
+        document.body.classList.remove('is-dragging-tree');
         
         super.destroy?.();
     }

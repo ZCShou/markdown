@@ -1581,12 +1581,20 @@ pre.has-copy-btn {
     background-color: var(--md-bg-hover);
 }
 
-.md-doc-item.md-drop-target {
-    background-color: var(--md-tree-drop-bg);
-    border: 1px dashed var(--md-tree-drop-border);
+/* 拖拽时禁用过渡效果，避免抖动 */
+body.is-dragging-tree .md-doc-item,
+body.is-dragging-tree .md-tree-node {
+    transition: none !important;
 }
 
-.md-doc-item.md-drop-target::after {
+/* 文件夹项高亮 - 使用 outline 避免布局抖动 */
+.md-drop-target {
+    background-color: var(--md-tree-drop-bg);
+    outline: 1px dashed var(--md-tree-drop-border);
+    outline-offset: -1px;
+}
+
+.md-drop-target::after {
     content: '放置到此处';
     position: absolute;
     right: 8px;
@@ -1595,15 +1603,47 @@ pre.has-copy-btn {
     background-color: var(--md-tree-drop-label-bg);
     padding: 2px 6px;
     border-radius: 3px;
+    pointer-events: none;
+}
+
+/* 展开的文件夹区域高亮 - 使用伪元素避免布局抖动 */
+.md-drop-target-expanded {
+    background-color: var(--md-tree-drop-bg);
+    position: relative;
+}
+
+/* 使用伪元素添加边框，不影响布局 */
+.md-drop-target-expanded::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px dashed var(--md-tree-drop-border);
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.md-drop-target-expanded > .md-doc-item {
+    background-color: transparent;
+    outline: none;
+}
+
+.md-drop-target-expanded > .md-doc-item::after {
+    content: '放置到此文件夹';
+    position: absolute;
+    right: 8px;
+    font-size: 11px;
+    color: var(--md-tree-drop-text);
+    background-color: var(--md-tree-drop-label-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    z-index: 10;
+    pointer-events: none;
 }
 
 /* 拖拽时的全局样式 */
 body.is-dragging-tree {
     user-select: none;
-}
-
-body.is-dragging-tree .md-doc-item:not(.md-dragging) {
-    pointer-events: none;
 }
 
 /* VSCode 风格的树型连线 - 为每个层级显示连接线 */
