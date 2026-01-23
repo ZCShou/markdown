@@ -1,12 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" dir="ltr">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="referrer" content="no-referrer">
+    <meta name="description" content="功能强大的在线 Markdown 编辑器，支持实时预览、语法高亮、数学公式、流程图等">
+    <meta name="keywords" content="Markdown,编辑器,在线编辑,实时预览,语法高亮">
+    <meta name="author" content="Markdown Editor">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#1e1e1e" media="(prefers-color-scheme: dark)">
     <title>Markdown</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/manifest.json">
     <link rel="stylesheet" href="/src/styles/markdown.css">
 </head>
 
@@ -23,17 +29,17 @@
         <!-- Left Sidebar - Project Management -->
         <aside class="md-sidebar md-sidebar-left" id="md-sidebar-left">
             <div class="md-sidebar-header">
-                <div class="md-sidebar-toolbar">
-                    <button class="md-btn md-btn-icon" id="md-new-file" title="新建文件"><i class="codicon codicon-new-file"></i></button>
-                    <button class="md-btn md-btn-icon" id="md-new-folder" title="新建目录"><i class="codicon codicon-new-folder"></i></button>
-                    <button class="md-btn md-btn-icon" id="md-delete-item" title="清空所有文件"><i class="codicon codicon-clear-all"></i></button>
+                <div class="md-sidebar-toolbar" role="toolbar" aria-label="文档管理工具栏">
+                    <button class="md-btn md-btn-icon" id="md-new-file" title="新建文件" aria-label="新建文件"><i class="codicon codicon-new-file" aria-hidden="true"></i></button>
+                    <button class="md-btn md-btn-icon" id="md-new-folder" title="新建目录" aria-label="新建目录"><i class="codicon codicon-new-folder" aria-hidden="true"></i></button>
+                    <button class="md-btn md-btn-icon" id="md-delete-item" title="清空所有文件" aria-label="清空所有文件"><i class="codicon codicon-clear-all" aria-hidden="true"></i></button>
                 </div>
                 <button class="md-btn md-btn-icon md-btn-ghost" id="md-close-left-sidebar" title="关闭侧边栏"><i class="codicon codicon-close"></i></button>
             </div>
             <div class="md-sidebar-content">
-                <div class="md-doc-list" id="md-doc-list">
+                <nav class="md-doc-list" id="md-doc-list" role="navigation" aria-label="文档列表">
                     <!-- Document list will be generated dynamically -->
-                </div>
+                </nav>
             </div>
         </aside>
 
@@ -42,19 +48,19 @@
             <!-- Top Toolbar -->
             <div class="markdown-toolbar">
                 <div class="markdown-toolbar-left">
-                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-left-sidebar" title="项目管理"><i class="codicon codicon-folder-library"></i></button>
-                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-sync-scroll" title="同步滚动">
-                        <i class="codicon codicon-sync"></i>
+                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-left-sidebar" title="项目管理" aria-label="切换项目管理侧边栏" aria-pressed="false"><i class="codicon codicon-folder-library" aria-hidden="true"></i></button>
+                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-sync-scroll" title="同步滚动" aria-label="切换同步滚动" aria-pressed="true">
+                        <i class="codicon codicon-sync" aria-hidden="true"></i>
                     </button>
                 </div>
                 <div class="markdown-toolbar-right">
-                    <button class="md-btn md-btn-icon md-btn-ghost" id="theme-toggle" title="切换主题">
-                        <i class="codicon codicon-color-mode"></i>
+                    <button class="md-btn md-btn-icon md-btn-ghost" id="theme-toggle" title="切换主题" aria-label="切换深色/浅色主题">
+                        <i class="codicon codicon-color-mode" aria-hidden="true"></i>
                     </button>
-                        <button class="md-btn md-btn-icon md-btn-ghost" id="md-layout-toggle" title="切换布局">
-                            <i class="codicon codicon-layout"></i>
+                        <button class="md-btn md-btn-icon md-btn-ghost" id="md-layout-toggle" title="切换布局" aria-label="切换编辑器布局">
+                            <i class="codicon codicon-layout" aria-hidden="true"></i>
                         </button>
-                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-right-sidebar" title="功能面板"><i class="codicon codicon-menu"></i></button>
+                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-toggle-right-sidebar" title="功能面板" aria-label="切换功能面板" aria-pressed="false"><i class="codicon codicon-menu" aria-hidden="true"></i></button>
                 </div>
             </div>
 
@@ -63,8 +69,8 @@
                 <!-- Editor Pane -->
                 <div class="markdown-editor-pane" id="md-editor-pane">
                     <div class="markdown-editor-wrapper">
-                        <textarea id="markdown-editor" class="unified-scrollbar" placeholder="在此输入 Markdown 内容..."
-                            spellcheck="false"></textarea>
+                        <textarea id="markdown-editor" class="unified-scrollbar" placeholder="在此输入 Markdown 内容..." aria-label="Markdown 编辑器输入区域"
+                            spellcheck="false" role="textbox" aria-multiline="true"></textarea>
                     </div>
                 </div>
 
@@ -74,7 +80,7 @@
                 <!-- Preview Pane -->
                 <div class="markdown-preview-pane" id="md-preview-pane">
                     <div class="markdown-preview-wrapper unified-scrollbar" id="md-preview-wrapper">
-                        <div id="markdown-preview" class="markdown-body "></div>
+                        <div id="markdown-preview" class="markdown-body" role="article" aria-label="Markdown 预览区域" aria-live="polite"></div>
                     </div>
                 </div>
             </div>

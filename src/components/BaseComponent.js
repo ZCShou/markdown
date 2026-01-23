@@ -45,22 +45,77 @@ export class BaseComponent {
         this.container = null;
         this.unsubscribe = null;
         this.eventHandlers = new Map();
+        this.errorHandlers = new Map();
+    }
+
+    /**
+     * 全局错误处理器
+     * @param {Error} error - 错误对象
+     * @param {string} context - 错误上下文
+     * @param {Object} metadata - 附加元数据
+     */
+    handleError(error, context = 'unknown', metadata = {}) {
+        const errorInfo = {
+            component: this.constructor.name,
+            context,
+            message: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString(),
+            ...metadata
+        };
+
+        // 控制台输出
+        console.error(`[${errorInfo.component}] Error in ${context}:`, error, metadata);
+
+        // 触发错误事件供外部监听
+        window.dispatchEvent(new CustomEvent('md:componentError', {
+            detail: errorInfo
+        }));
+
+        // 显示用户友好的错误消息
+        this.showMessage(`操作失败: ${error.message}`, 'error');
+
+        // 可扩展：上报到错误监控系统
+        // this.reportToMonitoring(errorInfo);
+
+        return errorInfo;
+    }
+
+    /**
+     * 包装函数以捕获错误
+     * @param {Function} fn - 要执行的函数
+     * @param {string} context - 执行上下文
+     * @returns {Function} 包装后的函数
+     */
+    wrapWithErrorHandler(fn, context) {
+        return async (...args) => {
+            try {
+                return await fn(...args);
+            } catch (error) {
+                this.handleError(error, context, { args });
+                throw error; // 可选：重新抛出以便调用者处理
+            }
+        };
     }
 
     /**
      * 初始化组件
      */
     init() {
-        // 使用 dom.js 获取容器
-        this.container = dom.getById(this.containerId)?.element;
-        if (!this.container) {
-            console.warn(`Container not found: ${this.containerId}`);
-            return;
-        }
+        try {
+            // 使用 dom.js 获取容器
+            this.container = dom.getById(this.containerId)?.element;
+            if (!this.container) {
+                console.warn(`Container not found: ${this.containerId}`);
+                return;
+            }
 
-        this.subscribe();
-        this.bindEvents();
-        this.render();
+            this.subscribe();
+            this.bindEvents();
+            this.render();
+        } catch (error) {
+            this.handleError(error, 'init', { containerId: this.containerId });
+        }
     }
 
     /**

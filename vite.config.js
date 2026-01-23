@@ -24,6 +24,9 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       cssCodeSplit: true,
       minify: 'terser',
+      target: 'es2015', // 明确目标浏览器版本，支持现代浏览器
+      reportCompressedSize: false, // 禁用压缩大小报告以提升构建速度
+      chunkSizeWarningLimit: 1000, // 调整 chunk 大小警告阈值
       rollupOptions: {
         output: {
           manualChunks: {

@@ -25,14 +25,15 @@ export class StoreManager {
     static #isProcessing = false;
 
     /**
-     * 调度存储操作（异步）
+     * 调度存储操作（异步）- 使用 async/await 重构
      * @private
-     * @param {Function} operation - 存储操作
+     * @param {Function} operation - 存储操作（可以是同步或异步函数）
      * @returns {Promise} 操作结果
      */
-    static #scheduleAsync(operation) {
+    static async #scheduleAsync(operation) {
+        const id = Date.now() + Math.random();
+        
         return new Promise((resolve, reject) => {
-            const id = Date.now() + Math.random();
             StoreManager.#pendingOperations.set(id, { operation, resolve, reject });
             
             if (!StoreManager.#isProcessing) {
@@ -42,10 +43,10 @@ export class StoreManager {
     }
 
     /**
-     * 处理操作队列
+     * 处理操作队列 - 使用 async/await 重构
      * @private
      */
-    static #processQueue() {
+    static async #processQueue() {
         if (StoreManager.#pendingOperations.size === 0) {
             StoreManager.#isProcessing = false;
             return;
@@ -53,28 +54,31 @@ export class StoreManager {
 
         StoreManager.#isProcessing = true;
 
-        const process = () => {
-            const [id, entry] = StoreManager.#pendingOperations.entries().next().value;
+        const processNext = async () => {
+            const entry = StoreManager.#pendingOperations.entries().next().value;
             if (!entry) {
                 StoreManager.#isProcessing = false;
                 return;
             }
 
+            const [id, { operation, resolve, reject }] = entry;
             StoreManager.#pendingOperations.delete(id);
 
             try {
-                const result = entry.operation();
-                entry.resolve(result);
+                // 支持同步和异步操作
+                const result = await operation();
+                resolve(result);
             } catch (error) {
-                entry.reject(error);
+                console.error('[StoreManager] Operation failed:', error);
+                reject(error);
             }
 
             // 继续处理下一个操作
             if (StoreManager.#pendingOperations.size > 0) {
                 if (typeof requestIdleCallback !== 'undefined') {
-                    requestIdleCallback(process, { timeout: 50 });
+                    requestIdleCallback(() => processNext(), { timeout: 50 });
                 } else {
-                    setTimeout(process, 0);
+                    setTimeout(() => processNext(), 0);
                 }
             } else {
                 StoreManager.#isProcessing = false;
@@ -83,9 +87,9 @@ export class StoreManager {
 
         // 开始处理
         if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(process, { timeout: 50 });
+            requestIdleCallback(() => processNext(), { timeout: 50 });
         } else {
-            setTimeout(process, 0);
+            setTimeout(() => processNext(), 0);
         }
     }
     /**
