@@ -304,10 +304,7 @@ export class DocumentList extends BaseComponent {
      */
     handleDragStart(e) {
         const item = e.target.closest('.md-doc-item');
-        if (!item) return;
-
-        // 如果正在编辑，不允许拖拽
-        if (this.editingDocId) {
+        if (!item || this.editingDocId) {
             e.preventDefault();
             return;
         }
@@ -316,8 +313,6 @@ export class DocumentList extends BaseComponent {
         item.classList.add('md-dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedItem);
-        
-        // 添加拖拽状态类，禁用过渡效果
         document.body.classList.add('is-dragging-tree');
     }
 
@@ -328,66 +323,45 @@ export class DocumentList extends BaseComponent {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
 
-        const targetItem = e.target.closest('.md-doc-item');
-        
-        // 检查是否在侧边栏内容区域内
+        // 快速检查：是否在有效的拖拽区域
         const sidebarContent = e.target.closest('.md-sidebar-content');
-        if (!sidebarContent) {
+        if (!sidebarContent || e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
             this.#clearDropTarget();
             return;
         }
 
-        // 排除工具栏和空状态区域
-        if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
+        const targetItem = e.target.closest('.md-doc-item');
+        const treeContainer = sidebarContent.querySelector('.md-tree-container');
+
+        // 没有文档项 → 根目录区域
+        if (!targetItem) {
+            this.#setDropTarget(treeContainer, 'root');
+            return;
+        }
+
+        // 有文档项，检查是否在展开的文件夹内
+        const targetNode = targetItem.closest('.md-tree-node');
+        if (!targetNode) {
             this.#clearDropTarget();
             return;
         }
 
-        // 如果找到了文档项
-        if (targetItem) {
-            const targetNode = targetItem.closest('.md-tree-node');
-            if (!targetNode) {
-                this.#clearDropTarget();
-                return;
-            }
-
-            // 向上查找展开的文件夹
-            const folderNode = this.#findExpandedFolder(targetNode);
-            
-            if (folderNode) {
-                // 高亮展开的文件夹区域
-                this.#setDropTarget(folderNode, 'expanded');
-                return;
-            }
-            
-            if (targetItem.dataset.docType === 'folder') {
-                // 高亮文件夹项本身
-                this.#setDropTarget(targetItem, 'item');
-                return;
-            }
-            
-            // 文件项，检查是否在根目录层级
-            // 检查 .md-tree-node 的父节点是否是 .md-tree-container
-            const parentNode = targetNode.parentElement;
-            const isRootLevel = parentNode && parentNode.classList.contains('md-tree-container');
-            
-            if (isRootLevel) {
-                // 在根目录层级，高亮根目录
-                const treeContainer = sidebarContent.querySelector('.md-tree-container');
-                if (treeContainer) {
-                    this.#setDropTarget(treeContainer, 'root');
-                }
-            } else {
-                // 在文件夹内，不高亮
-                this.#clearDropTarget();
-            }
-        } else {
-            // 没有找到文档项，说明在空白区域，高亮根目录
-            const treeContainer = sidebarContent.querySelector('.md-tree-container');
-            if (treeContainer) {
-                this.#setDropTarget(treeContainer, 'root');
-            }
+        // 优先检查展开的文件夹
+        const expandedFolder = this.#findExpandedFolder(targetNode);
+        if (expandedFolder) {
+            this.#setDropTarget(expandedFolder, 'expanded');
+            return;
         }
+
+        // 文件夹项 → 高亮文件夹
+        if (targetItem.dataset.docType === 'folder') {
+            this.#setDropTarget(targetItem, 'item');
+            return;
+        }
+
+        // 文件项 → 检查是否在根目录层级
+        const isRootLevel = targetNode.parentElement === treeContainer;
+        this.#setDropTarget(isRootLevel ? treeContainer : null, 'root');
     }
 
     /**
@@ -398,15 +372,16 @@ export class DocumentList extends BaseComponent {
         let current = node.parentElement;
         
         while (current && !current.classList.contains('md-tree-container')) {
+            // 检查是否在未折叠的子容器内
             if (current.classList.contains('md-tree-children') && 
                 !current.classList.contains('collapsed')) {
+                // 获取父节点（文件夹节点）
                 const folderNode = current.parentElement;
-                if (folderNode && folderNode !== node && 
-                    folderNode.classList.contains('md-tree-node')) {
-                    const folderItem = folderNode.querySelector('.md-doc-item');
-                    if (folderItem?.dataset.docType === 'folder') {
-                        return folderNode;
-                    }
+                // 验证是有效的文件夹节点
+                if (folderNode?.classList.contains('md-tree-node') && 
+                    folderNode !== node &&
+                    folderNode.querySelector('.md-doc-item')?.dataset.docType === 'folder') {
+                    return folderNode;
                 }
             }
             current = current.parentElement;
@@ -425,17 +400,21 @@ export class DocumentList extends BaseComponent {
         // 清除旧的高亮
         this.#clearDropTarget();
         
+        // 无效元素，直接返回
+        if (!element) return;
+        
         // 设置新的高亮
         this.dragTarget = element;
         this.dragTargetType = type;
         
-        if (type === 'expanded') {
-            element.classList.add('md-drop-target-expanded');
-        } else if (type === 'root') {
-            element.classList.add('md-drop-target-root');
-        } else {
-            element.classList.add('md-drop-target');
-        }
+        // 使用映射简化类名添加
+        const classNameMap = {
+            'expanded': 'md-drop-target-expanded',
+            'root': 'md-drop-target-root',
+            'item': 'md-drop-target'
+        };
+        
+        element.classList.add(classNameMap[type]);
     }
 
     /**
@@ -445,6 +424,7 @@ export class DocumentList extends BaseComponent {
     #clearDropTarget() {
         if (!this.dragTarget) return;
         
+        // 移除所有可能的拖拽目标类名
         this.dragTarget.classList.remove('md-drop-target', 'md-drop-target-expanded', 'md-drop-target-root');
         this.dragTarget = null;
         this.dragTargetType = null;
@@ -458,35 +438,30 @@ export class DocumentList extends BaseComponent {
 
         if (!this.draggedItem || !this.dragTarget) return;
 
-        let targetId = null;
-
         // 根据拖拽目标类型获取目标 ID
+        let targetId = null;
+        
         if (this.dragTargetType === 'root') {
-            // 拖放到根目录
-            targetId = null;
+            targetId = null; // 根目录
         } else if (this.dragTargetType === 'expanded') {
-            // 拖放到展开的文件夹
-            const targetFolderItem = this.dragTarget.querySelector('.md-doc-item');
-            if (!targetFolderItem) return;
-            targetId = targetFolderItem.dataset.docId;
+            targetId = this.dragTarget.querySelector('.md-doc-item')?.dataset.docId;
         } else {
-            // 拖放到文件夹项本身
             targetId = this.dragTarget.dataset.docId;
         }
 
-        // 防止将文档拖到自己所在的文件夹
-        if (targetId === this.draggedItem) return;
+        // 无效目标或拖到自己
+        if (!targetId && this.dragTargetType !== 'root' || targetId === this.draggedItem) {
+            this.#clearDropTarget();
+            return;
+        }
 
         // 移动文档
         const moved = this.state.moveDocument(this.draggedItem, targetId);
         if (moved) {
             StoreManager.saveDocuments(this.state.get('documents'));
-            if (targetId) {
-                this.expandFolder(targetId);
-            }
+            if (targetId) this.expandFolder(targetId);
         }
 
-        // 立即清除高亮，避免闪烁
         this.#clearDropTarget();
     }
 
@@ -495,10 +470,9 @@ export class DocumentList extends BaseComponent {
      */
     handleDragEnd(e) {
         // 清除拖拽项样式
-        const draggingItem = this.container.querySelector('.md-dragging');
-        draggingItem?.classList.remove('md-dragging');
+        this.container.querySelector('.md-dragging')?.classList.remove('md-dragging');
         
-        // 清除目标高亮
+        // 清除目标高亮和状态
         this.#clearDropTarget();
         
         // 移除拖拽状态类，恢复过渡效果
