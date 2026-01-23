@@ -300,6 +300,12 @@ export class DocumentList extends BaseComponent {
         const item = e.target.closest('.md-doc-item');
         if (!item) return;
 
+        // 如果正在编辑，不允许拖拽
+        if (this.editingDocId) {
+            e.preventDefault();
+            return;
+        }
+
         this.draggedItem = item.dataset.docId;
         item.classList.add('md-dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -437,6 +443,10 @@ export class DocumentList extends BaseComponent {
         const currentName = nameSpan.textContent;
         item.classList.add('editing');
 
+        // 禁用拖拽，防止在编辑时触发拖拽事件
+        const originalDraggable = item.draggable;
+        item.draggable = false;
+
         const input = this.createElement('input', {
             type: 'text',
             className: 'md-doc-item-input',
@@ -448,6 +458,10 @@ export class DocumentList extends BaseComponent {
         input.select();
 
         let shouldSave = false;
+
+        const restoreDraggable = () => {
+            item.draggable = originalDraggable;
+        };
 
         const save = () => {
             const newName = input.value.trim();
@@ -473,6 +487,7 @@ export class DocumentList extends BaseComponent {
                 });
                 input.replaceWith(nameSpan);
                 item.classList.remove('editing');
+                restoreDraggable();
             }
         };
 
@@ -486,6 +501,7 @@ export class DocumentList extends BaseComponent {
                 });
                 input.replaceWith(nameSpan);
                 item.classList.remove('editing');
+                restoreDraggable();
             }
         };
 
