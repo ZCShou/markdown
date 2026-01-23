@@ -1429,10 +1429,6 @@ pre.has-copy-btn {
     line-height: 1;
 }
 
-.md-tree-toggle:hover {
-    background-color: var(--md-bg-hover);
-}
-
 .md-tree-toggle.expanded {
     transform: rotate(90deg);
 }
@@ -1606,20 +1602,49 @@ body.is-dragging-tree .md-doc-item:not(.md-dragging) {
     pointer-events: none;
 }
 
-/* VSCode 风格的树型连线（可选） */
+/* VSCode 风格的树型连线 - 为每个层级显示连接线 */
 .md-tree-children {
     position: relative;
 }
 
+/* 为每个层级的子容器添加竖线，位置与折叠符号中心对齐 */
 .md-tree-children::before {
     content: '';
     position: absolute;
     left: 8px;
     top: 0;
     bottom: 0;
-    width: 1px;
-    background-color: var(--md-border-primary);
+    width: 0.5px;
+    /* 使用更明显的颜色，根据主题自动调整 */
+    background-color: var(--md-text-tertiary);
     opacity: 0.3;
+}
+
+/* 第二层级的竖线位置（与该层级的折叠符号中心对齐） */
+.md-tree-node[data-level="1"] > .md-tree-children::before {
+    left: 24px;
+}
+
+/* 第三层级的竖线位置 */
+.md-tree-node[data-level="2"] > .md-tree-children::before {
+    left: 40px;
+}
+
+/* 第四层级的竖线位置 */
+.md-tree-node[data-level="3"] > .md-tree-children::before {
+    left: 56px;
+}
+
+/* 第五层级的竖线位置 */
+.md-tree-node[data-level="4"] > .md-tree-children::before {
+    left: 72px;
+}
+
+/* 更深层级使用相同间距 */
+.md-tree-node[data-level="5"] > .md-tree-children::before,
+.md-tree-node[data-level="6"] > .md-tree-children::before,
+.md-tree-node[data-level="7"] > .md-tree-children::before {
+    left: 88px;
 }
 
 /* 响应式调整 */
