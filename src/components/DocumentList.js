@@ -17,7 +17,7 @@ export class DocumentList extends BaseComponent {
     #pendingUpdates = new Map(); // 待处理的更新（用于 RAF 批量更新）
     
     /** @private */
-    #isEditingNewItem = false; // 是否正在编辑新建的项目
+    #pendingEdit = null; // 待处理的编辑操作 { docId, isNewItem, shouldSetCurrent }
 
     /**
      * 构造函数
@@ -25,7 +25,6 @@ export class DocumentList extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.editingDocId = null;
-        this.#isEditingNewItem = false;
         this.draggedItem = null;
         this.clickTimeout = null;
         this.expandedFolders = new Set(); // 本地文件夹展开状态
@@ -293,7 +292,7 @@ export class DocumentList extends BaseComponent {
 
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
-            this.editItemName(item.dataset.docId);
+            this.editItemName(item.dataset.docId, false, false);
         }
     }
 
@@ -431,36 +430,29 @@ export class DocumentList extends BaseComponent {
         
         if (parentId) this.expandFolder(parentId);
         
-        // 等待渲染完成后再进入编辑模式
-        // 因为 addDocument 会触发重新渲染，而 render 使用了 requestAnimationFrame
-        requestAnimationFrame(() => {
-            // 再等待一帧，确保 DOM 完全更新
-            requestAnimationFrame(() => {
-                // 传入 isNewItem: true，使新建项目在点击其他位置时保存默认名称
-                this.editItemName(doc.id, true);
-                if (type === 'file') this.state.setCurrentDocument(doc.id);
-            });
-        });
+        // 标记需要进入编辑模式
+        this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
     }
 
     /**
      * 编辑项目名称
      * @param {string} docId - 文档 ID
      * @param {boolean} isNewItem - 是否为新建的项目（新建时默认保存，重命名时默认取消）
+     * @param {boolean} shouldSetCurrent - 是否设置为当前文档（仅对文件有效）
      */
-    editItemName(docId, isNewItem = false) {
+    editItemName(docId, isNewItem = false, shouldSetCurrent = false) {
         this.editingDocId = docId;
-        this.#isEditingNewItem = isNewItem;
 
         const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
         const nameSpan = dom.getIn(item, '.md-doc-item-name');
-        if (!item || !nameSpan) return;
+        if (!item || !nameSpan) {
+            // DOM 未就绪，退出编辑模式
+            this.editingDocId = null;
+            return;
+        }
 
         const currentName = nameSpan.textContent;
         item.classList.add('editing');
-
-        // 禁用拖拽，防止在编辑时触发拖拽事件
-        const originalDraggable = item.draggable;
         item.draggable = false;
 
         const input = this.createElement('input', {
@@ -473,15 +465,9 @@ export class DocumentList extends BaseComponent {
         input.focus();
         input.select();
 
-        // 新建项目默认保存，重命名项目默认取消（除非有修改）
         let hasChanged = false;
 
-        const restoreDraggable = () => {
-            item.draggable = originalDraggable;
-        };
-
         const finishEdit = (saveChanges) => {
-            // 移除事件监听，防止重复触发
             input.removeEventListener('blur', handleBlur);
             
             if (saveChanges) {
@@ -489,7 +475,6 @@ export class DocumentList extends BaseComponent {
                 if (!newName) {
                     this.showMessage('名称不能为空', 'error');
                     input.focus();
-                    // 重新绑定 blur 事件
                     input.addEventListener('blur', handleBlur, { once: true });
                     return;
                 }
@@ -500,14 +485,12 @@ export class DocumentList extends BaseComponent {
                 }, { silent: true });
                 StoreManager.saveDocuments(this.state.get('documents'));
 
-                // 替换为新的名称
                 const nameSpan = this.createElement('span', {
                     className: 'md-doc-item-name',
                     textContent: newName
                 });
                 input.replaceWith(nameSpan);
             } else {
-                // 恢复原名称
                 const nameSpan = this.createElement('span', {
                     className: 'md-doc-item-name',
                     textContent: currentName
@@ -515,16 +498,17 @@ export class DocumentList extends BaseComponent {
                 input.replaceWith(nameSpan);
             }
 
-            // 退出编辑模式
             this.editingDocId = null;
-            this.#isEditingNewItem = false;
             item.classList.remove('editing');
-            restoreDraggable();
+            item.draggable = true;
+
+            // 如果需要，设置为当前文档
+            if (shouldSetCurrent && isNewItem) {
+                this.state.setCurrentDocument(docId);
+            }
         };
 
         const handleBlur = () => {
-            // 新建项目：总是保存（即使没有修改）
-            // 重命名项目：只有修改了才保存，否则取消
             finishEdit(isNewItem || hasChanged);
         };
 
@@ -554,7 +538,7 @@ export class DocumentList extends BaseComponent {
         if (!currentDocId) {
             this.showMessage('请先选择一个项目', 'warning');
         } else {
-            this.editItemName(currentDocId);
+            this.editItemName(currentDocId, false, false);
         }
     }
 
@@ -624,10 +608,6 @@ export class DocumentList extends BaseComponent {
         // 完全重建
         this.#lastDocCount = documents.length;
         
-        // 保存当前正在编辑的文档 ID，以便在渲染完成后恢复编辑状态
-        const editingDocId = this.editingDocId;
-        const isNewItem = this.#isEditingNewItem;
-        
         // 使用 requestAnimationFrame 避免阻塞主线程
         requestAnimationFrame(() => {
             const tree = this.state.buildTree();
@@ -647,11 +627,14 @@ export class DocumentList extends BaseComponent {
             // 清空缓存
             this.#clearDomCache();
             
-            // 如果之前有正在编辑的项目，重新进入编辑模式
-            if (editingDocId) {
-                // 再等待一帧，确保 DOM 完全更新
+            // 如果有待处理的编辑操作，执行它
+            if (this.#pendingEdit) {
+                const { docId, isNewItem, shouldSetCurrent } = this.#pendingEdit;
+                this.#pendingEdit = null;
+                
+                // 再等待一帧，确保 DOM 完全就绪
                 requestAnimationFrame(() => {
-                    this.editItemName(editingDocId, isNewItem);
+                    this.editItemName(docId, isNewItem, shouldSetCurrent);
                 });
             }
         });
