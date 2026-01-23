@@ -244,7 +244,7 @@ export class EditorState {
     }
 
     /**
-     * 设置当前文档
+     * 设置当前文档（优化版：异步保存）
      * @param {string} docId - 文档ID
      */
     setCurrentDocument(docId) {
@@ -263,8 +263,18 @@ export class EditorState {
                 content: newContent
             });
             
-            // 保存当前文档 ID 到本地存储
-            StoreManager.saveCurrentDocId(docId);
+            // 异步保存当前文档 ID 到本地存储，避免阻塞主线程
+            // 使用 requestIdleCallback 在浏览器空闲时执行
+            if (typeof requestIdleCallback !== 'undefined') {
+                requestIdleCallback(() => {
+                    StoreManager.saveCurrentDocId(docId);
+                }, { timeout: 2000 });
+            } else {
+                // 降级方案：使用 setTimeout
+                setTimeout(() => {
+                    StoreManager.saveCurrentDocId(docId);
+                }, 0);
+            }
         }
     }
 

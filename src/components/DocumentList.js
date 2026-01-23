@@ -9,6 +9,12 @@ import { dom } from '../utils/dom.js';
 export class DocumentList extends BaseComponent {
     /** @private */
     #lastDocCount = 0; // 用于增量更新
+    
+    /** @private */
+    #domCache = new Map(); // DOM 元素缓存
+    
+    /** @private */
+    #pendingUpdates = new Map(); // 待处理的更新（用于 RAF 批量更新）
 
     /**
      * 构造函数
@@ -29,14 +35,8 @@ export class DocumentList extends BaseComponent {
             if (key === 'currentDocId') {
                 this.updateActiveState(newValue, oldValue);
             } else if (key === 'documents') {
-                // 内联检查是否需要重新渲染
-                const needsFullRender = newValue.length !== oldValue.length ||
-                    newValue.some(d => !oldValue.find(o => o.id === d.id)) ||
-                    oldValue.some(o => !newValue.find(n => n.id === o.id)) ||
-                    newValue.some(n => {
-                        const o = oldValue.find(old => old.id === n.id);
-                        return o && (o.parentId !== n.parentId || o.name !== n.name);
-                    });
+                // 优化：使用 Map 代替 find，时间复杂度从 O(n²) 降到 O(n)
+                const needsFullRender = this.#hasStructuralChanges(newValue, oldValue);
                 
                 if (needsFullRender) {
                     this.render();
@@ -46,22 +46,84 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
+     * 检查文档结构是否发生变化（优化版）
+     * @private
+     * @param {Array} newValue - 新文档列表
+     * @param {Array} oldValue - 旧文档列表
+     * @returns {boolean} 是否有结构性变化
+     */
+    #hasStructuralChanges(newValue, oldValue) {
+        // 快速检查：数量不同
+        if (newValue.length !== oldValue.length) {
+            return true;
+        }
+
+        // 使用 Map 优化查找性能
+        const oldMap = new Map(oldValue.map(d => [d.id, d]));
+        
+        // 检查是否有新增、删除或结构性变化
+        for (const doc of newValue) {
+            const old = oldMap.get(doc.id);
+            if (!old) {
+                // 新增文档
+                return true;
+            }
+            if (old.parentId !== doc.parentId || old.name !== doc.name) {
+                // 结构性变化
+                return true;
+            }
+        }
+        
+        // 检查是否有删除
+        const newMap = new Map(newValue.map(d => [d.id]));
+        for (const oldDoc of oldValue) {
+            if (!newMap.has(oldDoc.id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 获取缓存的文档项元素
+     * @private
+     * @param {string} docId - 文档 ID
+     * @returns {Element|null} 文档项元素
+     */
+    #getCachedDocItem(docId) {
+        if (!this.#domCache.has(docId)) {
+            const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
+            this.#domCache.set(docId, item);
+        }
+        return this.#domCache.get(docId);
+    }
+
+    /**
+     * 清空 DOM 缓存
+     * @private
+     */
+    #clearDomCache() {
+        this.#domCache.clear();
+    }
+
+    /**
      * 更新激活状态（局部更新，避免闪烁）
      */
     updateActiveState(newDocId, oldDocId) {
         if (!this.container) return;
 
-        // 移除旧的激活状态
+        // 使用缓存获取元素，减少 DOM 查询
         if (oldDocId) {
-            const oldItem = this.container.querySelector(`[data-doc-id="${oldDocId}"]`);
+            const oldItem = this.#getCachedDocItem(oldDocId);
             if (oldItem) {
                 oldItem.classList.remove('active');
             }
         }
 
-        // 添加新的激活状态（复用查询结果）
+        // 添加新的激活状态
         if (newDocId && newDocId !== oldDocId) {
-            const newItem = this.container.querySelector(`[data-doc-id="${newDocId}"]`);
+            const newItem = this.#getCachedDocItem(newDocId);
             if (newItem) {
                 newItem.classList.add('active');
             }
@@ -71,7 +133,7 @@ export class DocumentList extends BaseComponent {
 
 
     /**
-     * 设置文件夹展开状态
+     * 设置文件夹展开状态（优化版：减少 DOM 查询）
      */
     setFolderExpanded(folderId, expanded) {
         const currentlyExpanded = this.expandedFolders.has(folderId);
@@ -83,15 +145,38 @@ export class DocumentList extends BaseComponent {
             return; // 状态未改变
         }
 
-        // 内联更新 UI
+        // 使用 requestAnimationFrame 批量更新，避免阻塞主线程
+        if (!this.#pendingUpdates.has(folderId)) {
+            this.#pendingUpdates.set(folderId, expanded);
+            requestAnimationFrame(() => {
+                this.#updateFolderUI(folderId, this.#pendingUpdates.get(folderId));
+                this.#pendingUpdates.delete(folderId);
+            });
+        }
+    }
+
+    /**
+     * 更新文件夹 UI（内部方法，一次性完成所有 DOM 操作）
+     * @private
+     */
+    #updateFolderUI(folderId, expanded) {
         if (!this.container) return;
-        const item = this.container.querySelector(`[data-doc-id="${folderId}"]`);
+        
+        // 使用缓存获取元素
+        const item = this.#getCachedDocItem(folderId);
         if (!item) return;
 
+        // 一次性获取所有需要的子元素
         const toggle = item.querySelector('.md-tree-toggle');
-        toggle?.classList.toggle('expanded', expanded);
-
         const icon = item.querySelector('.md-doc-item-icon i');
+        const nodeContainer = item.closest('.md-tree-node');
+        const childrenContainer = nodeContainer?.querySelector('.md-tree-children');
+
+        // 批量更新类名
+        if (toggle) {
+            toggle.classList.toggle('expanded', expanded);
+        }
+
         if (icon) {
             if (expanded) {
                 icon.classList.remove('codicon-folder');
@@ -102,8 +187,6 @@ export class DocumentList extends BaseComponent {
             }
         }
 
-        const nodeContainer = item.closest('.md-tree-node');
-        const childrenContainer = nodeContainer?.querySelector('.md-tree-children');
         if (childrenContainer) {
             childrenContainer.classList.toggle('collapsed', !expanded);
         }
@@ -477,7 +560,7 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 渲染组件
+     * 渲染组件（优化版：改进增量更新策略）
      */
     render() {
         const documents = this.state.get('documents');
@@ -493,30 +576,51 @@ export class DocumentList extends BaseComponent {
             `;
             this.container.querySelector('[data-action="create-file"]')?.addEventListener('click', () => this.createItem('file'));
             this.container.querySelector('[data-action="create-folder"]')?.addEventListener('click', () => this.createItem('folder'));
+            
+            // 清空缓存
+            this.#clearDomCache();
             return;
         }
 
-        // 增量更新：只更新激活状态（最常见场景）
-        if (this.#lastDocCount === documents.length) {
+        // 优化的增量更新：检查是否只需要更新激活状态
+        if (this.#shouldUpdateActiveOnly(documents)) {
             this.#updateActiveState(currentDocId);
             return;
         }
 
         // 完全重建
         this.#lastDocCount = documents.length;
-        const tree = this.state.buildTree();
-        const fragment = this.createFragment();
-        const treeContainer = this.createElement('div', {
-            className: 'md-tree-container'
-        });
+        
+        // 使用 requestAnimationFrame 避免阻塞主线程
+        requestAnimationFrame(() => {
+            const tree = this.state.buildTree();
+            const fragment = this.createFragment();
+            const treeContainer = this.createElement('div', {
+                className: 'md-tree-container'
+            });
 
-        tree.forEach((node) => {
-            treeContainer.appendChild(this.renderTreeNode(node, currentDocId, 0));
-        });
+            tree.forEach((node) => {
+                treeContainer.appendChild(this.renderTreeNode(node, currentDocId, 0));
+            });
 
-        fragment.appendChild(treeContainer);
-        this.container.innerHTML = '';
-        this.container.appendChild(fragment);
+            fragment.appendChild(treeContainer);
+            this.container.innerHTML = '';
+            this.container.appendChild(fragment);
+            
+            // 清空缓存
+            this.#clearDomCache();
+        });
+    }
+
+    /**
+     * 检查是否只需要更新激活状态
+     * @private
+     * @param {Array} documents - 文档列表
+     * @returns {boolean} 是否只需要更新激活状态
+     */
+    #shouldUpdateActiveOnly(documents) {
+        // 如果文档数量没变，且没有结构性变化，只需要更新激活状态
+        return this.#lastDocCount === documents.length && this.#lastDocCount > 0;
     }
 
     /**
@@ -681,6 +785,11 @@ export class DocumentList extends BaseComponent {
             clearTimeout(this.clickTimeout);
             this.clickTimeout = null;
         }
+        
+        // 清空缓存
+        this.#clearDomCache();
+        this.#pendingUpdates.clear();
+        
         super.destroy?.();
     }
 }
