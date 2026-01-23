@@ -5,6 +5,7 @@
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
 import { dom } from '../utils/dom.js';
+import { Dialog } from './Dialog.js';
 
 export class DocumentList extends BaseComponent {
     /** @private */
@@ -492,7 +493,7 @@ export class DocumentList extends BaseComponent {
     /**
      * 删除文档
      */
-    handleDelete(docId) {
+    async handleDelete(docId) {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
@@ -525,7 +526,13 @@ export class DocumentList extends BaseComponent {
             ? `确定要删除这个${itemType}及其 ${children.length} 个子项吗？`
             : `确定要删除这个${itemType}吗？`;
 
-        if (!confirm(message)) return;
+        const confirmed = await Dialog.confirm(message, {
+            title: '删除确认',
+            type: 'danger',
+            confirmText: '删除',
+            cancelText: '取消'
+        });
+        if (!confirmed) return;
 
         this.state.deleteDocument(docId);
         StoreManager.saveDocuments(this.state.get('documents'));
@@ -665,7 +672,7 @@ export class DocumentList extends BaseComponent {
     /**
      * 清空所有文件
      */
-    deleteCurrentItem() {
+    async deleteCurrentItem() {
         const documents = this.state.get('documents');
         if (documents.length === 0) {
             this.showMessage('当前没有文件', 'info');
@@ -673,7 +680,15 @@ export class DocumentList extends BaseComponent {
         }
 
         // 显示确认对话框
-        const confirmed = confirm(`确定要清空所有文件吗？\n\n这将删除 ${documents.length} 个文件/文件夹，此操作不可恢复！`);
+        const confirmed = await Dialog.confirm(
+            `确定要清空所有文件吗？\n\n这将删除 ${documents.length} 个文件/文件夹，此操作不可恢复！`,
+            {
+                title: '清空确认',
+                type: 'danger',
+                confirmText: '清空',
+                cancelText: '取消'
+            }
+        );
         if (!confirmed) {
             return;
         }

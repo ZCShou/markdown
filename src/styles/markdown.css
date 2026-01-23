@@ -2163,3 +2163,146 @@ body.dark-mode .markdown-body .math-error {
         page-break-inside: avoid;
     }
 }
+
+/* ==================== 自定义对话框样式 ==================== */
+.md-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.md-dialog-overlay.md-dialog-overlay-show {
+    opacity: 1;
+}
+
+.md-dialog {
+    background: var(--md-bg-secondary);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    transform: scale(0.9);
+    transition: transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.md-dialog-overlay.md-dialog-overlay-show .md-dialog {
+    transform: scale(1);
+}
+
+/* 标题栏 - 使用 toolbar 颜色 */
+.md-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background-color: var(--md-toolbar-bg);
+    color: var(--md-toolbar-text);
+    border-bottom: 1px solid var(--md-toolbar-border);
+    flex-shrink: 0;
+}
+
+.md-dialog-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.md-dialog-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.md-dialog-info .md-dialog-icon {
+    color: #4fc3f7;
+}
+
+.md-dialog-success .md-dialog-icon {
+    color: #81c784;
+}
+
+.md-dialog-warning .md-dialog-icon {
+    color: #ffb74d;
+}
+
+.md-dialog-error .md-dialog-icon,
+.md-dialog-danger .md-dialog-icon {
+    color: #e57373;
+}
+
+.md-dialog-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--md-toolbar-text);
+}
+
+/* 内容区域 */
+.md-dialog-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.md-dialog-message {
+    color: var(--md-text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* 底部按钮区域 */
+.md-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 16px;
+    background-color: var(--md-bg-tertiary);
+    border-top: 1px solid var(--md-border-primary);
+    flex-shrink: 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 480px) {
+    .md-dialog {
+        width: calc(100vw - 32px) !important;
+        max-width: calc(100vw - 32px);
+    }
+
+    .md-dialog-header {
+        padding: 10px 12px;
+    }
+
+    .md-dialog-icon {
+        font-size: 18px;
+    }
+
+    .md-dialog-title {
+        font-size: 14px;
+    }
+
+    .md-dialog-body {
+        padding: 16px;
+    }
+
+    .md-dialog-footer {
+        padding: 10px 12px;
+        flex-direction: column-reverse;
+    }
+
+    .md-dialog-footer .md-btn {
+        width: 100%;
+    }
+}
