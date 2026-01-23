@@ -579,7 +579,6 @@ html::-webkit-scrollbar-thumb:hover,
     color: var(--md-text-secondary);
     cursor: pointer;
     padding: 2px 4px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
@@ -601,15 +600,12 @@ html::-webkit-scrollbar-thumb:hover,
     transform: rotate(0deg);
 }
 
-/* 区块内容容器 - 使用 max-height 实现平滑高度过渡 */
+/* 区块内容容器 */
 .md-sidebar-section-content {
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 150px);
     overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.3s ease,
-                padding 0.3s ease;
     padding-bottom: 8px;
 }
 
@@ -1450,7 +1446,6 @@ pre.has-copy-btn {
 .md-tree-toggle {
     cursor: pointer;
     border-radius: 2px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .md-tree-toggle .codicon {
