@@ -34,6 +34,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ['marked', 'dompurify', 'prismjs', 'mermaid'],
   },
+  assetsInclude: ['**/*.ttf', '**/*.woff', '**/*.woff2', '**/*.eot'],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

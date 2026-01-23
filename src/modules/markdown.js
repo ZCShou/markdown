@@ -449,17 +449,6 @@ export class MarkdownEditor {
         const newMode = this.state.toggleTheme();
         StoreManager.saveTheme(newMode);
         this.applyTheme(newMode);
-        this.updateThemeIcon(newMode);
-    }
-
-    /**
-     * 更新主题图标
-     */
-    updateThemeIcon(mode) {
-        const themeIcon = dom.theme.icon?.element;
-        if (themeIcon) {
-            themeIcon.textContent = mode === 'dark' ? '☀️' : '🌙';
-        }
     }
 
     /**
@@ -468,7 +457,6 @@ export class MarkdownEditor {
     initTheme() {
         const mode = this.state.get('theme');
         this.applyTheme(mode);
-        this.updateThemeIcon(mode);
     }
 
     // ==================== 布局管理 ====================

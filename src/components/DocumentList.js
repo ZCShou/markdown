@@ -91,8 +91,16 @@ export class DocumentList extends BaseComponent {
         const toggle = item.querySelector('.md-tree-toggle');
         toggle?.classList.toggle('expanded', expanded);
 
-        const icon = item.querySelector('.md-doc-item-icon');
-        if (icon) icon.textContent = expanded ? '📂' : '📁';
+        const icon = item.querySelector('.md-doc-item-icon i');
+        if (icon) {
+            if (expanded) {
+                icon.classList.remove('codicon-folder');
+                icon.classList.add('codicon-folder-opened');
+            } else {
+                icon.classList.remove('codicon-folder-opened');
+                icon.classList.add('codicon-folder');
+            }
+        }
 
         const nodeContainer = item.closest('.md-tree-node');
         const childrenContainer = nodeContainer?.querySelector('.md-tree-children');
@@ -565,10 +573,14 @@ export class DocumentList extends BaseComponent {
         });
 
         if (isFolder) {
-            this.createElement('span', {
+            const toggle = this.createElement('span', {
                 className: `md-tree-toggle${isExpanded ? ' expanded' : ''}${hasChildren ? '' : ' leaf'}`,
                 dataset: { folderId: node.id },
                 parent: item
+            });
+            this.createElement('i', {
+                className: 'codicon codicon-chevron-right',
+                parent: toggle
             });
         } else {
             this.createElement('span', {
@@ -577,10 +589,17 @@ export class DocumentList extends BaseComponent {
             });
         }
 
-        this.createElement('span', {
+        const iconSpan = this.createElement('span', {
             className: 'md-doc-item-icon',
-            textContent: isFolder ? (isExpanded ? '📂' : '📁') : '📄',
             parent: item
+        });
+
+        const iconClass = isFolder
+            ? (isExpanded ? 'codicon-folder-opened' : 'codicon-folder')
+            : 'codicon-file';
+        this.createElement('i', {
+            className: `codicon ${iconClass}`,
+            parent: iconSpan
         });
 
         if (isEditing) {
@@ -604,25 +623,31 @@ export class DocumentList extends BaseComponent {
         });
 
         if (isFolder) {
-            this.createElement('button', {
+            const newFileBtn = this.createElement('button', {
                 className: 'md-btn md-btn-icon md-btn-xs md-new-file-btn',
-                textContent: '➕',
                 attributes: {
                     title: '在此新建文档',
                     'data-folder-id': node.id
                 },
                 parent: actions
             });
+            this.createElement('i', {
+                className: 'codicon codicon-add',
+                parent: newFileBtn
+            });
         }
 
-        this.createElement('button', {
+        const deleteBtn = this.createElement('button', {
             className: 'md-btn md-btn-icon md-btn-xs md-doc-item-delete',
-            textContent: '🗑️',
             attributes: {
                 title: '删除',
                 'data-doc-id': node.id
             },
             parent: actions
+        });
+        this.createElement('i', {
+            className: 'codicon codicon-trash',
+            parent: deleteBtn
         });
 
         nodeContainer.appendChild(item);

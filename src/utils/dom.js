@@ -411,14 +411,13 @@ export const dom = {
     },
 
     // ==================== 主题相关 ====================
-    
+
     /**
      * 主题相关元素
      */
     theme: {
         light: new DOMElement('#prism-light-theme'),
-        dark: new DOMElement('#prism-dark-theme'),
-        icon: new DOMElement('.theme-icon')
+        dark: new DOMElement('#prism-dark-theme')
     },
 
     // ==================== 工具方法 ====================

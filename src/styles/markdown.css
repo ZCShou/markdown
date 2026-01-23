@@ -1,3 +1,6 @@
+/* ==================== VSCode Codicons ==================== */
+@import '@vscode/codicons/dist/codicon.css';
+
 /* ==================== Markdown 编辑器样式 ==================== */
 :root {
     /* 基础颜色 */
@@ -304,6 +307,13 @@ html::-webkit-scrollbar-thumb:hover,
     will-change: transform;
 }
 
+/* Codicons 图标样式 */
+.md-btn .codicon {
+    font-size: 16px;
+    line-height: 1;
+    display: inline-block;
+}
+
 .md-btn:hover {
     background-color: var(--md-bg-hover);
     border-color: var(--md-text-secondary);
@@ -566,12 +576,19 @@ html::-webkit-scrollbar-thumb:hover,
 .md-sidebar-section-toggle {
     background: none;
     border: none;
-    font-size: 16px;
     color: var(--md-text-secondary);
     cursor: pointer;
     padding: 2px 4px;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.md-sidebar-section-toggle .codicon {
+    font-size: 16px;
+    line-height: 1;
 }
 
 /* 展开状态：旋转90度向下 */
@@ -1262,48 +1279,43 @@ html::-webkit-scrollbar-thumb:hover,
 }
 
 /* ==================== 主题切换 ==================== */
-.theme-icon {
-    font-size: 18px;
-    display: inline-block;
+#theme-toggle .codicon {
     transition: transform 0.3s ease;
 }
 
-#theme-toggle {
-    color: #fff;
-    font-size: 18px;
-}
-
-#theme-toggle:hover .theme-icon {
+#theme-toggle:hover .codicon {
     transform: rotate(20deg);
 }
 
 /* ==================== 布局切换 ==================== */
-.layout-icon {
-    font-size: 18px;
-    display: inline-block;
+#md-layout-toggle .codicon {
     transition: transform 0.3s ease;
 }
 
-#md-layout-toggle {
-    color: #fff;
-    font-size: 18px;
-}
-
-#md-layout-toggle:hover .layout-icon {
+#md-layout-toggle:hover .codicon {
     transform: scale(1.1);
 }
 
 /* 布局模式对应的图标 */
-.markdown-container.layout-editor-only #md-layout-toggle .layout-icon::after {
+.markdown-container.layout-editor-only #md-layout-toggle .codicon::before {
     content: " (仅编辑)";
+    font-family: inherit;
+    font-size: 12px;
+    margin-left: 4px;
 }
 
-.markdown-container.layout-preview-only #md-layout-toggle .layout-icon::after {
+.markdown-container.layout-preview-only #md-layout-toggle .codicon::before {
     content: " (仅预览)";
+    font-family: inherit;
+    font-size: 12px;
+    margin-left: 4px;
 }
 
-.markdown-container.layout-both #md-layout-toggle .layout-icon::after {
+.markdown-container.layout-both #md-layout-toggle .codicon::before {
     content: " (分栏)";
+    font-family: inherit;
+    font-size: 12px;
+    margin-left: 4px;
 }
 
 /* ==================== 拖拽相关样式 ==================== */
@@ -1432,13 +1444,18 @@ pre.has-copy-btn {
     justify-content: center;
     margin-right: 4px;
     flex-shrink: 0;
-    font-size: 10px;
     color: var(--md-text-secondary);
 }
 
 .md-tree-toggle {
     cursor: pointer;
     border-radius: 2px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.md-tree-toggle .codicon {
+    font-size: 16px;
+    line-height: 1;
 }
 
 .md-tree-toggle:hover {
@@ -1455,13 +1472,17 @@ pre.has-copy-btn {
 
 /* 图标 */
 .md-doc-item-icon {
-    font-size: 16px;
     height: 22px;
     line-height: 22px;
     margin-right: 6px;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
+}
+
+.md-doc-item-icon .codicon {
+    font-size: 16px;
+    line-height: 1;
 }
 
 /* 名称 */
