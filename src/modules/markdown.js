@@ -199,13 +199,25 @@ export class MarkdownEditor {
         // 缓存可滚动高度，避免频繁查询 DOM
         let editorScrollableHeight = 0;
         let previewScrollableHeight = 0;
-        let rafId = null;
+        let scrollSyncRafId = null;
+        let heightUpdateRafId = null;
         let lastSyncTime = 0;
 
         // 更新缓存的滚动高度
         const updateScrollHeights = () => {
-            editorScrollableHeight = editor.scrollHeight - editor.clientHeight;
-            previewScrollableHeight = previewWrapper.scrollHeight - previewWrapper.clientHeight;
+            editorScrollableHeight = Math.max(0, editor.scrollHeight - editor.clientHeight);
+            previewScrollableHeight = Math.max(0, previewWrapper.scrollHeight - previewWrapper.clientHeight);
+        };
+
+        // 在下一帧更新滚动高度，保证渲染完成后获取到最新尺寸
+        const scheduleHeightUpdate = () => {
+            if (heightUpdateRafId) {
+                cancelAnimationFrame(heightUpdateRafId);
+            }
+            heightUpdateRafId = requestAnimationFrame(() => {
+                updateScrollHeights();
+                heightUpdateRafId = null;
+            });
         };
 
         // 初始化缓存
@@ -217,6 +229,13 @@ export class MarkdownEditor {
         });
         resizeObserver.observe(editor);
         resizeObserver.observe(previewWrapper);
+
+        // 内容或文档切换后刷新滚动高度，避免初次文档无滚动条导致缓存为 0
+        this._syncScrollStateUnsubscribe = this.state.subscribeTo(['content', 'currentDocId'], () => {
+            scheduleHeightUpdate();
+            // 再补一轮延迟刷新，确保预览渲染完成
+            setTimeout(updateScrollHeights, 120);
+        });
 
         // 监听按钮点击
         syncScrollButton.addEventListener('click', () => {
@@ -236,9 +255,9 @@ export class MarkdownEditor {
             }
 
             // 取消之前的待处理同步
-            if (rafId) {
-                cancelAnimationFrame(rafId);
-                rafId = null;
+            if (scrollSyncRafId) {
+                cancelAnimationFrame(scrollSyncRafId);
+                scrollSyncRafId = null;
             }
 
             // 立即同步，不等待 rAF
@@ -252,6 +271,7 @@ export class MarkdownEditor {
         // 编辑器滚动时同步预览
         editor.addEventListener('scroll', () => {
             if (!this.syncScrollEnabled || this.isSyncing) return;
+            updateScrollHeights();
             if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
 
             this.isSyncing = true;
@@ -270,6 +290,7 @@ export class MarkdownEditor {
         // 预览滚动时同步编辑器
         previewWrapper.addEventListener('scroll', () => {
             if (!this.syncScrollEnabled || this.isSyncing) return;
+            updateScrollHeights();
             if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
 
             this.isSyncing = true;
@@ -648,6 +669,11 @@ export class MarkdownEditor {
         if (this._syncScrollResizeObserver) {
             this._syncScrollResizeObserver.disconnect();
             this._syncScrollResizeObserver = null;
+        }
+
+        if (this._syncScrollStateUnsubscribe) {
+            this._syncScrollStateUnsubscribe();
+            this._syncScrollStateUnsubscribe = null;
         }
         
         // 清理 resize 定时器
