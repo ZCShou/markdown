@@ -173,16 +173,28 @@ export class MarkdownEditor {
     setupSyncScroll() {
         const editor = dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
-        const syncScrollCheckbox = dom.getById('md-sync-scroll')?.element;
+        const syncScrollButton = dom.getById('md-sync-scroll')?.element;
+        const syncScrollIcon = syncScrollButton?.querySelector('.codicon');
 
-        if (!editor || !previewWrapper || !syncScrollCheckbox) return;
+        if (!editor || !previewWrapper || !syncScrollButton || !syncScrollIcon) return;
+
+        // 更新同步滚动图标
+        const updateSyncScrollIcon = (enabled) => {
+            if (enabled) {
+                syncScrollIcon.classList.remove('codicon-sync-ignored');
+                syncScrollIcon.classList.add('codicon-sync');
+            } else {
+                syncScrollIcon.classList.remove('codicon-sync');
+                syncScrollIcon.classList.add('codicon-sync-ignored');
+            }
+        };
 
         // 从本地存储加载同步滚动状态
         const savedSyncScroll = localStorage.getItem('md-sync-scroll');
         if (savedSyncScroll !== null) {
             this.syncScrollEnabled = savedSyncScroll === 'true';
-            syncScrollCheckbox.checked = this.syncScrollEnabled;
         }
+        updateSyncScrollIcon(this.syncScrollEnabled);
 
         // 缓存可滚动高度，避免频繁查询 DOM
         let editorScrollableHeight = 0;
@@ -206,10 +218,11 @@ export class MarkdownEditor {
         resizeObserver.observe(editor);
         resizeObserver.observe(previewWrapper);
 
-        // 监听复选框变化
-        syncScrollCheckbox.addEventListener('change', (e) => {
-            this.syncScrollEnabled = e.target.checked;
+        // 监听按钮点击
+        syncScrollButton.addEventListener('click', () => {
+            this.syncScrollEnabled = !this.syncScrollEnabled;
             localStorage.setItem('md-sync-scroll', this.syncScrollEnabled);
+            updateSyncScrollIcon(this.syncScrollEnabled);
         });
 
         // 优化的同步函数：使用更激进的节流
