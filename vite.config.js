@@ -9,7 +9,7 @@ const __dirname = dirname(__filename);
 export default defineConfig(({ mode }) => {
   // 使用 Vite 约定的 VITE_* 环境变量；未设置时退回根路径
   const env = loadEnv(mode, process.cwd(), 'VITE_');
-  const base = env.VITE_BASE_URL || '/';
+  const base = env.VITE_BASE_URL || '/markdown/';
 
   return {
     base,
