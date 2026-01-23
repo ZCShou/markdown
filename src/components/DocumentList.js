@@ -43,7 +43,8 @@ export class DocumentList extends BaseComponent {
                 const needsFullRender = this.#hasStructuralChanges(newValue, oldValue);
                 
                 if (needsFullRender) {
-                    this.render();
+                    // 强制完全重新渲染
+                    this.render(true);
                 }
             }
         });
@@ -671,8 +672,10 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 渲染组件（优化版：改进增量更新策略）
+     * @param {boolean} forceFullRender - 是否强制完全重新渲染
      */
-    render() {
+    render(forceFullRender = false) {
+        const startTime = performance.now();
         const documents = this.state.get('documents');
         const currentDocId = this.state.get('currentDocId');
 
@@ -693,7 +696,7 @@ export class DocumentList extends BaseComponent {
         }
 
         // 优化的增量更新：检查是否只需要更新激活状态
-        if (this.#shouldUpdateActiveOnly(documents)) {
+        if (!forceFullRender && this.#shouldUpdateActiveOnly(documents)) {
             this.#updateActiveState(currentDocId);
             return;
         }
@@ -729,6 +732,12 @@ export class DocumentList extends BaseComponent {
                 requestAnimationFrame(() => {
                     this.editItemName(docId, isNewItem, shouldSetCurrent);
                 });
+            }
+            
+            // 性能监控（开发模式）
+            if (process.env.NODE_ENV === 'development') {
+                const renderTime = performance.now() - startTime;
+                console.log(`[DocumentList] 渲染完成: ${renderTime.toFixed(2)}ms, 文档数: ${documents.length}`);
             }
         });
     }
