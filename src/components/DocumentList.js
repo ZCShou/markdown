@@ -27,6 +27,7 @@ export class DocumentList extends BaseComponent {
         this.editingDocId = null;
         this.draggedItem = null;
         this.dragTarget = null; // 缓存当前拖拽目标
+        this.dragTargetType = null; // 缓存当前拖拽目标类型
         this.clickTimeout = null;
         this.expandedFolders = new Set(); // 本地文件夹展开状态
     }
@@ -328,29 +329,64 @@ export class DocumentList extends BaseComponent {
         e.dataTransfer.dropEffect = 'move';
 
         const targetItem = e.target.closest('.md-doc-item');
-        if (!targetItem) {
-            this.#clearDropTarget();
-            return;
-        }
-
-        // 检查是否在展开的文件夹内
-        const targetNode = targetItem.closest('.md-tree-node');
-        if (!targetNode) {
-            this.#clearDropTarget();
-            return;
-        }
-
-        // 向上查找展开的文件夹
-        const folderNode = this.#findExpandedFolder(targetNode);
         
-        if (folderNode) {
-            // 高亮展开的文件夹区域
-            this.#setDropTarget(folderNode, 'expanded');
-        } else if (targetItem.dataset.docType === 'folder') {
-            // 高亮文件夹项本身
-            this.#setDropTarget(targetItem, 'item');
-        } else {
+        // 检查是否在侧边栏内容区域内
+        const sidebarContent = e.target.closest('.md-sidebar-content');
+        if (!sidebarContent) {
             this.#clearDropTarget();
+            return;
+        }
+
+        // 排除工具栏和空状态区域
+        if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
+            this.#clearDropTarget();
+            return;
+        }
+
+        // 如果找到了文档项
+        if (targetItem) {
+            const targetNode = targetItem.closest('.md-tree-node');
+            if (!targetNode) {
+                this.#clearDropTarget();
+                return;
+            }
+
+            // 向上查找展开的文件夹
+            const folderNode = this.#findExpandedFolder(targetNode);
+            
+            if (folderNode) {
+                // 高亮展开的文件夹区域
+                this.#setDropTarget(folderNode, 'expanded');
+                return;
+            }
+            
+            if (targetItem.dataset.docType === 'folder') {
+                // 高亮文件夹项本身
+                this.#setDropTarget(targetItem, 'item');
+                return;
+            }
+            
+            // 文件项，检查是否在根目录层级
+            // 检查 .md-tree-node 的父节点是否是 .md-tree-container
+            const parentNode = targetNode.parentElement;
+            const isRootLevel = parentNode && parentNode.classList.contains('md-tree-container');
+            
+            if (isRootLevel) {
+                // 在根目录层级，高亮根目录
+                const treeContainer = sidebarContent.querySelector('.md-tree-container');
+                if (treeContainer) {
+                    this.#setDropTarget(treeContainer, 'root');
+                }
+            } else {
+                // 在文件夹内，不高亮
+                this.#clearDropTarget();
+            }
+        } else {
+            // 没有找到文档项，说明在空白区域，高亮根目录
+            const treeContainer = sidebarContent.querySelector('.md-tree-container');
+            if (treeContainer) {
+                this.#setDropTarget(treeContainer, 'root');
+            }
         }
     }
 
@@ -391,8 +427,12 @@ export class DocumentList extends BaseComponent {
         
         // 设置新的高亮
         this.dragTarget = element;
+        this.dragTargetType = type;
+        
         if (type === 'expanded') {
             element.classList.add('md-drop-target-expanded');
+        } else if (type === 'root') {
+            element.classList.add('md-drop-target-root');
         } else {
             element.classList.add('md-drop-target');
         }
@@ -405,8 +445,9 @@ export class DocumentList extends BaseComponent {
     #clearDropTarget() {
         if (!this.dragTarget) return;
         
-        this.dragTarget.classList.remove('md-drop-target', 'md-drop-target-expanded');
+        this.dragTarget.classList.remove('md-drop-target', 'md-drop-target-expanded', 'md-drop-target-root');
         this.dragTarget = null;
+        this.dragTargetType = null;
     }
 
     /**
@@ -417,21 +458,32 @@ export class DocumentList extends BaseComponent {
 
         if (!this.draggedItem || !this.dragTarget) return;
 
-        // 获取目标文件夹 ID
-        const targetFolderItem = this.dragTarget.classList.contains('md-drop-target-expanded')
-            ? this.dragTarget.querySelector('.md-doc-item')
-            : this.dragTarget;
+        let targetId = null;
 
-        if (!targetFolderItem) return;
+        // 根据拖拽目标类型获取目标 ID
+        if (this.dragTargetType === 'root') {
+            // 拖放到根目录
+            targetId = null;
+        } else if (this.dragTargetType === 'expanded') {
+            // 拖放到展开的文件夹
+            const targetFolderItem = this.dragTarget.querySelector('.md-doc-item');
+            if (!targetFolderItem) return;
+            targetId = targetFolderItem.dataset.docId;
+        } else {
+            // 拖放到文件夹项本身
+            targetId = this.dragTarget.dataset.docId;
+        }
 
-        const targetId = targetFolderItem.dataset.docId;
+        // 防止将文档拖到自己所在的文件夹
         if (targetId === this.draggedItem) return;
 
         // 移动文档
         const moved = this.state.moveDocument(this.draggedItem, targetId);
         if (moved) {
             StoreManager.saveDocuments(this.state.get('documents'));
-            this.expandFolder(targetId);
+            if (targetId) {
+                this.expandFolder(targetId);
+            }
         }
 
         // 立即清除高亮，避免闪烁
@@ -675,7 +727,6 @@ export class DocumentList extends BaseComponent {
      * @param {boolean} forceFullRender - 是否强制完全重新渲染
      */
     render(forceFullRender = false) {
-        const startTime = performance.now();
         const documents = this.state.get('documents');
         const currentDocId = this.state.get('currentDocId');
 
@@ -732,12 +783,6 @@ export class DocumentList extends BaseComponent {
                 requestAnimationFrame(() => {
                     this.editItemName(docId, isNewItem, shouldSetCurrent);
                 });
-            }
-            
-            // 性能监控（开发模式）
-            if (process.env.NODE_ENV === 'development') {
-                const renderTime = performance.now() - startTime;
-                console.log(`[DocumentList] 渲染完成: ${renderTime.toFixed(2)}ms, 文档数: ${documents.length}`);
             }
         });
     }
@@ -920,6 +965,7 @@ export class DocumentList extends BaseComponent {
         this.#clearDomCache();
         this.#pendingUpdates.clear();
         this.dragTarget = null;
+        this.dragTargetType = null;
         this.draggedItem = null;
         
         // 移除拖拽状态类
