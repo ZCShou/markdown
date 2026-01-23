@@ -625,8 +625,21 @@ export class DocumentList extends BaseComponent {
                 parent: actions
             });
             this.createElement('i', {
-                className: 'codicon codicon-add',
+                className: 'codicon codicon-new-file',
                 parent: newFileBtn
+            });
+
+            const newFolderBtn = this.createElement('button', {
+                className: 'md-btn md-btn-icon md-btn-xs md-new-folder-btn',
+                attributes: {
+                    title: '在此新建文件夹',
+                    'data-folder-id': node.id
+                },
+                parent: actions
+            });
+            this.createElement('i', {
+                className: 'codicon codicon-new-folder',
+                parent: newFolderBtn
             });
         }
 

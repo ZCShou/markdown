@@ -1546,10 +1546,14 @@ pre.has-copy-btn {
     border-radius: 3px;
 }
 
-.md-new-file-btn:hover,
-.md-new-folder-btn:hover {
+.md-new-file-btn:hover {
     color: var(--md-color-success);
     background-color: rgba(76, 175, 80, 0.1);
+}
+
+.md-new-folder-btn:hover {
+    color: var(--md-color-primary);
+    background-color: rgba(33, 150, 243, 0.1);
 }
 
 /* 子节点容器 */
