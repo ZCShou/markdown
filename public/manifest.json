@@ -2,14 +2,14 @@
   "name": "Markdown Editor",
   "short_name": "MD Editor",
   "description": "功能强大的在线 Markdown 编辑器",
-  "start_url": "/",
+  "start_url": "/markdown/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "orientation": "any",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/markdown/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
