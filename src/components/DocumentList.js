@@ -30,8 +30,11 @@ export class DocumentList extends BaseComponent {
         this.dragTarget = null; // 缓存当前拖拽目标
         this.dragTargetType = null; // 缓存当前拖拽目标类型
         this.clickTimeout = null;
+        this.dragOverThrottle = null; // dragover 节流定时器
+        this.lastDragOverTime = 0; // 上次 dragover 处理时间
         this.expandedFolders = new Set(); // 本地文件夹展开状态
         this.treeContainer = null; // 缓存树容器
+        this.domCacheVersion = 0; // DOM 缓存版本号，用于失效检测
     }
 
     /**
@@ -55,7 +58,7 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 检查文档结构是否发生变化（优化版）
+     * 检查文档结构是否发生变化（优化版：单次遍历）
      * @private
      * @param {Array} newValue - 新文档列表
      * @param {Array} oldValue - 旧文档列表
@@ -67,10 +70,13 @@ export class DocumentList extends BaseComponent {
             return true;
         }
 
-        // 使用 Map 优化查找性能
-        const oldMap = new Map(oldValue.map(d => [d.id, d]));
+        // 优化：单次遍历构建 Map 并检查
+        const oldMap = new Map();
+        for (const doc of oldValue) {
+            oldMap.set(doc.id, doc);
+        }
         
-        // 检查是否有新增、删除或结构性变化
+        // 检查新文档列表
         for (const doc of newValue) {
             const old = oldMap.get(doc.id);
             if (!old) {
@@ -81,17 +87,12 @@ export class DocumentList extends BaseComponent {
                 // 结构性变化
                 return true;
             }
+            // 从 Map 中删除，最后检查是否有剩余（被删除的文档）
+            oldMap.delete(doc.id);
         }
         
-        // 检查是否有删除
-        const newMap = new Map(newValue.map(d => [d.id]));
-        for (const oldDoc of oldValue) {
-            if (!newMap.has(oldDoc.id)) {
-                return true;
-            }
-        }
-
-        return false;
+        // 如果 Map 中还有剩余，说明有文档被删除
+        return oldMap.size > 0;
     }
 
     /**
@@ -101,19 +102,26 @@ export class DocumentList extends BaseComponent {
      * @returns {Element|null} 文档项元素
      */
     #getCachedDocItem(docId) {
-        if (!this.#domCache.has(docId)) {
-            const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
-            this.#domCache.set(docId, item);
+        const cached = this.#domCache.get(docId);
+        // 检查缓存是否有效（元素仍在 DOM 中）
+        if (cached && cached.element && this.container?.contains(cached.element)) {
+            return cached.element;
         }
-        return this.#domCache.get(docId);
+        // 缓存失效或不存在，重新查询
+        const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
+        if (item) {
+            this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
+        }
+        return item;
     }
 
     /**
-     * 清空 DOM 缓存
+     * 清空 DOM 缓存并增加版本号
      * @private
      */
     #clearDomCache() {
         this.#domCache.clear();
+        this.domCacheVersion++;
     }
 
     /**
@@ -289,7 +297,7 @@ export class DocumentList extends BaseComponent {
                     this.handleOpen(docId);
                 }
                 this.clickTimeout = null;
-            }, 200);
+            }, 120);
         }
     }
 
@@ -333,13 +341,20 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 处理拖拽经过
+     * 处理拖拽经过（节流优化：50ms）
      * @param {DragEvent} e - 拖拽经过事件
      * @returns {void}
      */
     handleDragOver(e) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+
+        // 节流：50ms 内只处理一次
+        const now = performance.now();
+        if (now - this.lastDragOverTime < 50) {
+            return;
+        }
+        this.lastDragOverTime = now;
 
         // 快速检查：是否在有效的拖拽区域
         if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
@@ -562,33 +577,22 @@ export class DocumentList extends BaseComponent {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
-        // 内联获取所有子项
-        const documents = this.state.get('documents');
-        const children = [];
-        const childrenMap = new Map();
-        
-        documents.forEach(d => {
-            if (d.parentId) {
-                if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
-                childrenMap.get(d.parentId).push(d);
-            }
-        });
-        
-        const stack = [docId];
-        while (stack.length > 0) {
-            const currentId = stack.pop();
-            const currentChildren = childrenMap.get(currentId);
-            if (currentChildren) {
-                for (const child of currentChildren) {
-                    children.push(child);
-                    if (child.type === 'folder') stack.push(child.id);
+        // 使用递归函数快速计算子项数量
+        const countChildren = (parentId) => {
+            const children = this.state.getChildren(parentId);
+            let count = children.length;
+            for (const child of children) {
+                if (child.type === 'folder') {
+                    count += countChildren(child.id);
                 }
             }
-        }
+            return count;
+        };
 
+        const childrenCount = doc.type === 'folder' ? countChildren(docId) : 0;
         const itemType = doc.type === 'folder' ? '文件夹' : '文档';
-        const message = children.length > 0 && doc.type === 'folder'
-            ? `确定要删除这个${itemType}及其 ${children.length} 个子项吗？`
+        const message = childrenCount > 0
+            ? `确定要删除这个${itemType}及其 ${childrenCount} 个子项吗？`
             : `确定要删除这个${itemType}吗？`;
 
         const confirmed = await Dialog.confirm(message, {
@@ -814,36 +818,40 @@ export class DocumentList extends BaseComponent {
         // 完全重建
         this.#lastDocCount = documents.length;
         
-        // 使用 requestAnimationFrame 避免阻塞主线程
-        requestAnimationFrame(() => {
-            const tree = this.state.buildTree();
-            const fragment = this.createFragment();
-            const treeContainer = this.createElement('div', {
-                className: 'md-tree-container'
-            });
+        const tree = this.state.buildTree();
+        const fragment = this.createFragment();
+        const treeContainer = this.createElement('div', {
+            className: 'md-tree-container'
+        });
 
-            tree.forEach((node) => {
-                treeContainer.appendChild(this.renderTreeNode(node, currentDocId, 0));
-            });
+        tree.forEach((node) => {
+            treeContainer.appendChild(this.renderTreeNode(node, currentDocId, 0));
+        });
 
-            fragment.appendChild(treeContainer);
-            this.container.innerHTML = '';
-            this.container.appendChild(fragment);
-            
-            // 清空缓存
-            this.#clearDomCache();
-            
-            // 如果有待处理的编辑操作，执行它
-            if (this.#pendingEdit) {
-                const { docId, isNewItem, shouldSetCurrent } = this.#pendingEdit;
-                this.#pendingEdit = null;
-                
-                // 再等待一帧，确保 DOM 完全就绪
-                requestAnimationFrame(() => {
-                    this.editItemName(docId, isNewItem, shouldSetCurrent);
-                });
+        fragment.appendChild(treeContainer);
+        this.container.innerHTML = '';
+        this.container.appendChild(fragment);
+        
+        // 清空缓存并增加版本号
+        this.#clearDomCache();
+        
+        // 立即重建 DOM 缓存（避免后续查询）
+        documents.forEach(doc => {
+            const item = this.container.querySelector(`[data-doc-id="${doc.id}"]`);
+            if (item) {
+                this.#domCache.set(doc.id, { element: item, version: this.domCacheVersion });
             }
         });
+        
+        // 如果有待处理的编辑操作，延迟执行确保 DOM 就绪
+        if (this.#pendingEdit) {
+            const { docId, isNewItem, shouldSetCurrent } = this.#pendingEdit;
+            this.#pendingEdit = null;
+            
+            requestAnimationFrame(() => {
+                this.editItemName(docId, isNewItem, shouldSetCurrent);
+            });
+        }
     }
 
     /**
@@ -892,8 +900,13 @@ export class DocumentList extends BaseComponent {
             dataset: { level }
         });
 
+        // 优化：使用数组构建类名，避免字符串拼接
+        const itemClasses = ['md-doc-item'];
+        if (isActive) itemClasses.push('active');
+        if (isEditing) itemClasses.push('editing');
+
         const item = this.createElement('div', {
-            className: `md-doc-item${isActive ? ' active' : ''}${isEditing ? ' editing' : ''}`,
+            className: itemClasses.join(' '),
             dataset: {
                 docId: node.id,
                 docType: node.type || 'file'
@@ -908,8 +921,12 @@ export class DocumentList extends BaseComponent {
         });
 
         if (isFolder) {
+            const toggleClasses = ['md-tree-toggle'];
+            if (isExpanded) toggleClasses.push('expanded');
+            if (!hasChildren) toggleClasses.push('leaf');
+            
             const toggle = this.createElement('span', {
-                className: `md-tree-toggle${isExpanded ? ' expanded' : ''}${hasChildren ? '' : ' leaf'}`,
+                className: toggleClasses.join(' '),
                 dataset: { folderId: node.id },
                 parent: item
             });
@@ -1001,8 +1018,11 @@ export class DocumentList extends BaseComponent {
         nodeContainer.appendChild(item);
 
         if (isFolder && hasChildren) {
+            const childrenClasses = ['md-tree-children'];
+            if (!isExpanded) childrenClasses.push('collapsed');
+            
             const childrenContainer = this.createElement('div', {
-                className: `md-tree-children${isExpanded ? '' : ' collapsed'}`
+                className: childrenClasses.join(' ')
             });
 
             node.children.forEach((child) => {
@@ -1023,6 +1043,11 @@ export class DocumentList extends BaseComponent {
         if (this.clickTimeout) {
             clearTimeout(this.clickTimeout);
             this.clickTimeout = null;
+        }
+        
+        if (this.dragOverThrottle) {
+            clearTimeout(this.dragOverThrottle);
+            this.dragOverThrottle = null;
         }
         
         // 清空缓存和状态

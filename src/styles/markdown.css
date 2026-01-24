@@ -1694,10 +1694,11 @@ body.is-dragging-tree {
 }
 
 /* 为每个层级的子容器添加竖线，位置与折叠符号中心对齐 */
+/* 计算：indent (level * 16px) + toggle 中心 (8px) + margin 补偿 (4px) */
 .md-tree-children::before {
     content: '';
     position: absolute;
-    left: 8px;
+    left: 12px;  /* 0 * 16 + 8 + 4 = 12px */
     top: 0;
     bottom: 0;
     width: 0.5px;
@@ -1706,24 +1707,24 @@ body.is-dragging-tree {
     opacity: 0.3;
 }
 
-/* 第二层级的竖线位置（与该层级的折叠符号中心对齐） */
+/* 第一层级的竖线位置（与该层级的折叠符号中心对齐） */
 .md-tree-node[data-level="1"] > .md-tree-children::before {
-    left: 24px;
+    left: 28px;  /* 1 * 16 + 8 + 4 = 28px */
+}
+
+/* 第二层级的竖线位置 */
+.md-tree-node[data-level="2"] > .md-tree-children::before {
+    left: 44px;  /* 2 * 16 + 8 + 4 = 44px */
 }
 
 /* 第三层级的竖线位置 */
-.md-tree-node[data-level="2"] > .md-tree-children::before {
-    left: 40px;
+.md-tree-node[data-level="3"] > .md-tree-children::before {
+    left: 60px;  /* 3 * 16 + 8 + 4 = 60px */
 }
 
 /* 第四层级的竖线位置 */
-.md-tree-node[data-level="3"] > .md-tree-children::before {
-    left: 56px;
-}
-
-/* 第五层级的竖线位置 */
 .md-tree-node[data-level="4"] > .md-tree-children::before {
-    left: 72px;
+    left: 76px;  /* 4 * 16 + 8 + 4 = 76px */
 }
 
 /* 更深层级使用相同间距 */
