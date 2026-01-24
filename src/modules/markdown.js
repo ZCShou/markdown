@@ -461,21 +461,8 @@ export class MarkdownEditor {
      * 应用主题
      */
     applyTheme(mode) {
+        // 通过设置 data-mode 属性，CSS 会自动应用对应的主题样式
         document.documentElement.dataset.mode = mode;
-        
-        // 更新 Prism 主题
-        const lightTheme = dom.theme.light?.element;
-        const darkTheme = dom.theme.dark?.element;
-        
-        if (lightTheme && darkTheme) {
-            if (mode === 'dark') {
-                lightTheme.disabled = true;
-                darkTheme.disabled = false;
-            } else {
-                lightTheme.disabled = false;
-                darkTheme.disabled = true;
-            }
-        }
     }
 
     /**

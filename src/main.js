@@ -1,3 +1,7 @@
+// Import third-party CSS dependencies
+import '@vscode/codicons/dist/codicon.css';
+import 'katex/dist/katex.min.css';
+
 import { MarkdownEditor } from './modules/markdown.js';
 
 /**

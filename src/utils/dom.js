@@ -437,23 +437,13 @@ export const dom = {
     },
 
     // ==================== 状态显示 ====================
-    
+
     /**
      * 状态显示元素
      */
     status: {
         overlay: new DOMElement('#status-overlay'),
         message: new DOMElement('#status-message')
-    },
-
-    // ==================== 主题相关 ====================
-
-    /**
-     * 主题相关元素
-     */
-    theme: {
-        light: new DOMElement('#prism-light-theme'),
-        dark: new DOMElement('#prism-dark-theme')
     },
 
     // ==================== 工具方法 ====================
