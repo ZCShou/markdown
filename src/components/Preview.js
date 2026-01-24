@@ -1134,21 +1134,22 @@ export class Preview extends BaseComponent {
      */
     renderMarkdown(markdown) {
         try {
-            // 预处理数学公式
+            // 预处理数学公式 - 使用简单的占位符
             const mathBlocks = [];
-            let processedMarkdown = markdown
-                // 替换块级公式
-                .replace(/\$\$([\s\S]*?)\$\$/g, (match, latex) => {
-                    const index = mathBlocks.length;
-                    mathBlocks.push({ latex, displayMode: true });
-                    return `<x-math-block data-index="${index}"></x-math-block>`;
-                })
-                // 替换行内公式
-                .replace(/\$([^\$\n]+?)\$/g, (match, latex) => {
-                    const index = mathBlocks.length;
-                    mathBlocks.push({ latex, displayMode: false });
-                    return `<x-math-inline data-index="${index}"></x-math-inline>`;
-                });
+            
+            // 先替换块级公式
+            let processedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match, latex) => {
+                const index = mathBlocks.length;
+                mathBlocks.push({ latex, displayMode: true });
+                return `MB${index}B`;
+            });
+            
+            // 再替换行内公式
+            processedMarkdown = processedMarkdown.replace(/\$([^\$\n]+?)\$/g, (match, latex) => {
+                const index = mathBlocks.length;
+                mathBlocks.push({ latex, displayMode: false });
+                return `MI${index}I`;
+            });
 
             // 使用 marked 解析
             let html;
@@ -1165,14 +1166,18 @@ export class Preview extends BaseComponent {
                 html = this.escapeHtml(processedMarkdown);
             }
 
-            // 替换数学公式占位符
-            html = html
-                .replace(/<x-math-block data-index="(\d+)"><\/x-math-block>/g, (_, index) => {
-                    return `<div class="math-block" data-latex="${mathBlocks[index].latex}"></div>`;
-                })
-                .replace(/<x-math-inline data-index="(\d+)"><\/x-math-inline>/g, (_, index) => {
-                    return `<span class="math-inline" data-latex="${mathBlocks[index].latex}"></span>`;
-                });
+            // 替换所有数学公式占位符
+            html = html.replace(/MB(\d+)B/g, (_, index) => {
+                const math = mathBlocks[parseInt(index)];
+                return math.displayMode 
+                    ? `<div class="math-block" data-latex="${math.latex}"></div>`
+                    : `<span class="math-inline" data-latex="${math.latex}"></span>`;
+            });
+            
+            html = html.replace(/MI(\d+)I/g, (_, index) => {
+                const math = mathBlocks[parseInt(index)];
+                return `<span class="math-inline" data-latex="${math.latex}"></span>`;
+            });
 
             // 净化 HTML
             if (DOMPurify?.sanitize) {
