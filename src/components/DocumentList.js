@@ -360,14 +360,21 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
-        // 优先检查展开的文件夹
+        // 优先检查：目标项本身是否是展开的文件夹
+        if (targetItem.dataset.docType === 'folder' && this.expandedFolders.has(targetItem.dataset.docId)) {
+            // 展开的文件夹 → 高亮整个展开区域
+            this.#setDropTarget(targetNode, 'expanded');
+            return;
+        }
+
+        // 检查是否在展开的文件夹内
         const expandedFolder = this.#findExpandedFolder(targetNode);
         if (expandedFolder) {
             this.#setDropTarget(expandedFolder, 'expanded');
             return;
         }
 
-        // 文件夹项 → 高亮文件夹
+        // 折叠的文件夹项 → 高亮文件夹
         if (targetItem.dataset.docType === 'folder') {
             this.#setDropTarget(targetItem, 'item');
             return;
