@@ -229,16 +229,13 @@ graph LR
 - 全局事件处理
 - 布局管理（拖拽调整大小）
 
-**核心代码**：
+**核心代码原型**：
 
 ```javascript
 export class MarkdownEditor {
     constructor() {
-        this.isInitialized = false;
-        this.state = new EditorState();
-        this.components = {};
-        this.isDragging = false;
-        this.syncScrollEnabled = true;
+        // 初始化状态、组件容器、拖拽状态等
+        // ...
     }
 
     /**
@@ -246,16 +243,8 @@ export class MarkdownEditor {
      */
     init() {
         if (this.isInitialized) return;
-
-        // 加载保存的数据
-        this.loadSavedData();
-
-        // 初始化组件
-        this.initComponents();
-
-        // 绑定全局事件
-        this.bindGlobalEvents();
-
+        // 加载数据、初始化组件、绑定事件
+        // ...
         this.isInitialized = true;
     }
 
@@ -263,16 +252,8 @@ export class MarkdownEditor {
      * 初始化所有组件
      */
     initComponents() {
-        this.components.editor = new Editor(this.state, 'markdown-editor');
-        this.components.preview = new Preview(this.state, 'markdown-preview');
-        this.components.documentList = new DocumentList(this.state, 'document-list');
-        this.components.sidebar = new Sidebar(this.state, 'sidebar');
-        this.components.toc = new TOC(this.state, 'toc');
-
-        // 初始化所有组件
-        Object.values(this.components).forEach(component => {
-            component.init();
-        });
+        // 创建各组件实例并初始化
+        // ...
     }
 }
 ```
@@ -396,7 +377,7 @@ export class EditorState {
     }
 
     /**
-     * 通知监听器
+     * 通知监听器（私有方法）
      */
     #notify(oldState, newState, force = false, changedKeys = []) {
         // 通知全局监听器
@@ -564,13 +545,13 @@ export class StoreManager {
     };
 
     /**
-     * 异步存储队列
+     * 异步存储队列（私有字段）
      */
     static #pendingOperations = new Map();
     static #isProcessing = false;
 
     /**
-     * 调度存储操作（异步）
+     * 调度存储操作（异步，私有方法）
      */
     static async #scheduleAsync(operation) {
         const id = Date.now() + Math.random();
@@ -585,7 +566,7 @@ export class StoreManager {
     }
 
     /**
-     * 处理操作队列
+     * 处理操作队列（私有方法）
      */
     static async #processQueue() {
         if (StoreManager.#pendingOperations.size === 0) {
@@ -1117,9 +1098,7 @@ sequenceDiagram
 
 ## DOM 管理
 
-### DOM 统一管理器
-
-**设计理念**：集中管理所有 DOM 元素引用，提供统一的访问接口。
+### DOM 元素包装类
 
 **核心代码**：
 
@@ -1320,6 +1299,26 @@ class DocumentList extends BaseComponent {
 }
 ```
 
+**使用场景**：
+```javascript
+updateActiveState(newDocId, oldDocId) {
+    // 使用缓存获取元素，减少 DOM 查询
+    if (oldDocId) {
+        const oldItem = this.#getCachedDocItem(oldDocId);
+        if (oldItem) {
+            oldItem.classList.remove('active');
+        }
+    }
+
+    if (newDocId && newDocId !== oldDocId) {
+        const newItem = this.#getCachedDocItem(newDocId);
+        if (newItem) {
+            newItem.classList.add('active');
+        }
+    }
+}
+```
+
 ---
 
 ## 构建与部署
@@ -1449,7 +1448,7 @@ class DocumentList extends BaseComponent {
             }
         }
 
-        if (newDocId) {
+        if (newDocId && newDocId !== oldDocId) {
             const newItem = this.#getCachedDocItem(newDocId);
             if (newItem) {
                 newItem.classList.add('active');
@@ -1489,7 +1488,7 @@ class DocumentList extends BaseComponent {
 
 ### 5. 异步存储队列
 
-**队列处理**：
+**队列处理原型**：
 
 ```javascript
 class StoreManager {
@@ -1530,6 +1529,7 @@ class StoreManager {
                 const result = await operation();
                 resolve(result);
             } catch (error) {
+                console.error('[StoreManager] Operation failed:', error);
                 reject(error);
             }
 

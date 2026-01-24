@@ -188,10 +188,13 @@ DocumentList 订阅 `documents` 和 `currentDocId` 两个状态键：
         return true;
     }
 
-    // 使用 Map 优化查找性能
-    const oldMap = new Map(oldValue.map(d => [d.id, d]));
+    // 优化：单次遍历构建 Map 并检查
+    const oldMap = new Map();
+    for (const doc of oldValue) {
+        oldMap.set(doc.id, doc);
+    }
     
-    // 检查是否有新增、删除或结构性变化
+    // 检查新文档列表
     for (const doc of newValue) {
         const old = oldMap.get(doc.id);
         if (!old) {
@@ -200,17 +203,11 @@ DocumentList 订阅 `documents` 和 `currentDocId` 两个状态键：
         if (old.parentId !== doc.parentId || old.name !== doc.name) {
             return true;  // 结构性变化
         }
+        oldMap.delete(doc.id);  // 删除已存在的
     }
     
-    // 检查是否有删除
-    const newMap = new Map(newValue.map(d => [d.id, d]));
-    for (const oldDoc of oldValue) {
-        if (!newMap.has(oldDoc.id)) {
-            return true;  // 删除文档
-        }
-    }
-
-    return false;
+    // Map 中剩余的就是被删除的
+    return oldMap.size > 0;
 }
 ```
 
@@ -257,112 +254,8 @@ renderTreeNode(node, currentDocId, level) {
         attributes: { draggable: 'true' }
     });
 
-    // 缩进
-    this.createElement('span', {
-        className: 'md-tree-indent',
-        style: { width: `${level * 16}px` },
-        parent: item
-    });
-
-    // 文件夹展开/折叠按钮
-    if (isFolder) {
-        const toggle = this.createElement('span', {
-            className: `md-tree-toggle${isExpanded ? ' expanded' : ''}${hasChildren ? '' : ' leaf'}`,
-            dataset: { folderId: node.id },
-            parent: item
-        });
-        this.createElement('i', {
-            className: 'codicon codicon-chevron-right',
-            parent: toggle
-        });
-    } else {
-        this.createElement('span', {
-            className: 'md-tree-spacer',
-            parent: item
-        });
-    }
-
-    // 图标
-    const iconSpan = this.createElement('span', {
-        className: 'md-doc-item-icon',
-        parent: item
-    });
-
-    const iconClass = isFolder
-        ? (isExpanded ? 'codicon-folder-opened' : 'codicon-folder')
-        : 'codicon-file';
-    this.createElement('i', {
-        className: `codicon ${iconClass}`,
-        parent: iconSpan
-    });
-
-    // 名称
-    if (isEditing) {
-        this.createElement('input', {
-            type: 'text',
-            className: 'md-doc-item-input',
-            attributes: { value: node.name },
-            parent: item
-        });
-    } else {
-        this.createElement('span', {
-            className: 'md-doc-item-name',
-            textContent: node.name,
-            parent: item
-        });
-    }
-
-    // 操作按钮
-    const actions = this.createElement('span', {
-        className: 'md-doc-item-actions',
-        parent: item
-    });
-
-    if (isFolder) {
-        // 新建文件按钮
-        const newFileBtn = this.createElement('button', {
-            className: 'md-btn md-btn-icon md-btn-xs md-new-file-btn',
-            attributes: {
-                title: '在此新建文档',
-                'data-folder-id': node.id
-            },
-            parent: actions
-        });
-        this.createElement('i', {
-            className: 'codicon codicon-new-file',
-            parent: newFileBtn
-        });
-
-        // 新建文件夹按钮
-        const newFolderBtn = this.createElement('button', {
-            className: 'md-btn md-btn-icon md-btn-xs md-new-folder-btn',
-            attributes: {
-                title: '在此新建文件夹',
-                'data-folder-id': node.id
-            },
-            parent: actions
-        });
-        this.createElement('i', {
-            className: 'codicon codicon-new-folder',
-            parent: newFolderBtn
-        });
-    }
-
-    // 删除按钮
-    const deleteBtn = this.createElement('button', {
-        className: 'md-btn md-btn-icon md-btn-xs md-doc-item-delete',
-        attributes: {
-            title: '删除',
-            'data-doc-id': node.id
-        },
-        parent: actions
-    });
-    this.createElement('i', {
-        className: 'codicon codicon-trash',
-        parent: deleteBtn
-    });
-
-    nodeContainer.appendChild(item);
+    // 添加缩进、展开按钮、图标、名称、操作按钮
+    // ... (省略详细的 DOM 创建代码)
 
     // 递归渲染子节点
     if (isFolder && hasChildren) {
@@ -548,6 +441,7 @@ editItemName(docId, isNewItem = false, shouldSetCurrent = false) {
     item.classList.add('editing');
     item.draggable = false;
 
+    // 替换为输入框
     const input = this.createElement('input', {
         type: 'text',
         className: 'md-doc-item-input',
@@ -560,50 +454,16 @@ editItemName(docId, isNewItem = false, shouldSetCurrent = false) {
 
     let hasChanged = false;
 
+    // 定义完成编辑的函数
     const finishEdit = (saveChanges) => {
-        input.removeEventListener('blur', handleBlur);
-        
-        if (saveChanges) {
-            const newName = input.value.trim();
-            if (!newName) {
-                this.showMessage('名称不能为空', 'error');
-                input.focus();
-                input.addEventListener('blur', handleBlur, { once: true });
-                return;
-            }
-
-            this.state.updateDocument(docId, {
-                name: newName,
-                updatedAt: new Date().toISOString()
-            }, { silent: true });
-            StoreManager.saveDocuments(this.state.get('documents'));
-
-            const nameSpan = this.createElement('span', {
-                className: 'md-doc-item-name',
-                textContent: newName
-            });
-            input.replaceWith(nameSpan);
-        } else {
-            const nameSpan = this.createElement('span', {
-                className: 'md-doc-item-name',
-                textContent: currentName
-            });
-            input.replaceWith(nameSpan);
-        }
-
-        this.editingDocId = null;
-        item.classList.remove('editing');
-        item.draggable = true;
-
-        if (shouldSetCurrent && isNewItem) {
-            this.state.setCurrentDocument(docId);
-        }
+        // ... (省略详细的保存逻辑)
     };
 
     const handleBlur = () => {
         finishEdit(isNewItem || hasChanged);
     };
 
+    // 绑定事件：Enter 保存、Escape 取消、blur 自动保存
     input.addEventListener('blur', handleBlur, { once: true });
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -674,35 +534,23 @@ async handleDelete(docId) {
     const doc = this.state.get('documents').find(d => d.id === docId);
     if (!doc) return;
 
-    // 内联获取所有子项
-    const documents = this.state.get('documents');
-    const children = [];
-    const childrenMap = new Map();
-    
-    // 构建子项映射
-    documents.forEach(d => {
-        if (d.parentId) {
-            if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
-            childrenMap.get(d.parentId).push(d);
-        }
-    });
-    
-    // 递归收集所有子项
-    const stack = [docId];
-    while (stack.length > 0) {
-        const currentId = stack.pop();
-        const currentChildren = childrenMap.get(currentId);
-        if (currentChildren) {
-            for (const child of currentChildren) {
-                children.push(child);
-                if (child.type === 'folder') stack.push(child.id);
+    // 使用 state.getChildren() 递归计算所有子项
+    const countChildren = (parentId) => {
+        const children = this.state.getChildren(parentId);
+        let count = children.length;
+        for (const child of children) {
+            if (child.type === 'folder') {
+                count += countChildren(child.id);
             }
         }
-    }
+        return count;
+    };
+    
+    const childrenCount = doc.type === 'folder' ? countChildren(docId) : 0;
 
     const itemType = doc.type === 'folder' ? '文件夹' : '文档';
-    const message = children.length > 0 && doc.type === 'folder'
-        ? `确定要删除这个${itemType}及其 ${children.length} 个子项吗？`
+    const message = childrenCount > 0 && doc.type === 'folder'
+        ? `确定要删除这个${itemType}及其 ${childrenCount} 个子项吗？`
         : `确定要删除这个${itemType}吗？`;
 
     const confirmed = await Dialog.confirm(message, {
@@ -799,6 +647,7 @@ handleClick(e) {
             this.clickTimeout = null;
         }
 
+        // 延迟处理单击，给双击留出时间窗口
         this.clickTimeout = setTimeout(() => {
             if (docType === 'folder') {
                 this.toggleFolder(docId);
@@ -806,11 +655,12 @@ handleClick(e) {
                 this.handleOpen(docId);
             }
             this.clickTimeout = null;
-        }, 200);
+        }, 120);  // 120ms 延迟
     }
 }
 
 handleDoubleClick(e) {
+    // 清除单击定时器，取消单击处理
     if (this.clickTimeout) {
         clearTimeout(this.clickTimeout);
         this.clickTimeout = null;
@@ -886,7 +736,7 @@ sequenceDiagram
 
 #### 5.2 拖拽目标检测
 
-**目标类型**：
+**目标类型检测**：
 ```javascript
 handleDragOver(e) {
     e.preventDefault();
@@ -1070,22 +920,13 @@ setFolderExpanded(folderId, expanded) {
 
 #### 6.2 文件夹操作
 
-**在文件夹中创建文档**：
+**在文件夹中创建文档原型**：
 ```javascript
 handleClick(e) {
-    const newFileBtn = e.target.closest('.md-new-file-btn');
-    if (newFileBtn) {
-        e.stopPropagation();
-        this.createItem('file', newFileBtn.dataset.folderId || null);
-        return;
-    }
-
-    const newFolderBtn = e.target.closest('.md-new-folder-btn');
-    if (newFolderBtn) {
-        e.stopPropagation();
-        this.createItem('folder', newFolderBtn.dataset.folderId || null);
-        return;
-    }
+    // 检查是否点击了新建文件/文件夹按钮
+    // 阻止事件冒泡
+    // 调用 createItem 创建
+    // ...
 }
 ```
 
@@ -1212,7 +1053,7 @@ DocumentList 组件采用了多种性能优化策略，以确保在大规模文�
 - 只在结构变化时触发完全重新渲染
 - **优化**：单次遍历算法，从双 Map 构建改为单次遍历 + Map 删除检测
 
-**代码修改**：
+**代码实现**：
 ```javascript
 // 优化前：构建两个 Map
 const oldMap = new Map(oldValue.map(d => [d.id, d]));
@@ -1243,7 +1084,7 @@ return oldMap.size > 0;
 - render 后立即重建缓存 Map，确保缓存有效性
 - 在激活状态更新、文件夹展开/折叠等场景中使用
 
-**代码修改**：
+**代码实现**：
 ```javascript
 // 优化前：简单缓存，可能失效
 #getCachedDocItem(docId) {
@@ -1288,7 +1129,7 @@ documents.forEach(doc => {
 - **优化**：移除双重 RAF 包裹，初次渲染同步执行
 - 只在编辑操作时使用单层 RAF 延迟
 
-**代码修改**：
+**代码实现**：
 ```javascript
 // 优化前：双重 RAF
 render(forceFullRender = false) {
@@ -1352,7 +1193,7 @@ handleOpen(docId) {
 - **拖拽节流**：添加 50ms 节流，减少 dragover 事件处理频率
 - **字符串拼接优化**：使用数组 `.join(' ')` 代替模板字符串
 
-**代码修改**：
+**代码实现**：
 ```javascript
 // 点击延迟优化
 this.clickTimeout = setTimeout(() => {
@@ -1387,7 +1228,7 @@ const item = this.createElement('div', {
 - **删除操作**：使用 `state.getChildren()` 递归计算，替代手动 Map 构建和栈遍历
 - **DOM 缓存**：版本控制机制防止缓存失效
 
-**代码修改**：
+**代码实现**：
 ```javascript
 // 删除操作优化
 async handleDelete(docId) {
@@ -1430,7 +1271,7 @@ async handleDelete(docId) {
 - 清空 DOM 缓存和状态
 - 移除拖拽状态类
 
-**代码修改**：
+**代码实现**：
 ```javascript
 destroy() {
     if (this.clickTimeout) {
@@ -1438,14 +1279,14 @@ destroy() {
         this.clickTimeout = null;
     }
     
-    if (this.dragOverThrottle) {  // 新增
+    if (this.dragOverThrottle) {
         clearTimeout(this.dragOverThrottle);
         this.dragOverThrottle = null;
     }
     
     this.#clearDomCache();
     this.#pendingUpdates.clear();
-    // ...
+    // ... 其他清理逻辑
 }
 ```
 

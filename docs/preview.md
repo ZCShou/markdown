@@ -153,78 +153,42 @@ sequenceDiagram
 
 **代码实现**：
 
-**Editor 组件**：
+**Editor 组件原型**：
 ```javascript
 // Editor.js
 handleInput() {
-    this.debounce('editor-input', () => {
-        const content = this.container.value || '';
-        this.state.updateContent(content);  // 更新状态
-    }, 50);
+    // 防抖处理输入事件
+    // 获取内容并更新状态
+    // ...
 }
 ```
 
-**State 模块**：
+**State 模块原型**：
 ```javascript
 // state.js
 setState(updates, options = {}) {
-    let hasChanges = false;
-    const changedKeys = [];
-    
-    // 检查是否有实际变化
-    for (const key in updates) {
-        if (!Object.is(this.#state[key], updates[key])) {
-            hasChanges = true;
-            changedKeys.push(key);
-        }
-    }
-    
-    // 创建旧状态副本
-    const oldState = hasChanges ? { ...this.#state } : null;
-    
-    // 更新状态
-    Object.assign(this.#state, updates);
-    
-    // 通知监听器
-    if (oldState) {
-        this.#notify(oldState, this.#state, false, changedKeys);
-    }
+    // 检测变化、更新状态、通知监听器
+    // ...
 }
 
 #notify(oldState, newState, force, changedKeys) {
-    // 通知特定键的监听器
-    changedKeys.forEach(key => {
-        const listeners = this.#listeners.get(key);
-        if (listeners) {
-            listeners.forEach(listener => {
-                listener(newState[key], oldState[key], key);
-            });
-        }
-    });
+    // 遍历 changedKeys，通知特定键的监听器
+    // ...
 }
 ```
 
-**Preview 组件**：
+**Preview 组件原型**：
 ```javascript
 // Preview.js
 subscribe() {
     // 订阅 content 键的变化
-    this.unsubscribe = this.state.subscribeTo('content', (newValue, oldValue, key) => {
-        if (key === 'content') {
-            this.updatePreview();
-        }
-    });
+    // ...
 }
 
 updatePreview() {
-    const content = this.state.get('content');
-    const lastRendered = this.state.get('lastRenderedContent');
-
-    // 避免重复渲染
-    if (content === lastRendered && lastRendered !== '') return;
-
-    // 100ms 防抖，减少频繁渲染
-    this._scheduleRender(content, 100);
+    // 获取内容，检查是否需要渲染
+    // 100ms 防抖，减少渲染频率
+    // ...
 }
 ```
 
@@ -341,33 +305,20 @@ setCurrentDocument(doc) {
 }
 ```
 
-**Preview 组件**：
+**Preview 组件原型**：
 ```javascript
 // Preview.js
 subscribe() {
     // 订阅 currentDocId 和 content 键的变化
-    this.unsubscribe = this.state.subscribeTo(
-        ['currentDocId', 'content'], 
-        (newValue, oldValue, key) => {
-            if (key === 'currentDocId') {
-                this.forceUpdatePreview();  // 文档切换，立即渲染
-            } else if (key === 'content') {
-                this.updatePreview();       // 内容变化，防抖渲染
-            }
-        }
-    );
+    // currentDocId 变化：立即渲染
+    // content 变化：防抖渲染
+    // ...
 }
 
 forceUpdatePreview() {
-    const currentDocId = this.state.get('currentDocId');
-    if (!currentDocId) return;
-    
-    const documents = this.state.get('documents');
-    const doc = documents.find(d => d.id === currentDocId);
-    if (!doc || doc.type === 'folder') return;
-    
+    // 获取当前文档
     // 立即渲染，无延迟
-    this._scheduleRender(doc.content || '', 0);
+    // ...
 }
 ```
 
@@ -428,100 +379,49 @@ sequenceDiagram
 
 **代码实现**：
 
-**MarkdownEditor 组件**：
+**MarkdownEditor 组件原型**：
 ```javascript
 // MarkdownEditor.js
 toggleTheme() {
-    const currentTheme = this.state.get('theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
-    // 更新状态
-    this.state.setState({ theme: newTheme });
-    
-    // 更新 UI
-    document.body.classList.toggle('dark-mode', newTheme === 'dark');
+    // 获取当前主题，计算新主题
+    // 更新状态和 UI
+    // ...
 }
 ```
 
-**State 模块**：
+**State 模块原型**：
 ```javascript
 // state.js
 setState(updates, options = {}) {
-    let hasChanges = false;
-    const changedKeys = [];
-    
-    // 检查是否有实际变化
-    for (const key in updates) {
-        if (!Object.is(this.#state[key], updates[key])) {
-            hasChanges = true;
-            changedKeys.push(key);
-        }
-    }
-    
-    // 创建旧状态副本
-    const oldState = hasChanges ? { ...this.#state } : null;
-    
-    // 更新状态
-    Object.assign(this.#state, updates);
-    
-    // 通知监听器
-    if (oldState) {
-        this.#notify(oldState, this.#state, false, changedKeys);
-    }
+    // 检测变化、更新状态、通知监听器
+    // ...
 }
 
 #notify(oldState, newState, force, changedKeys) {
-    // 通知特定键的监听器
-    changedKeys.forEach(key => {
-        const listeners = this.#listeners.get(key);
-        if (listeners) {
-            listeners.forEach(listener => {
-                listener(newState[key], oldState[key], key);
-            });
-        }
-    });
+    // 遍历 changedKeys，通知特定键的监听器
+    // ...
 }
 ```
 
-**Preview 组件**：
+**Preview 组件原型**：
 ```javascript
 // Preview.js
 subscribe() {
     // 订阅 theme 键的变化
-    this.unsubscribe = this.state.subscribeTo('theme', (newValue, oldValue, key) => {
-        if (key === 'theme') {
-            this.updateMermaidTheme();
-        }
-    });
+    // ...
 }
 
 updateMermaidTheme() {
-    const theme = this.state.get('theme');
-    
+    // 获取新主题
     // 重新初始化 Mermaid 主题
-    mermaid.initialize({
-        startOnLoad: false,
-        theme: theme === 'dark' ? 'dark' : 'default',
-        securityLevel: 'loose'
-    });
-    
     // 重新渲染所有 Mermaid 图表
-    this.renderMermaidCharts();
+    // ...
 }
 
 renderMermaidCharts() {
-    const containers = this.container.querySelectorAll('div.mermaid');
-    
-    if (containers.length === 0) return;
-    
-    // 批量渲染
-    mermaid.run({ nodes: containers })
-        .then(() => {
-            containers.forEach(c => c.classList.add('mermaid-done'));
-        })
-        .catch((err) => {
-            console.warn('Mermaid 渲染失败:', err);
-        });
+    // 查询所有 Mermaid 容器
+    // 批量渲染，添加完成标记
+    // ...
 }
 ```
 
