@@ -1092,15 +1092,37 @@ html::-webkit-scrollbar-thumb:hover,
 }
 
 .markdown-body input[type="checkbox"] {
-    border-color: var(--md-checkbox-border);
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1em;
+    height: 1em;
+    border: 1px solid var(--md-checkbox-border);
     background-color: var(--md-checkbox-bg);
-    vertical-align: middle;
+    vertical-align: text-bottom;
     margin-right: 0.25em;
+    border-radius: 2px;
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
 }
 
 .markdown-body input[type="checkbox"]:checked {
     background-color: var(--md-checkbox-checked-bg);
     border-color: var(--md-checkbox-checked-bg);
+}
+
+.markdown-body input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 0.25em;
+    top: 0.05em;
+    width: 0.25em;
+    height: 0.5em;
+    border: solid white;
+    border-width: 0 0.15em 0.15em 0;
+    transform: rotate(45deg);
 }
 
 /* Mermaid 图表样式 */
