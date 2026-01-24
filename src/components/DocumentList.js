@@ -626,13 +626,19 @@ export class DocumentList extends BaseComponent {
             updatedAt: new Date().toISOString()
         };
 
-        this.state.addDocument(doc, parentId);
-        StoreManager.saveDocuments(this.state.get('documents'));
+        // 先标记需要进入编辑模式
+        this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
+        
+        // 使用 silent 选项添加文档，避免触发订阅回调的完全重渲染
+        const documents = this.state.get('documents');
+        documents.push(doc);
+        this.state.setState({ documents }, { silent: true });
+        StoreManager.saveDocuments(documents);
         
         if (parentId) this.expandFolder(parentId);
         
-        // 标记需要进入编辑模式
-        this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
+        // 手动触发增量渲染（只渲染新增的节点）
+        this.#renderNewItem(doc);
     }
 
     /**
@@ -848,11 +854,11 @@ export class DocumentList extends BaseComponent {
         
         // 如果有待处理的编辑操作，延迟执行确保 DOM 就绪
         if (this.#pendingEdit) {
-            const { docId, isNewItem, shouldSetCurrent } = this.#pendingEdit;
+            const pendingEdit = this.#pendingEdit;
             this.#pendingEdit = null;
             
             requestAnimationFrame(() => {
-                this.editItemName(docId, isNewItem, shouldSetCurrent);
+                this.editItemName(pendingEdit.docId, pendingEdit.isNewItem, pendingEdit.shouldSetCurrent);
             });
         }
     }
@@ -866,6 +872,80 @@ export class DocumentList extends BaseComponent {
     #shouldUpdateActiveOnly(documents) {
         // 如果文档数量没变，且没有结构性变化，只需要更新激活状态
         return this.#lastDocCount === documents.length && this.#lastDocCount > 0;
+    }
+
+    /**
+     * 增量渲染新项目（性能优化：避免完全重渲染）
+     * @private
+     * @param {Object} doc - 新文档对象
+     */
+    #renderNewItem(doc) {
+        this.#lastDocCount = this.state.get('documents').length;
+        
+        // 第一个文档需要完全渲染（移除空状态）
+        if (this.#lastDocCount === 1) {
+            this.render(true);
+            return;
+        }
+        
+        // 获取或创建目标容器
+        const targetContainer = doc.parentId 
+            ? this.#getOrCreateChildrenContainer(doc.parentId)
+            : dom.getIn(this.container, '.md-tree-container');
+        
+        if (!targetContainer) {
+            this.render(true);
+            return;
+        }
+        
+        // 构造节点数据（不需要从树中查找，直接用 doc）
+        const node = { ...doc, children: [] };
+        const level = this.#calculateLevel(doc.parentId);
+        
+        // 渲染并插入新节点
+        const newNodeElement = this.renderTreeNode(node, this.state.get('currentDocId'), level);
+        targetContainer.appendChild(newNodeElement);
+        
+        // 更新缓存
+        const item = dom.getIn(newNodeElement, '.md-doc-item');
+        if (item) {
+            this.#domCache.set(doc.id, { element: item, version: this.domCacheVersion });
+        }
+        
+        // 处理待编辑状态
+        if (this.#pendingEdit?.docId === doc.id) {
+            const pendingEdit = this.#pendingEdit;
+            this.#pendingEdit = null;
+            requestAnimationFrame(() => {
+                this.editItemName(pendingEdit.docId, pendingEdit.isNewItem, pendingEdit.shouldSetCurrent);
+            });
+        }
+    }
+    
+    /**
+     * 获取或创建父节点的子容器
+     * @private
+     */
+    #getOrCreateChildrenContainer(parentId) {
+        const parentNode = dom.getIn(this.container, `[data-doc-id="${parentId}"]`)?.closest('.md-tree-node');
+        if (!parentNode) return null;
+        
+        let container = dom.getIn(parentNode, '.md-tree-children');
+        if (!container) {
+            container = this.createElement('div', { className: 'md-tree-children' });
+            parentNode.appendChild(container);
+        }
+        return container;
+    }
+    
+    /**
+     * 计算节点层级（递归向上）
+     * @private
+     */
+    #calculateLevel(parentId) {
+        if (!parentId) return 0;
+        const parent = this.state.get('documents').find(d => d.id === parentId);
+        return parent ? 1 + this.#calculateLevel(parent.parentId) : 0;
     }
 
     /**
