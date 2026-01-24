@@ -1606,11 +1606,27 @@ body.is-dragging-tree .md-tree-node {
     transition: none !important;
 }
 
-/* 文件夹项高亮 - 使用 outline 避免布局抖动 */
+/* 拖拽时降低选中状态的层级，确保拖拽目标高亮可见 */
+body.is-dragging-tree .md-doc-item.active {
+    z-index: 1;
+}
+
+/* 文件夹项高亮 - 使用 box-shadow 代替 outline，避免被背景色遮挡 */
 .md-drop-target {
     background-color: var(--md-tree-drop-bg);
-    outline: 1px dashed var(--md-tree-drop-border);
-    outline-offset: -1px;
+    position: relative;
+    z-index: 10;
+}
+
+/* 使用伪元素绘制边框，确保在背景色之上 */
+.md-drop-target::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border: 2px dashed var(--md-tree-drop-border);
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 11;
 }
 
 .md-drop-target::after {
@@ -1623,27 +1639,29 @@ body.is-dragging-tree .md-tree-node {
     padding: 2px 6px;
     border-radius: 3px;
     pointer-events: none;
+    z-index: 12;
 }
 
 /* 展开的文件夹区域高亮 - 使用伪元素避免布局抖动 */
 .md-drop-target-expanded {
     background-color: var(--md-tree-drop-bg);
     position: relative;
+    z-index: 10;
 }
 
 /* 使用伪元素添加边框，不影响布局 */
 .md-drop-target-expanded::before {
     content: '';
     position: absolute;
-    inset: 0;
-    border: 1px dashed var(--md-tree-drop-border);
+    inset: -2px;
+    border: 2px dashed var(--md-tree-drop-border);
     border-radius: 4px;
     pointer-events: none;
-    z-index: 1;
+    z-index: 12;
 }
 
 .md-drop-target-expanded > .md-doc-item {
-    background-color: transparent;
+    background-color: transparent !important;
     outline: none;
 }
 
@@ -1656,18 +1674,27 @@ body.is-dragging-tree .md-tree-node {
     background-color: var(--md-tree-drop-label-bg);
     padding: 2px 6px;
     border-radius: 3px;
-    z-index: 10;
+    z-index: 13;
     pointer-events: none;
 }
 
-/* 根目录区域高亮 */
+/* 根目录区域高亮 - 使用伪元素绘制边框 */
 .md-drop-target-root {
     background-color: var(--md-tree-drop-bg);
-    outline: 2px dashed var(--md-tree-drop-border);
-    outline-offset: -2px;
     border-radius: 6px;
     position: relative;
     min-height: 100px;
+    z-index: 10;
+}
+
+.md-drop-target-root::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border: 2px dashed var(--md-tree-drop-border);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 11;
 }
 
 .md-drop-target-root::after {
@@ -1681,7 +1708,7 @@ body.is-dragging-tree .md-tree-node {
     background-color: var(--md-tree-drop-label-bg);
     padding: 4px 8px;
     border-radius: 4px;
-    z-index: 1000;
+    z-index: 1001;
     pointer-events: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
