@@ -31,6 +31,7 @@ export class DocumentList extends BaseComponent {
         this.dragTargetType = null; // 缓存当前拖拽目标类型
         this.clickTimeout = null;
         this.expandedFolders = new Set(); // 本地文件夹展开状态
+        this.treeContainer = null; // 缓存树容器
     }
 
     /**
@@ -326,6 +327,9 @@ export class DocumentList extends BaseComponent {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedItem);
         document.body.classList.add('is-dragging-tree');
+        
+        // 缓存树容器，避免重复查询
+        this.treeContainer = this.container.querySelector('.md-tree-container');
     }
 
     /**
@@ -338,18 +342,16 @@ export class DocumentList extends BaseComponent {
         e.dataTransfer.dropEffect = 'move';
 
         // 快速检查：是否在有效的拖拽区域
-        const sidebarContent = e.target.closest('.md-sidebar-content');
-        if (!sidebarContent || e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
+        if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
             this.#clearDropTarget();
             return;
         }
 
         const targetItem = e.target.closest('.md-doc-item');
-        const treeContainer = sidebarContent.querySelector('.md-tree-container');
 
         // 没有文档项 → 根目录区域
         if (!targetItem) {
-            this.#setDropTarget(treeContainer, 'root');
+            this.#setDropTarget(this.treeContainer, 'root');
             return;
         }
 
@@ -381,13 +383,15 @@ export class DocumentList extends BaseComponent {
         }
 
         // 文件项 → 检查是否在根目录层级
-        const isRootLevel = targetNode.parentElement === treeContainer;
-        this.#setDropTarget(isRootLevel ? treeContainer : null, 'root');
+        const isRootLevel = targetNode.parentElement === this.treeContainer;
+        this.#setDropTarget(isRootLevel ? this.treeContainer : null, 'root');
     }
 
     /**
      * 查找包含指定节点的展开文件夹
      * @private
+     * @param {Element} node - 节点元素
+     * @returns {Element|null} 展开的文件夹节点
      */
     #findExpandedFolder(node) {
         let current = node.parentElement;
@@ -499,6 +503,9 @@ export class DocumentList extends BaseComponent {
         
         // 清除目标高亮和状态
         this.#clearDropTarget();
+        
+        // 清理缓存
+        this.treeContainer = null;
         
         // 移除拖拽状态类，恢复过渡效果
         document.body.classList.remove('is-dragging-tree');
@@ -1024,6 +1031,7 @@ export class DocumentList extends BaseComponent {
         this.dragTarget = null;
         this.dragTargetType = null;
         this.draggedItem = null;
+        this.treeContainer = null;
         
         // 移除拖拽状态类
         document.body.classList.remove('is-dragging-tree');
