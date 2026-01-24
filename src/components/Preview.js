@@ -592,6 +592,10 @@ export class Preview extends BaseComponent {
      * 渲染内容（优化版：简化流程）
      */
     renderContent(markdown) {
+        // 清空待处理集合，避免旧元素干扰
+        this.#pendingMermaidBlocks.clear();
+        this.#pendingCodeBlocks.clear();
+        
         // 检测变化
         const changes = this.#detectChanges(markdown);
         
@@ -802,39 +806,21 @@ export class Preview extends BaseComponent {
             this.#intersectionObserver.observe(div);
         });
         
-        // 使用 requestIdleCallback 在浏览器空闲时渲染剩余内容
-        if (invisible.length > 0 && 'requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-                this.#renderPendingMermaid();
-            }, { timeout: 2000 }); // 最多 2 秒后强制执行
-        }
-    }
-    
-    /**
-     * 渲染待处理的 Mermaid 图表
-     * @private
-     */
-    #renderPendingMermaid() {
-        if (this.#pendingMermaidBlocks.size === 0) return;
-        
-        const pending = Array.from(this.#pendingMermaidBlocks);
-        const batch = pending.slice(0, 3); // 每次最多渲染 3 个，避免阻塞
-        
-        batch.forEach(div => {
-            if (div.classList.contains('mermaid-pending')) {
-                this.#renderSingleMermaid(div);
-                this.#pendingMermaidBlocks.delete(div);
-                if (this.#intersectionObserver) {
-                    this.#intersectionObserver.unobserve(div);
+        // 简化逻辑：直接在 2 秒后渲染所有剩余的
+        if (invisible.length > 0) {
+            setTimeout(() => {
+                const pending = Array.from(this.#pendingMermaidBlocks);
+                if (pending.length > 0) {
+                    this.#renderMermaidDivs(pending);
+                    pending.forEach(div => {
+                        div.classList.remove('mermaid-pending');
+                        this.#pendingMermaidBlocks.delete(div);
+                        if (this.#intersectionObserver) {
+                            this.#intersectionObserver.unobserve(div);
+                        }
+                    });
                 }
-            }
-        });
-        
-        // 如果还有剩余，继续在下一个空闲时段渲染
-        if (this.#pendingMermaidBlocks.size > 0 && 'requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-                this.#renderPendingMermaid();
-            }, { timeout: 2000 });
+            }, 2000);
         }
     }
     
