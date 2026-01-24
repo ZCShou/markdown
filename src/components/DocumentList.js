@@ -107,8 +107,8 @@ export class DocumentList extends BaseComponent {
         if (cached && cached.element && this.container?.contains(cached.element)) {
             return cached.element;
         }
-        // 缓存失效或不存在，重新查询
-        const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
+        // 使用 dom.js 统一查询，缓存失效或不存在，重新查询
+        const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
         if (item) {
             this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
         }
@@ -178,16 +178,16 @@ export class DocumentList extends BaseComponent {
      */
     #updateFolderUI(folderId, expanded) {
         if (!this.container) return;
-        
+
         // 使用缓存获取元素
         const item = this.#getCachedDocItem(folderId);
         if (!item) return;
 
-        // 一次性获取所有需要的子元素
-        const toggle = item.querySelector('.md-tree-toggle');
-        const icon = item.querySelector('.md-doc-item-icon i');
+        // 使用 dom.js 统一查询，一次性获取所有需要的子元素
+        const toggle = dom.getIn(item, '.md-tree-toggle');
+        const icon = dom.getIn(item, '.md-doc-item-icon i');
         const nodeContainer = item.closest('.md-tree-node');
-        const childrenContainer = nodeContainer?.querySelector('.md-tree-children');
+        const childrenContainer = nodeContainer ? dom.getIn(nodeContainer, '.md-tree-children') : null;
 
         // 批量更新类名
         if (toggle) {
@@ -335,9 +335,9 @@ export class DocumentList extends BaseComponent {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedItem);
         document.body.classList.add('is-dragging-tree');
-        
-        // 缓存树容器，避免重复查询
-        this.treeContainer = this.container.querySelector('.md-tree-container');
+
+        // 使用 dom.js 统一查询，缓存树容器，避免重复查询
+        this.treeContainer = dom.getIn(this.container, '.md-tree-container');
     }
 
     /**
@@ -410,17 +410,17 @@ export class DocumentList extends BaseComponent {
      */
     #findExpandedFolder(node) {
         let current = node.parentElement;
-        
+
         while (current && !current.classList.contains('md-tree-container')) {
             // 检查是否在未折叠的子容器内
-            if (current.classList.contains('md-tree-children') && 
+            if (current.classList.contains('md-tree-children') &&
                 !current.classList.contains('collapsed')) {
                 // 获取父节点（文件夹节点）
                 const folderNode = current.parentElement;
-                // 验证是有效的文件夹节点
-                if (folderNode?.classList.contains('md-tree-node') && 
+                // 使用 dom.js 统一查询，验证是有效的文件夹节点
+                if (folderNode?.classList.contains('md-tree-node') &&
                     folderNode !== node &&
-                    folderNode.querySelector('.md-doc-item')?.dataset.docType === 'folder') {
+                    dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder') {
                     return folderNode;
                 }
             }
@@ -482,11 +482,12 @@ export class DocumentList extends BaseComponent {
 
         // 根据拖拽目标类型获取目标 ID
         let targetId = null;
-        
+
         if (this.dragTargetType === 'root') {
             targetId = null; // 根目录
         } else if (this.dragTargetType === 'expanded') {
-            targetId = this.dragTarget.querySelector('.md-doc-item')?.dataset.docId;
+            // 使用 dom.js 统一查询
+            targetId = dom.getIn(this.dragTarget, '.md-doc-item')?.dataset.docId;
         } else {
             targetId = this.dragTarget.dataset.docId;
         }
@@ -513,8 +514,9 @@ export class DocumentList extends BaseComponent {
      * @returns {void}
      */
     handleDragEnd(e) {
-        // 清除拖拽项样式
-        this.container.querySelector('.md-dragging')?.classList.remove('md-dragging');
+        // 使用 dom.js 统一查询，清除拖拽项样式
+        const draggingItem = dom.getIn(this.container, '.md-dragging');
+        draggingItem?.classList.remove('md-dragging');
         
         // 清除目标高亮和状态
         this.#clearDropTarget();
@@ -801,8 +803,9 @@ export class DocumentList extends BaseComponent {
                     <button class="md-btn md-btn-secondary" data-action="create-folder">新建文件夹</button>
                 </div>
             `;
-            this.container.querySelector('[data-action="create-file"]')?.addEventListener('click', () => this.createItem('file'));
-            this.container.querySelector('[data-action="create-folder"]')?.addEventListener('click', () => this.createItem('folder'));
+            // 使用 dom.js 统一查询
+            dom.getIn(this.container, '[data-action="create-file"]')?.addEventListener('click', () => this.createItem('file'));
+            dom.getIn(this.container, '[data-action="create-folder"]')?.addEventListener('click', () => this.createItem('folder'));
             
             // 清空缓存
             this.#clearDomCache();
@@ -834,10 +837,10 @@ export class DocumentList extends BaseComponent {
         
         // 清空缓存并增加版本号
         this.#clearDomCache();
-        
-        // 立即重建 DOM 缓存（避免后续查询）
+
+        // 使用 dom.js 统一查询，立即重建 DOM 缓存（避免后续查询）
         documents.forEach(doc => {
-            const item = this.container.querySelector(`[data-doc-id="${doc.id}"]`);
+            const item = dom.getIn(this.container, `[data-doc-id="${doc.id}"]`);
             if (item) {
                 this.#domCache.set(doc.id, { element: item, version: this.domCacheVersion });
             }
@@ -870,13 +873,13 @@ export class DocumentList extends BaseComponent {
      * @private
      */
     #updateActiveState(currentDocId) {
-        // 移除旧的激活状态
-        const oldActive = this.container.querySelector('.md-doc-item.active');
+        // 使用 dom.js 统一查询，移除旧的激活状态
+        const oldActive = dom.getIn(this.container, '.md-doc-item.active');
         if (oldActive) oldActive.classList.remove('active');
 
         // 添加新的激活状态
         if (currentDocId) {
-            const newActive = this.container.querySelector(`[data-doc-id="${currentDocId}"]`);
+            const newActive = dom.getIn(this.container, `[data-doc-id="${currentDocId}"]`);
             if (newActive) newActive.classList.add('active');
         }
     }

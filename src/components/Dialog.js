@@ -21,6 +21,7 @@
  * });
  * ```
  */
+import { dom } from '../utils/dom.js';
 
 export class Dialog {
     /**
@@ -154,9 +155,9 @@ export class Dialog {
             // 触发重排以启动动画
             overlay.offsetHeight;
             overlay.classList.add('md-dialog-overlay-show');
-            
-            // 聚焦第一个按钮
-            const firstButton = dialog.querySelector('button');
+
+            // 使用 dom.js 统一查询，聚焦第一个按钮
+            const firstButton = dom.getIn(dialog, 'button');
             if (firstButton) {
                 setTimeout(() => firstButton.focus(), 100);
             }

@@ -8,6 +8,7 @@ import Prism from 'prismjs';
 import mermaid from 'mermaid';
 import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
+import { dom } from '../utils/dom.js';
 
 export class Preview extends BaseComponent {
     // ==================== 私有字段声明 ====================
@@ -370,9 +371,9 @@ export class Preview extends BaseComponent {
      */
     updateMermaidTheme() {
         this.#configureMermaid(this.state.get('theme'));
-        
-        // 重新渲染已有的 Mermaid 图表
-        const mermaidDivs = this.container.querySelectorAll('div.mermaid[data-mermaid]');
+
+        // 使用 dom.js 统一查询，重新渲染已有的 Mermaid 图表
+        const mermaidDivs = dom.getAllIn(this.container, 'div.mermaid[data-mermaid]');
         if (mermaidDivs.length === 0) return;
         
         const containers = [];
@@ -512,14 +513,16 @@ export class Preview extends BaseComponent {
             math: new Map()
         };
 
-        // 收集代码块（存储引用）
-        this.container.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach(el => {
+        // 使用 dom.js 统一查询，收集代码块（存储引用）
+        const codeBlocks = dom.getAllIn(this.container, 'pre code[class*="language-"]:not(.language-mermaid)');
+        codeBlocks.forEach(el => {
             const hash = this.#generateSimpleHash(el.textContent);
             maps.code.set(hash, el.parentElement);
         });
 
         // 收集 Mermaid 图表（存储引用）
-        this.container.querySelectorAll('div.mermaid[data-mermaid]').forEach(el => {
+        const mermaidBlocks = dom.getAllIn(this.container, 'div.mermaid[data-mermaid]');
+        mermaidBlocks.forEach(el => {
             const text = el.getAttribute('data-mermaid');
             if (text) {
                 const hash = this.#generateSimpleHash(text);
@@ -528,7 +531,8 @@ export class Preview extends BaseComponent {
         });
 
         // 收集数学公式（存储引用）
-        this.container.querySelectorAll('.math-block[data-latex], .math-inline[data-latex]').forEach(el => {
+        const mathBlocks = dom.getAllIn(this.container, '.math-block[data-latex], .math-inline[data-latex]');
+        mathBlocks.forEach(el => {
             const latex = el.getAttribute('data-latex');
             if (latex) {
                 const hash = this.#generateSimpleHash(latex);
@@ -540,13 +544,18 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 保留未变化的元素（优化版：只保留哈希匹配的元素）
+     * 保留未变化的元素（优化版：只保留哈希匹配的元素，消除重复查询）
      * @private
      */
     #preserveUnchangedElements(tempDiv, oldElements, changes) {
+        // 优化：预先查询一次所有元素，消除重复的 querySelectorAll
+        const newCodeBlocks = dom.getAllIn(tempDiv, 'pre code[class*="language-"]:not(.language-mermaid)');
+        const newMermaidBlocks = dom.getAllIn(tempDiv, 'pre code.language-mermaid');
+        const newMathBlocks = dom.getAllIn(tempDiv, '.math-block[data-latex], .math-inline[data-latex]');
+
         // 保留未变化的代码块（只有当整体未变时）
         if (!changes.codeBlocksChanged) {
-            tempDiv.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach(newEl => {
+            newCodeBlocks.forEach(newEl => {
                 const hash = this.#generateSimpleHash(newEl.textContent);
                 const oldPre = oldElements.code.get(hash);
                 if (oldPre) {
@@ -555,7 +564,7 @@ export class Preview extends BaseComponent {
             });
         } else {
             // 即使有变化，也保留哈希相同的元素
-            tempDiv.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach(newEl => {
+            newCodeBlocks.forEach(newEl => {
                 const hash = this.#generateSimpleHash(newEl.textContent);
                 if (changes.newCodeBlocks.has(hash) && oldElements.code.has(hash)) {
                     const oldPre = oldElements.code.get(hash);
@@ -566,7 +575,7 @@ export class Preview extends BaseComponent {
 
         // 保留未变化的 Mermaid 图表
         if (!changes.mermaidBlocksChanged) {
-            tempDiv.querySelectorAll('pre code.language-mermaid').forEach(newEl => {
+            newMermaidBlocks.forEach(newEl => {
                 const text = newEl.textContent.trim();
                 const hash = this.#generateSimpleHash(text);
                 const oldDiv = oldElements.mermaid.get(hash);
@@ -577,7 +586,7 @@ export class Preview extends BaseComponent {
             });
         } else {
             // 即使有变化，也保留哈希相同且已渲染的元素
-            tempDiv.querySelectorAll('pre code.language-mermaid').forEach(newEl => {
+            newMermaidBlocks.forEach(newEl => {
                 const text = newEl.textContent.trim();
                 const hash = this.#generateSimpleHash(text);
                 const oldDiv = oldElements.mermaid.get(hash);
@@ -589,7 +598,7 @@ export class Preview extends BaseComponent {
 
         // 保留未变化的数学公式
         if (!changes.mathBlocksChanged) {
-            tempDiv.querySelectorAll('.math-block[data-latex], .math-inline[data-latex]').forEach(newEl => {
+            newMathBlocks.forEach(newEl => {
                 const latex = newEl.getAttribute('data-latex');
                 if (latex) {
                     const hash = this.#generateSimpleHash(latex);
@@ -601,7 +610,7 @@ export class Preview extends BaseComponent {
             });
         } else {
             // 即使有变化，也保留哈希相同的元素
-            tempDiv.querySelectorAll('.math-block[data-latex], .math-inline[data-latex]').forEach(newEl => {
+            newMathBlocks.forEach(newEl => {
                 const latex = newEl.getAttribute('data-latex');
                 if (latex) {
                     const hash = this.#generateSimpleHash(latex);
@@ -619,7 +628,8 @@ export class Preview extends BaseComponent {
      * @private
      */
     #updateHeadingIds() {
-        const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        // 使用 dom.js 统一查询
+        const headings = dom.getAllIn(this.container, 'h1, h2, h3, h4, h5, h6');
         const stateHeadings = this.state.get('headings');
         
         // 批量收集需要更新的元素
@@ -679,8 +689,9 @@ export class Preview extends BaseComponent {
 
         // 延迟处理元素（避免阻塞主线程）- 优化版：合并查询
         requestAnimationFrame(() => {
-            // 合并查询减少 DOM 遍历
-            const allElements = this.container.querySelectorAll(
+            // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
+            const allElements = dom.getAllIn(
+                this.container,
                 'pre code, pre:not(.has-copy-btn), img:not([data-error-handled])'
             );
             
@@ -1076,7 +1087,8 @@ export class Preview extends BaseComponent {
     #renderMath() {
         if (typeof katex === 'undefined') return;
 
-        this.container.querySelectorAll('.math-block:not(.math-rendered), .math-inline:not(.math-rendered)').forEach(el => {
+        // 使用 dom.js 统一查询
+        dom.getAllIn(this.container, '.math-block:not(.math-rendered), .math-inline:not(.math-rendered)').forEach(el => {
             const latex = el.getAttribute('data-latex');
             if (!latex) return;
 
@@ -1126,7 +1138,8 @@ export class Preview extends BaseComponent {
                 e.preventDefault();
                 e.stopPropagation();
 
-                const code = pre.querySelector('code');
+                // 使用 dom.js 统一查询
+                const code = dom.getIn(pre, 'code');
                 if (!code || btn.classList.contains('copied')) return;
 
                 navigator.clipboard.writeText(code.textContent)

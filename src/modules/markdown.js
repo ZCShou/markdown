@@ -177,7 +177,8 @@ export class MarkdownEditor {
         const editor = dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
         const syncScrollButton = dom.getById('md-sync-scroll')?.element;
-        const syncScrollIcon = syncScrollButton?.querySelector('.codicon');
+        // 使用 dom.js 统一查询
+        const syncScrollIcon = syncScrollButton ? dom.getIn(syncScrollButton, '.codicon') : null;
 
         if (!editor || !previewWrapper || !syncScrollButton || !syncScrollIcon) return;
 

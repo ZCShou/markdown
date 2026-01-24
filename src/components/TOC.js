@@ -3,6 +3,7 @@
  * 负责生成和显示 Markdown 目录
  */
 import { BaseComponent } from './BaseComponent.js';
+import { dom } from '../utils/dom.js';
 
 export class TOC extends BaseComponent {
     /**
@@ -76,8 +77,8 @@ export class TOC extends BaseComponent {
             return;
         }
 
-        // 检查是否需要完全重建
-        const currentItems = this.container.querySelectorAll('.md-toc-item');
+        // 使用 dom.js 统一查询，检查是否需要完全重建
+        const currentItems = dom.getAllIn(this.container, '.md-toc-item');
         const needsFullRebuild = currentItems.length !== headingCount;
 
         if (needsFullRebuild) {

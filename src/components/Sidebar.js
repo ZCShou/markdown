@@ -48,7 +48,8 @@ export class Sidebar extends BaseComponent {
 
         if (toggle || header) {
             e.stopPropagation();
-            const sectionToggle = toggle || header?.querySelector('.md-sidebar-section-toggle');
+            // 使用 dom.js 统一查询
+            const sectionToggle = toggle || dom.getIn(header, '.md-sidebar-section-toggle');
             if (sectionToggle) {
                 this.toggleSection(sectionToggle.getAttribute('data-section'));
             }
