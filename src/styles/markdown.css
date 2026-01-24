@@ -464,6 +464,17 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-doc-list {
     margin: 0 8px 0 0;
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.md-doc-list:empty::before {
+    content: '';
+    display: block;
+    flex: 1;
 }
 
 .md-toc {
@@ -1351,13 +1362,6 @@ pre.has-copy-btn {
 }
 
 /* ==================== 树型结构样式 ==================== */
-/* 树型容器 */
-.md-tree-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
 /* 树节点 */
 .md-tree-node {
     display: flex;
@@ -1659,10 +1663,11 @@ body.is-dragging-tree .md-tree-node {
 /* 根目录区域高亮 */
 .md-drop-target-root {
     background-color: var(--md-tree-drop-bg);
-    outline: 1px dashed var(--md-tree-drop-border);
-    outline-offset: -1px;
-    border-radius: 4px;
+    outline: 2px dashed var(--md-tree-drop-border);
+    outline-offset: -2px;
+    border-radius: 6px;
     position: relative;
+    min-height: 100px;
 }
 
 .md-drop-target-root::after {

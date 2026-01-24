@@ -336,8 +336,8 @@ export class DocumentList extends BaseComponent {
         e.dataTransfer.setData('text/plain', this.draggedItem);
         document.body.classList.add('is-dragging-tree');
 
-        // 使用 dom.js 统一查询，缓存树容器，避免重复查询
-        this.treeContainer = dom.getIn(this.container, '.md-tree-container');
+        // 缓存文档列表容器，避免重复查询
+        this.treeContainer = this.container;
     }
 
     /**
@@ -411,7 +411,7 @@ export class DocumentList extends BaseComponent {
     #findExpandedFolder(node) {
         let current = node.parentElement;
 
-        while (current && !current.classList.contains('md-tree-container')) {
+        while (current && current !== this.container) {
             // 检查是否在未折叠的子容器内
             if (current.classList.contains('md-tree-children') &&
                 !current.classList.contains('collapsed')) {
@@ -889,15 +889,11 @@ export class DocumentList extends BaseComponent {
         
         const tree = this.state.buildTree();
         const fragment = this.createFragment();
-        const treeContainer = this.createElement('div', {
-            className: 'md-tree-container'
-        });
 
         tree.forEach((node) => {
-            treeContainer.appendChild(this.renderTreeNode(node, currentDocId, 0));
+            fragment.appendChild(this.renderTreeNode(node, currentDocId, 0));
         });
 
-        fragment.appendChild(treeContainer);
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
         
@@ -951,7 +947,7 @@ export class DocumentList extends BaseComponent {
         // 获取或创建目标容器
         const targetContainer = doc.parentId 
             ? this.#getOrCreateChildrenContainer(doc.parentId)
-            : dom.getIn(this.container, '.md-tree-container');
+            : this.container;
         
         if (!targetContainer) {
             this.render(true);
