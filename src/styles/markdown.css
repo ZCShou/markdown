@@ -1702,6 +1702,9 @@ body.is-dragging-tree {
     /* 使用更明显的颜色，根据主题自动调整 */
     background-color: var(--md-text-tertiary);
     opacity: 0.3;
+    /* 确保连接线在文档项背景之上 */
+    z-index: 3;
+    pointer-events: none;
 }
 
 /* 第一层级的竖线位置（与该层级的折叠符号中心对齐） */
