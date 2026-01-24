@@ -484,10 +484,40 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 打开文档
+     * 打开文档（乐观更新优化）
      */
     handleOpen(docId) {
-        this.state.setCurrentDocument(docId);
+        const documents = this.state.get('documents');
+        const doc = documents.find(d => d.id === docId);
+        
+        if (!doc) return;
+        
+        if (doc.type === 'folder') {
+            // 切换文件夹展开状态
+            this.setFolderExpanded(docId, !this.isFolderExpanded(docId));
+        } else {
+            // 乐观更新：立即更新 UI 状态，不等待渲染
+            const currentDocId = this.state.get('currentDocId');
+            
+            // 立即移除旧的激活状态
+            if (currentDocId) {
+                const oldItem = this.#getCachedDocItem(currentDocId);
+                if (oldItem) {
+                    oldItem.classList.remove('active');
+                }
+            }
+            
+            // 立即添加新的激活状态
+            const newItem = this.#getCachedDocItem(docId);
+            if (newItem) {
+                newItem.classList.add('active');
+            }
+            
+            // 异步更新状态和渲染（不阻塞 UI）
+            requestAnimationFrame(() => {
+                this.state.setCurrentDocument(docId);
+            });
+        }
     }
 
     /**
