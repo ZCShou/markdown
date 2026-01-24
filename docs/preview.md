@@ -1384,7 +1384,47 @@ DOMPurify.sanitize(html, {
 
 ### 2. 代码高亮渲染
 
-#### 2.1 可见性优先渲染（IntersectionObserver）
+代码高亮使用 **Prism** 库实现，采用**可见性优先 + 延迟渲染**策略，确保大文件的流畅渲染。
+
+#### 2.1 完整渲染流程
+
+```mermaid
+flowchart TD
+    A[开始: #highlightCode] --> B{检查依赖}
+    B -->|Prism 未加载| Z[退出]
+    B -->|Prism 已加载| C{代码块为空?}
+    C -->|是| Z
+    C -->|否| D{IntersectionObserver 可用?}
+    
+    D -->|否| E[批处理模式]
+    D -->|是| F[可见性优先模式]
+    
+    E --> E1[分批处理代码块]
+    E1 --> E2[每批 30 个]
+    E2 --> E3[使用 requestIdleCallback]
+    E3 --> E4[避免阻塞主线程]
+    E4 --> Z
+    
+    F --> F1[分离可见/不可见元素]
+    F1 --> F2[立即高亮可见元素]
+    F2 --> F3[监听不可见元素]
+    F3 --> F4{有不可见元素?}
+    
+    F4 -->|是| F5[启动 2 秒延迟定时器]
+    F4 -->|否| Z
+    
+    F5 --> F6[等待 2 秒或滚动触发]
+    F6 --> F7[批量渲染剩余元素]
+    F7 --> F8[清理 pending 状态]
+    F8 --> Z
+    
+    style A fill:#e1f5e1
+    style F2 fill:#fff4e1
+    style F5 fill:#ffe1e1
+    style Z fill:#f0f0f0
+```
+
+#### 2.2 可见性优先渲染（IntersectionObserver）
 
 **核心思想**：优先渲染可见的代码块，延迟渲染不可见的代码块。
 
@@ -1392,7 +1432,6 @@ DOMPurify.sanitize(html, {
 ```javascript
 #highlightCode(codeBlocks) {
     if (typeof Prism === 'undefined' || codeBlocks.length === 0) return;
-    if (this.container.offsetParent === null) return;
 
     const blocks = Array.from(codeBlocks);
     
@@ -1416,6 +1455,38 @@ DOMPurify.sanitize(html, {
         this.#pendingCodeBlocks.add(block);
         this.#intersectionObserver.observe(block);
     });
+    
+    // 延迟渲染剩余的代码块（2 秒）
+    if (invisible.length > 0) {
+        if (this.#codeHighlightTimer) {
+            clearTimeout(this.#codeHighlightTimer);
+        }
+        this.#codeHighlightTimer = setTimeout(() => {
+            const pending = Array.from(this.#pendingCodeBlocks);
+            const validPending = [];
+            
+            // 过滤有效元素并清理无效元素
+            pending.forEach(block => {
+                if (block.isConnected && !block.classList.contains('prism-highlighted')) {
+                    validPending.push(block);
+                } else {
+                    this.#pendingCodeBlocks.delete(block);
+                }
+            });
+            
+            if (validPending.length > 0) {
+                this.#highlightCodeBatch(validPending);
+                validPending.forEach(block => {
+                    this.#pendingCodeBlocks.delete(block);
+                    if (this.#intersectionObserver) {
+                        this.#intersectionObserver.unobserve(block);
+                    }
+                });
+            }
+            
+            this.#codeHighlightTimer = null;
+        }, 2000);
+    }
 }
 ```
 
@@ -1424,7 +1495,42 @@ DOMPurify.sanitize(html, {
 - 滚动时才渲染进入视口的代码块
 - 减少初始渲染时间 80%+
 
-#### 2.2 批处理机制（降级方案）
+#### 2.3 延迟渲染机制
+
+**2 秒延迟策略**：
+
+```mermaid
+sequenceDiagram
+    participant P as Preview
+    participant T as 定时器
+    participant O as IntersectionObserver
+    participant U as 用户
+
+    P->>P: 分离可见/不可见元素
+    P->>P: 立即渲染可见元素
+    
+    P->>T: 启动 2 秒定时器
+    P->>O: 监听不可见元素
+    
+    alt 用户在 2 秒内滚动
+        U->>O: 元素进入视口
+        O->>P: 触发回调
+        P->>P: 立即渲染该元素
+        P->>O: unobserve 该元素
+    else 2 秒后仍有未渲染元素
+        T->>P: 定时器触发
+        P->>P: 批量渲染剩余元素
+        P->>O: unobserve 所有元素
+        P->>T: 清除定时器
+    end
+```
+
+**为什么需要延迟渲染**？
+- 避免一次性渲染所有代码块
+- 用户可能不会滚动到页面底部
+- 减少不必要的计算
+
+#### 2.4 批处理机制（降级方案）
 
 **当 IntersectionObserver 不可用时使用**：
 
@@ -1465,41 +1571,141 @@ DOMPurify.sanitize(html, {
 
 **时间分片**：
 ```
-帧1: 处理代码块 1-5   (约 10ms)
-帧2: 处理代码块 6-10  (约 10ms)
-帧3: 处理代码块 11-15 (约 10ms)
+帧1: 处理代码块 1-30   (约 10ms)
+帧2: 处理代码块 31-60  (约 10ms)
+帧3: 处理代码块 61-90  (约 10ms)
 ...
 ```
 
-#### 2.2 高亮标记
+#### 2.5 状态管理
 
-**标记已高亮的代码块**：
+**状态类**：
+- `prism-highlighted` - 标记已高亮的代码块
+
+**状态集合**：
 ```javascript
-batch[i].classList.add('prism-highlighted');
+#pendingCodeBlocks = new Set();  // 待处理的代码块
 ```
 
-**查询选择器**：
-```javascript
-'pre code:not(.prism-highlighted)'  // 只查询未高亮的代码块
+**状态转换**：
+```
+未处理 → pendingCodeBlocks → (滚动到可见) → prism-highlighted
 ```
 
-**避免重复高亮**：
+**避免重复处理**：
 ```javascript
-// 第一次渲染
-<pre><code class="language-javascript">...</code></pre>
-
-// 添加标记
-<pre><code class="language-javascript prism-highlighted">...</code></pre>
-
-// 下次查询时跳过
-querySelectorAll('pre code:not(.prism-highlighted)')  // 不会匹配
+// 查询时排除已高亮的代码块
+const codeBlocks = this.container.querySelectorAll(
+    'pre code:not(.prism-highlighted)'
+);
 ```
+
+#### 2.6 错误处理
+
+```javascript
+#highlightSingleBlock(block) {
+    try {
+        Prism.highlightElement(block);
+        block.classList.add('prism-highlighted');
+    } catch (err) {
+        console.warn('代码高亮失败:', err);
+        block.classList.add('prism-highlighted');  // 仍然标记为已处理
+    }
+}
+```
+
+**错误处理特点**：
+- ✅ 使用 try-catch 捕获异常
+- ✅ 失败后仍标记为已处理（避免重复尝试）
+- ✅ 简单的 console.warn 日志
+- ❌ 无用户可见的错误信息（失败影响小）
+
+#### 2.7 资源清理
+
+```javascript
+destroy() {
+    // 清理代码高亮定时器
+    if (this.#codeHighlightTimer) {
+        clearTimeout(this.#codeHighlightTimer);
+        this.#codeHighlightTimer = null;
+    }
+    
+    // 清理 IntersectionObserver
+    if (this.#intersectionObserver) {
+        this.#intersectionObserver.disconnect();
+        this.#intersectionObserver = null;
+    }
+    
+    // 清理待处理集合
+    this.#pendingCodeBlocks.clear();
+}
+```
+
+#### 2.8 性能优化总结
+
+| 优化技术 | 实现方式 | 效果 |
+|---------|---------|------|
+| 可见性检测 | IntersectionObserver | 只渲染可见元素 |
+| 延迟渲染 | 2 秒定时器 | 避免频繁渲染 |
+| 分批处理 | BATCH_SIZE = 30 | 避免阻塞主线程 |
+| 空闲时处理 | requestIdleCallback | 利用浏览器空闲时间 |
+| 状态标记 | prism-highlighted | 避免重复处理 |
+| 增量更新 | 哈希比较 | 只更新变化的内容 |
 
 ---
 
 ### 3. Mermaid 图表渲染
 
-#### 3.1 可见性优先渲染（IntersectionObserver）
+Mermaid 图表渲染采用**可见性优先 + 延迟渲染 + 超时保护**策略，确保复杂图表的流畅渲染和良好的用户体验。
+
+#### 3.1 完整渲染流程
+
+```mermaid
+flowchart TD
+    A[开始: #renderMermaid] --> B{检查依赖}
+    B -->|mermaid 未加载| Z[退出]
+    B -->|mermaid 已加载| C{代码块为空?}
+    C -->|是| Z
+    C -->|否| D{容器可见?}
+    D -->|否| Z
+    D -->|是| E{IntersectionObserver 可用?}
+    
+    E -->|否| F[批处理模式]
+    E -->|是| G[可见性优先模式]
+    
+    F --> F1[转换 DOM 结构]
+    F1 --> F2[防止并发渲染]
+    F2 --> F3[设置 5 秒超时]
+    F3 --> F4[调用 mermaid.run]
+    F4 --> F5{渲染结果}
+    F5 -->|成功| F6[标记 mermaid-done]
+    F5 -->|失败| F7[显示错误信息]
+    F6 --> Z
+    F7 --> Z
+    
+    G --> G1[转换 DOM 结构]
+    G1 --> G2[分离可见/不可见元素]
+    G2 --> G3[立即渲染可见元素]
+    G3 --> G4[设置 5 秒超时]
+    G4 --> G5[监听不可见元素]
+    G5 --> G6{有不可见元素?}
+    
+    G6 -->|是| G7[启动 2 秒延迟定时器]
+    G6 -->|否| Z
+    
+    G7 --> G8[等待 2 秒或滚动触发]
+    G8 --> G9[批量渲染剩余元素]
+    G9 --> G10[清理 pending 状态]
+    G10 --> Z
+    
+    style A fill:#e1f5e1
+    style G3 fill:#fff4e1
+    style G4 fill:#ffe1e1
+    style G7 fill:#ffe1e1
+    style Z fill:#f0f0f0
+```
+
+#### 3.2 可见性优先渲染（IntersectionObserver）
 
 **核心思想**：优先渲染可见的 Mermaid 图表，延迟渲染不可见的图表。
 
@@ -1531,6 +1737,39 @@ querySelectorAll('pre code:not(.prism-highlighted)')  // 不会匹配
         this.#pendingMermaidBlocks.add(div);
         this.#intersectionObserver.observe(div);
     });
+    
+    // 延迟渲染剩余的 Mermaid（2 秒）
+    if (invisible.length > 0) {
+        if (this.#mermaidRenderTimer) {
+            clearTimeout(this.#mermaidRenderTimer);
+        }
+        this.#mermaidRenderTimer = setTimeout(() => {
+            const pending = Array.from(this.#pendingMermaidBlocks);
+            const validPending = [];
+            
+            // 过滤有效元素并清理无效元素
+            pending.forEach(div => {
+                if (div.isConnected) {
+                    validPending.push(div);
+                } else {
+                    this.#pendingMermaidBlocks.delete(div);
+                }
+            });
+            
+            if (validPending.length > 0) {
+                this.#renderMermaidDivs(validPending);
+                validPending.forEach(div => {
+                    div.classList.remove('mermaid-pending');
+                    this.#pendingMermaidBlocks.delete(div);
+                    if (this.#intersectionObserver) {
+                        this.#intersectionObserver.unobserve(div);
+                    }
+                });
+            }
+            
+            this.#mermaidRenderTimer = null;
+        }, 2000);
+    }
 }
 ```
 
@@ -1539,11 +1778,49 @@ querySelectorAll('pre code:not(.prism-highlighted)')  // 不会匹配
 - 滚动时才渲染进入视口的图表
 - 减少初始渲染时间 85%+
 
-#### 3.2 重新渲染机制
+#### 3.3 延迟渲染机制
 
-**问题**：编辑 Mermaid 图表后需要重新渲染，但旧的渲染结果可能被保留。
+**2 秒延迟策略**：
 
-**解决方案**：
+```mermaid
+sequenceDiagram
+    participant P as Preview
+    participant T as 定时器
+    participant O as IntersectionObserver
+    participant M as mermaid.run
+    participant U as 用户
+
+    P->>P: 分离可见/不可见元素
+    P->>P: 立即渲染可见元素
+    P->>M: mermaid.run(visible)
+    
+    P->>T: 启动 2 秒定时器
+    P->>O: 监听不可见元素
+    
+    alt 用户在 2 秒内滚动
+        U->>O: 元素进入视口
+        O->>P: 触发回调
+        P->>M: mermaid.run([element])
+        M->>P: 渲染完成
+        P->>P: 标记 mermaid-done
+        P->>O: unobserve 该元素
+    else 2 秒后仍有未渲染元素
+        T->>P: 定时器触发
+        P->>M: mermaid.run(remaining)
+        M->>P: 渲染完成
+        P->>O: unobserve 所有元素
+        P->>T: 清除定时器
+    end
+```
+
+#### 3.4 DOM 结构转换
+
+**为什么需要转换**？
+- Mermaid 需要 `<div class="mermaid">` 容器
+- Markdown 生成的是 `<pre><code class="language-mermaid">`
+- 需要完全替换 DOM 结构
+
+**转换实现**：
 ```javascript
 #createMermaidDiv(block) {
     const code = block.textContent.trim();
@@ -1570,125 +1847,287 @@ querySelectorAll('pre code:not(.prism-highlighted)')  // 不会匹配
 }
 ```
 
-**保留逻辑**：
-```javascript
-// 只保留已完成渲染的图表
-if (oldDiv && oldDiv.classList.contains('mermaid-done')) {
-    newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
-}
-```
-
-#### 3.3 初始化配置
-
-**初始化 Mermaid**：
-```javascript
-initMermaid() {
-    if (this.mermaidInitialized) return;
-
-    mermaid.initialize({
-        startOnLoad: false,    // 不自动渲染
-        theme: 'default',       // 默认主题
-        securityLevel: 'loose'  // 允许 HTML
-    });
-
-    this.mermaidInitialized = true;
-}
-```
-
-#### 3.4 图表检测与替换
-
-**检测 Mermaid 代码块**：
-```javascript
-const mermaidBlocks = this.container.querySelectorAll('pre code.language-mermaid');
-```
-
-**替换为容器**：
-```javascript
-renderMermaidChartsBlocks(mermaidBlocks) {
-    const containers = [];
-
-    for (let i = 0; i < mermaidBlocks.length; i++) {
-        const block = mermaidBlocks[i];
-        const code = block.textContent.trim();
-        if (!code) continue;
-
-        // 创建 Mermaid 容器
-        const preElement = block.parentElement;
-        const mermaidContainer = document.createElement('div');
-        mermaidContainer.className = 'mermaid';
-        mermaidContainer.textContent = code;
-
-        // 替换 <pre><code> 为 <div class="mermaid">
-        if (preElement?.parentNode) {
-            preElement.parentNode.replaceChild(mermaidContainer, preElement);
-            containers.push(mermaidContainer);
-        }
-    }
-
-    // 批量渲染
-    mermaid.run({ nodes: containers });
-}
-```
-
 **DOM 变化**：
 ```html
-<!-- 替换前 -->
+<!-- 转换前 -->
 <pre><code class="language-mermaid">graph TD
     A-->B
 </code></pre>
 
-<!-- 替换后 -->
-<div class="mermaid">graph TD
+<!-- 转换后 -->
+<div class="mermaid" data-mermaid="graph TD
+    A-->B">graph TD
     A-->B
+</div>
+
+<!-- 渲染后 -->
+<div class="mermaid mermaid-done" data-mermaid="...">
+    <svg>...</svg>
 </div>
 ```
 
-#### 3.5 超时保护
+#### 3.5 超时保护机制
 
-**5秒超时机制**：
-```javascript
-const timeoutId = setTimeout(() => {
-    console.warn('Mermaid 渲染超时');
-    containers.forEach(c => {
-        if (!c.classList.contains('mermaid-done')) {
-            c.textContent = '图表渲染超时';
-            c.classList.add('render-error');
-        }
-    });
-    this.state.setRenderingState(false);
-}, 5000);
+**5 秒超时**：
 
-mermaid.run({ nodes: containers })
-    .then(() => {
-        clearTimeout(timeoutId);  // 渲染成功，清除超时
-        containers.forEach(c => c.classList.add('mermaid-done'));
-        this.state.setRenderingState(false);
-    })
-    .catch((err) => {
-        clearTimeout(timeoutId);  // 渲染失败，清除超时
-        console.warn('Mermaid 渲染失败:', err);
-        containers.forEach(c => {
-            c.textContent = '图表渲染失败: ' + err.message;
-            c.classList.add('render-error');
-        });
-        this.state.setRenderingState(false);
-    });
+```mermaid
+sequenceDiagram
+    participant P as Preview
+    participant T as 超时定时器
+    participant M as mermaid.run
+    participant U as 用户
+
+    P->>P: #renderMermaidDivs(containers)
+    P->>T: 启动 5 秒超时定时器
+    P->>M: mermaid.run({ nodes: containers })
+    
+    alt 5 秒内渲染成功
+        M->>P: Promise resolved
+        P->>P: #handleMermaidSuccess
+        P->>T: clearTimeout(timeoutId)
+        P->>P: 添加 mermaid-done 类
+    else 5 秒内未完成
+        T->>P: 超时触发
+        P->>P: 显示"图表渲染超时"
+        P->>P: 添加 render-error 类
+        P->>U: 用户看到错误信息
+    else 渲染失败
+        M->>P: Promise rejected
+        P->>P: #handleMermaidError
+        P->>T: clearTimeout(timeoutId)
+        P->>P: 显示"图表渲染失败: ..."
+        P->>U: 用户看到错误信息
+    end
 ```
 
-#### 3.6 防止并发渲染
+**超时实现**：
+```javascript
+#setupMermaidTimeout(containers) {
+    return setTimeout(() => {
+        containers.forEach(c => {
+            if (!c.classList.contains('mermaid-done')) {
+                c.textContent = '图表渲染超时';
+                c.classList.add('render-error');
+            }
+        });
+        this.#clearMermaidTimeout(timeoutId);
+    }, 5000);
+}
+
+#handleMermaidSuccess(containers, timeoutId) {
+    clearTimeout(timeoutId);
+    containers.forEach(c => c.classList.add('mermaid-done'));
+    this.#clearMermaidTimeout(timeoutId);
+}
+
+#handleMermaidError(containers, timeoutId, err) {
+    clearTimeout(timeoutId);
+    console.warn('Mermaid 渲染失败:', err);
+    containers.forEach(c => {
+        c.textContent = '图表渲染失败: ' + err.message;
+        c.classList.add('render-error');
+    });
+    this.#clearMermaidTimeout(timeoutId);
+}
+```
+
+**为什么需要超时**？
+- Mermaid 渲染是异步操作，可能很慢
+- 复杂图表可能需要很长时间
+- 语法错误可能导致渲染卡住
+- 避免用户无限期等待
+
+#### 3.6 状态管理
+
+**状态类**：
+- `mermaid-pending` - 标记待渲染的图表
+- `mermaid-done` - 标记已渲染的图表
+- `render-error` - 标记渲染失败的图表
+
+**状态集合**：
+```javascript
+#pendingMermaidBlocks = new Set();  // 待处理的图表
+#mermaidTimeoutIds = [];            // 超时定时器 ID
+```
+
+**状态转换**：
+```
+未处理 → mermaid-pending → pendingMermaidBlocks
+         ↓
+       (滚动到可见或 2 秒后)
+         ↓
+    #renderMermaidDivs()
+         ↓
+    mermaid.run()
+         ↓
+    成功: mermaid-done
+    失败: render-error
+    超时: render-error
+```
+
+#### 3.7 错误处理
+
+**完整的错误处理机制**：
+
+```javascript
+#renderMermaidDivs(containers) {
+    if (containers.length === 0) return;
+    
+    // 设置超时
+    const timeoutId = this.#setupMermaidTimeout(containers);
+    this.#mermaidTimeoutIds.push(timeoutId);
+
+    // 异步渲染
+    mermaid.run({ nodes: containers })
+        .then(() => this.#handleMermaidSuccess(containers, timeoutId))
+        .catch(err => this.#handleMermaidError(containers, timeoutId, err));
+}
+```
+
+**错误处理特点**：
+- ✅ 使用 Promise.catch 捕获异常
+- ✅ 失败后显示用户可见的错误信息
+- ✅ 添加 `render-error` 状态类
+- ✅ 清理超时定时器
+- ✅ 详细的错误日志
+
+**用户反馈**：
+```
+┌─────────────────────────────────┐
+│  图表渲染超时                    │  ← 超时错误
+└─────────────────────────────────┘
+
+┌─────────────────────────────────┐
+│  图表渲染失败: syntax error      │  ← 渲染错误
+└─────────────────────────────────┘
+```
+
+#### 3.8 防止并发渲染
 
 **状态检查**：
 ```javascript
-const isRendering = this.state.get('isRenderingMermaid');
-if (isRendering) return;  // 如果正在渲染，直接返回
+#renderMermaidBatch(blocks) {
+    if (this.state.get('isRenderingMermaid')) return;  // 防止重复渲染
+    
+    this.state.setRenderingState(true);
+    
+    const containers = blocks.map(block => this.#createMermaidDiv(block)).filter(Boolean);
 
-this.state.setRenderingState(true);  // 设置渲染状态
+    if (containers.length === 0) {
+        this.state.setRenderingState(false);
+        return;
+    }
+
+    const timeoutId = this.#setupMermaidTimeout(containers);
+    this.#mermaidTimeoutIds.push(timeoutId);
+
+    mermaid.run({ nodes: containers })
+        .then(() => {
+            this.#handleMermaidSuccess(containers, timeoutId);
+            this.state.setRenderingState(false);
+        })
+        .catch(err => {
+            this.#handleMermaidError(containers, timeoutId, err);
+            this.state.setRenderingState(false);
+        });
+}
 ```
 
 **为什么需要**？
 - Mermaid 渲染是异步操作
 - 避免多个渲染任务同时执行
 - 防止状态混乱
+
+#### 3.9 初始化配置
+
+**初始化 Mermaid**：
+```javascript
+initMermaid() {
+    if (this.mermaidInitialized) return;
+    this.#configureMermaid(this.state.get('theme'));
+    this.mermaidInitialized = true;
+}
+
+#configureMermaid(theme) {
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: theme === 'dark' ? 'dark' : 'default',
+        securityLevel: 'loose',
+        logLevel: 'error'
+    });
+}
+```
+
+**主题切换**：
+```javascript
+updateMermaidTheme() {
+    this.#configureMermaid(this.state.get('theme'));
+    
+    // 重新渲染已有的 Mermaid 图表
+    const mermaidDivs = this.container.querySelectorAll('div.mermaid[data-mermaid]');
+    if (mermaidDivs.length === 0) return;
+    
+    const containers = [];
+    mermaidDivs.forEach(oldDiv => {
+        const code = oldDiv.getAttribute('data-mermaid');
+        if (!code) return;
+        
+        const newDiv = document.createElement('div');
+        newDiv.className = 'mermaid';
+        newDiv.textContent = code;
+        newDiv.setAttribute('data-mermaid', code);
+        
+        oldDiv.replaceWith(newDiv);
+        containers.push(newDiv);
+    });
+    
+    if (containers.length > 0) {
+        mermaid.run({ nodes: containers }).catch(err => {
+            console.warn('Mermaid 主题切换失败:', err);
+        });
+    }
+}
+```
+
+#### 3.10 资源清理
+
+```javascript
+destroy() {
+    // 清理所有 Mermaid 超时定时器
+    this.#mermaidTimeoutIds.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+    });
+    this.#mermaidTimeoutIds = [];
+    
+    // 清理 Mermaid 渲染定时器
+    if (this.#mermaidRenderTimer) {
+        clearTimeout(this.#mermaidRenderTimer);
+        this.#mermaidRenderTimer = null;
+    }
+    
+    // 清理 IntersectionObserver
+    if (this.#intersectionObserver) {
+        this.#intersectionObserver.disconnect();
+        this.#intersectionObserver = null;
+    }
+    
+    // 清理待处理集合
+    this.#pendingMermaidBlocks.clear();
+}
+```
+
+#### 3.11 性能优化总结
+
+| 优化技术 | 实现方式 | 效果 |
+|---------|---------|------|
+| 可见性检测 | IntersectionObserver | 只渲染可见元素 |
+| 延迟渲染 | 2 秒定时器 | 避免频繁渲染 |
+| 批量渲染 | mermaid.run | 一次性处理多个 |
+| 超时保护 | 5 秒超时 | 避免无限等待 |
+| 状态标记 | mermaid-done/pending/error | 避免重复处理 |
+| 增量更新 | �哈希比较 | 只更新变化的内容 |
+| DOM 复用 | cloneNode | 保留已渲染的图表 |
+| 防并发 | isRenderingMermaid | 避免重复渲染 |
 
 ---
 
@@ -2456,6 +2895,293 @@ requestIdleCallback(processBatch, { timeout: 50 });
 const isRendering = this.state.get('isRenderingMermaid');
 if (isRendering) return;  // 正在渲染，跳过
 ```
+
+---
+
+## 代码高亮与 Mermaid 渲染对比
+
+Preview 组件中，代码高亮（Prism）和 Mermaid 图表渲染采用了相似的**可见性优先 + 延迟渲染**策略，但由于两者特性不同，实现细节也有差异。
+
+### 核心策略对比
+
+| 策略 | 代码高亮 | Mermaid | 一致性 |
+|------|---------|---------|--------|
+| **可见性检测** | IntersectionObserver | IntersectionObserver | ✅ 完全一致 |
+| **优先渲染可见元素** | ✅ | ✅ | ✅ 完全一致 |
+| **延迟渲染不可见元素** | ✅ 2 秒 | ✅ 2 秒 | ✅ 完全一致 |
+| **状态标记** | prism-highlighted | mermaid-done/pending/error | ⚠️ 类似但不同 |
+| **增量更新** | ✅ 哈希比较 | ✅ 哈希比较 | ✅ 完全一致 |
+| **降级方案** | ✅ 批处理 | ✅ 批处理 | ✅ 完全一致 |
+
+### 详细差异对比
+
+#### 1. API 类型
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **API 类型** | 同步 | 异步（Promise） |
+| **调用方式** | `Prism.highlightElement(block)` | `mermaid.run({ nodes: containers })` |
+| **返回值** | 无（直接修改 DOM） | Promise |
+| **渲染速度** | 毫秒级 | 秒级（可能） |
+
+**影响**：
+- 代码高亮：同步操作，速度快，不需要超时保护
+- Mermaid：异步操作，可能慢，需要超时保护
+
+#### 2. DOM 操作
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **DOM 结构变化** | 保持 `<pre><code>` | 替换为 `<div class="mermaid">` |
+| **操作方式** | 修改 `<code>` 内容 | 替换整个 `<pre>` 元素 |
+| **原始内容保留** | ❌ 直接修改 | ✅ 保留在 `data-mermaid` 属性 |
+
+**代码高亮 DOM 变化**：
+```html
+<!-- 渲染前 -->
+<pre><code class="language-javascript">console.log('Hello');</code></pre>
+
+<!-- 渲染后 -->
+<pre><code class="language-javascript prism-highlighted">
+    <span class="token console">console</span>
+    <span class="token punctuation">.</span>
+    <span class="token log">log</span>
+    <!-- ... -->
+</code></pre>
+```
+
+**Mermaid DOM 变化**：
+```html
+<!-- 渲染前 -->
+<pre><code class="language-mermaid">graph TD; A-->B;</code></pre>
+
+<!-- 渲染后（DOM 结构完全改变） -->
+<div class="mermaid mermaid-done" data-mermaid="graph TD; A-->B;">
+    <svg>...</svg>
+</div>
+```
+
+#### 3. 超时机制
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **超时机制** | ❌ 无 | ✅ 5 秒超时 |
+| **超时原因** | 同步快速操作 | 异步可能卡住 |
+| **超时反馈** | - | 显示"图表渲染超时" |
+| **定时器管理** | - | 需要清理多个定时器 |
+
+**为什么代码高亮不需要超时**？
+- ✅ 同步操作，速度快（毫秒级）
+- ✅ 不会卡住主线程
+- ✅ 失败影响小（只是没有颜色）
+
+**为什么 Mermaid 需要超时**？
+- ⚠️ 异步操作，速度慢（可能秒级）
+- ⚠️ 可能卡住（复杂图表、语法错误）
+- ⚠️ 失败影响大（看不到图表）
+
+#### 4. 错误处理
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **错误捕获** | try-catch | Promise.catch |
+| **用户反馈** | ❌ 无（仅日志） | ✅ 显示错误信息 |
+| **错误状态** | ❌ 无 | ✅ render-error |
+| **错误日志** | console.warn | console.warn + 详情 |
+
+**代码高亮错误处理**：
+```javascript
+try {
+    Prism.highlightElement(block);
+    block.classList.add('prism-highlighted');
+} catch (err) {
+    console.warn('代码高亮失败:', err);
+    block.classList.add('prism-highlighted');  // 仍然标记为已处理
+}
+```
+
+**Mermaid 错误处理**：
+```javascript
+mermaid.run({ nodes: containers })
+    .then(() => {
+        clearTimeout(timeoutId);
+        containers.forEach(c => c.classList.add('mermaid-done'));
+    })
+    .catch(err => {
+        clearTimeout(timeoutId);
+        console.warn('Mermaid 渲染失败:', err);
+        containers.forEach(c => {
+            c.textContent = '图表渲染失败: ' + err.message;  // 用户可见
+            c.classList.add('render-error');
+        });
+    });
+```
+
+#### 5. 批量处理
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **批量大小** | 30 个/批 | 全部 |
+| **分批策略** | ✅ 分批处理 | ❌ 一次性处理 |
+| **调度方式** | requestIdleCallback | mermaid.run |
+| **防重复** | ❌ | ✅ 状态检查 |
+
+**代码高亮批处理**：
+```javascript
+#highlightCodeBatch(blocks) {
+    const BATCH_SIZE = 30;  // 每批 30 个
+    let index = 0;
+
+    const processBatch = () => {
+        const end = Math.min(index + BATCH_SIZE, blocks.length);
+        while (index < end) {
+            this.#highlightSingleBlock(blocks[index]);
+            index++;
+        }
+
+        if (index < blocks.length) {
+            requestIdleCallback(processBatch, { timeout: 100 });
+        }
+    };
+
+    requestAnimationFrame(processBatch);
+}
+```
+
+**Mermaid 批处理**：
+```javascript
+#renderMermaidBatch(blocks) {
+    if (this.state.get('isRenderingMermaid')) return;  // 防止重复
+    
+    this.state.setRenderingState(true);
+    const containers = blocks.map(block => this.#createMermaidDiv(block)).filter(Boolean);
+
+    // 一次性渲染所有图表
+    mermaid.run({ nodes: containers })
+        .then(() => {
+            this.#handleMermaidSuccess(containers, timeoutId);
+            this.state.setRenderingState(false);
+        })
+        .catch(err => {
+            this.#handleMermaidError(containers, timeoutId, err);
+            this.state.setRenderingState(false);
+        });
+}
+```
+
+**为什么代码高分批，Mermaid 不分批**？
+- 代码高亮：同步操作，分批避免阻塞主线程
+- Mermaid：异步操作，mermaid.run 内部已优化
+
+#### 6. 状态管理
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **状态类数量** | 1 个 | 3 个 |
+| **状态类** | prism-highlighted | mermaid-pending/done/error |
+| **状态集合** | #pendingCodeBlocks | #pendingMermaidBlocks |
+| **状态转换** | 简单 | 复杂（含错误） |
+
+**代码高亮状态转换**：
+```
+未处理 → pendingCodeBlocks → (滚动到可见) → prism-highlighted
+```
+
+**Mermaid 状态转换**：
+```
+未处理 → mermaid-pending → pendingMermaidBlocks
+         ↓
+       (滚动到可见或 2 秒后)
+         ↓
+    mermaid.run()
+         ↓
+    成功: mermaid-done
+    失败: render-error
+    超时: render-error
+```
+
+#### 7. 初始化
+
+| 特性 | 代码高亮 | Mermaid |
+|------|---------|---------|
+| **初始化** | ❌ 无需 | ✅ 必需 |
+| **配置** | ❌ 无 | ✅ 主题、安全级别 |
+| **状态管理** | ❌ 无 | ✅ mermaidInitialized |
+
+**代码高亮**：
+```javascript
+// 直接使用，无需初始化
+import Prism from 'prismjs';
+Prism.highlightElement(block);
+```
+
+**Mermaid**：
+```javascript
+// 需要预初始化
+initMermaid() {
+    if (this.mermaidInitialized) return;
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: theme === 'dark' ? 'dark' : 'default',
+        securityLevel: 'loose',
+        logLevel: 'error'
+    });
+    this.mermaidInitialized = true;
+}
+```
+
+### 性能优化对比
+
+| 优化技术 | 代码高亮 | Mermaid |
+|---------|---------|---------|
+| **可见性检测** | ✅ IntersectionObserver | ✅ IntersectionObserver |
+| **延迟渲染** | ✅ 2 秒 | ✅ 2 秒 |
+| **分批处理** | ✅ BATCH_SIZE = 30 | ❌ 一次性 |
+| **空闲时处理** | ✅ requestIdleCallback | ❌ |
+| **超时保护** | ❌ | ✅ 5 秒 |
+| **DOM 复用** | ✅ 哈希比较 | ✅ 哈希比较 |
+| **状态标记** | ✅ prism-highlighted | ✅ mermaid-done/pending/error |
+
+### 一致性总结
+
+**相同点 ✅**（70% 一致性）：
+1. **核心策略一致**：可见性优先 + 延迟渲染
+2. **使用相同的工具**：IntersectionObserver
+3. **延迟时间一致**：都是 2 秒
+4. **状态管理模式相似**：pending + done
+5. **增量更新**：都使用哈希比较复用元素
+6. **降级方案**：都有无 Observer 时的批量处理
+
+**差异点 ⚠️**（30% 差异）：
+1. **API 类型**：同步 vs 异步
+2. **DOM 操作**：修改内容 vs 替换元素
+3. **超时机制**：无 vs 5 秒超时
+4. **错误处理**：简单 vs 复杂（用户可见）
+5. **批量策略**：分批 vs 一次性
+6. **状态管理**：单一 vs 多状态
+
+### 设计合理性分析
+
+**代码高亮设计：✅ 合理**
+- 同步快速操作，无需复杂机制
+- 分批处理避免阻塞主线程
+- 简单的错误处理足够（失败影响小）
+
+**Mermaid 设计：✅ 合理**
+- 异步慢速操作，需要超时保护
+- 详细的错误处理提升用户体验
+- 状态管理更复杂但必要（失败影响大）
+
+### 结论
+
+**整体一致性：70%**
+
+代码高亮和 Mermaid 渲染在**核心策略上是一致的**（可见性优先 + 延迟渲染），差异主要源于它们各自的特性：
+
+- **代码高亮**：同步、轻量、快速 → 简单机制
+- **Mermaid**：异步、重量、慢速 → 复杂机制
+
+这种差异是**合理且必要的**，不是不一致的问题。两者都针对自己的特性做了最优的设计，共同构成了 Preview 组件的高效渲染体系。
 
 ---
 
