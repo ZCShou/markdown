@@ -268,7 +268,7 @@ export class Preview extends BaseComponent {
             },
             {
                 root: null,
-                rootMargin: '200px', // 提前 200px 开始渲染
+                rootMargin: '500px', // 提前 500px 开始渲染
                 threshold: 0.01
             }
         );
@@ -801,6 +801,41 @@ export class Preview extends BaseComponent {
             this.#pendingMermaidBlocks.add(div);
             this.#intersectionObserver.observe(div);
         });
+        
+        // 使用 requestIdleCallback 在浏览器空闲时渲染剩余内容
+        if (invisible.length > 0 && 'requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+                this.#renderPendingMermaid();
+            }, { timeout: 2000 }); // 最多 2 秒后强制执行
+        }
+    }
+    
+    /**
+     * 渲染待处理的 Mermaid 图表
+     * @private
+     */
+    #renderPendingMermaid() {
+        if (this.#pendingMermaidBlocks.size === 0) return;
+        
+        const pending = Array.from(this.#pendingMermaidBlocks);
+        const batch = pending.slice(0, 3); // 每次最多渲染 3 个，避免阻塞
+        
+        batch.forEach(div => {
+            if (div.classList.contains('mermaid-pending')) {
+                this.#renderSingleMermaid(div);
+                this.#pendingMermaidBlocks.delete(div);
+                if (this.#intersectionObserver) {
+                    this.#intersectionObserver.unobserve(div);
+                }
+            }
+        });
+        
+        // 如果还有剩余，继续在下一个空闲时段渲染
+        if (this.#pendingMermaidBlocks.size > 0 && 'requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+                this.#renderPendingMermaid();
+            }, { timeout: 2000 });
+        }
     }
     
     /**
