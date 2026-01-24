@@ -282,7 +282,7 @@ html::-webkit-scrollbar-thumb:hover,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     padding: 8px 12px;
     min-height: 36px;
     min-width: 36px;
@@ -426,7 +426,7 @@ html::-webkit-scrollbar-thumb:hover,
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 4px 4px 16px;
+    padding: 4px 4px 4px 8px;
     border-bottom: 1px solid var(--md-toolbar-border);
     background-color: var(--md-toolbar-bg);
     color: var(--md-toolbar-text);
@@ -434,7 +434,7 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-sidebar-toolbar {
     display: flex;
-    gap: 8px;
+    gap: 4px;
 }
 
 .md-sidebar-header .md-btn {
