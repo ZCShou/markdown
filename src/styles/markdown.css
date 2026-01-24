@@ -989,9 +989,13 @@ html::-webkit-scrollbar-thumb:hover,
     padding-inline-start: 0.25em;
 }
 
-/* 任务列表项：移除列表标记 */
+/* 任务列表项：移除列表标记，调整缩进使文本与普通列表项对齐 */
+.markdown-body li.task-list-item,
 .markdown-body li:has(input[type="checkbox"]) {
     list-style-type: none;
+    padding-inline-start: 0;
+    margin-left: -1.25em;
+    padding-left: 0.25em;
 }
 
 .markdown-body li > p {
