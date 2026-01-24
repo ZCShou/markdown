@@ -1374,6 +1374,7 @@ pre.has-copy-btn {
     align-items: center;
     background: transparent;
     border-radius: 4px;
+    padding: 0 4px 0 4px;
     cursor: pointer;
     color: var(--md-text-primary);
     position: relative;
