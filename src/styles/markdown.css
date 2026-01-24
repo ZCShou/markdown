@@ -88,9 +88,9 @@
     --md-selection-text: #24292e;
 
     /* 树型条目选中效果 - 明亮主题 */
-    --md-tree-item-active-bg: rgba(51, 153, 255, 0.1);
+    --md-tree-item-active-bg: #e3f2fd;
     --md-tree-item-active-border: #2196f3;
-    --md-tree-item-active-text: #1976d2;
+    --md-tree-item-active-text: #1565c0;
 
     /* 树型条目悬停效果 - 明亮主题 */
     --md-tree-item-hover-bg: rgba(0, 0, 0, 0.04);
@@ -192,9 +192,9 @@
     --md-selection-text: #e0e0e0;
 
     /* 树型条目选中效果 - 暗黑主题 */
-    --md-tree-item-active-bg: rgba(66, 165, 245, 0.15);
+    --md-tree-item-active-bg: rgba(66, 165, 245, 0.25);
     --md-tree-item-active-border: #42a5f5;
-    --md-tree-item-active-text: #64b5f6;
+    --md-tree-item-active-text: #90caf9;
 
     /* 树型条目悬停效果 - 暗黑主题 */
     --md-tree-item-hover-bg: rgba(255, 255, 255, 0.08);
@@ -1386,23 +1386,24 @@ pre.has-copy-btn {
     z-index: 2;
 }
 
-.md-doc-item:hover {
+.md-doc-item:hover:not(.active) {
     background-color: var(--md-tree-item-hover-bg);
 }
 
-.md-doc-item:hover .md-doc-item-icon,
-.md-doc-item:hover .md-doc-item-name {
+.md-doc-item:hover:not(.active) .md-doc-item-icon,
+.md-doc-item:hover:not(.active) .md-doc-item-name {
     color: var(--md-tree-item-hover-text);
 }
 
+/* 激活状态 - 使用更高优先级确保始终可见 */
 .md-doc-item.active {
-    background-color: var(--md-tree-item-active-bg);
+    background-color: var(--md-tree-item-active-bg) !important;
     font-weight: 500;
 }
 
 .md-doc-item.active .md-doc-item-icon,
 .md-doc-item.active .md-doc-item-name {
-    color: var(--md-tree-item-active-text);
+    color: var(--md-tree-item-active-text) !important;
 }
 
 .md-doc-item.editing {
