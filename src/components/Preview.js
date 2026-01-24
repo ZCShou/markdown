@@ -95,11 +95,26 @@ export class Preview extends BaseComponent {
      */
     #extractHeadings(markdown) {
         const headings = [];
-        const regex = /^(#{1,6})\s+(.+)$/gm;
-        let match;
-
-        while ((match = regex.exec(markdown)) !== null) {
-            headings.push(match[2]); // 只存储标题文本
+        const lines = markdown.split('\n');
+        let inCodeBlock = false;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // 检测代码块边界
+            if (line.trim().startsWith('```')) {
+                inCodeBlock = !inCodeBlock;
+                continue;
+            }
+            
+            // 如果在代码块中，跳过
+            if (inCodeBlock) continue;
+            
+            // 匹配标题
+            const match = line.match(/^(#{1,6})\s+(.+)$/);
+            if (match) {
+                headings.push(match[2]); // 只存储标题文本
+            }
         }
 
         return headings;
@@ -110,24 +125,39 @@ export class Preview extends BaseComponent {
      * @private
      */
     #updateHeadingsSync(markdown) {
-        const regex = /^(#{1,6})\s+(.+)$/gm;
         const headingsData = [];
-        let match;
+        const lines = markdown.split('\n');
+        let inCodeBlock = false;
         let index = 0;
 
-        while ((match = regex.exec(markdown)) !== null) {
-            const level = match[1].length;
-            const text = match[2].trim();
-            const id = 'heading-' + index;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
             
-            // 构造虚拟的heading对象，包含TOC需要的所有信息
-            headingsData.push({
-                tagName: 'H' + level,
-                textContent: text,
-                id: id,
-                level: level
-            });
-            index++;
+            // 检测代码块边界
+            if (line.trim().startsWith('```')) {
+                inCodeBlock = !inCodeBlock;
+                continue;
+            }
+            
+            // 如果在代码块中，跳过
+            if (inCodeBlock) continue;
+            
+            // 匹配标题
+            const match = line.match(/^(#{1,6})\s+(.+)$/);
+            if (match) {
+                const level = match[1].length;
+                const text = match[2].trim();
+                const id = 'heading-' + index;
+                
+                // 构造虚拟的heading对象，包含TOC需要的所有信息
+                headingsData.push({
+                    tagName: 'H' + level,
+                    textContent: text,
+                    id: id,
+                    level: level
+                });
+                index++;
+            }
         }
 
         // 立即同步更新state，不等待DOM渲染
