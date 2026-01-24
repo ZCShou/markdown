@@ -343,7 +343,30 @@ export class Preview extends BaseComponent {
      */
     updateMermaidTheme() {
         this.#configureMermaid(this.state.get('theme'));
-        this.renderMermaidCharts();
+        
+        // 重新渲染已有的 Mermaid 图表
+        const mermaidDivs = this.container.querySelectorAll('div.mermaid[data-mermaid]');
+        if (mermaidDivs.length === 0) return;
+        
+        const containers = [];
+        mermaidDivs.forEach(oldDiv => {
+            const code = oldDiv.getAttribute('data-mermaid');
+            if (!code) return;
+            
+            const newDiv = document.createElement('div');
+            newDiv.className = 'mermaid';
+            newDiv.textContent = code;
+            newDiv.setAttribute('data-mermaid', code);
+            
+            oldDiv.replaceWith(newDiv);
+            containers.push(newDiv);
+        });
+        
+        if (containers.length > 0) {
+            mermaid.run({ nodes: containers }).catch(err => {
+                console.warn('Mermaid 主题切换失败:', err);
+            });
+        }
     }
 
     /**
@@ -979,47 +1002,6 @@ export class Preview extends BaseComponent {
         if (index > -1) {
             this.#mermaidTimeoutIds.splice(index, 1);
         }
-    }
-
-    /**
-     * 重新渲染所有 Mermaid 图表（用于主题切换）
-     */
-    renderMermaidCharts() {
-        if (typeof mermaid === 'undefined') return;
-        if (this.container.offsetParent === null) return;
-
-        const mermaidDivs = this.container.querySelectorAll('div.mermaid[data-mermaid]');
-        if (mermaidDivs.length === 0) return;
-
-        // 创建新的容器并替换旧的
-        const containers = [];
-        mermaidDivs.forEach(oldDiv => {
-            const code = oldDiv.getAttribute('data-mermaid');
-            if (!code) return;
-
-            const newDiv = document.createElement('div');
-            newDiv.className = 'mermaid';
-            newDiv.textContent = code;
-            newDiv.setAttribute('data-mermaid', code);
-            
-            oldDiv.replaceWith(newDiv);
-            containers.push(newDiv);
-        });
-
-        if (containers.length === 0) return;
-
-        // 重新渲染
-        mermaid.run({ nodes: containers })
-            .then(() => {
-                containers.forEach(c => c.classList.add('mermaid-done'));
-            })
-            .catch(err => {
-                console.warn('Mermaid 重新渲染失败:', err);
-                containers.forEach(c => {
-                    c.textContent = '图表渲染失败: ' + err.message;
-                    c.classList.add('render-error');
-                });
-            });
     }
 
     /**
