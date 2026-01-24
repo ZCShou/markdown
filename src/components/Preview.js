@@ -24,6 +24,8 @@ export class Preview extends BaseComponent {
     #pendingMermaidBlocks = new Set();
     /** @private */
     #mermaidRenderTimer = null;
+    /** @private */
+    #codeHighlightTimer = null;
 
     /**
      * 构造函数
@@ -627,6 +629,12 @@ export class Preview extends BaseComponent {
             this.#mermaidRenderTimer = null;
         }
         
+        // 取消代码高亮定时器
+        if (this.#codeHighlightTimer) {
+            clearTimeout(this.#codeHighlightTimer);
+            this.#codeHighlightTimer = null;
+        }
+        
         // 检测变化
         const changes = this.#detectChanges(markdown);
         
@@ -746,6 +754,38 @@ export class Preview extends BaseComponent {
             this.#pendingCodeBlocks.add(block);
             this.#intersectionObserver.observe(block);
         });
+        
+        // 延迟渲染剩余的代码块（类似 Mermaid 的 2 秒延迟）
+        if (invisible.length > 0) {
+            if (this.#codeHighlightTimer) {
+                clearTimeout(this.#codeHighlightTimer);
+            }
+            this.#codeHighlightTimer = setTimeout(() => {
+                const pending = Array.from(this.#pendingCodeBlocks);
+                const validPending = [];
+                
+                // 过滤有效元素并清理无效元素
+                pending.forEach(block => {
+                    if (block.isConnected && !block.classList.contains('prism-highlighted')) {
+                        validPending.push(block);
+                    } else {
+                        this.#pendingCodeBlocks.delete(block);
+                    }
+                });
+                
+                if (validPending.length > 0) {
+                    this.#highlightCodeBatch(validPending);
+                    validPending.forEach(block => {
+                        this.#pendingCodeBlocks.delete(block);
+                        if (this.#intersectionObserver) {
+                            this.#intersectionObserver.unobserve(block);
+                        }
+                    });
+                }
+                
+                this.#codeHighlightTimer = null;
+            }, 2000);
+        }
     }
     
     /**
@@ -1304,6 +1344,18 @@ ${html}
             clearTimeout(timeoutId);
         });
         this.#mermaidTimeoutIds = [];
+        
+        // 清理 Mermaid 渲染定时器
+        if (this.#mermaidRenderTimer) {
+            clearTimeout(this.#mermaidRenderTimer);
+            this.#mermaidRenderTimer = null;
+        }
+        
+        // 清理代码高亮定时器
+        if (this.#codeHighlightTimer) {
+            clearTimeout(this.#codeHighlightTimer);
+            this.#codeHighlightTimer = null;
+        }
         
         // 清理 IntersectionObserver
         if (this.#intersectionObserver) {
