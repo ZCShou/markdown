@@ -38,6 +38,8 @@ export class Preview extends BaseComponent {
     /**
      * 生成简单哈希（用于差异检测）
      * @private
+     * @param {string} str - 要哈希的字符串
+     * @returns {string} 简单哈希值
      */
     #generateSimpleHash(str) {
         let hash = 0;
@@ -51,6 +53,8 @@ export class Preview extends BaseComponent {
     /**
      * 提取所有代码块内容
      * @private
+     * @param {string} markdown - 原始 Markdown 文本
+     * @returns {Map<string, {lang: string, code: string, index: number}>} 代码块映射
      */
     #extractCodeBlocks(markdown) {
         const codeBlocks = new Map();
@@ -72,6 +76,8 @@ export class Preview extends BaseComponent {
     /**
      * 提取所有 Mermaid 图表内容
      * @private
+     * @param {string} markdown - 原始 Markdown 文本
+     * @returns {Map<string, {code: string, index: number}>} Mermaid 图表映射
      */
     #extractMermaidBlocks(markdown) {
         const mermaidBlocks = new Map();
@@ -92,6 +98,8 @@ export class Preview extends BaseComponent {
     /**
      * 提取所有标题
      * @private
+     * @param {string} markdown - 原始 Markdown 文本
+     * @returns {string[]} 标题文本数组
      */
     #extractHeadings(markdown) {
         const headings = [];
@@ -123,6 +131,8 @@ export class Preview extends BaseComponent {
     /**
      * 同步更新标题数据（在DOM渲染前）
      * @private
+     * @param {string} markdown - 原始 Markdown 文本
+     * @returns {void}
      */
     #updateHeadingsSync(markdown) {
         const headingsData = [];
@@ -167,6 +177,8 @@ export class Preview extends BaseComponent {
     /**
      * 提取所有数学公式内容
      * @private
+     * @param {string} markdown - 原始 Markdown 文本
+     * @returns {Map<string, {latex: string, displayMode: boolean, index: number}>} 数学公式映射
      */
     #extractMathBlocks(markdown) {
         const mathBlocks = new Map();
@@ -199,6 +211,8 @@ export class Preview extends BaseComponent {
     /**
      * 检测内容变化
      * @private
+     * @param {string} newMarkdown - 新的 Markdown 文本
+     * @returns {Object} 变化检测结果对象
      */
     #detectChanges(newMarkdown) {
         const oldData = this.#lastRenderedData;
@@ -236,6 +250,9 @@ export class Preview extends BaseComponent {
     /**
      * 比较两个 Map 是否相等
      * @private
+     * @param {Map} map1
+     * @param {Map} map2
+     * @returns {boolean}
      */
     #areMapsEqual(map1, map2) {
         if (map1.size !== map2.size) return false;
@@ -251,6 +268,9 @@ export class Preview extends BaseComponent {
     /**
      * 比较两个数组是否相等
      * @private
+     * @param {Array} arr1
+     * @param {Array} arr2
+     * @returns {boolean}
      */
     #areArraysEqual(arr1, arr2) {
         if (arr1.length !== arr2.length) return false;
@@ -300,6 +320,7 @@ export class Preview extends BaseComponent {
 
     /**
      * 渲染组件
+     * @returns {void}
      */
     render() {
         // 初始渲染预览内容
@@ -1012,6 +1033,8 @@ export class Preview extends BaseComponent {
 
     /**
      * 处理图片加载错误
+     * @param {HTMLImageElement} img - 图片元素
+     * @returns {void}
      */
     handleImageError(img) {
         img.alt = `图片加载失败: ${img.src}`;
@@ -1020,6 +1043,7 @@ export class Preview extends BaseComponent {
 
     /**
      * 导出为 HTML（直接使用渲染好的内容）
+     * @returns {void}
      */
     exportHTML() {
         // 直接获取预览容器中已经渲染好的 HTML
@@ -1088,6 +1112,7 @@ ${html}
 
     /**
      * 导出为 Markdown
+     * @returns {void}
      */
     exportMarkdown() {
         const content = this.state.get('content');
@@ -1097,6 +1122,7 @@ ${html}
 
     /**
      * 导出为 PDF（使用浏览器打印功能）
+     * @returns {void}
      */
     exportPDF() {
         const content = this.state.get('content');
@@ -1123,6 +1149,10 @@ ${html}
 
     /**
      * 下载文件
+     * @param {string} content - 文件内容
+     * @param {string} mimeType - MIME 类型
+     * @param {string} extension - 文件扩展名
+     * @returns {void}
      */
     downloadFile(content, mimeType, extension) {
         const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });

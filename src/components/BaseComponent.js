@@ -100,6 +100,7 @@ export class BaseComponent {
 
     /**
      * 初始化组件
+     * @returns {void}
      */
     init() {
         try {
@@ -120,6 +121,7 @@ export class BaseComponent {
 
     /**
      * 销毁组件
+     * @returns {void}
      */
     destroy() {
         // 取消状态订阅
@@ -144,6 +146,7 @@ export class BaseComponent {
 
     /**
      * 订阅状态变化（子类实现）
+     * @returns {void}
      */
     subscribe() {
         // 子类实现具体的订阅逻辑
@@ -151,6 +154,7 @@ export class BaseComponent {
 
     /**
      * 绑定事件（子类实现）
+     * @returns {void}
      */
     bindEvents() {
         // 子类实现具体的事件绑定逻辑
@@ -158,6 +162,7 @@ export class BaseComponent {
 
     /**
      * 渲染组件（子类实现）
+     * @returns {void}
      */
     render() {
         // 子类实现具体的渲染逻辑
@@ -165,6 +170,11 @@ export class BaseComponent {
 
     /**
      * 添加事件监听（自动管理清理）
+     * @param {Element} element - DOM 元素
+     * @param {string} event - 事件类型
+     * @param {Function} handler - 事件处理函数
+     * @param {Object|boolean} [options] - 监听选项
+     * @returns {void}
      */
     addEventListener(element, event, handler, options) {
         if (!element) return;
@@ -181,6 +191,9 @@ export class BaseComponent {
 
     /**
      * 创建元素（使用 dom.js）
+     * @param {string} tag - 标签名
+     * @param {Object} [options] - 创建选项
+     * @returns {Element}
      */
     createElement(tag, options = {}) {
         return dom.create(tag, options);
@@ -188,6 +201,7 @@ export class BaseComponent {
 
     /**
      * 创建文档片段
+     * @returns {DocumentFragment}
      */
     createFragment() {
         return document.createDocumentFragment();
@@ -195,6 +209,10 @@ export class BaseComponent {
 
     /**
      * 显示消息（委托给主编辑器）
+     * @param {string} message - 消息内容
+     * @param {string} [type='info'] - 消息类型
+     * @param {number} [duration=2000] - 持续时间（毫秒）
+     * @returns {void}
      */
     showMessage(message, type = 'info', duration = 2000) {
         // 触发自定义事件，由主编辑器处理
@@ -205,6 +223,10 @@ export class BaseComponent {
 
     /**
      * 防抖函数（使用 helpers.js 中的 debounce 实现）
+     * @param {string} key - 防抖键
+     * @param {Function} fn - 要执行的函数
+     * @param {number} delay - 延迟（毫秒）
+     * @returns {void}
      */
     debounce(key, fn, delay) {
         if (!this.debouncedFunctions) {
@@ -220,6 +242,8 @@ export class BaseComponent {
 
     /**
      * 格式化日期
+     * @param {string} isoString - ISO 格式日期字符串
+     * @returns {string}
      */
     formatDate(isoString) {
         const date = new Date(isoString);
@@ -252,6 +276,8 @@ export class BaseComponent {
 
     /**
      * 转义 HTML（使用 helpers.js）
+     * @param {string} text - 要转义的文本
+     * @returns {string}
      */
     escapeHtml(text) {
         return escapeHtml(text);

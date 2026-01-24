@@ -15,6 +15,7 @@ export class Editor extends BaseComponent {
 
     /**
      * 初始化组件
+     * @returns {void}
      */
     init() {
         super.init();
@@ -26,6 +27,7 @@ export class Editor extends BaseComponent {
 
     /**
      * 订阅状态变化
+     * @returns {void}
      */
     subscribe() {
         // 只订阅当前文档变化，不需要订阅 content（Editor 是输入源）
@@ -36,6 +38,7 @@ export class Editor extends BaseComponent {
 
     /**
      * 绑定事件
+     * @returns {void}
      */
     bindEvents() {
         // 输入事件
@@ -46,6 +49,7 @@ export class Editor extends BaseComponent {
 
     /**
      * 加载内容
+     * @returns {void}
      */
     loadContent() {
         if (!this.container) return;
@@ -55,6 +59,7 @@ export class Editor extends BaseComponent {
 
     /**
      * 渲染组件
+     * @returns {void}
      */
     render() {
         // 初始加载内容
@@ -63,6 +68,7 @@ export class Editor extends BaseComponent {
 
     /**
      * 处理输入（性能优化 - 添加防抖减少状态更新频率）
+     * @returns {void}
      */
     handleInput() {
         if (!this.container) return;
@@ -132,6 +138,8 @@ export class Editor extends BaseComponent {
 
     /**
      * 处理键盘事件
+     * @param {KeyboardEvent} e - 键盘事件
+     * @returns {void}
      */
     handleKeydown(e) {
         // Tab 缩进
@@ -150,6 +158,8 @@ export class Editor extends BaseComponent {
 
     /**
      * 处理缩进
+     * @param {boolean} [isRemove=false] - 是否移除缩进
+     * @returns {void}
      */
     handleIndent(isRemove = false) {
         if (!this.container) return;

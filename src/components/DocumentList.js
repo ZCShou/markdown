@@ -35,6 +35,7 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 订阅状态变化
+     * @returns {void}
      */
     subscribe() {
         this.unsubscribe = this.state.subscribeTo(['documents', 'currentDocId'], (newValue, oldValue, key) => {
@@ -222,6 +223,7 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 绑定事件
+     * @returns {void}
      */
     bindEvents() {
         // 使用事件委托处理列表项点击
@@ -235,6 +237,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 处理点击事件
+     * @param {MouseEvent} e - 点击事件
+     * @returns {void}
      */
     handleClick(e) {
         const toggle = e.target.closest('.md-tree-toggle');
@@ -287,6 +291,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 处理双击事件（重命名）
+     * @param {MouseEvent} e - 双击事件
+     * @returns {void}
      */
     handleDoubleClick(e) {
         if (this.clickTimeout) {
@@ -302,6 +308,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 处理拖拽开始
+     * @param {DragEvent} e - 拖拽事件
+     * @returns {void}
      */
     handleDragStart(e) {
         const item = e.target.closest('.md-doc-item');
@@ -319,6 +327,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 处理拖拽经过
+     * @param {DragEvent} e - 拖拽经过事件
+     * @returns {void}
      */
     handleDragOver(e) {
         e.preventDefault();
@@ -433,6 +443,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 处理放置
+     * @param {DragEvent} e - 放置事件
+     * @returns {void}
      */
     handleDrop(e) {
         e.preventDefault();
@@ -468,6 +480,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 处理拖拽结束
+     * @param {DragEvent} e - 拖拽结束事件
+     * @returns {void}
      */
     handleDragEnd(e) {
         // 清除拖拽项样式
@@ -485,6 +499,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 打开文档（乐观更新优化）
+     * @param {string} docId - 文档 ID
+     * @returns {void}
      */
     handleOpen(docId) {
         const documents = this.state.get('documents');
@@ -522,6 +538,8 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 删除文档
+     * @param {string} docId - 文档 ID
+     * @returns {Promise<void>}
      */
     async handleDelete(docId) {
         const doc = this.state.get('documents').find(d => d.id === docId);
@@ -570,6 +588,9 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 创建新项目
+     * @param {string} [type='file'] - 项目类型 'file' | 'folder'
+     * @param {string|null} [parentId=null] - 父级 ID
+     * @returns {void}
      */
     createItem(type = 'file', parentId = null) {
         const doc = {
@@ -689,6 +710,7 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 重命名当前项目
+     * @returns {void}
      */
     renameCurrentItem() {
         const currentDocId = this.state.get('currentDocId');
@@ -701,6 +723,7 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 清空所有文件
+     * @returns {Promise<void>}
      */
     async deleteCurrentItem() {
         const documents = this.state.get('documents');
@@ -835,6 +858,10 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 递归渲染树节点
+     * @param {Object} node - 节点数据
+     * @param {string|null} currentDocId - 当前文档 ID
+     * @param {number} level - 深度层级
+     * @returns {Element} 渲染的节点容器
      */
     renderTreeNode(node, currentDocId, level) {
         const isEditing = node.id === this.editingDocId;
@@ -973,6 +1000,7 @@ export class DocumentList extends BaseComponent {
 
     /**
      * 清理组件资源
+     * @returns {void}
      */
     destroy() {
         if (this.clickTimeout) {

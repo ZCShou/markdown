@@ -46,6 +46,11 @@ class DOMElement {
         return this._element;
     }
 
+
+    /**
+     * 检查元素是否存在
+     * @returns {boolean} 是否存在
+     */
     /**
      * 检查元素是否存在
      */
@@ -183,7 +188,7 @@ class DOMElement {
 class DOMElementList {
     /**
      * @param {string} selector - CSS 选择器
-     * @param {Function} getter - 获取元素的函数
+     * @param {Function|null} getter - 获取元素的函数
      */
     constructor(selector, getter = null) {
         this.selector = selector;
@@ -193,6 +198,7 @@ class DOMElementList {
 
     /**
      * 获取所有元素（带缓存）
+     * @returns {Element[]}
      */
     get all() {
         if (!this._elements) {
@@ -204,6 +210,7 @@ class DOMElementList {
 
     /**
      * 获取第一个元素
+     * @returns {Element|null}
      */
     get first() {
         return this.all[0] || null;
@@ -211,6 +218,7 @@ class DOMElementList {
 
     /**
      * 获取最后一个元素
+     * @returns {Element|null}
      */
     get last() {
         return this.all[this.all.length - 1] || null;
@@ -218,6 +226,7 @@ class DOMElementList {
 
     /**
      * 获取元素数量
+     * @returns {number}
      */
     get length() {
         return this.all.length;
@@ -225,6 +234,7 @@ class DOMElementList {
 
     /**
      * 检查是否有元素
+     * @returns {boolean}
      */
     get exists() {
         return this.all.length > 0;
@@ -232,6 +242,8 @@ class DOMElementList {
 
     /**
      * 遍历所有元素
+     * @param {Function} callback - 回调函数 (element, index)
+     * @returns {void}
      */
     forEach(callback) {
         this.all.forEach(callback);
@@ -239,6 +251,8 @@ class DOMElementList {
 
     /**
      * 为所有元素添加类名
+     * @param {...string} classNames - 类名
+     * @returns {void}
      */
     addClass(...classNames) {
         this.forEach(element => element.classList.add(...classNames));
@@ -246,6 +260,8 @@ class DOMElementList {
 
     /**
      * 为所有元素移除类名
+     * @param {...string} classNames - 类名
+     * @returns {void}
      */
     removeClass(...classNames) {
         this.forEach(element => element.classList.remove(...classNames));
@@ -253,6 +269,8 @@ class DOMElementList {
 
     /**
      * 为所有元素切换类名
+     * @param {string} className - 要切换的类名
+     * @returns {void}
      */
     toggleClass(className) {
         this.forEach(element => element.classList.toggle(className));
@@ -260,6 +278,10 @@ class DOMElementList {
 
     /**
      * 为所有元素添加事件监听
+     * @param {string} event - 事件名
+     * @param {Function} handler - 事件处理函数
+     * @param {Object|boolean} [options] - 选项
+     * @returns {void}
      */
     on(event, handler, options) {
         this.forEach(element => element.addEventListener(event, handler, options));
@@ -267,16 +289,30 @@ class DOMElementList {
 
     /**
      * 清除缓存
+     * @returns {void}
      */
     clearCache() {
         this._elements = null;
     }
 }
 
+    /**
+     * 移除事件监听
+     * @param {string} event - 事件名
+     * @param {Function} handler - 事件处理函数
+     * @param {Object|boolean} [options] - 事件选项
+     * @returns {void}
+     */
+
 /**
  * DOM 管理器
  * 集中管理所有 DOM 元素
  */
+
+    /**
+     * 清除缓存
+     * @returns {void}
+     */
 export const dom = {
     // ==================== 缓存 ====================
     
@@ -425,7 +461,8 @@ export const dom = {
     /**
      * 初始化所有 DOM 元素
      * 预加载所有元素到缓存
-     */
+        * @returns {void}
+        */
     init() {
         // 遍历所有 DOM 元素并触发 getter
         const initElement = (obj) => {
@@ -455,7 +492,8 @@ export const dom = {
 
     /**
      * 清除所有缓存
-     */
+        * @returns {void}
+        */
     clearCache() {
         const clearElementCache = (obj) => {
             for (const key in obj) {
@@ -473,7 +511,8 @@ export const dom = {
 
     /**
      * 检查所有必需元素是否存在
-     */
+        * @returns {boolean} 所有必需元素是否存在
+        */
     checkRequired() {
         const required = [
             'app.container',
@@ -511,6 +550,7 @@ export const dom = {
 
     /**
      * 获取元素信息（调试用）
+     * @returns {Object<string, any>} 调试信息对象
      */
     debug() {
         const info = {};
@@ -546,6 +586,9 @@ export const dom = {
 
     /**
      * 等待元素出现
+     * @param {string} selector - CSS 选择器
+     * @param {number} [timeout=5000] - 超时时间（毫秒）
+     * @returns {Promise<Element>} Promise，解析为找到的元素
      */
     waitFor(selector, timeout = 5000) {
         return new Promise((resolve, reject) => {
@@ -577,6 +620,9 @@ export const dom = {
 
     /**
      * 创建元素
+     * @param {string} tag - 标签名
+     * @param {Object} [options] - 创建选项
+     * @returns {Element} 创建的元素
      */
     create(tag, options = {}) {
         const element = document.createElement(tag);

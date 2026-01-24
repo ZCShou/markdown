@@ -15,6 +15,7 @@ export class TOC extends BaseComponent {
 
     /**
      * 订阅状态变化
+     * @returns {void}
      */
     subscribe() {
         // 订阅标题数据变化，生成目录
@@ -25,6 +26,7 @@ export class TOC extends BaseComponent {
 
     /**
      * 绑定事件
+     * @returns {void}
      */
     bindEvents() {
         // 使用事件委托处理目录项点击
@@ -46,6 +48,7 @@ export class TOC extends BaseComponent {
 
     /**
      * 生成目录（增量更新优化）
+     * @returns {void}
      */
     generateTOC() {
         const headings = this.state.get('headings');
@@ -153,6 +156,8 @@ export class TOC extends BaseComponent {
 
     /**
      * 滚动到指定标题
+     * @param {string} headingId - 标题 ID
+     * @returns {void}
      */
     scrollToHeading(headingId) {
         const heading = document.getElementById(headingId);
@@ -163,6 +168,7 @@ export class TOC extends BaseComponent {
 
     /**
      * 销毁组件，清理动画帧请求
+     * @returns {void}
      */
     destroy() {
         // 清理动画帧请求

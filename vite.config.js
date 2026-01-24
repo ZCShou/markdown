@@ -6,6 +6,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Vite 配置工厂
+ * @param {{mode: string}} param0 - Vite 提供的上下文对象
+ * @returns {import('vite').UserConfig}
+ */
 export default defineConfig(({ mode }) => {
   // 使用 Vite 约定的 VITE_* 环境变量；未设置时退回根路径
   const env = loadEnv(mode, process.cwd(), 'VITE_');

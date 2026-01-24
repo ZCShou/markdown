@@ -204,6 +204,8 @@ export class Dialog {
     
     /**
      * 转义 HTML
+     * @param {string} text - 要转义的文本
+     * @returns {string} 转义后的 HTML 字符串
      */
     static escapeHtml(text) {
         const div = document.createElement('div');
