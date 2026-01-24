@@ -347,7 +347,6 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-btn.md-btn-icon:hover {
     background-color: var(--md-bg-hover);
-    border-color: transparent;
 }
 
 .md-btn.md-btn-icon:active {
@@ -362,7 +361,6 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-btn.md-btn-ghost:hover {
     background-color: var(--md-bg-hover);
-    border-color: transparent;
 }
 
 /* 块级按钮 */
@@ -448,7 +446,6 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-sidebar-header .md-btn:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    border-color: transparent;
 }
 
 .md-sidebar-header h3 {
@@ -679,7 +676,6 @@ html::-webkit-scrollbar-thumb:hover,
 
 .markdown-toolbar .md-btn:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    border-color: transparent;
 }
 
 /* 侧边栏打开时隐藏对应的切换按钮 */
@@ -1166,30 +1162,28 @@ html::-webkit-scrollbar-thumb:hover,
 
     .md-sidebar-left {
         left: 0;
+        width: 280px;
     }
 
     .md-sidebar-left:not(.open) {
         transform: translateX(-100%);
-        width: 280px;
     }
 
     .md-sidebar-left.open {
         transform: translateX(0);
-        width: 280px;
     }
 
     .md-sidebar-right {
         right: 0;
+        width: 280px;
     }
 
     .md-sidebar-right:not(.open) {
         transform: translateX(100%);
-        width: 280px;
     }
 
     .md-sidebar-right.open {
         transform: translateX(0);
-        width: 280px;
     }
 
     /* 移动端显示遮罩层 */
@@ -1352,23 +1346,6 @@ pre.has-copy-btn {
 }
 
 /* ==================== 树型结构样式 ==================== */
-/* 文档列表工具栏 */
-.md-doc-toolbar {
-    display: flex;
-    gap: 8px;
-    padding: 8px;
-    margin-bottom: 8px;
-    background-color: var(--md-bg-tertiary);
-    border-radius: 6px;
-    align-items: center;
-}
-
-.md-doc-toolbar .md-btn {
-    font-size: 12px;
-    padding: 6px 10px;
-    min-height: 28px;
-}
-
 /* 树型容器 */
 .md-tree-container {
     display: flex;
@@ -1745,21 +1722,6 @@ body.is-dragging-tree {
 .md-tree-node[data-level="6"] > .md-tree-children::before,
 .md-tree-node[data-level="7"] > .md-tree-children::before {
     left: 88px;
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-    .md-doc-toolbar {
-        flex-wrap: wrap;
-    }
-
-    .md-doc-item {
-        padding: 8px;
-    }
-
-    .md-doc-item-actions {
-        opacity: 1;
-    }
 }
 
 /* ==================== 数学公式样式 ==================== */
