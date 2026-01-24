@@ -1359,7 +1359,7 @@ pre.has-copy-btn {
 .md-tree-container {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
 }
 
 /* 树节点 */
@@ -1372,7 +1372,6 @@ pre.has-copy-btn {
 .md-doc-item {
     display: flex;
     align-items: center;
-    margin-bottom: 2px;
     background: transparent;
     border-radius: 4px;
     cursor: pointer;
