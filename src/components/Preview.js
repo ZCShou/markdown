@@ -821,9 +821,20 @@ export class Preview extends BaseComponent {
             }
             this.#mermaidRenderTimer = setTimeout(() => {
                 const pending = Array.from(this.#pendingMermaidBlocks);
-                if (pending.length > 0) {
-                    this.#renderMermaidDivs(pending);
-                    pending.forEach(div => {
+                const validPending = [];
+                
+                // 一次遍历：过滤有效元素并清理无效元素
+                pending.forEach(div => {
+                    if (div.isConnected) {
+                        validPending.push(div);
+                    } else {
+                        this.#pendingMermaidBlocks.delete(div);
+                    }
+                });
+                
+                if (validPending.length > 0) {
+                    this.#renderMermaidDivs(validPending);
+                    validPending.forEach(div => {
                         div.classList.remove('mermaid-pending');
                         this.#pendingMermaidBlocks.delete(div);
                         if (this.#intersectionObserver) {
@@ -831,6 +842,7 @@ export class Preview extends BaseComponent {
                         }
                     });
                 }
+                
                 this.#mermaidRenderTimer = null;
             }, 2000);
         }
