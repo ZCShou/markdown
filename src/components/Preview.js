@@ -22,6 +22,8 @@ export class Preview extends BaseComponent {
     #pendingCodeBlocks = new Set();
     /** @private */
     #pendingMermaidBlocks = new Set();
+    /** @private */
+    #mermaidRenderTimer = null;
 
     /**
      * 构造函数
@@ -596,6 +598,12 @@ export class Preview extends BaseComponent {
         this.#pendingMermaidBlocks.clear();
         this.#pendingCodeBlocks.clear();
         
+        // 取消旧定时器，避免重复执行
+        if (this.#mermaidRenderTimer) {
+            clearTimeout(this.#mermaidRenderTimer);
+            this.#mermaidRenderTimer = null;
+        }
+        
         // 检测变化
         const changes = this.#detectChanges(markdown);
         
@@ -806,9 +814,12 @@ export class Preview extends BaseComponent {
             this.#intersectionObserver.observe(div);
         });
         
-        // 简化逻辑：直接在 2 秒后渲染所有剩余的
+        // 延迟渲染剩余的 Mermaid（取消旧定时器避免重复）
         if (invisible.length > 0) {
-            setTimeout(() => {
+            if (this.#mermaidRenderTimer) {
+                clearTimeout(this.#mermaidRenderTimer);
+            }
+            this.#mermaidRenderTimer = setTimeout(() => {
                 const pending = Array.from(this.#pendingMermaidBlocks);
                 if (pending.length > 0) {
                     this.#renderMermaidDivs(pending);
@@ -820,6 +831,7 @@ export class Preview extends BaseComponent {
                         }
                     });
                 }
+                this.#mermaidRenderTimer = null;
             }, 2000);
         }
     }
