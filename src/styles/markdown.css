@@ -1447,8 +1447,9 @@ pre.has-copy-btn {
     transform: rotate(90deg);
 }
 
+/* 空文件夹的折叠符号 - 半透明显示而不是隐藏 */
 .md-tree-toggle.leaf {
-    visibility: hidden;
+    opacity: 0.3;
 }
 
 /* 图标 */

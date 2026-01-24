@@ -1006,7 +1006,6 @@ export class DocumentList extends BaseComponent {
         if (isFolder) {
             const toggleClasses = ['md-tree-toggle'];
             if (isExpanded) toggleClasses.push('expanded');
-            if (!hasChildren) toggleClasses.push('leaf');
             
             const toggle = this.createElement('span', {
                 className: toggleClasses.join(' '),
