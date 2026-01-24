@@ -992,6 +992,11 @@ html::-webkit-scrollbar-thumb:hover,
     margin-top: 0.25em;
 }
 
+/* 任务列表项：移除列表标记 */
+.markdown-body li:has(input[type="checkbox"]) {
+    list-style-type: none;
+}
+
 .markdown-body li > p {
     margin-top: 16px;
 }
@@ -1089,6 +1094,8 @@ html::-webkit-scrollbar-thumb:hover,
 .markdown-body input[type="checkbox"] {
     border-color: var(--md-checkbox-border);
     background-color: var(--md-checkbox-bg);
+    vertical-align: middle;
+    margin-right: 0.25em;
 }
 
 .markdown-body input[type="checkbox"]:checked {
