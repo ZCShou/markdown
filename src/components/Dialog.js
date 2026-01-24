@@ -46,8 +46,8 @@ export class Dialog {
             message,
             type,
             buttons: [
-                { text: cancelText, value: false, type: 'secondary' },
-                { text: confirmText, value: true, type: type === 'danger' ? 'danger' : 'primary' }
+                { text: confirmText, value: true, type: type === 'danger' ? 'danger' : 'primary' },
+                { text: cancelText, value: false, type: 'secondary' }
             ]
         });
 
