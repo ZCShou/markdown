@@ -616,6 +616,19 @@ export class DocumentList extends BaseComponent {
      * @returns {void}
      */
     createItem(type = 'file', parentId = null) {
+        // 如果已经有待处理的编辑，先完成它（避免多个文件同时进入重命名）
+        if (this.#pendingEdit && this.editingDocId) {
+            // 取消之前的编辑，不保存
+            const editingItem = dom.getIn(this.container, `[data-doc-id="${this.editingDocId}"]`);
+            if (editingItem?.classList.contains('editing')) {
+                // 触发 blur 来完成编辑（会取消）
+                const input = dom.getIn(editingItem, '.md-doc-item-input');
+                if (input) input.blur();
+            }
+            // 清空待编辑状态
+            this.#pendingEdit = null;
+        }
+
         const doc = {
             id: Date.now().toString(),
             name: type === 'folder' ? '新建文件夹' : '新建文档',
@@ -635,10 +648,57 @@ export class DocumentList extends BaseComponent {
         this.state.setState({ documents }, { silent: true });
         StoreManager.saveDocuments(documents);
         
-        if (parentId) this.expandFolder(parentId);
+        // 展开所有祖先文件夹，确保新文件可见（优化版：批量更新）
+        this.#expandAncestorFolders(parentId);
         
         // 手动触发增量渲染（只渲染新增的节点）
         this.#renderNewItem(doc);
+    }
+
+    /**
+     * 展开所有祖先文件夹（优化版：批量更新，减少 RAF 调用）
+     * @private
+     * @param {string|null} folderId - 文件夹 ID
+     */
+    #expandAncestorFolders(folderId) {
+        if (!folderId) return;
+        
+        const documents = this.state.get('documents');
+        const ancestors = [];
+        let currentId = folderId;
+        
+        // 收集所有祖先文件夹（优化：使用 Map 避免重复 find）
+        const docMap = new Map(documents.map(d => [d.id, d]));
+        
+        while (currentId) {
+            const doc = docMap.get(currentId);
+            if (!doc || !doc.parentId) break;
+            ancestors.push(doc.parentId);
+            currentId = doc.parentId;
+        }
+        
+        // 如果没有需要展开的祖先，直接返回
+        if (ancestors.length === 0) return;
+        
+        // 批量添加到展开状态（避免多次 RAF）
+        const foldersToExpand = [folderId, ...ancestors.reverse()];
+        let hasChanges = false;
+        
+        for (const folderId of foldersToExpand) {
+            if (!this.expandedFolders.has(folderId)) {
+                this.expandedFolders.add(folderId);
+                hasChanges = true;
+            }
+        }
+        
+        // 如果有变化，使用单次 RAF 批量更新 UI
+        if (hasChanges) {
+            requestAnimationFrame(() => {
+                for (const folderId of foldersToExpand) {
+                    this.#updateFolderUI(folderId, true);
+                }
+            });
+        }
     }
 
     /**
