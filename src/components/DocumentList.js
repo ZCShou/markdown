@@ -661,36 +661,43 @@ export class DocumentList extends BaseComponent {
      * @param {string|null} folderId - 文件夹 ID
      */
     #expandAncestorFolders(folderId) {
-        if (!folderId) return;
-        
         const documents = this.state.get('documents');
-        const ancestors = [];
-        let currentId = folderId;
-        
-        // 收集所有祖先文件夹（优化：使用 Map 避免重复 find）
+        const folderSet = new Set();
         const docMap = new Map(documents.map(d => [d.id, d]));
-        
-        while (currentId) {
-            const doc = docMap.get(currentId);
-            if (!doc || !doc.parentId) break;
-            ancestors.push(doc.parentId);
-            currentId = doc.parentId;
+
+        if (!folderId) {
+            // 根目录：收集所有根目录文件夹
+            for (const doc of documents) {
+                if (doc.type === 'folder' && !doc.parentId) {
+                    folderSet.add(doc.id);
+                }
+            }
+        } else {
+            // 收集目标文件夹及其所有祖先
+            folderSet.add(folderId);
+            let currentId = folderId;
+
+            while (currentId) {
+                const doc = docMap.get(currentId);
+                if (!doc || !doc.parentId) break;
+                folderSet.add(doc.parentId);
+                currentId = doc.parentId;
+            }
         }
-        
-        // 如果没有需要展开的祖先，直接返回
-        if (ancestors.length === 0) return;
-        
+
+        if (folderSet.size === 0) return;
+
         // 批量添加到展开状态（避免多次 RAF）
-        const foldersToExpand = [folderId, ...ancestors.reverse()];
+        const foldersToExpand = Array.from(folderSet);
         let hasChanges = false;
-        
+
         for (const folderId of foldersToExpand) {
             if (!this.expandedFolders.has(folderId)) {
                 this.expandedFolders.add(folderId);
                 hasChanges = true;
             }
         }
-        
+
         // 如果有变化，使用单次 RAF 批量更新 UI
         if (hasChanges) {
             requestAnimationFrame(() => {
