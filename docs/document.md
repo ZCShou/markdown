@@ -1210,25 +1210,73 @@ DocumentList 组件采用了多种性能优化策略，以确保在大规模文�
 - 使用 Map 数据结构快速检测文档变化
 - 比较文档数量、parentId、name 等关键字段
 - 只在结构变化时触发完全重新渲染
+- **优化**：单次遍历算法，从双 Map 构建改为单次遍历 + Map 删除检测
 
-**性能提升**：
-- 减少 90%+ 的不必要渲染
-- 激活状态更新使用局部 DOM 操作
-- 渲染延迟 < 10ms
+**代码修改**：
+```javascript
+// 优化前：构建两个 Map
+const oldMap = new Map(oldValue.map(d => [d.id, d]));
+// ... 遍历检查
+const newMap = new Map(newValue.map(d => [d.id]));
+// ... 再次遍历检查删除
 
-### 2. DOM 缓存
+// 优化后：单次遍历
+const oldMap = new Map();
+for (const doc of oldValue) {
+    oldMap.set(doc.id, doc);
+}
+for (const doc of newValue) {
+    // 检查变化
+    oldMap.delete(doc.id);  // 删除已存在的
+}
+// Map 中剩余的就是被删除的
+return oldMap.size > 0;
+```
 
-**核心思想**：缓存常用 DOM 元素引用，减少重复查询。
+### 2. DOM 缓存（版本控制）
+
+**核心思想**：缓存常用 DOM 元素引用，减少重复查询，并防止缓存失效。
 
 **实现方式**：
-- 使用 Map 缓存文档项元素（docId → Element）
+- 使用 Map 缓存文档项元素（docId → {element, version}）
+- 添加版本控制机制，验证元素是否仍在 DOM 中
+- render 后立即重建缓存 Map，确保缓存有效性
 - 在激活状态更新、文件夹展开/折叠等场景中使用
-- 完全重新渲染时清空缓存
 
-**性能提升**：
-- 缓存命中率 > 80%
-- DOM 查询时间从 5-10ms 降至 <1ms
-- 减少浏览器重排和重绘
+**代码修改**：
+```javascript
+// 优化前：简单缓存，可能失效
+#getCachedDocItem(docId) {
+    if (!this.#domCache.has(docId)) {
+        const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
+        this.#domCache.set(docId, item);
+    }
+    return this.#domCache.get(docId);
+}
+
+// 优化后：版本控制 + 有效性验证
+#getCachedDocItem(docId) {
+    const cached = this.#domCache.get(docId);
+    // 检查缓存是否有效（元素仍在 DOM 中）
+    if (cached && cached.element && this.container?.contains(cached.element)) {
+        return cached.element;
+    }
+    // 缓存失效或不存在，重新查询
+    const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
+    if (item) {
+        this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
+    }
+    return item;
+}
+
+// render 后立即重建缓存
+documents.forEach(doc => {
+    const item = this.container.querySelector(`[data-doc-id="${doc.id}"]`);
+    if (item) {
+        this.#domCache.set(doc.id, { element: item, version: this.domCacheVersion });
+    }
+});
+```
 
 ### 3. RAF 批量更新
 
@@ -1237,12 +1285,35 @@ DocumentList 组件采用了多种性能优化策略，以确保在大规模文�
 **实现方式**：
 - 文件夹展开/折叠状态变更使用 RAF 批量处理
 - 同一帧内的多次变更合并为一次 UI 更新
-- 减少重排和重绘次数
+- **优化**：移除双重 RAF 包裹，初次渲染同步执行
+- 只在编辑操作时使用单层 RAF 延迟
 
-**性能提升**：
-- 合并多次状态变更
-- 提升动画流畅度
-- 拖拽响应 < 16ms（60fps）
+**代码修改**：
+```javascript
+// 优化前：双重 RAF
+render(forceFullRender = false) {
+    requestAnimationFrame(() => {
+        // 构建 DOM
+        requestAnimationFrame(() => {
+            this.editItemName(docId, isNewItem, shouldSetCurrent);
+        });
+    });
+}
+
+// 优化后：同步渲染 + 单层 RAF
+render(forceFullRender = false) {
+    // 同步构建 DOM
+    const tree = this.state.buildTree();
+    // ... 立即插入 DOM
+    
+    // 只在编辑时使用 RAF
+    if (this.#pendingEdit) {
+        requestAnimationFrame(() => {
+            this.editItemName(docId, isNewItem, shouldSetCurrent);
+        });
+    }
+}
+```
 
 ### 4. 乐观更新
 
@@ -1253,10 +1324,130 @@ DocumentList 组件采用了多种性能优化策略，以确保在大规模文�
 - 异步调用 State 方法更新数据
 - 提升用户感知的响应速度
 
-**性能提升**：
-- 消除状态更新延迟
-- UI 响应更快
-- 用户体验提升
+**代码实现**：
+```javascript
+handleOpen(docId) {
+    // 立即更新 UI
+    const currentDocId = this.state.get('currentDocId');
+    if (currentDocId) {
+        const oldItem = this.#getCachedDocItem(currentDocId);
+        if (oldItem) oldItem.classList.remove('active');
+    }
+    const newItem = this.#getCachedDocItem(docId);
+    if (newItem) newItem.classList.add('active');
+    
+    // 异步更新状态
+    requestAnimationFrame(() => {
+        this.state.setCurrentDocument(docId);
+    });
+}
+```
+
+### 5. 交互响应优化
+
+**核心思想**：优化用户交互的响应速度和流畅度。
+
+**实现方式**：
+- **点击延迟优化**：从 200ms 减少到 120ms
+- **拖拽节流**：添加 50ms 节流，减少 dragover 事件处理频率
+- **字符串拼接优化**：使用数组 `.join(' ')` 代替模板字符串
+
+**代码修改**：
+```javascript
+// 点击延迟优化
+this.clickTimeout = setTimeout(() => {
+    // ...
+}, 120);  // 从 200 改为 120
+
+// 拖拽节流
+handleDragOver(e) {
+    const now = performance.now();
+    if (now - this.lastDragOverTime < 50) {  // 50ms 节流
+        return;
+    }
+    this.lastDragOverTime = now;
+    // ...
+}
+
+// 字符串拼接优化
+const itemClasses = ['md-doc-item'];
+if (isActive) itemClasses.push('active');
+if (isEditing) itemClasses.push('editing');
+const item = this.createElement('div', {
+    className: itemClasses.join(' ')  // 使用数组 join
+});
+```
+
+### 6. 算法优化
+
+**核心思想**：优化关键算法的时间复杂度。
+
+**实现方式**：
+- **结构变化检测**：单次遍历替代双 Map 构建
+- **删除操作**：使用 `state.getChildren()` 递归计算，替代手动 Map 构建和栈遍历
+- **DOM 缓存**：版本控制机制防止缓存失效
+
+**代码修改**：
+```javascript
+// 删除操作优化
+async handleDelete(docId) {
+    const doc = this.state.get('documents').find(d => d.id === docId);
+    if (!doc) return;
+
+    // 优化前：手动构建 Map 和栈遍历
+    const childrenMap = new Map();
+    documents.forEach(d => {
+        if (d.parentId) {
+            if (!childrenMap.has(d.parentId)) childrenMap.set(d.parentId, []);
+            childrenMap.get(d.parentId).push(d);
+        }
+    });
+    const stack = [docId];
+    // ... 栈遍历
+
+    // 优化后：使用 state.getChildren()
+    const countChildren = (parentId) => {
+        const children = this.state.getChildren(parentId);
+        let count = children.length;
+        for (const child of children) {
+            if (child.type === 'folder') {
+                count += countChildren(child.id);
+            }
+        }
+        return count;
+    };
+    const childrenCount = doc.type === 'folder' ? countChildren(docId) : 0;
+}
+```
+
+### 7. 资源管理
+
+**核心思想**：确保组件销毁时正确清理所有资源。
+
+**实现方式**：
+- 清理 clickTimeout 定时器
+- 清理 dragOverThrottle 节流定时器
+- 清空 DOM 缓存和状态
+- 移除拖拽状态类
+
+**代码修改**：
+```javascript
+destroy() {
+    if (this.clickTimeout) {
+        clearTimeout(this.clickTimeout);
+        this.clickTimeout = null;
+    }
+    
+    if (this.dragOverThrottle) {  // 新增
+        clearTimeout(this.dragOverThrottle);
+        this.dragOverThrottle = null;
+    }
+    
+    this.#clearDomCache();
+    this.#pendingUpdates.clear();
+    // ...
+}
+```
 
 ---
 
@@ -1291,3 +1482,5 @@ DocumentList 组件是 Markdown 编辑器的文档管理核心，它通过以下
 | 缓存命中率 | >80% | DOM 查询优化 |
 
 这些优化策略使得 DocumentList 组件能够高效地管理大规模文档，同时保持良好的用户体验。树型结构、增量渲染和状态驱动 UI 是核心，它们通过智能变化检测、DOM 缓存和批量更新，实现了显著的性能提升。
+
+
