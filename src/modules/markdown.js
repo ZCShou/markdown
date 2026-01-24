@@ -560,8 +560,20 @@ export class MarkdownEditor {
 
         // 文档操作按钮
         const docButtons = {
-            'md-new-file': () => this.components.documentList.createItem('file'),
-            'md-new-folder': () => this.components.documentList.createItem('folder'),
+            'md-new-file': () => {
+                const currentDocId = this.state.get('currentDocId');
+                const documents = this.state.get('documents');
+                const currentDoc = documents.find(d => d.id === currentDocId);
+                const parentId = (currentDoc?.type === 'folder') ? currentDocId : null;
+                this.components.documentList.createItem('file', parentId);
+            },
+            'md-new-folder': () => {
+                const currentDocId = this.state.get('currentDocId');
+                const documents = this.state.get('documents');
+                const currentDoc = documents.find(d => d.id === currentDocId);
+                const parentId = (currentDoc?.type === 'folder') ? currentDocId : null;
+                this.components.documentList.createItem('folder', parentId);
+            },
             'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
             'md-export-html': () => this.components.preview.exportHTML(),
             'md-export-md': () => this.components.preview.exportMarkdown(),

@@ -254,14 +254,16 @@ export class EditorState {
         }
         
         const doc = this.#state.documents.find(d => d.id === docId);
-        if (doc && doc.type !== 'folder') {
-            const newContent = doc.content || '';
+        if (doc) {
+            const updates = { currentDocId: docId };
             
-            // 更新状态（不需要 force，因为 currentDocId 已经改变）
-            this.setState({ 
-                currentDocId: docId,
-                content: newContent
-            });
+            // 只有当文档不是文件夹时，才更新内容
+            if (doc.type !== 'folder') {
+                updates.content = doc.content || '';
+            }
+            
+            // 更新状态
+            this.setState(updates);
             
             // 异步保存当前文档 ID 到本地存储，避免阻塞主线程
             // 使用 requestIdleCallback 在浏览器空闲时执行
