@@ -755,7 +755,7 @@ export class Preview extends BaseComponent {
             this.#intersectionObserver.observe(block);
         });
         
-        // 延迟渲染剩余的代码块（类似 Mermaid 的 2 秒延迟）
+        // 延迟渲染剩余的代码块（类似 Mermaid 的 1 秒延迟）
         if (invisible.length > 0) {
             if (this.#codeHighlightTimer) {
                 clearTimeout(this.#codeHighlightTimer);
@@ -784,7 +784,7 @@ export class Preview extends BaseComponent {
                 }
                 
                 this.#codeHighlightTimer = null;
-            }, 2000);
+            }, 1000);
         }
     }
     
@@ -907,7 +907,7 @@ export class Preview extends BaseComponent {
                 }
                 
                 this.#mermaidRenderTimer = null;
-            }, 2000);
+            }, 1000);
         }
     }
     
