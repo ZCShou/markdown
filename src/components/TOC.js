@@ -11,6 +11,8 @@ export class TOC extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.animationFrameId = null;
+        this.debounceTimer = null;
+        this.debounceDelay = 150; // 防抖延迟 150ms
     }
 
     /**
@@ -18,9 +20,9 @@ export class TOC extends BaseComponent {
      * @returns {void}
      */
     subscribe() {
-        // 订阅标题数据变化，生成目录
+        // 订阅标题数据变化，生成目录（使用防抖）
         this.unsubscribe = this.state.subscribeTo('headings', () => {
-            this.generateTOC();
+            this.debouncedGenerateTOC();
         });
     }
 
@@ -42,8 +44,23 @@ export class TOC extends BaseComponent {
 
         // 监听目录生成事件（自动清理）
         this.addEventListener(window, 'md:generateTOC', () => {
-            this.generateTOC();
+            this.debouncedGenerateTOC();
         });
+    }
+
+    /**
+     * 防抖版本的生成目录
+     * @returns {void}
+     */
+    debouncedGenerateTOC() {
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+        }
+        
+        this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = null;
+            this.generateTOC();
+        }, this.debounceDelay);
     }
 
     /**
@@ -93,13 +110,14 @@ export class TOC extends BaseComponent {
             const heading = headings[i];
             
             // 直接使用已有的数据，无需解析
-            const headingId = heading.id || 'heading-' + i;
-            const level = heading.level || parseInt(heading.tagName.substring(1));
+            const headingId = heading.id || `heading-${i}`;
+            const level = heading.level || +heading.tagName.substring(1);
             const text = heading.textContent || '';
             
             const item = document.createElement('div');
-            item.className = 'md-toc-item level-' + level;
+            item.className = `md-toc-item level-${level}`;
             item.dataset.headingId = headingId;
+            item.dataset.level = level; // 存储 level 避免后续正则匹配
             item.textContent = text;
             
             fragment.appendChild(item);
@@ -121,35 +139,36 @@ export class TOC extends BaseComponent {
             const currentItem = currentItems[i];
             
             // 直接使用已有的数据，无需解析
-            const headingId = heading.id || 'heading-' + i;
-            const level = heading.level || parseInt(heading.tagName.substring(1));
+            const headingId = heading.id || `heading-${i}`;
+            const level = heading.level || +heading.tagName.substring(1);
             const text = heading.textContent || '';
             
-            // 缓存当前值，避免重复查询 DOM
-            const currentId = currentItem.dataset.headingId;
+            // 一次性读取当前值，避免重复查询 DOM
+            const dataset = currentItem.dataset;
+            const currentId = dataset.headingId;
+            const currentLevel = +dataset.level; // 直接从 data-level 读取，避免正则匹配
             const currentText = currentItem.textContent;
-            const currentLevelMatch = currentItem.className.match(/level-(\d)/);
-            const currentLevel = currentLevelMatch ? parseInt(currentLevelMatch[1]) : -1;
             
             // 检查是否需要更新
             if (currentId !== headingId || currentText !== text || currentLevel !== level) {
                 itemsToUpdate.push({
-                    index: i,
                     element: currentItem,
-                    headingId: headingId,
-                    text: text,
-                    level: level
+                    headingId,
+                    text,
+                    level
                 });
             }
         }
         
-        // 只在有变化时批量更新 DOM（移除嵌套的 rAF）
+        // 只在有变化时批量更新 DOM
         if (itemsToUpdate.length > 0) {
             for (let i = 0; i < itemsToUpdate.length; i++) {
                 const item = itemsToUpdate[i];
-                item.element.dataset.headingId = item.headingId;
+                const dataset = item.element.dataset;
+                dataset.headingId = item.headingId;
+                dataset.level = item.level;
                 item.element.textContent = item.text;
-                item.element.className = 'md-toc-item level-' + item.level;
+                item.element.className = `md-toc-item level-${item.level}`;
             }
         }
     }
@@ -171,6 +190,11 @@ export class TOC extends BaseComponent {
      * @returns {void}
      */
     destroy() {
+        // 清理防抖定时器
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = null;
+        }
         // 清理动画帧请求
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
