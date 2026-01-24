@@ -16,6 +16,12 @@ export class Preview extends BaseComponent {
     #lastRenderedData;
     /** @private */
     #mermaidTimeoutIds = [];
+    /** @private */
+    #intersectionObserver = null;
+    /** @private */
+    #pendingCodeBlocks = new Set();
+    /** @private */
+    #pendingMermaidBlocks = new Set();
 
     /**
      * 构造函数
@@ -33,22 +39,34 @@ export class Preview extends BaseComponent {
             mathBlocks: new Map(),      // hash -> math content
             headings: []                // heading texts
         };
+        
+        // IntersectionObserver 用于可见性检测
+        this.#intersectionObserver = null;
+        this.#pendingCodeBlocks = new Set();
+        this.#pendingMermaidBlocks = new Set();
     }
 
     /**
      * 生成简单哈希（用于差异检测）- 优化版：只取前256字符
      * @private
-     * @param {string} str - 要哈希的字符串
-     * @returns {string} 简单哈希值
      */
     #generateSimpleHash(str) {
         let hash = 0;
-        const len = Math.min(str.length, 256); // 只取前256字符
+        const len = Math.min(str.length, 256);
         for (let i = 0; i < len; i++) {
             hash = ((hash << 5) - hash) + str.charCodeAt(i);
-            hash |= 0; // 转换为32位整数
+            hash |= 0;
         }
         return hash.toString(36);
+    }
+    
+    /**
+     * 检查元素是否可见
+     * @private
+     */
+    #isElementVisible(element) {
+        const rect = element.getBoundingClientRect();
+        return rect.top < window.innerHeight + 200 && rect.bottom > -200;
     }
 
     /**
@@ -193,6 +211,44 @@ export class Preview extends BaseComponent {
     init() {
         super.init();
         this.initMermaid();
+        this.#initIntersectionObserver();
+    }
+
+    /**
+     * 初始化可见性观察器
+     * @private
+     */
+    #initIntersectionObserver() {
+        if (!('IntersectionObserver' in window)) return;
+        
+        this.#intersectionObserver = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const element = entry.target;
+                        
+                        // 处理代码高亮
+                        if (element.tagName === 'CODE' && this.#pendingCodeBlocks.has(element)) {
+                            this.#highlightSingleBlock(element);
+                            this.#pendingCodeBlocks.delete(element);
+                            this.#intersectionObserver.unobserve(element);
+                        }
+                        
+                        // 处理 Mermaid 渲染
+                        if (element.classList.contains('mermaid-pending')) {
+                            this.#renderSingleMermaid(element);
+                            this.#pendingMermaidBlocks.delete(element);
+                            this.#intersectionObserver.unobserve(element);
+                        }
+                    }
+                });
+            },
+            {
+                root: null,
+                rootMargin: '200px', // 提前 200px 开始渲染
+                threshold: 0.01
+            }
+        );
     }
 
     /**
@@ -240,39 +296,28 @@ export class Preview extends BaseComponent {
      */
     initMermaid() {
         if (this.mermaidInitialized) return;
-
-        // 根据当前主题初始化 Mermaid
-        const currentTheme = this.state.get('theme') || 'light';
-        const themeConfig = currentTheme === 'dark' ? 'dark' : 'default';
-
+        this.#configureMermaid(this.state.get('theme'));
+        this.mermaidInitialized = true;
+    }
+    
+    /**
+     * 配置 Mermaid 主题
+     * @private
+     */
+    #configureMermaid(theme) {
         mermaid.initialize({
             startOnLoad: false,
-            theme: themeConfig,
+            theme: theme === 'dark' ? 'dark' : 'default',
             securityLevel: 'loose',
             logLevel: 'error'
         });
-
-        this.mermaidInitialized = true;
     }
 
     /**
      * 更新 Mermaid 主题
      */
     updateMermaidTheme() {
-        const theme = this.state.get('theme');
-        
-        // 使用明确的主题配置
-        const themeConfig = theme === 'dark' ? 'dark' : 'default';
-        
-        // 重新初始化 Mermaid
-        mermaid.initialize({
-            startOnLoad: false,
-            theme: themeConfig,
-            securityLevel: 'loose',
-            logLevel: 'error'  // 减少日志输出
-        });
-        
-        // 重新渲染所有图表
+        this.#configureMermaid(this.state.get('theme'));
         this.renderMermaidCharts();
     }
 
@@ -420,16 +465,25 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 保留未变化的元素（优化版：只在需要时克隆）
+     * 保留未变化的元素（优化版：只保留哈希匹配的元素）
      * @private
      */
     #preserveUnchangedElements(tempDiv, oldElements, changes) {
-        // 保留未变化的代码块
+        // 保留未变化的代码块（只有当整体未变时）
         if (!changes.codeBlocksChanged) {
             tempDiv.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach(newEl => {
                 const hash = this.#generateSimpleHash(newEl.textContent);
                 const oldPre = oldElements.code.get(hash);
                 if (oldPre) {
+                    newEl.parentElement.replaceWith(oldPre.cloneNode(true));
+                }
+            });
+        } else {
+            // 即使有变化，也保留哈希相同的元素
+            tempDiv.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach(newEl => {
+                const hash = this.#generateSimpleHash(newEl.textContent);
+                if (changes.newCodeBlocks.has(hash) && oldElements.code.has(hash)) {
+                    const oldPre = oldElements.code.get(hash);
                     newEl.parentElement.replaceWith(oldPre.cloneNode(true));
                 }
             });
@@ -441,7 +495,18 @@ export class Preview extends BaseComponent {
                 const text = newEl.textContent.trim();
                 const hash = this.#generateSimpleHash(text);
                 const oldDiv = oldElements.mermaid.get(hash);
-                if (oldDiv) {
+                // 只保留已完成渲染的图表
+                if (oldDiv && oldDiv.classList.contains('mermaid-done')) {
+                    newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
+                }
+            });
+        } else {
+            // 即使有变化，也保留哈希相同且已渲染的元素
+            tempDiv.querySelectorAll('pre code.language-mermaid').forEach(newEl => {
+                const text = newEl.textContent.trim();
+                const hash = this.#generateSimpleHash(text);
+                const oldDiv = oldElements.mermaid.get(hash);
+                if (changes.newMermaidBlocks.has(hash) && oldDiv && oldDiv.classList.contains('mermaid-done')) {
                     newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
                 }
             });
@@ -455,6 +520,18 @@ export class Preview extends BaseComponent {
                     const hash = this.#generateSimpleHash(latex);
                     const oldEl = oldElements.math.get(hash);
                     if (oldEl) {
+                        newEl.replaceWith(oldEl.cloneNode(true));
+                    }
+                }
+            });
+        } else {
+            // 即使有变化，也保留哈希相同的元素
+            tempDiv.querySelectorAll('.math-block[data-latex], .math-inline[data-latex]').forEach(newEl => {
+                const latex = newEl.getAttribute('data-latex');
+                if (latex) {
+                    const hash = this.#generateSimpleHash(latex);
+                    if (changes.newMathBlocks.has(hash) && oldElements.math.has(hash)) {
+                        const oldEl = oldElements.math.get(hash);
                         newEl.replaceWith(oldEl.cloneNode(true));
                     }
                 }
@@ -565,11 +642,12 @@ export class Preview extends BaseComponent {
             return;
         }
 
-        // 增量渲染：只处理变化的部分
-        if (changes.codeBlocksChanged) {
+        // 增量渲染：总是处理未高亮的代码块和未渲染的 Mermaid
+        // 这样可以确保新内容被正确处理
+        if (codeBlocks.length > 0) {
             this.#highlightCode(codeBlocks);
         }
-        if (changes.mermaidBlocksChanged) {
+        if (mermaidBlocks.length > 0) {
             this.#renderMermaid(mermaidBlocks);
         }
         if (changes.mathBlocksChanged) {
@@ -582,14 +660,69 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 代码高亮（优化版：使用 requestIdleCallback）
+     * 代码高亮（优化版：优先渲染可见元素）
      * @private
      */
     #highlightCode(codeBlocks) {
         if (typeof Prism === 'undefined' || codeBlocks.length === 0) return;
 
         const blocks = Array.from(codeBlocks);
-        const BATCH_SIZE = 20;
+        
+        if (!this.#intersectionObserver) {
+            this.#highlightCodeBatch(blocks);
+            return;
+        }
+        
+        // 分离可见和不可见元素
+        const { visible, invisible } = this.#partitionByVisibility(blocks);
+        
+        // 立即高亮可见元素
+        visible.forEach(block => {
+            if (!block.classList.contains('prism-highlighted')) {
+                this.#highlightSingleBlock(block);
+            }
+        });
+        
+        // 监听不可见元素
+        invisible.forEach(block => {
+            this.#pendingCodeBlocks.add(block);
+            this.#intersectionObserver.observe(block);
+        });
+    }
+    
+    /**
+     * 按可见性分类元素
+     * @private
+     */
+    #partitionByVisibility(elements) {
+        const visible = [];
+        const invisible = [];
+        elements.forEach(el => {
+            (this.#isElementVisible(el) ? visible : invisible).push(el);
+        });
+        return { visible, invisible };
+    }
+    
+    /**
+     * 高亮单个代码块
+     * @private
+     */
+    #highlightSingleBlock(block) {
+        try {
+            Prism.highlightElement(block);
+            block.classList.add('prism-highlighted');
+        } catch (err) {
+            console.warn('代码高亮失败:', err);
+            block.classList.add('prism-highlighted'); // 标记为已处理
+        }
+    }
+    
+    /**
+     * 批量高亮代码（降级方案）
+     * @private
+     */
+    #highlightCodeBatch(blocks) {
+        const BATCH_SIZE = 30;
         let index = 0;
 
         const processBatch = () => {
@@ -598,18 +731,16 @@ export class Preview extends BaseComponent {
             while (index < end) {
                 const block = blocks[index];
                 if (!block.classList.contains('prism-highlighted')) {
-                    Prism.highlightElement(block);
-                    block.classList.add('prism-highlighted');
+                    this.#highlightSingleBlock(block);
                 }
                 index++;
             }
 
             if (index < blocks.length) {
-                // 使用 requestIdleCallback 在空闲时处理
                 if (typeof requestIdleCallback !== 'undefined') {
                     requestIdleCallback(processBatch, { timeout: 100 });
                 } else {
-                    setTimeout(processBatch, 0);
+                    setTimeout(processBatch, 16);
                 }
             }
         };
@@ -618,70 +749,156 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 渲染 Mermaid 图表（优化版：简化逻辑）
+     * 渲染 Mermaid 图表（优化版：优先渲染可见图表）
      * @private
      */
     #renderMermaid(mermaidBlocks) {
         if (typeof mermaid === 'undefined' || mermaidBlocks.length === 0) return;
-        if (this.container.offsetParent === null) return; // 容器不可见
-        if (this.state.get('isRenderingMermaid')) return; // 正在渲染中
+        if (this.container.offsetParent === null) return;
 
-        this.state.setRenderingState(true);
-
-        // 收集需要渲染的图表
-        const containers = [];
-        mermaidBlocks.forEach(block => {
-            const code = block.textContent.trim();
-            if (!code) return;
-
-            const preElement = block.parentElement;
-            const mermaidDiv = document.createElement('div');
-            mermaidDiv.className = 'mermaid';
-            mermaidDiv.textContent = code;
-            mermaidDiv.setAttribute('data-mermaid', code);
-
-            if (preElement?.parentNode) {
-                preElement.parentNode.replaceChild(mermaidDiv, preElement);
-                containers.push(mermaidDiv);
-            }
-        });
-
-        if (containers.length === 0) {
-            this.state.setRenderingState(false);
+        const blocks = Array.from(mermaidBlocks);
+        
+        if (!this.#intersectionObserver) {
+            this.#renderMermaidBatch(blocks);
             return;
         }
+        
+        // 转换为 mermaid div 并分类
+        const divs = blocks.map(block => this.#createMermaidDiv(block)).filter(Boolean);
+        const { visible, invisible } = this.#partitionByVisibility(divs);
+        
+        // 立即渲染可见图表
+        if (visible.length > 0) {
+            this.#renderMermaidDivs(visible);
+        }
+        
+        // 监听不可见图表
+        invisible.forEach(div => {
+            div.classList.add('mermaid-pending');
+            this.#pendingMermaidBlocks.add(div);
+            this.#intersectionObserver.observe(div);
+        });
+    }
+    
+    /**
+     * 创建 Mermaid div
+     * @private
+     */
+    #createMermaidDiv(block) {
+        const code = block.textContent.trim();
+        if (!code) return null;
+        
+        const preElement = block.parentElement;
+        if (!preElement?.parentNode) return null;
+        
+        // 如果已经是 mermaid div（从旧内容保留的），清除渲染状态强制重新渲染
+        if (preElement.classList && preElement.classList.contains('mermaid')) {
+            preElement.classList.remove('mermaid-done', 'mermaid-pending', 'render-error');
+            preElement.textContent = code;
+            preElement.setAttribute('data-mermaid', code);
+            return preElement;
+        }
+        
+        const mermaidDiv = document.createElement('div');
+        mermaidDiv.className = 'mermaid';
+        mermaidDiv.textContent = code;
+        mermaidDiv.setAttribute('data-mermaid', code);
+        
+        preElement.parentNode.replaceChild(mermaidDiv, preElement);
+        return mermaidDiv;
+    }
+    
+    /**
+     * 渲染单个 Mermaid 图表
+     * @private
+     */
+    #renderSingleMermaid(mermaidDiv) {
+        mermaidDiv.classList.remove('mermaid-pending');
+        this.#renderMermaidDivs([mermaidDiv]);
+    }
+    
+    /**
+     * 渲染 Mermaid div 列表
+     * @private
+     */
+    #renderMermaidDivs(containers) {
+        if (containers.length === 0) return;
+        
+        const timeoutId = this.#setupMermaidTimeout(containers);
+        this.#mermaidTimeoutIds.push(timeoutId);
 
-        // 设置超时
-        const timeoutId = setTimeout(() => {
+        mermaid.run({ nodes: containers })
+            .then(() => this.#handleMermaidSuccess(containers, timeoutId))
+            .catch(err => this.#handleMermaidError(containers, timeoutId, err));
+    }
+    
+    /**
+     * 设置 Mermaid 超时
+     * @private
+     */
+    #setupMermaidTimeout(containers) {
+        return setTimeout(() => {
             containers.forEach(c => {
                 if (!c.classList.contains('mermaid-done')) {
                     c.textContent = '图表渲染超时';
                     c.classList.add('render-error');
                 }
             });
-            this.state.setRenderingState(false);
             this.#clearMermaidTimeout(timeoutId);
         }, 5000);
+    }
+    
+    /**
+     * 处理 Mermaid 成功
+     * @private
+     */
+    #handleMermaidSuccess(containers, timeoutId) {
+        clearTimeout(timeoutId);
+        containers.forEach(c => c.classList.add('mermaid-done'));
+        this.#clearMermaidTimeout(timeoutId);
+    }
+    
+    /**
+     * 处理 Mermaid 错误
+     * @private
+     */
+    #handleMermaidError(containers, timeoutId, err) {
+        clearTimeout(timeoutId);
+        console.warn('Mermaid 渲染失败:', err);
+        containers.forEach(c => {
+            c.textContent = '图表渲染失败: ' + err.message;
+            c.classList.add('render-error');
+        });
+        this.#clearMermaidTimeout(timeoutId);
+    }
+    
+    /**
+     * 批量渲染 Mermaid（降级方案）
+     * @private
+     */
+    #renderMermaidBatch(blocks) {
+        if (this.state.get('isRenderingMermaid')) return;
+        
+        this.state.setRenderingState(true);
+        
+        const containers = blocks.map(block => this.#createMermaidDiv(block)).filter(Boolean);
 
+        if (containers.length === 0) {
+            this.state.setRenderingState(false);
+            return;
+        }
+
+        const timeoutId = this.#setupMermaidTimeout(containers);
         this.#mermaidTimeoutIds.push(timeoutId);
 
-        // 渲染图表
         mermaid.run({ nodes: containers })
             .then(() => {
-                clearTimeout(timeoutId);
-                containers.forEach(c => c.classList.add('mermaid-done'));
+                this.#handleMermaidSuccess(containers, timeoutId);
                 this.state.setRenderingState(false);
-                this.#clearMermaidTimeout(timeoutId);
             })
             .catch(err => {
-                clearTimeout(timeoutId);
-                console.warn('Mermaid 渲染失败:', err);
-                containers.forEach(c => {
-                    c.textContent = '图表渲染失败: ' + err.message;
-                    c.classList.add('render-error');
-                });
+                this.#handleMermaidError(containers, timeoutId, err);
                 this.state.setRenderingState(false);
-                this.#clearMermaidTimeout(timeoutId);
             });
     }
 
@@ -744,16 +961,13 @@ export class Preview extends BaseComponent {
     #renderMath() {
         if (typeof katex === 'undefined') return;
 
-        // 渲染块级和行内公式
         this.container.querySelectorAll('.math-block:not(.math-rendered), .math-inline:not(.math-rendered)').forEach(el => {
             const latex = el.getAttribute('data-latex');
             if (!latex) return;
 
-            const displayMode = el.classList.contains('math-block');
-            
             try {
                 katex.render(latex, el, {
-                    displayMode,
+                    displayMode: el.classList.contains('math-block'),
                     throwOnError: false,
                     errorColor: '#cc0000'
                 });
@@ -1040,6 +1254,16 @@ ${html}
             clearTimeout(timeoutId);
         });
         this.#mermaidTimeoutIds = [];
+        
+        // 清理 IntersectionObserver
+        if (this.#intersectionObserver) {
+            this.#intersectionObserver.disconnect();
+            this.#intersectionObserver = null;
+        }
+        
+        // 清理待处理集合
+        this.#pendingCodeBlocks.clear();
+        this.#pendingMermaidBlocks.clear();
         
         super.destroy();
     }
