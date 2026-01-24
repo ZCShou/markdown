@@ -85,44 +85,69 @@ export class Preview extends BaseComponent {
             headings: []
         };
         
-        let codeIndex = 0;
-        let mermaidIndex = 0;
-        let mathIndex = 0;
+        let codeIndex = 0, mermaidIndex = 0, mathIndex = 0;
         
-        // 提取代码块（包括 Mermaid）
+        // 收集所有代码区域的范围（代码块 + 行内代码）
+        const codeRanges = [];
+        
+        // 提取代码块
         const codeRegex = /```(\w*)\n([\s\S]*?)```/g;
         let match;
         while ((match = codeRegex.exec(markdown)) !== null) {
-            const [_, lang = 'text', code] = match;
-            const hash = this.#generateSimpleHash(lang + code);
+            const [fullMatch, lang = 'text', code] = match;
+            codeRanges.push([match.index, match.index + fullMatch.length]);
             
+            const hash = this.#generateSimpleHash(lang + code);
             if (lang === 'mermaid') {
                 const trimmedCode = code.trim();
                 const mermaidHash = this.#generateSimpleHash(trimmedCode);
-                result.mermaidBlocks.set(mermaidHash, { code: trimmedCode, index: mermaidIndex });
-                mermaidIndex++;
+                result.mermaidBlocks.set(mermaidHash, { code: trimmedCode, index: mermaidIndex++ });
             } else {
-                result.codeBlocks.set(hash, { lang, code, index: codeIndex });
-                codeIndex++;
+                result.codeBlocks.set(hash, { lang, code, index: codeIndex++ });
             }
         }
         
-        // 提取数学公式（块级）
-        const blockMathRegex = /\$\$([\s\S]*?)\$\$/g;
-        while ((match = blockMathRegex.exec(markdown)) !== null) {
-            const latex = match[1].trim();
-            const hash = this.#generateSimpleHash(latex);
-            result.mathBlocks.set(hash, { latex, displayMode: true, index: mathIndex });
-            mathIndex++;
+        // 提取行内代码
+        const inlineCodeRegex = /`[^`\n]+?`/g;
+        while ((match = inlineCodeRegex.exec(markdown)) !== null) {
+            const pos = match.index;
+            // 如果不在代码块内，则记录
+            if (!codeRanges.some(([start, end]) => pos >= start && pos < end)) {
+                codeRanges.push([pos, pos + match[0].length]);
+            }
         }
         
-        // 提取数学公式（行内）
+        // 排序范围数组以便二分查找（性能优化）
+        codeRanges.sort((a, b) => a[0] - b[0]);
+        
+        // 辅助函数：使用二分查找检查位置是否在代码区域（O(log n)）
+        const isInCode = (pos) => {
+            let left = 0, right = codeRanges.length - 1;
+            while (left <= right) {
+                const mid = (left + right) >> 1;
+                const [start, end] = codeRanges[mid];
+                if (pos >= start && pos < end) return true;
+                if (pos < start) right = mid - 1;
+                else left = mid + 1;
+            }
+            return false;
+        };
+        
+        // 提取数学公式（块级和行内）
+        const blockMathRegex = /\$\$([\s\S]*?)\$\$/g;
+        while ((match = blockMathRegex.exec(markdown)) !== null) {
+            if (!isInCode(match.index)) {
+                const hash = this.#generateSimpleHash(match[1].trim());
+                result.mathBlocks.set(hash, { latex: match[1].trim(), displayMode: true, index: mathIndex++ });
+            }
+        }
+        
         const inlineMathRegex = /\$([^\$\n]+?)\$/g;
         while ((match = inlineMathRegex.exec(markdown)) !== null) {
-            const latex = match[1].trim();
-            const hash = this.#generateSimpleHash(latex);
-            result.mathBlocks.set(hash, { latex, displayMode: false, index: mathIndex });
-            mathIndex++;
+            if (!isInCode(match.index)) {
+                const hash = this.#generateSimpleHash(match[1].trim());
+                result.mathBlocks.set(hash, { latex: match[1].trim(), displayMode: false, index: mathIndex++ });
+            }
         }
         
         // 提取标题（使用正则避免 split）
@@ -1134,22 +1159,26 @@ export class Preview extends BaseComponent {
      */
     renderMarkdown(markdown) {
         try {
-            // 预处理数学公式 - 使用简单的占位符
             const mathBlocks = [];
+            const placeholders = [];
             
-            // 先替换块级公式
-            let processedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match, latex) => {
-                const index = mathBlocks.length;
-                mathBlocks.push({ latex, displayMode: true });
-                return `MB${index}B`;
-            });
+            // 单次遍历：保护代码并提取数学公式
+            let processedMarkdown = markdown
+                // 先保护代码块
+                .replace(/```[\s\S]*?```|`[^`\n]+?`/g, (match) => {
+                    placeholders.push(match);
+                    return `\x00${placeholders.length - 1}\x00`;
+                })
+                // 再提取数学公式
+                .replace(/\$\$([\s\S]*?)\$\$|\$([^\$\n]+?)\$/g, (match, block, inline) => {
+                    const latex = block !== undefined ? block : inline;
+                    const displayMode = block !== undefined;
+                    mathBlocks.push({ latex, displayMode });
+                    return `\x01${mathBlocks.length - 1}\x01`;
+                });
             
-            // 再替换行内公式
-            processedMarkdown = processedMarkdown.replace(/\$([^\$\n]+?)\$/g, (match, latex) => {
-                const index = mathBlocks.length;
-                mathBlocks.push({ latex, displayMode: false });
-                return `MI${index}I`;
-            });
+            // 恢复代码
+            processedMarkdown = processedMarkdown.replace(/\x00(\d+)\x00/g, (_, i) => placeholders[i]);
 
             // 使用 marked 解析
             let html;
@@ -1166,17 +1195,12 @@ export class Preview extends BaseComponent {
                 html = this.escapeHtml(processedMarkdown);
             }
 
-            // 替换所有数学公式占位符
-            html = html.replace(/MB(\d+)B/g, (_, index) => {
+            // 替换数学公式占位符
+            html = html.replace(/\x01(\d+)\x01/g, (_, index) => {
                 const math = mathBlocks[parseInt(index)];
-                return math.displayMode 
-                    ? `<div class="math-block" data-latex="${math.latex}"></div>`
-                    : `<span class="math-inline" data-latex="${math.latex}"></span>`;
-            });
-            
-            html = html.replace(/MI(\d+)I/g, (_, index) => {
-                const math = mathBlocks[parseInt(index)];
-                return `<span class="math-inline" data-latex="${math.latex}"></span>`;
+                const tag = math.displayMode ? 'div' : 'span';
+                const cls = math.displayMode ? 'math-block' : 'math-inline';
+                return `<${tag} class="${cls}" data-latex="${math.latex}"></${tag}>`;
             });
 
             // 净化 HTML
