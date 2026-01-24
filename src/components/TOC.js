@@ -48,35 +48,32 @@ export class TOC extends BaseComponent {
      * 生成目录（增量更新优化）
      */
     generateTOC() {
-        // 清除之前的动画帧请求
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-        }
+        const headings = this.state.get('headings');
+        const headingCount = headings ? headings.length : 0;
         
-        // 在下一帧生成目录
-        this.animationFrameId = requestAnimationFrame(() => {
-            this.animationFrameId = null;
-            
-            const headings = this.state.get('headings');
-            const headingCount = headings ? headings.length : 0;
-            
-            if (headingCount === 0) {
-                this.container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
-                return;
+        if (headingCount === 0) {
+            this.container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
+            return;
+        }
+
+        // 检查是否需要完全重建
+        const currentItems = this.container.querySelectorAll('.md-toc-item');
+        const needsFullRebuild = currentItems.length !== headingCount;
+
+        if (needsFullRebuild) {
+            // 完全重建时使用RAF避免阻塞
+            if (this.animationFrameId) {
+                cancelAnimationFrame(this.animationFrameId);
             }
-
-            // 检查是否需要完全重建
-            const currentItems = this.container.querySelectorAll('.md-toc-item');
-            const needsFullRebuild = currentItems.length !== headingCount;
-
-            if (needsFullRebuild) {
-                // 完全重建
+            
+            this.animationFrameId = requestAnimationFrame(() => {
+                this.animationFrameId = null;
                 this._rebuildTOC(headings);
-            } else {
-                // 增量更新
-                this._updateTOC(headings, currentItems);
-            }
-        });
+            });
+        } else {
+            // 增量更新直接同步执行，不使用RAF，减少延迟
+            this._updateTOC(headings, currentItems);
+        }
     }
 
     /**
@@ -92,10 +89,9 @@ export class TOC extends BaseComponent {
         for (let i = 0; i < headingCount; i++) {
             const heading = headings[i];
             
-            // 使用 Preview 组件生成的 ID，不再修改 DOM
+            // 直接使用已有的数据，无需解析
             const headingId = heading.id || 'heading-' + i;
-            
-            const level = parseInt(heading.tagName.substring(1));
+            const level = heading.level || parseInt(heading.tagName.substring(1));
             const text = heading.textContent || '';
             
             const item = document.createElement('div');
@@ -121,10 +117,9 @@ export class TOC extends BaseComponent {
             const heading = headings[i];
             const currentItem = currentItems[i];
             
-            // 使用 Preview 组件生成的 ID，不再修改 DOM
+            // 直接使用已有的数据，无需解析
             const headingId = heading.id || 'heading-' + i;
-            
-            const level = parseInt(heading.tagName.substring(1));
+            const level = heading.level || parseInt(heading.tagName.substring(1));
             const text = heading.textContent || '';
             
             // 缓存当前值，避免重复查询 DOM

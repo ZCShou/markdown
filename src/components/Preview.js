@@ -106,6 +106,35 @@ export class Preview extends BaseComponent {
     }
 
     /**
+     * 同步更新标题数据（在DOM渲染前）
+     * @private
+     */
+    #updateHeadingsSync(markdown) {
+        const regex = /^(#{1,6})\s+(.+)$/gm;
+        const headingsData = [];
+        let match;
+        let index = 0;
+
+        while ((match = regex.exec(markdown)) !== null) {
+            const level = match[1].length;
+            const text = match[2].trim();
+            const id = 'heading-' + index;
+            
+            // 构造虚拟的heading对象，包含TOC需要的所有信息
+            headingsData.push({
+                tagName: 'H' + level,
+                textContent: text,
+                id: id,
+                level: level
+            });
+            index++;
+        }
+
+        // 立即同步更新state，不等待DOM渲染
+        this.state.setState({ headings: headingsData });
+    }
+
+    /**
      * 提取所有数学公式内容
      * @private
      */
@@ -331,7 +360,18 @@ export class Preview extends BaseComponent {
         const doc = documents.find(d => d.id === currentDocId);
         if (!doc || doc.type === 'folder') return;
         
-        this._scheduleRender(doc.content || '', 0);
+        // 切换文档时立即同步渲染，无延迟
+        const content = doc.content || '';
+        
+        // 取消之前的渲染任务
+        if (this.renderTimeout) {
+            clearTimeout(this.renderTimeout);
+            this.renderTimeout = null;
+        }
+        
+        // 立即渲染
+        this.renderContent(content);
+        this.state.updateLastRenderedContent(content);
     }
 
     /**
@@ -346,9 +386,14 @@ export class Preview extends BaseComponent {
         // 如果是首次渲染或所有内容都变了，直接替换
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
-            // 首次渲染时也要更新 headings，否则 TOC 组件无法生成目录
+            // 首次渲染时更新heading的id属性（headings数据已在renderContent中同步更新）
             const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            this.state.setState({ headings: Array.from(headings) });
+            const stateHeadings = this.state.get('headings');
+            headings.forEach((heading, index) => {
+                if (stateHeadings[index] && stateHeadings[index].id) {
+                    heading.id = stateHeadings[index].id;
+                }
+            });
             return;
         }
         
@@ -479,11 +524,16 @@ export class Preview extends BaseComponent {
         this.container.innerHTML = '';
         this.container.appendChild(fragment);
 
-        // 10. 只在标题变化时更新 headings（性能优化）
-        // 避免不必要的 state 更新和 TOC 重新生成
+        // 10. 标题数据已在renderContent开始时同步更新，这里无需再次更新
+        // 但需要更新DOM中的heading id属性，确保点击TOC能正确跳转
         if (changes.headingsChanged) {
             const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            this.state.setState({ headings: Array.from(headings) });
+            const stateHeadings = this.state.get('headings');
+            headings.forEach((heading, index) => {
+                if (stateHeadings[index] && stateHeadings[index].id) {
+                    heading.id = stateHeadings[index].id;
+                }
+            });
         }
     }
 
@@ -497,6 +547,12 @@ export class Preview extends BaseComponent {
         // 如果 Markdown 完全没变，跳过渲染
         if (markdown === this.#lastRenderedData.markdown) {
             return;
+        }
+        
+        // 提前更新标题数据（在HTML渲染前），让TOC能立即获取
+        // 这样TOC不需要等待DOM渲染完成
+        if (changes.headingsChanged) {
+            this.#updateHeadingsSync(markdown);
         }
 
         // 渲染 Markdown 为 HTML
