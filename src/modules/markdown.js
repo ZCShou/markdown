@@ -124,7 +124,9 @@ export class MarkdownEditor {
 
         if (overlay && messageEl) {
             messageEl.textContent = message;
-            messageEl.className = 'status-message ' + type;
+            // 使用 classList 替代 className 拼接
+            messageEl.classList.remove('info', 'success', 'warning', 'error');
+            messageEl.classList.add(type);
             overlay.classList.add('show');
             messageEl.classList.add('show');
 

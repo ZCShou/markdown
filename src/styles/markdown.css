@@ -2190,6 +2190,7 @@ body.dark-mode .markdown-body .math-error {
     background: var(--md-bg-secondary);
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    width: var(--dialog-width, 400px);
     max-width: 90vw;
     max-height: 90vh;
     overflow: hidden;

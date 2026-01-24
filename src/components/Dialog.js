@@ -106,12 +106,15 @@ export class Dialog {
         return new Promise((resolve) => {
             // 创建遮罩层
             const overlay = document.createElement('div');
-            overlay.className = 'md-dialog-overlay';
+            overlay.classList.add('md-dialog-overlay');
             
             // 创建对话框
             const dialog = document.createElement('div');
-            dialog.className = `md-dialog md-dialog-${type}`;
-            dialog.style.width = width;
+            dialog.classList.add('md-dialog', `md-dialog-${type}`);
+            // 使用 CSS 类替代直接设置宽度
+            if (width !== '400px') {
+                dialog.style.setProperty('--dialog-width', width);
+            }
             
             // 图标映射
             const iconMap = {
