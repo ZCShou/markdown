@@ -133,7 +133,11 @@ export class Preview extends BaseComponent {
             
             const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
             if (headingMatch) {
-                result.headings.push(headingMatch[2]);
+                // 保存级别和文本
+                result.headings.push({
+                    level: headingMatch[1].length,
+                    text: headingMatch[2]
+                });
             }
         }
         
@@ -145,8 +149,10 @@ export class Preview extends BaseComponent {
      * @private
      */
     #updateHeadingsSync(headings) {
-        const headingsData = headings.map((text, index) => {
-            const level = text.match(/^(#{1,6})/) ? text.match(/^(#{1,6})/)[1].length : 2;
+        const headingsData = headings.map((heading, index) => {
+            // heading 是 { level, text } 对象
+            const level = heading.level;
+            const text = heading.text;
             return {
                 tagName: 'H' + level,
                 textContent: text,
@@ -202,7 +208,24 @@ export class Preview extends BaseComponent {
      */
     #areArraysEqual(arr1, arr2) {
         if (arr1.length !== arr2.length) return false;
-        return arr1.every((val, i) => val === arr2[i]);
+        
+        // 标题数组元素是对象，需要深度比较
+        for (let i = 0; i < arr1.length; i++) {
+            const item1 = arr1[i];
+            const item2 = arr2[i];
+            
+            // 如果都是对象（标题），比较 level 和 text
+            if (item1 && item2 && typeof item1 === 'object' && typeof item2 === 'object') {
+                if (item1.level !== item2.level || item1.text !== item2.text) {
+                    return false;
+                }
+            } else {
+                // 否则直接比较（简单类型或一个为 null）
+                if (item1 !== item2) return false;
+            }
+        }
+        
+        return true;
     }
 
     /**
