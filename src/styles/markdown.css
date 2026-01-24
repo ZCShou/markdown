@@ -477,7 +477,6 @@ html::-webkit-scrollbar-thumb:hover,
     padding: 6px 0;
     cursor: pointer;
     color: var(--md-text-primary);
-    transition: color 0.2s;
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
