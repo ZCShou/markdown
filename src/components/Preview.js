@@ -36,14 +36,15 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 生成简单哈希（用于差异检测）
+     * 生成简单哈希（用于差异检测）- 优化版：只取前256字符
      * @private
      * @param {string} str - 要哈希的字符串
      * @returns {string} 简单哈希值
      */
     #generateSimpleHash(str) {
         let hash = 0;
-        for (let i = 0; i < str.length; i++) {
+        const len = Math.min(str.length, 256); // 只取前256字符
+        for (let i = 0; i < len; i++) {
             hash = ((hash << 5) - hash) + str.charCodeAt(i);
             hash |= 0; // 转换为32位整数
         }
@@ -51,167 +52,117 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 提取所有代码块内容（优化版：简化逻辑）
+     * 单次扫描提取所有块（优化版：避免多次遍历）
      * @private
      */
-    #extractCodeBlocks(markdown) {
-        const codeBlocks = new Map();
-        const regex = /```(\w*)\n([\s\S]*?)```/g;
+    #extractAllBlocks(markdown) {
+        const result = {
+            codeBlocks: new Map(),
+            mermaidBlocks: new Map(),
+            mathBlocks: new Map(),
+            headings: []
+        };
+        
+        let codeIndex = 0;
+        let mermaidIndex = 0;
+        let mathIndex = 0;
+        
+        // 提取代码块（包括 Mermaid）
+        const codeRegex = /```(\w*)\n([\s\S]*?)```/g;
         let match;
-        let index = 0;
-
-        while ((match = regex.exec(markdown)) !== null) {
+        while ((match = codeRegex.exec(markdown)) !== null) {
             const [_, lang = 'text', code] = match;
             const hash = this.#generateSimpleHash(lang + code);
-            codeBlocks.set(hash, { lang, code, index });
-            index++;
+            
+            if (lang === 'mermaid') {
+                const trimmedCode = code.trim();
+                const mermaidHash = this.#generateSimpleHash(trimmedCode);
+                result.mermaidBlocks.set(mermaidHash, { code: trimmedCode, index: mermaidIndex });
+                mermaidIndex++;
+            } else {
+                result.codeBlocks.set(hash, { lang, code, index: codeIndex });
+                codeIndex++;
+            }
         }
-
-        return codeBlocks;
-    }
-
-    /**
-     * 提取所有 Mermaid 图表内容（优化版：简化逻辑）
-     * @private
-     */
-    #extractMermaidBlocks(markdown) {
-        const mermaidBlocks = new Map();
-        const regex = /```mermaid\n([\s\S]*?)```/g;
-        let match;
-        let index = 0;
-
-        while ((match = regex.exec(markdown)) !== null) {
-            const code = match[1].trim();
-            const hash = this.#generateSimpleHash(code);
-            mermaidBlocks.set(hash, { code, index });
-            index++;
-        }
-
-        return mermaidBlocks;
-    }
-
-    /**
-     * 提取所有标题（优化版：简化逻辑）
-     * @private
-     */
-    #extractHeadings(markdown) {
-        const headings = [];
-        const lines = markdown.split('\n');
-        let inCodeBlock = false;
         
+        // 提取数学公式（块级）
+        const blockMathRegex = /\$\$([\s\S]*?)\$\$/g;
+        while ((match = blockMathRegex.exec(markdown)) !== null) {
+            const latex = match[1].trim();
+            const hash = this.#generateSimpleHash(latex);
+            result.mathBlocks.set(hash, { latex, displayMode: true, index: mathIndex });
+            mathIndex++;
+        }
+        
+        // 提取数学公式（行内）
+        const inlineMathRegex = /\$([^\$\n]+?)\$/g;
+        while ((match = inlineMathRegex.exec(markdown)) !== null) {
+            const latex = match[1].trim();
+            const hash = this.#generateSimpleHash(latex);
+            result.mathBlocks.set(hash, { latex, displayMode: false, index: mathIndex });
+            mathIndex++;
+        }
+        
+        // 提取标题（使用正则避免 split）
+        const lines = markdown.split('\n');
+        let inCodeBlock = false;
         for (const line of lines) {
-            // 检测代码块边界
             if (line.trim().startsWith('```')) {
                 inCodeBlock = !inCodeBlock;
                 continue;
             }
-            
-            // 跳过代码块中的内容
             if (inCodeBlock) continue;
             
-            // 匹配标题
-            const match = line.match(/^(#{1,6})\s+(.+)$/);
-            if (match) {
-                headings.push(match[2]);
+            const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+            if (headingMatch) {
+                result.headings.push(headingMatch[2]);
             }
         }
-
-        return headings;
+        
+        return result;
     }
 
     /**
-     * 同步更新标题数据（在 DOM 渲染前）
+     * 同步更新标题数据（在 DOM 渲染前）- 优化版：复用提取结果
      * @private
      */
-    #updateHeadingsSync(markdown) {
-        const headingsData = [];
-        const lines = markdown.split('\n');
-        let inCodeBlock = false;
-        let index = 0;
-
-        for (const line of lines) {
-            // 检测代码块边界
-            if (line.trim().startsWith('```')) {
-                inCodeBlock = !inCodeBlock;
-                continue;
-            }
-            
-            // 跳过代码块中的内容
-            if (inCodeBlock) continue;
-            
-            // 匹配标题
-            const match = line.match(/^(#{1,6})\s+(.+)$/);
-            if (match) {
-                const level = match[1].length;
-                const text = match[2].trim();
-                
-                headingsData.push({
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + index,
-                    level
-                });
-                index++;
-            }
-        }
+    #updateHeadingsSync(headings) {
+        const headingsData = headings.map((text, index) => {
+            const level = text.match(/^(#{1,6})/) ? text.match(/^(#{1,6})/)[1].length : 2;
+            return {
+                tagName: 'H' + level,
+                textContent: text,
+                id: 'heading-' + index,
+                level
+            };
+        });
 
         // 立即同步更新 state
         this.state.setState({ headings: headingsData });
     }
 
-    /**
-     * 提取所有数学公式内容（优化版：简化逻辑）
-     * @private
-     */
-    #extractMathBlocks(markdown) {
-        const mathBlocks = new Map();
-        let index = 0;
 
-        // 块级公式 $$...$$
-        const blockRegex = /\$\$([\s\S]*?)\$\$/g;
-        let match;
-        while ((match = blockRegex.exec(markdown)) !== null) {
-            const latex = match[1].trim();
-            const hash = this.#generateSimpleHash(latex);
-            mathBlocks.set(hash, { latex, displayMode: true, index });
-            index++;
-        }
-
-        // 行内公式 $...$
-        const inlineRegex = /\$([^\$\n]+?)\$/g;
-        while ((match = inlineRegex.exec(markdown)) !== null) {
-            const latex = match[1].trim();
-            const hash = this.#generateSimpleHash(latex);
-            mathBlocks.set(hash, { latex, displayMode: false, index });
-            index++;
-        }
-
-        return mathBlocks;
-    }
 
     /**
-     * 检测内容变化（优化版：简化逻辑）
+     * 检测内容变化（优化版：单次扫描）
      * @private
      */
     #detectChanges(newMarkdown) {
         const oldData = this.#lastRenderedData;
         
-        // 提取新数据
-        const newCodeBlocks = this.#extractCodeBlocks(newMarkdown);
-        const newMermaidBlocks = this.#extractMermaidBlocks(newMarkdown);
-        const newMathBlocks = this.#extractMathBlocks(newMarkdown);
-        const newHeadings = this.#extractHeadings(newMarkdown);
+        // 单次扫描提取所有数据
+        const extracted = this.#extractAllBlocks(newMarkdown);
 
         // 比较变化
         return {
-            codeBlocksChanged: !this.#areMapsEqual(oldData.codeBlocks, newCodeBlocks),
-            mermaidBlocksChanged: !this.#areMapsEqual(oldData.mermaidBlocks, newMermaidBlocks),
-            mathBlocksChanged: !this.#areMapsEqual(oldData.mathBlocks, newMathBlocks),
-            headingsChanged: !this.#areArraysEqual(oldData.headings, newHeadings),
-            newCodeBlocks,
-            newMermaidBlocks,
-            newMathBlocks,
-            newHeadings
+            codeBlocksChanged: !this.#areMapsEqual(oldData.codeBlocks, extracted.codeBlocks),
+            mermaidBlocksChanged: !this.#areMapsEqual(oldData.mermaidBlocks, extracted.mermaidBlocks),
+            mathBlocksChanged: !this.#areMapsEqual(oldData.mathBlocks, extracted.mathBlocks),
+            headingsChanged: !this.#areArraysEqual(oldData.headings, extracted.headings),
+            newCodeBlocks: extracted.codeBlocks,
+            newMermaidBlocks: extracted.mermaidBlocks,
+            newMathBlocks: extracted.mathBlocks,
+            newHeadings: extracted.headings
         };
     }
 
@@ -380,11 +331,11 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 智能更新 DOM（优化版：简化逻辑，减少 DOM 操作）
+     * 智能更新 DOM（优化版：使用 replaceChildren 减少重排）
      * @private
      */
     #updateDOMSmart(newHTML, changes) {
-        // 首次渲染，直接替换
+        // 首次渲染，使用 innerHTML（性能更好）
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
             this.#updateHeadingIds();
@@ -411,13 +362,18 @@ export class Preview extends BaseComponent {
         // 在新 HTML 中保留未变化的元素
         this.#preserveUnchangedElements(tempDiv, oldElements, changes);
 
-        // 更新 DOM
-        const fragment = document.createDocumentFragment();
-        while (tempDiv.firstChild) {
-            fragment.appendChild(tempDiv.firstChild);
+        // 更新 DOM - 使用 replaceChildren 减少重排
+        if (this.container.replaceChildren) {
+            this.container.replaceChildren(...tempDiv.childNodes);
+        } else {
+            // 降级方案
+            const fragment = document.createDocumentFragment();
+            while (tempDiv.firstChild) {
+                fragment.appendChild(tempDiv.firstChild);
+            }
+            this.container.innerHTML = '';
+            this.container.appendChild(fragment);
         }
-        this.container.innerHTML = '';
-        this.container.appendChild(fragment);
 
         // 更新标题 ID
         if (changes.headingsChanged) {
@@ -426,7 +382,7 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 构建旧元素的哈希映射
+     * 构建旧元素的哈希映射（优化版：存储引用，延迟克隆）
      * @private
      */
     #buildElementHashMaps() {
@@ -436,27 +392,27 @@ export class Preview extends BaseComponent {
             math: new Map()
         };
 
-        // 收集代码块
+        // 收集代码块（存储引用）
         this.container.querySelectorAll('pre code[class*="language-"]:not(.language-mermaid)').forEach(el => {
             const hash = this.#generateSimpleHash(el.textContent);
-            maps.code.set(hash, el.parentElement.cloneNode(true));
+            maps.code.set(hash, el.parentElement);
         });
 
-        // 收集 Mermaid 图表
+        // 收集 Mermaid 图表（存储引用）
         this.container.querySelectorAll('div.mermaid[data-mermaid]').forEach(el => {
             const text = el.getAttribute('data-mermaid');
             if (text) {
                 const hash = this.#generateSimpleHash(text);
-                maps.mermaid.set(hash, el.cloneNode(true));
+                maps.mermaid.set(hash, el);
             }
         });
 
-        // 收集数学公式
+        // 收集数学公式（存储引用）
         this.container.querySelectorAll('.math-block[data-latex], .math-inline[data-latex]').forEach(el => {
             const latex = el.getAttribute('data-latex');
             if (latex) {
                 const hash = this.#generateSimpleHash(latex);
-                maps.math.set(hash, el.cloneNode(true));
+                maps.math.set(hash, el);
             }
         });
 
@@ -464,7 +420,7 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 保留未变化的元素
+     * 保留未变化的元素（优化版：只在需要时克隆）
      * @private
      */
     #preserveUnchangedElements(tempDiv, oldElements, changes) {
@@ -474,7 +430,7 @@ export class Preview extends BaseComponent {
                 const hash = this.#generateSimpleHash(newEl.textContent);
                 const oldPre = oldElements.code.get(hash);
                 if (oldPre) {
-                    newEl.parentElement.replaceWith(oldPre);
+                    newEl.parentElement.replaceWith(oldPre.cloneNode(true));
                 }
             });
         }
@@ -486,7 +442,7 @@ export class Preview extends BaseComponent {
                 const hash = this.#generateSimpleHash(text);
                 const oldDiv = oldElements.mermaid.get(hash);
                 if (oldDiv) {
-                    newEl.parentElement.replaceWith(oldDiv);
+                    newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
                 }
             });
         }
@@ -499,7 +455,7 @@ export class Preview extends BaseComponent {
                     const hash = this.#generateSimpleHash(latex);
                     const oldEl = oldElements.math.get(hash);
                     if (oldEl) {
-                        newEl.replaceWith(oldEl);
+                        newEl.replaceWith(oldEl.cloneNode(true));
                     }
                 }
             });
@@ -507,17 +463,29 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 更新标题 ID
+     * 更新标题 ID（优化版：批量设置减少重排）
      * @private
      */
     #updateHeadingIds() {
         const headings = this.container.querySelectorAll('h1, h2, h3, h4, h5, h6');
         const stateHeadings = this.state.get('headings');
+        
+        // 批量收集需要更新的元素
+        const updates = [];
         headings.forEach((heading, index) => {
-            if (stateHeadings[index]?.id) {
-                heading.id = stateHeadings[index].id;
+            if (stateHeadings[index]?.id && heading.id !== stateHeadings[index].id) {
+                updates.push({ element: heading, id: stateHeadings[index].id });
             }
         });
+        
+        // 批量应用更新
+        if (updates.length > 0) {
+            requestAnimationFrame(() => {
+                updates.forEach(({ element, id }) => {
+                    element.id = id;
+                });
+            });
+        }
     }
 
     /**
@@ -532,7 +500,7 @@ export class Preview extends BaseComponent {
         
         // 提前更新标题数据（让 TOC 能立即获取）
         if (changes.headingsChanged) {
-            this.#updateHeadingsSync(markdown);
+            this.#updateHeadingsSync(changes.newHeadings);
         }
 
         // 渲染 Markdown 为 HTML
@@ -541,12 +509,34 @@ export class Preview extends BaseComponent {
         // 智能更新 DOM
         this.#updateDOMSmart(html, changes);
 
-        // 延迟处理元素（避免阻塞主线程）
+        // 延迟处理元素（避免阻塞主线程）- 优化版：合并查询
         requestAnimationFrame(() => {
-            const codeBlocks = this.container.querySelectorAll('pre code:not(.prism-highlighted)');
-            const mermaidBlocks = this.container.querySelectorAll('pre code.language-mermaid');
-            const preElements = this.container.querySelectorAll('pre:not(.has-copy-btn)');
-            const images = this.container.querySelectorAll('img:not([data-error-handled])');
+            // 合并查询减少 DOM 遍历
+            const allElements = this.container.querySelectorAll(
+                'pre code, pre:not(.has-copy-btn), img:not([data-error-handled])'
+            );
+            
+            // 分类元素
+            const codeBlocks = [];
+            const mermaidBlocks = [];
+            const preElements = [];
+            const images = [];
+            
+            allElements.forEach(el => {
+                if (el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE') {
+                    if (!el.classList.contains('prism-highlighted')) {
+                        if (el.classList.contains('language-mermaid')) {
+                            mermaidBlocks.push(el);
+                        } else {
+                            codeBlocks.push(el);
+                        }
+                    }
+                } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
+                    preElements.push(el);
+                } else if (el.tagName === 'IMG') {
+                    images.push(el);
+                }
+            });
 
             this.processAllElements(codeBlocks, mermaidBlocks, preElements, images, changes);
 
