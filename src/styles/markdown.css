@@ -646,6 +646,11 @@ html::-webkit-scrollbar-thumb:hover,
     gap: 8px;
 }
 
+/* 导出按钮 - 禁用过渡动画以避免主题切换时的闪烁 */
+#md-export-content .md-btn {
+    transition: none !important;
+}
+
 /* 侧边栏遮罩 */
 .md-sidebar-overlay {
     display: none;
