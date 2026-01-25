@@ -97,8 +97,4 @@ npm run preview
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
----
-
-**Made with ❤️ by Markdown Editor Team**
+Apache License 2.0 - 详见 [LICENSE](LICENSE) 文件
