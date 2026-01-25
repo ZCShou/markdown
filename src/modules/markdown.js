@@ -128,8 +128,6 @@ export class MarkdownEditor {
      * @param duration
      */
     showMessage(message, type = 'info', duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION) {
-        console.warn(`[${type.toUpperCase()}] ${message}`);
-
         const overlay = dom.status.overlay?.element;
         const messageEl = dom.status.message?.element;
 
@@ -660,7 +658,6 @@ export class MarkdownEditor {
 
             this.showMessage(`成功导出 ${documents.length} 个文档`, 'success');
         } catch (error) {
-            console.error('导出文档失败:', error);
             this.showMessage('导出文档失败', 'error');
         }
     }
@@ -720,7 +717,6 @@ export class MarkdownEditor {
                     // 执行导入
                     await this.#executeImport(importData.documents, importMode);
                 } catch (error) {
-                    console.error('导入文档失败:', error);
                     this.showMessage(`导入失败：${error.message}`, 'error');
                 } finally {
                     input.remove();
