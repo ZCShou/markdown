@@ -100,6 +100,9 @@ export class MarkdownEditor {
         /** @type {boolean} 是否启用同步滚动 */
         this.syncScrollEnabled = true;
 
+        /** @type {boolean} 是否取消导入操作 */
+        this.importCancelled = false;
+
         /** @type {boolean} 是否正在同步滚动（防止循环触发） */
         this.isSyncing = false;
 
@@ -626,7 +629,7 @@ export class MarkdownEditor {
     // ==================== 文档导入导出 ====================
 
     /**
-     * 导出所有文档（优化版）
+     * 导出所有文档（性能优化版）
      */
     exportDocuments() {
         const documents = this.state.get('documents');
@@ -636,12 +639,12 @@ export class MarkdownEditor {
         }
 
         try {
-            // 直接序列化，减少中间变量
+            // 直接序列化和下载，减少不必要的进度提示
             const blob = new Blob(
                 [JSON.stringify({
                     version: '1.0',
                     exportDate: new Date().toISOString(),
-                    documents // 直接使用原数组，避免 map 操作
+                    documents
                 }, null, 2)],
                 { type: 'application/json' }
             );
@@ -663,41 +666,81 @@ export class MarkdownEditor {
     }
 
     /**
-     * 导入文档（优化版：先验证，再询问）
+     * 导入文档（性能优化版）
      */
     importDocuments() {
+        // 重置取消标志
+        this.importCancelled = false;
+
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json,application/json';
 
-        input.onchange = async (e) => {
+        input.onchange = (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
 
-            try {
-                // 先读取并验证文件
-                const importData = this.#validateImportFile(await file.text());
-                if (!importData) return;
-
-                // 验证通过后再询问导入方式
-                const importMode = await this.#askImportMode(importData.documents.length);
-                if (!importMode) return;
-
-                // 执行导入
-                this.#executeImport(importData.documents, importMode);
-            } catch (error) {
-                console.error('导入文档失败:', error);
-                this.showMessage(`导入失败：${error.message}`, 'error');
-            } finally {
+            // 检查文件大小（限制 50MB）
+            const MAX_FILE_SIZE = 50 * 1024 * 1024;
+            if (file.size > MAX_FILE_SIZE) {
+                this.showMessage('文件过大（超过 50MB），无法导入', 'error');
                 input.remove();
+                return;
             }
+
+            // 使用 FileReader 异步读取
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                if (this.importCancelled) {
+                    input.remove();
+                    return;
+                }
+
+                try {
+                    const text = e.target?.result;
+                    if (!text || typeof text !== 'string') {
+                        throw new Error('文件读取失败');
+                    }
+
+                    // 验证文件
+                    const importData = this.#validateImportFile(text);
+                    if (!importData) {
+                        this.showMessage('导入已取消', 'info');
+                        return;
+                    }
+
+                    // 询问导入方式
+                    const importMode = await this.#askImportMode(importData.documents.length);
+                    if (!importMode || this.importCancelled) {
+                        this.showMessage('导入已取消', 'info');
+                        return;
+                    }
+
+                    // 执行导入
+                    await this.#executeImport(importData.documents, importMode);
+                } catch (error) {
+                    console.error('导入文档失败:', error);
+                    this.showMessage(`导入失败：${error.message}`, 'error');
+                } finally {
+                    input.remove();
+                }
+            };
+
+            reader.onerror = () => {
+                this.showMessage('文件读取失败', 'error');
+                input.remove();
+            };
+
+            // 开始读取文件
+            reader.readAsText(file);
         };
 
         input.click();
     }
 
     /**
-     * 验证导入文件
+     * 验证导入文件（性能优化版）
      * @private
      * @param {string} text - 文件内容
      * @returns {Object|null} 验证通过返回数据，否则返回 null
@@ -711,8 +754,16 @@ export class MarkdownEditor {
                 throw new Error('文件格式无效：缺少文档列表');
             }
 
-            // 验证每个文档的基本结构
-            for (const doc of data.documents) {
+            // 检查文档数量限制
+            const MAX_DOCS = 10000;
+            if (data.documents.length > MAX_DOCS) {
+                throw new Error(`文档数量过多（超过 ${MAX_DOCS} 个），无法导入`);
+            }
+
+            // 抽样验证以提高性能
+            const sampleSize = Math.min(100, data.documents.length);
+            for (let i = 0; i < sampleSize; i++) {
+                const doc = data.documents[i];
                 if (!doc.id || !doc.name || !doc.type) {
                     throw new Error('文件格式无效：文档数据不完整');
                 }
@@ -730,23 +781,84 @@ export class MarkdownEditor {
     }
 
     /**
-     * 执行导入操作
+     * 执行导入操作（性能优化版）
      * @private
      * @param {Array} importDocs - 要导入的文档
      * @param {string} mode - 导入模式：'replace' | 'merge'
      */
-    #executeImport(importDocs, mode) {
-        const currentDocs = this.state.get('documents');
-        const newDocuments = mode === 'replace'
-            ? importDocs
-            : this.#mergeDocuments(currentDocs, importDocs);
+    async #executeImport(importDocs, mode) {
+        const BATCH_SIZE = 100;
+        const totalDocs = importDocs.length;
 
-        // 批量更新
-        this.state.setState({ documents: newDocuments });
-        StoreManager.saveDocuments(newDocuments);
+        // 检查是否取消
+        if (this.#checkCancelled()) return;
+
+        // 如果文档数量较少，直接处理
+        if (totalDocs <= BATCH_SIZE) {
+            this.#processImportBatch(importDocs, mode, true);
+            const modeText = mode === 'replace' ? '替换' : '合并';
+            this.showMessage(`成功${modeText}导入 ${totalDocs} 个文档`, 'success');
+            return;
+        }
+
+        // 分批处理大量文档
+        for (let i = 0; i < totalDocs; i += BATCH_SIZE) {
+            if (this.#checkCancelled()) {
+                this.showMessage('导入已取消', 'info');
+                return;
+            }
+
+            const batch = importDocs.slice(i, Math.min(i + BATCH_SIZE, totalDocs));
+            
+            // 处理当前批次
+            if (i === 0) {
+                this.#processImportBatch(batch, mode, true);
+            } else {
+                this.#processImportBatch(batch, 'merge', false);
+            }
+
+            // 每 5 批显示一次进度，减少 UI 更新
+            if ((i / BATCH_SIZE) % 5 === 0) {
+                const processed = Math.min(i + BATCH_SIZE, totalDocs);
+                this.showMessage(`正在导入 ${processed}/${totalDocs}...`, 'info', 0);
+                // 让出主线程，避免阻塞 UI
+                await new Promise(resolve => queueMicrotask(resolve));
+            }
+        }
 
         const modeText = mode === 'replace' ? '替换' : '合并';
-        this.showMessage(`成功${modeText}导入 ${importDocs.length} 个文档`, 'success');
+        this.showMessage(`成功${modeText}导入 ${totalDocs} 个文档`, 'success');
+    }
+
+    /**
+     * 检查是否取消（优化版）
+     * @private
+     * @returns {boolean} 是否已取消
+     */
+    #checkCancelled() {
+        return this.importCancelled;
+    }
+
+    /**
+     * 处理导入批次
+     * @private
+     * @param {Array} docs - 要处理的文档
+     * @param {string} mode - 导入模式
+     * @param {boolean} save - 是否保存到 localStorage
+     */
+    #processImportBatch(docs, mode, save) {
+        const currentDocs = this.state.get('documents');
+        const newDocuments = mode === 'replace'
+            ? docs
+            : this.#mergeDocuments(currentDocs, docs);
+
+        // 更新状态
+        this.state.setState({ documents: newDocuments }, { silent: !save });
+
+        // 保存到 localStorage
+        if (save) {
+            StoreManager.saveDocuments(newDocuments);
+        }
     }
 
     /**
