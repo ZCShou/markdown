@@ -5,21 +5,17 @@
 import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
 
+/**
+ *
+ */
 export class Editor extends BaseComponent {
-    /**
-     * 构造函数
-     */
-    constructor(state, containerId) {
-        super(state, containerId);
-    }
-
     /**
      * 初始化组件
      * @returns {void}
      */
     init() {
         super.init();
-        
+
         if (!this.container) {
             console.error('Editor container not found:', this.containerId);
         }
@@ -44,7 +40,7 @@ export class Editor extends BaseComponent {
         // 输入事件
         this.addEventListener(this.container, 'input', () => this.handleInput());
         // 键盘事件
-        this.addEventListener(this.container, 'keydown', (e) => this.handleKeydown(e));
+        this.addEventListener(this.container, 'keydown', e => this.handleKeydown(e));
     }
 
     /**
@@ -72,21 +68,27 @@ export class Editor extends BaseComponent {
      */
     handleInput() {
         if (!this.container) return;
-        
+
         // 使用防抖减少状态更新频率（150ms）
         // 在回调中重新获取最新内容，避免闭包陷阱
-        this.debounce('editor-input', () => {
-            const content = this.container.value || '';
-            this.state.updateContent(content);
-        }, 150);
-        
+        this.debounce(
+            'editor-input',
+            () => {
+                const content = this.container.value || '';
+                this.state.updateContent(content);
+            },
+            150
+        );
+
         // 后台静默保存（防抖，1秒延迟，使用异步保存）
-        this.debounce('editor-auto-save', () => {
-            this.saveAsync();
-        }, 1000);
+        this.debounce(
+            'editor-auto-save',
+            () => {
+                this.saveAsync();
+            },
+            1000
+        );
     }
-
-
 
     /**
      * 保存内容到本地存储（同步）
@@ -95,14 +97,14 @@ export class Editor extends BaseComponent {
      */
     save(showMessage = false) {
         if (!this.container) return false;
-        
+
         try {
             const content = this.container.value || '';
             const documents = this.state.get('documents') || [];
-            
+
             StoreManager.saveContent(content);
             StoreManager.saveDocuments(documents);
-            
+
             if (showMessage) this.showMessage('内容已保存', 'success');
             return true;
         } catch (error) {
@@ -119,14 +121,14 @@ export class Editor extends BaseComponent {
      */
     async saveAsync(showMessage = false) {
         if (!this.container) return false;
-        
+
         try {
             const content = this.container.value || '';
             const documents = this.state.get('documents') || [];
-            
+
             await StoreManager.saveContentAsync(content);
             await StoreManager.saveDocumentsAsync(documents);
-            
+
             if (showMessage) this.showMessage('内容已保存', 'success');
             return true;
         } catch (error) {
@@ -163,13 +165,13 @@ export class Editor extends BaseComponent {
      */
     handleIndent(isRemove = false) {
         if (!this.container) return;
-        
+
         const { selectionStart: start, selectionEnd: end, value } = this.container;
         const selectedText = value.substring(start, end);
         const INDENT = '  ';
-        
+
         // 获取行边界
-        const getLineBoundaries = (pos) => {
+        const getLineBoundaries = pos => {
             const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
             const lineEnd = value.indexOf('\n', pos);
             return {
@@ -177,21 +179,21 @@ export class Editor extends BaseComponent {
                 end: lineEnd === -1 ? value.length : lineEnd
             };
         };
-        
+
         // 获取缩进大小
-        const getIndentSize = (indentStr) => {
+        const getIndentSize = indentStr => {
             if (indentStr.startsWith('\t')) return 1;
             return Math.min(2, indentStr.length);
         };
-        
+
         // 移除行缩进
-        const removeLineIndent = (line) => {
+        const removeLineIndent = line => {
             if (line.startsWith('\t')) return line.substring(1);
             if (line.startsWith('  ')) return line.substring(2);
             if (line.startsWith(' ')) return line.substring(1);
             return line;
         };
-        
+
         // 没有选中文本
         if (selectedText.length === 0) {
             if (isRemove) {
@@ -200,13 +202,15 @@ export class Editor extends BaseComponent {
                 const lineText = value.substring(lineStart, start);
                 const indentMatch = lineText.match(/^(\s*)/);
                 const indent = indentMatch ? indentMatch[1] : '';
-                
+
                 if (indent.length > 0) {
                     const indentSize = getIndentSize(indent);
-                    this.container.value = value.substring(0, lineStart) + 
-                                         indent.substring(indentSize) + 
-                                         value.substring(lineStart + indentSize);
-                    this.container.selectionStart = this.container.selectionEnd = start - indentSize;
+                    this.container.value =
+                        value.substring(0, lineStart) +
+                        indent.substring(indentSize) +
+                        value.substring(lineStart + indentSize);
+                    this.container.selectionStart = this.container.selectionEnd =
+                        start - indentSize;
                 }
             } else {
                 // 插入缩进
@@ -218,38 +222,43 @@ export class Editor extends BaseComponent {
             const lines = selectedText.split('\n');
             const { start: lineStart } = getLineBoundaries(start);
             const shouldProcessMultipleLines = start <= lineStart || selectedText.includes('\n');
-            
+
             if (shouldProcessMultipleLines) {
                 // 处理多行缩进
-                const newSelectedText = isRemove 
+                const newSelectedText = isRemove
                     ? lines.map(removeLineIndent).join('\n')
                     : lines.map(line => INDENT + line).join('\n');
-                
-                this.container.value = value.substring(0, start) + newSelectedText + value.substring(end);
+
+                this.container.value =
+                    value.substring(0, start) + newSelectedText + value.substring(end);
                 this.container.selectionStart = start;
                 this.container.selectionEnd = start + newSelectedText.length;
             } else {
                 // 只选中了行的一部分
                 if (isRemove) {
-                    const { start: lineStart } = getLineBoundaries(start);
-                    const lineText = value.substring(lineStart, start);
+                    const { start: currentLineStart } = getLineBoundaries(start);
+                    const lineText = value.substring(currentLineStart, start);
                     const indentMatch = lineText.match(/^(\s*)/);
                     const indent = indentMatch ? indentMatch[1] : '';
-                    
+
                     if (indent.length > 0) {
                         const indentSize = getIndentSize(indent);
-                        this.container.value = value.substring(0, lineStart) + 
-                                             value.substring(lineStart, start).substring(indentSize) + 
-                                             value.substring(start);
-                        this.container.selectionStart = this.container.selectionEnd = end - indentSize;
+                        this.container.value =
+                            value.substring(0, currentLineStart) +
+                            value.substring(currentLineStart, start).substring(indentSize) +
+                            value.substring(start);
+                        this.container.selectionStart = this.container.selectionEnd =
+                            end - indentSize;
                     }
                 } else {
-                    this.container.value = value.substring(0, start) + INDENT + value.substring(end);
-                    this.container.selectionStart = this.container.selectionEnd = start + INDENT.length;
+                    this.container.value =
+                        value.substring(0, start) + INDENT + value.substring(end);
+                    this.container.selectionStart = this.container.selectionEnd =
+                        start + INDENT.length;
                 }
             }
         }
-        
+
         // 触发 input 事件以更新预览
         this.container.dispatchEvent(new Event('input', { bubbles: true }));
     }

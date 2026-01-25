@@ -1,0 +1,25 @@
+# 依赖
+node_modules/
+package-lock.json
+
+# 构建输出
+dist/
+build/
+coverage/
+
+# 配置文件
+*.config.js
+.prettierignore
+
+# 公共资源
+public/
+
+# 文档
+docs/
+
+# 日志
+*.log
+
+# 其他
+.cache/
+.temp/

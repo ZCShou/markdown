@@ -1,946 +1,949 @@
 /* ==================== Markdown 编辑器样式 ==================== */
 :root {
-    /* 基础颜色 */
-    --md-bg-primary: #f5f5f5;
-    --md-bg-secondary: #fff;
-    --md-bg-tertiary: #f8f9fa;
-    --md-bg-hover: #f0f0f0;
-    --md-bg-active: #e3f2fd;
-    
-    /* 文字颜色 */
-    --md-text-primary: #333;
-    --md-text-secondary: #666;
-    --md-text-tertiary: #999;
-    --md-text-disabled: #6a737d;
-    
-    /* 边框颜色 */
-    --md-border-primary: #e0e0e0;
-    --md-border-secondary: #ddd;
-    --md-border-tertiary: #c6cbd1;
-    --md-border-quaternary: #dfe2e5;
-    
-    /* 主题色 */
-    --md-color-primary: #2196f3;
-    --md-color-primary-dark: #0d47a1;
-    --md-color-danger: #f44336;
-    --md-color-success: #4caf50;
-    --md-color-warning: #ff9800;
-    --md-color-info: #2196f3;
-    
-    /* 代码块颜色 */
-    --md-code-bg: #f3f4f6;
-    --md-code-bg-inline: rgba(0, 0, 0, 0.06);
-    --md-code-text: #24292e;
-    
-    /* Markdown 内容颜色 */
-    --md-markdown-bg: #fff;
-    --md-markdown-text: #24292e;
-    --md-markdown-link: #0366d6;
-    --md-markdown-quote: #6a737d;
-    --md-markdown-hr: #e1e4e8;
-    
-    /* 工具栏颜色 */
-    --md-toolbar-bg: #444;
-    --md-toolbar-text: #fff;
-    --md-toolbar-border: #333;
-    
-    /* 分隔条颜色 */
-    --md-divider-bg: #ddd;
-    --md-divider-hover: #999;
-    --md-divider-active: #666;
-    
-    /* 滚动条颜色 */
-    --md-scrollbar-track: #f1f1f1;
-    --md-scrollbar-thumb: #888;
-    --md-scrollbar-thumb-hover: #555;
-    
-    /* 阴影 */
-    --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
-    
-    /* 状态消息颜色 */
-    --md-status-bg: #fff;
-    --md-status-text: #333;
-    --md-status-border: transparent;
-    --md-status-success-bg: #4caf50;
-    --md-status-error-bg: #f44336;
-    --md-status-info-bg: #2196f3;
-    --md-status-warning-bg: #ff9800;
-    
-    /* 代码复制按钮颜色 */
-    --md-code-copy-bg: transparent;
-    --md-code-copy-text: #fff;
-    --md-code-copy-border: none;
-    --md-code-copy-hover-bg: rgba(120, 120, 120, 0.15);
-    
-    /* 侧边栏遮罩 */
-    --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.5);
-    
-    /* 占位符颜色 */
-    --md-placeholder-color: #999;
-    
-    /* 复选框颜色 */
-    --md-checkbox-border: #dfe2e5;
-    --md-checkbox-bg: #fff;
-    --md-checkbox-checked-bg: #0366d6;
-    
-    /* 文本选中颜色 - VSCode 明亮主题风格 */
-    --md-selection-bg: rgba(51, 153, 255, 0.25);
-    --md-selection-text: #24292e;
+  /* 基础颜色 */
+  --md-bg-primary: #f5f5f5;
+  --md-bg-secondary: #fff;
+  --md-bg-tertiary: #f8f9fa;
+  --md-bg-hover: #f0f0f0;
+  --md-bg-active: #e3f2fd;
 
-    /* 树型条目选中效果 - 明亮主题 */
-    --md-tree-item-active-bg: #e3f2fd;
-    --md-tree-item-active-border: #2196f3;
-    --md-tree-item-active-text: #1565c0;
+  /* 文字颜色 */
+  --md-text-primary: #333;
+  --md-text-secondary: #666;
+  --md-text-tertiary: #999;
+  --md-text-disabled: #6a737d;
 
-    /* 树型条目悬停效果 - 明亮主题 */
-    --md-tree-item-hover-bg: rgba(0, 0, 0, 0.04);
-    --md-tree-item-hover-text: #333;
+  /* 边框颜色 */
+  --md-border-primary: #e0e0e0;
+  --md-border-secondary: #ddd;
+  --md-border-tertiary: #c6cbd1;
+  --md-border-quaternary: #dfe2e5;
 
-    /* 树型拖拽目标效果 - 明亮主题 */
-    --md-tree-drop-bg: rgba(76, 175, 80, 0.1);
-    --md-tree-drop-border: #4caf50;
-    --md-tree-drop-text: #2e7d32;
-    --md-tree-drop-label-bg: rgba(255, 255, 255, 0.9);
+  /* 主题色 */
+  --md-color-primary: #2196f3;
+  --md-color-primary-dark: #0d47a1;
+  --md-color-danger: #f44336;
+  --md-color-success: #4caf50;
+  --md-color-warning: #ff9800;
+  --md-color-info: #2196f3;
+
+  /* 代码块颜色 */
+  --md-code-bg: #f3f4f6;
+  --md-code-bg-inline: rgba(0, 0, 0, 0.06);
+  --md-code-text: #24292e;
+
+  /* Markdown 内容颜色 */
+  --md-markdown-bg: #fff;
+  --md-markdown-text: #24292e;
+  --md-markdown-link: #0366d6;
+  --md-markdown-quote: #6a737d;
+  --md-markdown-hr: #e1e4e8;
+
+  /* 工具栏颜色 */
+  --md-toolbar-bg: #444;
+  --md-toolbar-text: #fff;
+  --md-toolbar-border: #333;
+
+  /* 分隔条颜色 */
+  --md-divider-bg: #ddd;
+  --md-divider-hover: #999;
+  --md-divider-active: #666;
+
+  /* 滚动条颜色 */
+  --md-scrollbar-track: #f1f1f1;
+  --md-scrollbar-thumb: #888;
+  --md-scrollbar-thumb-hover: #555;
+
+  /* 阴影 */
+  --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+
+  /* 状态消息颜色 */
+  --md-status-bg: #fff;
+  --md-status-text: #333;
+  --md-status-border: transparent;
+  --md-status-success-bg: #4caf50;
+  --md-status-error-bg: #f44336;
+  --md-status-info-bg: #2196f3;
+  --md-status-warning-bg: #ff9800;
+
+  /* 代码复制按钮颜色 */
+  --md-code-copy-bg: transparent;
+  --md-code-copy-text: #fff;
+  --md-code-copy-border: none;
+  --md-code-copy-hover-bg: rgba(120, 120, 120, 0.15);
+
+  /* 侧边栏遮罩 */
+  --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.5);
+
+  /* 占位符颜色 */
+  --md-placeholder-color: #999;
+
+  /* 复选框颜色 */
+  --md-checkbox-border: #dfe2e5;
+  --md-checkbox-bg: #fff;
+  --md-checkbox-checked-bg: #0366d6;
+
+  /* 文本选中颜色 - VSCode 明亮主题风格 */
+  --md-selection-bg: rgba(51, 153, 255, 0.25);
+  --md-selection-text: #24292e;
+
+  /* 树型条目选中效果 - 明亮主题 */
+  --md-tree-item-active-bg: #e3f2fd;
+  --md-tree-item-active-border: #2196f3;
+  --md-tree-item-active-text: #1565c0;
+
+  /* 树型条目悬停效果 - 明亮主题 */
+  --md-tree-item-hover-bg: rgba(0, 0, 0, 0.04);
+  --md-tree-item-hover-text: #333;
+
+  /* 树型拖拽目标效果 - 明亮主题 */
+  --md-tree-drop-bg: rgba(76, 175, 80, 0.1);
+  --md-tree-drop-border: #4caf50;
+  --md-tree-drop-text: #2e7d32;
+  --md-tree-drop-label-bg: rgba(255, 255, 255, 0.9);
 }
 
-[data-mode="dark"] {
-    /* 基础颜色 */
-    --md-bg-primary: #0f1420;
-    --md-bg-secondary: #1e1e1e;
-    --md-bg-tertiary: #2d2d2d;
-    --md-bg-hover: #3e3e3e;
-    --md-bg-active: #0d47a1;
-    
-    /* 文字颜色 */
-    --md-text-primary: #e0e0e0;
-    --md-text-secondary: #b0b0b0;
-    --md-text-tertiary: #7f8c8d;
-    --md-text-disabled: #808080;
-    
-    /* 边框颜色 */
-    --md-border-primary: #3e3e3e;
-    --md-border-secondary: #3e3e3e;
-    --md-border-tertiary: #3e3e3e;
-    --md-border-quaternary: #3e3e3e;
-    
-    /* 主题色 */
-    --md-color-primary: #42a5f5;
-    --md-color-primary-dark: #0d47a1;
-    --md-color-danger: #ef5350;
-    --md-color-success: #2e7d32;
-    --md-color-warning: #f57c00;
-    --md-color-info: #1565c0;
-    
-    /* 代码块颜色 */
-    --md-code-bg: #2d2d2d;
-    --md-code-bg-inline: #2d2d2d;
-    --md-code-text: #e0e0e0;
-    
-    /* Markdown 内容颜色 */
-    --md-markdown-bg: #1e1e1e;
-    --md-markdown-text: #e0e0e0;
-    --md-markdown-link: #42a5f5;
-    --md-markdown-quote: #b0b0b0;
-    --md-markdown-hr: #3e3e3e;
-    
-    /* 工具栏颜色 */
-    --md-toolbar-bg: #2d2d2d;
-    --md-toolbar-text: #e0e0e0;
-    --md-toolbar-border: #3e3e3e;
-    
-    /* 分隔条颜色 */
-    --md-divider-bg: #3e3e3e;
-    --md-divider-hover: #4e4e4e;
-    --md-divider-active: #666;
-    
-    /* 滚动条颜色 */
-    --md-scrollbar-track: #1e1e1e;
-    --md-scrollbar-thumb: #3e3e3e;
-    --md-scrollbar-thumb-hover: #4e4e4e;
-    
-    /* 阴影 */
-    --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
-    
-    /* 状态消息颜色 */
-    --md-status-bg: #2d2d2d;
-    --md-status-text: #e0e0e0;
-    --md-status-border: #3e3e3e;
-    --md-status-success-bg: #2e7d32;
-    --md-status-error-bg: #c62828;
-    --md-status-info-bg: #1565c0;
-    --md-status-warning-bg: #f57c00;
-    
-    /* 代码复制按钮颜色 */
-    --md-code-copy-bg: #2d2d2d;
-    --md-code-copy-text: #e0e0e0;
-    --md-code-copy-border: #3e3e3e;
-    --md-code-copy-hover-bg: #3e3e3e;
-    
-    /* 侧边栏遮罩 */
-    --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.7);
-    
-    /* 占位符颜色 */
-    --md-placeholder-color: #7f8c8d;
-    
-    /* 复选框颜色 */
-    --md-checkbox-border: #3e3e3e;
-    --md-checkbox-bg: #2d2d2d;
-    --md-checkbox-checked-bg: #0d47a1;
-    
-    /* 文本选中颜色 - VSCode 黑暗主题风格 */
-    --md-selection-bg: rgba(65, 165, 245, 0.4);
-    --md-selection-text: #e0e0e0;
+[data-mode='dark'] {
+  /* 基础颜色 */
+  --md-bg-primary: #0f1420;
+  --md-bg-secondary: #1e1e1e;
+  --md-bg-tertiary: #2d2d2d;
+  --md-bg-hover: #3e3e3e;
+  --md-bg-active: #0d47a1;
 
-    /* 树型条目选中效果 - 暗黑主题 */
-    --md-tree-item-active-bg: rgba(66, 165, 245, 0.25);
-    --md-tree-item-active-border: #42a5f5;
-    --md-tree-item-active-text: #90caf9;
+  /* 文字颜色 */
+  --md-text-primary: #e0e0e0;
+  --md-text-secondary: #b0b0b0;
+  --md-text-tertiary: #7f8c8d;
+  --md-text-disabled: #808080;
 
-    /* 树型条目悬停效果 - 暗黑主题 */
-    --md-tree-item-hover-bg: rgba(255, 255, 255, 0.08);
-    --md-tree-item-hover-text: #e0e0e0;
+  /* 边框颜色 */
+  --md-border-primary: #3e3e3e;
+  --md-border-secondary: #3e3e3e;
+  --md-border-tertiary: #3e3e3e;
+  --md-border-quaternary: #3e3e3e;
 
-    /* 树型拖拽目标效果 - 暗黑主题 */
-    --md-tree-drop-bg: rgba(76, 175, 80, 0.15);
-    --md-tree-drop-border: #66bb6a;
-    --md-tree-drop-text: #81c784;
-    --md-tree-drop-label-bg: rgba(30, 30, 30, 0.9);
+  /* 主题色 */
+  --md-color-primary: #42a5f5;
+  --md-color-primary-dark: #0d47a1;
+  --md-color-danger: #ef5350;
+  --md-color-success: #2e7d32;
+  --md-color-warning: #f57c00;
+  --md-color-info: #1565c0;
+
+  /* 代码块颜色 */
+  --md-code-bg: #2d2d2d;
+  --md-code-bg-inline: #2d2d2d;
+  --md-code-text: #e0e0e0;
+
+  /* Markdown 内容颜色 */
+  --md-markdown-bg: #1e1e1e;
+  --md-markdown-text: #e0e0e0;
+  --md-markdown-link: #42a5f5;
+  --md-markdown-quote: #b0b0b0;
+  --md-markdown-hr: #3e3e3e;
+
+  /* 工具栏颜色 */
+  --md-toolbar-bg: #2d2d2d;
+  --md-toolbar-text: #e0e0e0;
+  --md-toolbar-border: #3e3e3e;
+
+  /* 分隔条颜色 */
+  --md-divider-bg: #3e3e3e;
+  --md-divider-hover: #4e4e4e;
+  --md-divider-active: #666;
+
+  /* 滚动条颜色 */
+  --md-scrollbar-track: #1e1e1e;
+  --md-scrollbar-thumb: #3e3e3e;
+  --md-scrollbar-thumb-hover: #4e4e4e;
+
+  /* 阴影 */
+  --md-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+
+  /* 状态消息颜色 */
+  --md-status-bg: #2d2d2d;
+  --md-status-text: #e0e0e0;
+  --md-status-border: #3e3e3e;
+  --md-status-success-bg: #2e7d32;
+  --md-status-error-bg: #c62828;
+  --md-status-info-bg: #1565c0;
+  --md-status-warning-bg: #f57c00;
+
+  /* 代码复制按钮颜色 */
+  --md-code-copy-bg: #2d2d2d;
+  --md-code-copy-text: #e0e0e0;
+  --md-code-copy-border: #3e3e3e;
+  --md-code-copy-hover-bg: #3e3e3e;
+
+  /* 侧边栏遮罩 */
+  --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.7);
+
+  /* 占位符颜色 */
+  --md-placeholder-color: #7f8c8d;
+
+  /* 复选框颜色 */
+  --md-checkbox-border: #3e3e3e;
+  --md-checkbox-bg: #2d2d2d;
+  --md-checkbox-checked-bg: #0d47a1;
+
+  /* 文本选中颜色 - VSCode 黑暗主题风格 */
+  --md-selection-bg: rgba(65, 165, 245, 0.4);
+  --md-selection-text: #e0e0e0;
+
+  /* 树型条目选中效果 - 暗黑主题 */
+  --md-tree-item-active-bg: rgba(66, 165, 245, 0.25);
+  --md-tree-item-active-border: #42a5f5;
+  --md-tree-item-active-text: #90caf9;
+
+  /* 树型条目悬停效果 - 暗黑主题 */
+  --md-tree-item-hover-bg: rgba(255, 255, 255, 0.08);
+  --md-tree-item-hover-text: #e0e0e0;
+
+  /* 树型拖拽目标效果 - 暗黑主题 */
+  --md-tree-drop-bg: rgba(76, 175, 80, 0.15);
+  --md-tree-drop-border: #66bb6a;
+  --md-tree-drop-text: #81c784;
+  --md-tree-drop-label-bg: rgba(30, 30, 30, 0.9);
 }
 
-html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    background-color: var(--md-bg-primary);
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background-color: var(--md-bg-primary);
 }
 
 body {
-    display: flex;
-    flex-direction: column;
-    visibility: hidden;
-    opacity: 0;
+  display: flex;
+  flex-direction: column;
+  visibility: hidden;
+  opacity: 0;
 }
 
 body.loaded {
-    visibility: visible;
-    opacity: 1;
+  visibility: visible;
+  opacity: 1;
 }
 
 /* ==================== 滚动条样式 ==================== */
 /* 统一滚动条样式 - 应用于 html 和所有使用 .unified-scrollbar 类的元素 */
 html,
 .unified-scrollbar {
-    scrollbar-width: auto;
-    scrollbar-color: var(--md-scrollbar-thumb) transparent;
+  scrollbar-width: auto;
+  scrollbar-color: var(--md-scrollbar-thumb) transparent;
 }
 
 html::-webkit-scrollbar,
 .unified-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 html::-webkit-scrollbar-track,
 .unified-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 html::-webkit-scrollbar-thumb,
 .unified-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--md-scrollbar-thumb);
-    border-radius: 4px;
+  background-color: var(--md-scrollbar-thumb);
+  border-radius: 4px;
 }
 
 html::-webkit-scrollbar-thumb:hover,
 .unified-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: var(--md-scrollbar-thumb-hover);
+  background-color: var(--md-scrollbar-thumb-hover);
 }
 
 /* 主布局容器 - 横向布局：左侧边栏 + 中间区域 + 右侧边栏 */
 .md-main-layout {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* 中间区域 - 垂直布局：toolbar 在上，container 在下 */
 .md-middle-area {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* ==================== 按钮样式 ==================== */
 /* 基础按钮 */
 .md-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 8px 12px;
-    min-height: 36px;
-    min-width: 36px;
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
-    color: var(--md-text-primary);
-    background-color: var(--md-bg-secondary);
-    border: 1px solid var(--md-border-secondary);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-    outline: none;
-    user-select: none;
-    text-decoration: none;
-    will-change: transform;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px;
+  min-height: 36px;
+  min-width: 36px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--md-text-primary);
+  background-color: var(--md-bg-secondary);
+  border: 1px solid var(--md-border-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  user-select: none;
+  text-decoration: none;
+  will-change: transform;
 }
 
 /* Codicons 图标样式 */
 .md-btn .codicon {
-    font-size: 16px;
-    line-height: 1;
-    display: inline-block;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-block;
 }
 
 .md-btn:hover {
-    background-color: var(--md-bg-hover);
-    border-color: var(--md-text-secondary);
+  background-color: var(--md-bg-hover);
+  border-color: var(--md-text-secondary);
 }
 
 .md-btn:active {
-    transform: scale(0.96);
+  transform: scale(0.96);
 }
 
 .md-btn:focus-visible {
-    outline: 2px solid var(--md-color-primary);
-    outline-offset: 2px;
+  outline: 2px solid var(--md-color-primary);
+  outline-offset: 2px;
 }
 
 .md-btn:disabled,
 .md-btn.md-btn-disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    pointer-events: none;
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* 图标按钮 */
 .md-btn.md-btn-icon {
-    padding: 6px;
-    min-height: 32px;
-    min-width: 32px;
-    font-size: 18px;
-    background-color: transparent;
-    border: 1px solid transparent;
+  padding: 6px;
+  min-height: 32px;
+  min-width: 32px;
+  font-size: 18px;
+  background-color: transparent;
+  border: 1px solid transparent;
 }
 
 .md-btn.md-btn-icon:hover {
-    background-color: var(--md-bg-hover);
+  background-color: var(--md-bg-hover);
 }
 
 .md-btn.md-btn-icon:active {
-    transform: scale(0.95);
+  transform: scale(0.95);
 }
 
 /* 幽灵按钮 */
 .md-btn.md-btn-ghost {
-    background-color: transparent;
-    border: 1px solid transparent;
+  background-color: transparent;
+  border: 1px solid transparent;
 }
 
 .md-btn.md-btn-ghost:hover {
-    background-color: var(--md-bg-hover);
+  background-color: var(--md-bg-hover);
 }
 
 /* 块级按钮 */
 .md-btn.md-btn-block {
-    width: 100%;
-    display: flex;
+  width: 100%;
+  display: flex;
 }
 
 /* 代码块包装器 - 固定复制按钮位置 */
 .code-block-wrapper {
-    position: relative;
-    margin: 16px 0;
+  position: relative;
+  margin: 16px 0;
 }
 
 /* 代码复制按钮 */
 .code-copy-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    padding: 4px 8px;
-    font-size: 12px;
-    opacity: 0;
-    transition: opacity 0.2s;
-    z-index: 10;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
 }
 
 .code-block-wrapper:hover .code-copy-btn,
 .code-copy-btn:hover {
-    opacity: 1;
+  opacity: 1;
 }
 
 .code-copy-btn.copied {
-    background: var(--md-color-success);
-    color: #fff;
+  background: var(--md-color-success);
+  color: #fff;
 }
 
 /* ==================== 侧边栏样式 ==================== */
 .md-sidebar {
-    display: flex;
-    flex-direction: column;
-    width: 0;
-    flex-shrink: 0;
-    background-color: var(--md-bg-secondary);
-    overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 0;
+  flex-shrink: 0;
+  background-color: var(--md-bg-secondary);
+  overflow: hidden;
 }
 
 .md-sidebar-left {
-    border-right: 1px solid transparent;
+  border-right: 1px solid transparent;
 }
 
 .md-sidebar-left.open {
-    width: 280px;
-    border-right-color: var(--md-border-primary);
+  width: 280px;
+  border-right-color: var(--md-border-primary);
 }
 
 .md-sidebar-right {
-    border-left: 1px solid transparent;
+  border-left: 1px solid transparent;
 }
 
 .md-sidebar-right.open {
-    width: 280px;
-    border-left-color: var(--md-border-primary);
+  width: 280px;
+  border-left-color: var(--md-border-primary);
 }
 
 .md-sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 4px 4px 8px;
-    border-bottom: 1px solid var(--md-toolbar-border);
-    background-color: var(--md-toolbar-bg);
-    color: var(--md-toolbar-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 4px 8px;
+  border-bottom: 1px solid var(--md-toolbar-border);
+  background-color: var(--md-toolbar-bg);
+  color: var(--md-toolbar-text);
 }
 
 .md-sidebar-toolbar {
-    display: flex;
-    gap: 4px;
+  display: flex;
+  gap: 4px;
 }
 
 .md-sidebar-header .md-btn {
-    color: var(--md-toolbar-text);
+  color: var(--md-toolbar-text);
 }
 
 .md-sidebar-header .md-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .md-sidebar-header h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--md-toolbar-text);
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--md-toolbar-text);
 }
 
 .md-sidebar-content {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    padding: 8px 0 8px 8px;
-    min-height: 0;
-    overflow-y: auto;
-    background-color: var(--md-bg-secondary);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 8px 0 8px 8px;
+  min-height: 0;
+  overflow-y: auto;
+  background-color: var(--md-bg-secondary);
 }
 
 .md-doc-list {
-    margin: 0 8px 0 0;
-    flex: 1;
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
+  margin: 0 8px 0 0;
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .md-doc-list:empty::before {
-    content: '';
-    display: block;
-    flex: 1;
+  content: '';
+  display: block;
+  flex: 1;
 }
 
 .md-toc {
-    margin: 0 0 0 32px;
-    padding: 0;
-    max-width: 100%;
-    box-sizing: border-box;
+  margin: 0 0 0 32px;
+  padding: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .md-toc-item {
-    padding: 6px 0;
-    cursor: pointer;
-    color: var(--md-text-primary);
-    white-space: normal;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    box-sizing: border-box;
-    max-width: 100%;
+  padding: 6px 0;
+  cursor: pointer;
+  color: var(--md-text-primary);
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .md-toc-item:hover {
-    color: var(--md-color-primary);
+  color: var(--md-color-primary);
 }
 
 .md-toc-item.level-1 {
-    font-weight: 600;
-    font-size: 16px;
+  font-weight: 600;
+  font-size: 16px;
 }
 
 .md-toc-item.level-2 {
-    padding-left: 16px;
-    font-size: 15px;
+  padding-left: 16px;
+  font-size: 15px;
 }
 
 .md-toc-item.level-3 {
-    padding-left: 32px;
-    font-size: 14px;
+  padding-left: 32px;
+  font-size: 14px;
 }
 
 .md-toc-item.level-4 {
-    padding-left: 48px;
-    font-size: 14px;
+  padding-left: 48px;
+  font-size: 14px;
 }
 
 .md-toc-item.level-5 {
-    padding-left: 64px;
-    font-size: 14px;
+  padding-left: 64px;
+  font-size: 14px;
 }
 
 .md-toc-item.level-6 {
-    padding-left: 80px;
-    font-size: 14px;
+  padding-left: 80px;
+  font-size: 14px;
 }
 
 .md-sidebar-divider {
-    border: none;
-    border-top: 1px solid var(--md-border-primary);
-    margin: 16px 0;
+  border: none;
+  border-top: 1px solid var(--md-border-primary);
+  margin: 16px 0;
 }
 
 .md-sidebar-content h4 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--md-text-secondary);
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--md-text-secondary);
 }
 
 /* 侧边栏区块样式 - 纯 CSS 实现 */
 .md-sidebar-section {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-radius: 8px;
-    border: 1px solid transparent;
-    transition: border-color 0.2s ease, flex 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.2s ease,
+    flex 0.3s ease;
 }
 
 /* 展开状态的区块：根据内容自适应高度 */
 .md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) {
-    flex: 0 1 auto;
+  flex: 0 1 auto;
 }
 
-
 .md-sidebar-section-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    user-select: none;
-    border-radius: 6px;
-    flex-shrink: 0;
-    margin: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+  flex-shrink: 0;
+  margin: 8px;
 }
 
 .md-sidebar-section-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--md-text-primary);
-    flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--md-text-primary);
+  flex: 1;
 }
 
 .md-sidebar-section-toggle {
-    background: none;
-    border: none;
-    color: var(--md-text-secondary);
-    cursor: pointer;
-    padding: 2px 4px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  background: none;
+  border: none;
+  color: var(--md-text-secondary);
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .md-sidebar-section-toggle .codicon {
-    font-size: 16px;
-    line-height: 1;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* 展开状态：旋转90度向下 */
 .md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) .md-sidebar-section-toggle {
-    transform: rotate(90deg);
+  transform: rotate(90deg);
 }
 
 /* 折叠状态：保持原始状态（向右） */
 .md-sidebar-section:has(.md-sidebar-section-content.collapsed) .md-sidebar-section-toggle {
-    transform: rotate(0deg);
+  transform: rotate(0deg);
 }
 
 /* 区块内容容器 */
 .md-sidebar-section-content {
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 150px);
-    overflow: hidden;
-    padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 150px);
+  overflow: hidden;
+  padding-bottom: 8px;
 }
 
 /* 折叠状态 */
 .md-sidebar-section-content.collapsed {
-    max-height: 0;
-    opacity: 0;
-    padding: 0;
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
 }
 
 /* 内部内容包装器 */
 .md-sidebar-section-content > div {
-    overflow-y: auto;
-    overflow-x: hidden;
-    max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 150px);
 }
 
 /* 折叠时确保内部元素不可见且不可交互 */
 .md-sidebar-section-content.collapsed > div {
-    visibility: hidden;
-    pointer-events: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* 目录容器 */
 .md-toc {
-    padding: 0;
+  padding: 0;
 }
 
 /* 导出按钮容器 */
 #md-export-content > div {
-    /* 导出按钮不需要滚动，内容简单 */
-    overflow: visible;
-    flex: 0 0 auto;
+  /* 导出按钮不需要滚动，内容简单 */
+  overflow: visible;
+  flex: 0 0 auto;
 }
 
 /* 按钮组容器 */
 .md-btn-group {
-    margin: 0 32px 0 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  margin: 0 32px 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* 导出按钮 - 禁用过渡动画以避免主题切换时的闪烁 */
 #md-export-content .md-btn {
-    transition: none !important;
+  transition: none !important;
 }
 
 /* 侧边栏遮罩 */
 .md-sidebar-overlay {
-    display: none;
+  display: none;
 }
 
 /* 顶部工具栏 */
 .markdown-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 4px 4px 4px;
-    background-color: var(--md-toolbar-bg);
-    color: var(--md-toolbar-text);
-    border-bottom: 1px solid var(--md-toolbar-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 4px 4px;
+  background-color: var(--md-toolbar-bg);
+  color: var(--md-toolbar-text);
+  border-bottom: 1px solid var(--md-toolbar-border);
 }
 
 .markdown-toolbar-right {
-    flex-shrink: 0;
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 /* 顶部工具栏按钮 - 继承 .md-btn.md-btn-icon.md-btn-ghost 样式 */
 .markdown-toolbar .md-btn {
-    color: var(--md-toolbar-text);
+  color: var(--md-toolbar-text);
 }
 
 .markdown-toolbar .md-btn:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 侧边栏打开时隐藏对应的切换按钮 */
 .md-main-layout:has(.md-sidebar-left.open) #md-toggle-left-sidebar {
-    display: none;
+  display: none;
 }
 
 .md-main-layout:has(.md-sidebar-right.open) #md-toggle-right-sidebar {
-    display: none;
+  display: none;
 }
 
 /* 主容器 */
 .markdown-container {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    background-color: var(--md-bg-secondary);
-    overflow: hidden;
-    
-    /* 分割比例变量（0-1之间） */
-    --split-ratio: 0.5;
-    
-    /* 性能优化：提示浏览器这个元素会改变 */
-    will-change: --split-ratio;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background-color: var(--md-bg-secondary);
+  overflow: hidden;
+
+  /* 分割比例变量（0-1之间） */
+  --split-ratio: 0.5;
+
+  /* 性能优化：提示浏览器这个元素会改变 */
+  will-change: --split-ratio;
 }
 
 /* 拖拽时的性能优化 */
 .markdown-container.is-resizing {
-    /* 限制重排范围，提升性能 */
-    contain: layout style;
-    
-    /* 提示浏览器即将发生变换 */
-    will-change: --split-ratio;
-    
-    /* 拖拽时禁用过渡效果，提升响应速度 */
-    transition: none !important;
+  /* 限制重排范围，提升性能 */
+  contain: layout style;
+
+  /* 提示浏览器即将发生变换 */
+  will-change: --split-ratio;
+
+  /* 拖拽时禁用过渡效果，提升响应速度 */
+  transition: none !important;
 }
 
 .markdown-container.is-resizing .markdown-editor-pane,
 .markdown-container.is-resizing .markdown-preview-pane {
-    /* 拖拽时禁用过渡效果 */
-    transition: none !important;
-    
-    /* 提示浏览器这些元素会改变 */
-    will-change: flex, max-width;
+  /* 拖拽时禁用过渡效果 */
+  transition: none !important;
+
+  /* 提示浏览器这些元素会改变 */
+  will-change: flex, max-width;
 }
 
 /* 布局模式 */
 /* 仅编辑器模式 */
 .markdown-container.layout-editor-only .markdown-preview-pane,
 .markdown-container.layout-editor-only .markdown-divider {
-    display: none !important;
+  display: none !important;
 }
 
 .markdown-container.layout-editor-only .markdown-editor-pane {
-    flex: 1;
-    border-right: none;
+  flex: 1;
+  border-right: none;
 }
 
 /* 仅预览模式 */
 .markdown-container.layout-preview-only .markdown-editor-pane,
 .markdown-container.layout-preview-only .markdown-divider {
-    display: none !important;
+  display: none !important;
 }
 
 .markdown-container.layout-preview-only .markdown-preview-pane {
-    flex: 1;
+  flex: 1;
 }
 
 /* 编辑器和预览模式（默认） */
 .markdown-container.layout-both .markdown-editor-pane {
-    display: flex;
-    flex: 1;
+  display: flex;
+  flex: 1;
 }
 
 .markdown-container.layout-both .markdown-preview-pane {
-    display: flex;
-    flex: 1;
+  display: flex;
+  flex: 1;
 }
 
 .markdown-container.layout-both .markdown-divider {
-    display: block;
+  display: block;
 }
 
 /* 编辑区域 */
 .markdown-editor-pane {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    background-color: var(--md-bg-secondary);
-    border-right: 1px solid var(--md-border-primary);
-    
-    /* 性能优化：限制重排范围 */
-    contain: layout style paint;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background-color: var(--md-bg-secondary);
+  border-right: 1px solid var(--md-border-primary);
+
+  /* 性能优化：限制重排范围 */
+  contain: layout style paint;
 }
 
 /* 当使用固定分割比例时 */
 .markdown-container.has-split-ratio .markdown-editor-pane {
-    flex: var(--split-ratio);
-    max-width: calc(var(--split-ratio) * (100% - 4px));
+  flex: var(--split-ratio);
+  max-width: calc(var(--split-ratio) * (100% - 4px));
 }
 
 .markdown-editor-wrapper {
-    flex: 1;
-    min-height: 0;
-    position: relative;
-    overflow: hidden;
-    /* 优化滚动性能 */
-    contain: strict;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  /* 优化滚动性能 */
+  contain: strict;
 }
 
 #markdown-editor {
-    width: 100%;
-    height: 100%;
-    padding: 16px;
-    border: none;
-    resize: none;
-    outline: none;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--md-text-primary);
-    background-color: var(--md-bg-secondary);
-    box-sizing: border-box;
-    /* 优化滚动性能 */
-    overflow: auto;
-    scroll-behavior: auto;
-    will-change: scroll-position;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  border: none;
+  resize: none;
+  outline: none;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--md-text-primary);
+  background-color: var(--md-bg-secondary);
+  box-sizing: border-box;
+  /* 优化滚动性能 */
+  overflow: auto;
+  scroll-behavior: auto;
+  will-change: scroll-position;
 }
 
 #markdown-editor::placeholder {
-    color: var(--md-placeholder-color);
+  color: var(--md-placeholder-color);
 }
 
 #markdown-editor::-webkit-input-placeholder {
-    color: var(--md-placeholder-color);
+  color: var(--md-placeholder-color);
 }
 
 #markdown-editor::-moz-placeholder {
-    color: var(--md-placeholder-color);
+  color: var(--md-placeholder-color);
 }
 
 #markdown-editor:-ms-input-placeholder {
-    color: var(--md-placeholder-color);
+  color: var(--md-placeholder-color);
 }
 
 /* 分隔条 */
 .markdown-divider {
-    min-width: 4px;
-    width: 4px;
-    flex-shrink: 0;
-    cursor: col-resize;
+  min-width: 4px;
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
 }
 
 .markdown-divider:hover {
-    background-color: var(--md-divider-hover);
+  background-color: var(--md-divider-hover);
 }
 
 .markdown-divider.dragging {
-    background-color: var(--md-divider-active);
+  background-color: var(--md-divider-active);
 }
 
 /* 预览区域 */
 .markdown-preview-pane {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    background-color: var(--md-bg-secondary);
-    
-    /* 性能优化：限制重排范围 */
-    contain: layout style paint;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--md-bg-secondary);
+
+  /* 性能优化：限制重排范围 */
+  contain: layout style paint;
 }
 
 /* 当使用固定分割比例时 */
 .markdown-container.has-split-ratio .markdown-preview-pane {
-    flex: calc(1 - var(--split-ratio));
-    max-width: calc((1 - var(--split-ratio)) * (100% - 4px));
+  flex: calc(1 - var(--split-ratio));
+  max-width: calc((1 - var(--split-ratio)) * (100% - 4px));
 }
 
 .markdown-preview-wrapper {
-    flex: 1;
-    min-height: 0;
-    padding: 16px;
-    overflow-x: hidden;
-    overflow-y: auto;
-    box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 #markdown-preview {
-    width: 100%;
-    margin: 0 auto;
+  width: 100%;
+  margin: 0 auto;
 }
 
 /* Markdown 内容样式 - 使用 GitHub 风格 */
 .markdown-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
-    color: var(--md-markdown-text);
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--md-markdown-text);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .markdown-body pre {
-    max-width: 100%;
-    overflow-x: auto;
-    padding: 16px;
-    margin: 0;
-    background-color: var(--md-code-bg) !important;
-    border-radius: 6px;
-    /* 防止主题切换时的抖动 */
-    min-height: 3em;
-    /* 确保正确的盒模型 */
-    box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 16px;
+  margin: 0;
+  background-color: var(--md-code-bg) !important;
+  border-radius: 6px;
+  /* 防止主题切换时的抖动 */
+  min-height: 3em;
+  /* 确保正确的盒模型 */
+  box-sizing: border-box;
 }
 
 .markdown-body > *:first-child {
-    margin-top: 0 !important;
+  margin-top: 0 !important;
 }
 
 .markdown-body > *:last-child {
-    margin-bottom: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 /* 选中文字样式 - VSCode 风格，支持明暗主题 */
 ::selection {
-    background-color: var(--md-selection-bg);
-    color: var(--md-selection-text);
+  background-color: var(--md-selection-bg);
+  color: var(--md-selection-text);
 }
 
 ::-moz-selection {
-    background-color: var(--md-selection-bg);
-    color: var(--md-selection-text);
+  background-color: var(--md-selection-bg);
+  color: var(--md-selection-text);
 }
 
 .markdown-body a {
-    color: var(--md-markdown-link);
-    text-decoration: none;
+  color: var(--md-markdown-link);
+  text-decoration: none;
 }
 
 .markdown-body a:hover {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 
 .markdown-body h1,
@@ -949,1448 +952,1471 @@ html::-webkit-scrollbar-thumb:hover,
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-    margin-top: 24px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    line-height: 1.25;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .markdown-body h1 {
-    font-size: 2em;
-    padding-bottom: 0.3em;
-    border-bottom: 1px solid var(--md-border-primary);
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--md-border-primary);
 }
 
 .markdown-body h2 {
-    font-size: 1.75em;
-    padding-bottom: 0.3em;
-    border-bottom: 1px solid var(--md-border-primary);
+  font-size: 1.75em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--md-border-primary);
 }
 
 .markdown-body h3 {
-    font-size: 1.5em;
+  font-size: 1.5em;
 }
 
 .markdown-body h4 {
-    font-size: 1.25em;
+  font-size: 1.25em;
 }
 
 .markdown-body h5 {
-    font-size: 1.1em;
+  font-size: 1.1em;
 }
 
 .markdown-body h6 {
-    font-size: 1em;
-    color: var(--md-text-disabled);
+  font-size: 1em;
+  color: var(--md-text-disabled);
 }
 
 .markdown-body p {
-    margin-top: 0;
-    margin-bottom: 16px;
+  margin-top: 0;
+  margin-bottom: 16px;
 }
 
 .markdown-body ul,
 .markdown-body ol {
-    margin-top: 0;
-    margin-bottom: 16px;
-    padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 2em;
 }
 
 .markdown-body li {
-    margin-top: 0.25em;
-    padding-inline-start: 0.25em;
+  margin-top: 0.25em;
+  padding-inline-start: 0.25em;
 }
 
 /* 任务列表项：移除列表标记，调整缩进使文本与普通列表项对齐 */
 .markdown-body li.task-list-item,
-.markdown-body li:has(input[type="checkbox"]) {
-    list-style-type: none;
-    padding-inline-start: 0;
-    margin-left: -1.25em;
-    padding-left: 0.25em;
+.markdown-body li:has(input[type='checkbox']) {
+  list-style-type: none;
+  padding-inline-start: 0;
+  margin-left: -1.25em;
+  padding-left: 0.25em;
 }
 
 .markdown-body li > p {
-    margin-top: 16px;
+  margin-top: 16px;
 }
 
 .markdown-body code {
-    padding: 0.2em 0.4em;
-    margin: 0;
-    font-size: 85%;
-    background-color: var(--md-code-bg-inline);
-    border-radius: 3px;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    color: var(--md-code-text);
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: var(--md-code-bg-inline);
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: var(--md-code-text);
 }
 
 /* pre code 特殊样式：移除背景和内边距 */
 .markdown-body pre code {
-    padding: 0;
-    margin: 0;
-    background-color: transparent;
-    border-radius: 0;
-    font-size: inherit;
-    /* 防止主题切换时的抖动 */
-    display: inline-block;
-    min-width: 100%;
-    line-height: 1.5;
-    /* 确保正确的盒模型 */
-    box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  background-color: transparent;
+  border-radius: 0;
+  font-size: inherit;
+  /* 防止主题切换时的抖动 */
+  display: inline-block;
+  min-width: 100%;
+  line-height: 1.5;
+  /* 确保正确的盒模型 */
+  box-sizing: border-box;
 }
 
 .markdown-body blockquote {
-    padding: 0 1em;
-    color: var(--md-markdown-quote);
-    border-left: 0.25em solid var(--md-border-quaternary);
-    margin: 0 0 16px 0;
+  padding: 0 1em;
+  color: var(--md-markdown-quote);
+  border-left: 0.25em solid var(--md-border-quaternary);
+  margin: 0 0 16px 0;
 }
 
 .markdown-body blockquote > :first-child {
-    margin-top: 0;
+  margin-top: 0;
 }
 
 .markdown-body blockquote > :last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .markdown-body table {
-    border-spacing: 0;
-    border-collapse: collapse;
-    margin-top: 0;
-    margin-bottom: 16px;
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    display: block;
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-top: 0;
+  margin-bottom: 16px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
 }
 
 .markdown-body table th {
-    font-weight: 600;
-    background-color: var(--md-code-bg);
+  font-weight: 600;
+  background-color: var(--md-code-bg);
 }
 
 .markdown-body table th,
 .markdown-body table td {
-    padding: 6px 13px;
-    border: 1px solid var(--md-border-quaternary);
+  padding: 6px 13px;
+  border: 1px solid var(--md-border-quaternary);
 }
 
 .markdown-body table tr {
-    background-color: var(--md-bg-secondary);
-    border-top: 1px solid var(--md-border-tertiary);
+  background-color: var(--md-bg-secondary);
+  border-top: 1px solid var(--md-border-tertiary);
 }
 
 .markdown-body table tr:nth-child(2n) {
-    background-color: var(--md-code-bg);
+  background-color: var(--md-code-bg);
 }
 
 .markdown-body img {
-    max-width: 100%;
-    height: auto;
-    box-sizing: border-box;
+  max-width: 100%;
+  height: auto;
+  box-sizing: border-box;
 }
 
 .markdown-body img.markdown-image-error {
-    border: 2px dashed var(--md-color-danger);
-    padding: 10px;
+  border: 2px dashed var(--md-color-danger);
+  padding: 10px;
 }
 
 .markdown-body hr {
-    height: 0.25em;
-    padding: 0;
-    margin: 24px 0;
-    background-color: var(--md-markdown-hr);
-    border: 0;
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--md-markdown-hr);
+  border: 0;
 }
 
-.markdown-body input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 1em;
-    height: 1em;
-    border: 1px solid var(--md-checkbox-border);
-    background-color: var(--md-checkbox-bg);
-    vertical-align: -0.1em;
-    margin: 0 0.5em 0 0;
-    border-radius: 2px;
-    cursor: default;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    flex-shrink: 0;
+.markdown-body input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1em;
+  height: 1em;
+  border: 1px solid var(--md-checkbox-border);
+  background-color: var(--md-checkbox-bg);
+  vertical-align: -0.1em;
+  margin: 0 0.5em 0 0;
+  border-radius: 2px;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
 }
 
-.markdown-body input[type="checkbox"]:checked {
-    background-color: var(--md-checkbox-checked-bg);
-    border-color: var(--md-checkbox-checked-bg);
+.markdown-body input[type='checkbox']:checked {
+  background-color: var(--md-checkbox-checked-bg);
+  border-color: var(--md-checkbox-checked-bg);
 }
 
-.markdown-body input[type="checkbox"]:checked::after {
-    content: '';
-    position: absolute;
-    left: 0.25em;
-    top: 0.05em;
-    width: 0.25em;
-    height: 0.5em;
-    border: solid white;
-    border-width: 0 0.15em 0.15em 0;
-    transform: rotate(45deg);
+.markdown-body input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.25em;
+  top: 0.05em;
+  width: 0.25em;
+  height: 0.5em;
+  border: solid white;
+  border-width: 0 0.15em 0.15em 0;
+  transform: rotate(45deg);
 }
 
 /* Mermaid 图表样式 */
 .markdown-body .mermaid {
-    text-align: center;
-    margin: 16px 0;
-    background-color: var(--md-bg-secondary);
-    padding: 16px;
-    border-radius: 6px;
-    border: 1px solid var(--md-border-quaternary);
+  text-align: center;
+  margin: 16px 0;
+  background-color: var(--md-bg-secondary);
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--md-border-quaternary);
 }
 
 /* Mermaid 图表内部容器 */
 .markdown-body .mermaid svg {
-    display: inline-block;
-    max-width: 100%;
-    height: auto;
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
 }
 
 /* 响应式 */
 @media (max-width: 768px) {
-    .markdown-toolbar {
-        flex-wrap: wrap;
-    }
+  .markdown-toolbar {
+    flex-wrap: wrap;
+  }
 
-    #markdown-editor,
-    .markdown-preview-wrapper {
-        padding: 12px;
-    }
+  #markdown-editor,
+  .markdown-preview-wrapper {
+    padding: 12px;
+  }
 
-    /* 移动端侧边栏处理 */
-    .md-sidebar {
-        position: fixed;
-        top: 0;
-        height: 100%;
-        z-index: 1000;
-        box-shadow: var(--md-shadow);
-    }
+  /* 移动端侧边栏处理 */
+  .md-sidebar {
+    position: fixed;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+    box-shadow: var(--md-shadow);
+  }
 
-    .md-sidebar-left {
-        left: 0;
-        width: 280px;
-    }
+  .md-sidebar-left {
+    left: 0;
+    width: 280px;
+  }
 
-    .md-sidebar-left:not(.open) {
-        transform: translateX(-100%);
-    }
+  .md-sidebar-left:not(.open) {
+    transform: translateX(-100%);
+  }
 
-    .md-sidebar-left.open {
-        transform: translateX(0);
-    }
+  .md-sidebar-left.open {
+    transform: translateX(0);
+  }
 
-    .md-sidebar-right {
-        right: 0;
-        width: 280px;
-    }
+  .md-sidebar-right {
+    right: 0;
+    width: 280px;
+  }
 
-    .md-sidebar-right:not(.open) {
-        transform: translateX(100%);
-    }
+  .md-sidebar-right:not(.open) {
+    transform: translateX(100%);
+  }
 
-    .md-sidebar-right.open {
-        transform: translateX(0);
-    }
+  .md-sidebar-right.open {
+    transform: translateX(0);
+  }
 
-    /* 移动端显示遮罩层 */
-    .md-sidebar-overlay {
-        display: block;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: var(--md-sidebar-overlay-bg);
-        z-index: 999;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
-    }
-
-    .md-sidebar-overlay.show {
-        opacity: 1;
-        visibility: visible;
-    }
-}
-
-/* ==================== 状态显示 ==================== */
-.status-overlay {
+  /* 移动端显示遮罩层 */
+  .md-sidebar-overlay {
+    display: block;
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 9999;
+    background-color: var(--md-sidebar-overlay-bg);
+    z-index: 999;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition:
+      opacity 0.3s ease,
+      visibility 0.3s ease;
+  }
+
+  .md-sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* ==================== 状态显示 ==================== */
+.status-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
 }
 
 .status-overlay.show {
-    opacity: 1;
-    visibility: visible;
+  opacity: 1;
+  visibility: visible;
 }
 
 .status-message {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.9);
-    background-color: var(--md-status-bg);
-    color: var(--md-status-text);
-    padding: 16px 24px;
-    border-radius: 8px;
-    border: 1px solid var(--md-status-border);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 10000;
-    opacity: 0;
-    visibility: hidden;
-    transform: translate(-50%, -50%) scale(0.9);
-    transition: opacity 0.3s ease,
-                visibility 0.3s ease,
-                transform 0.3s ease;
-    max-width: 400px;
-    text-align: center;
-    will-change: opacity, transform;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background-color: var(--md-status-bg);
+  color: var(--md-status-text);
+  padding: 16px 24px;
+  border-radius: 8px;
+  border: 1px solid var(--md-status-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -50%) scale(0.9);
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease,
+    transform 0.3s ease;
+  max-width: 400px;
+  text-align: center;
+  will-change: opacity, transform;
 }
 
 .status-message.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .status-message.success {
-    background-color: var(--md-status-success-bg);
-    color: #fff;
+  background-color: var(--md-status-success-bg);
+  color: #fff;
 }
 
 .status-message.error {
-    background-color: var(--md-status-error-bg);
-    color: #fff;
+  background-color: var(--md-status-error-bg);
+  color: #fff;
 }
 
 .status-message.info {
-    background-color: var(--md-status-info-bg);
-    color: #fff;
+  background-color: var(--md-status-info-bg);
+  color: #fff;
 }
 
 .status-message.warning {
-    background-color: var(--md-status-warning-bg);
-    color: #fff;
+  background-color: var(--md-status-warning-bg);
+  color: #fff;
 }
 
 /* ==================== 主题切换 ==================== */
 #theme-toggle .codicon {
-    transition: transform 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
 #theme-toggle:hover .codicon {
-    transform: rotate(20deg);
+  transform: rotate(20deg);
 }
 
 /* ==================== 布局切换 ==================== */
 #md-layout-toggle .codicon {
-    transition: transform 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
 #md-layout-toggle:hover .codicon {
-    transform: scale(1.1);
+  transform: scale(1.1);
 }
 
 /* 布局模式对应的图标 */
 .markdown-container.layout-editor-only #md-layout-toggle .codicon::before {
-    content: " (仅编辑)";
-    font-family: inherit;
-    font-size: 12px;
-    margin-left: 4px;
+  content: ' (仅编辑)';
+  font-family: inherit;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .markdown-container.layout-preview-only #md-layout-toggle .codicon::before {
-    content: " (仅预览)";
-    font-family: inherit;
-    font-size: 12px;
-    margin-left: 4px;
+  content: ' (仅预览)';
+  font-family: inherit;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .markdown-container.layout-both #md-layout-toggle .codicon::before {
-    content: " (分栏)";
-    font-family: inherit;
-    font-size: 12px;
-    margin-left: 4px;
+  content: ' (分栏)';
+  font-family: inherit;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 /* ==================== 拖拽相关样式 ==================== */
 /* 拖拽时的 body 状态 */
 body.is-dragging {
-    cursor: col-resize !important;
-    user-select: none !important;
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 /* ==================== 代码块相关样式 ==================== */
 /* 带复制按钮的代码块 */
 pre.has-copy-btn {
-    position: relative;
+  position: relative;
 }
 
 /* Mermaid 渲染失败状态 */
 .mermaid.render-error {
-    color: var(--md-color-danger);
+  color: var(--md-color-danger);
 }
 
 /* ==================== 空状态提示 ==================== */
 .md-empty-state {
-    color: var(--md-text-tertiary);
-    text-align: center;
-    padding: 20px;
+  color: var(--md-text-tertiary);
+  text-align: center;
+  padding: 20px;
 }
 
 .md-empty-state button {
-    margin-top: 12px;
-    margin-right: 8px;
+  margin-top: 12px;
+  margin-right: 8px;
 }
 
 /* ==================== 树型结构样式 ==================== */
 /* 树节点 */
 .md-tree-node {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 文档项 - 树型版本 */
 .md-doc-item {
-    display: flex;
-    align-items: center;
-    background: transparent;
-    border-radius: 4px;
-    padding: 0 4px 0 4px;
-    cursor: pointer;
-    color: var(--md-text-primary);
-    position: relative;
-    user-select: none;
-    z-index: 1;
-    min-height: 34px;
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border-radius: 4px;
+  padding: 0 4px 0 4px;
+  cursor: pointer;
+  color: var(--md-text-primary);
+  position: relative;
+  user-select: none;
+  z-index: 1;
+  min-height: 34px;
 }
 
 /* 确保文档项的子元素在连接线上方 */
 .md-doc-item > * {
-    position: relative;
-    z-index: 2;
+  position: relative;
+  z-index: 2;
 }
 
 .md-doc-item:hover:not(.active) {
-    background-color: var(--md-tree-item-hover-bg);
+  background-color: var(--md-tree-item-hover-bg);
 }
 
 .md-doc-item:hover:not(.active) .md-doc-item-icon,
 .md-doc-item:hover:not(.active) .md-doc-item-name {
-    color: var(--md-tree-item-hover-text);
+  color: var(--md-tree-item-hover-text);
 }
 
 /* 激活状态 - 使用更高优先级确保始终可见 */
 .md-doc-item.active {
-    background-color: var(--md-tree-item-active-bg) !important;
-    font-weight: 500;
+  background-color: var(--md-tree-item-active-bg) !important;
+  font-weight: 500;
 }
 
 .md-doc-item.active .md-doc-item-icon,
 .md-doc-item.active .md-doc-item-name {
-    color: var(--md-tree-item-active-text) !important;
+  color: var(--md-tree-item-active-text) !important;
 }
 
 .md-doc-item.editing {
-    background-color: var(--md-bg-secondary);
-    outline: 1px solid var(--md-color-primary);
-    outline-offset: -1px;
-    border-radius: 4px;
+  background-color: var(--md-bg-secondary);
+  outline: 1px solid var(--md-color-primary);
+  outline-offset: -1px;
+  border-radius: 4px;
 }
 
 /* 缩进 */
 .md-tree-indent {
-    flex-shrink: 0;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
+  flex-shrink: 0;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* 展开/折叠箭头 */
 .md-tree-toggle,
 .md-tree-spacer {
-    width: 16px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 4px;
-    flex-shrink: 0;
-    color: var(--md-text-secondary);
+  width: 16px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  flex-shrink: 0;
+  color: var(--md-text-secondary);
 }
 
 .md-tree-toggle {
-    cursor: pointer;
-    border-radius: 2px;
+  cursor: pointer;
+  border-radius: 2px;
 }
 
 .md-tree-toggle .codicon {
-    font-size: 16px;
-    line-height: 1;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .md-tree-toggle.expanded {
-    transform: rotate(90deg);
+  transform: rotate(90deg);
 }
 
 /* 空文件夹的折叠符号 - 半透明显示而不是隐藏 */
 .md-tree-toggle.leaf {
-    opacity: 0.3;
+  opacity: 0.3;
 }
 
 /* 图标 */
 .md-doc-item-icon {
-    height: 22px;
-    line-height: 22px;
-    margin-right: 6px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
+  height: 22px;
+  line-height: 22px;
+  margin-right: 6px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .md-doc-item-icon .codicon {
-    font-size: 16px;
-    line-height: 1;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* 名称 */
 .md-doc-item-name {
-    flex: 1;
-    font-size: 14px;
-    height: 22px;
-    line-height: 22px;
-    color: var(--md-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
+  flex: 1;
+  font-size: 14px;
+  height: 22px;
+  line-height: 22px;
+  color: var(--md-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* 输入框 */
 .md-doc-item-input {
-    flex: 1;
-    font-size: 14px;
-    padding: 0 4px;
-    height: 22px;
-    line-height: 22px;
-    border: 1px solid var(--md-border-secondary);
-    border-radius: 4px;
-    outline: none;
-    background: var(--md-bg-secondary);
-    color: var(--md-text-primary);
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
+  flex: 1;
+  font-size: 14px;
+  padding: 0 4px;
+  height: 22px;
+  line-height: 22px;
+  border: 1px solid var(--md-border-secondary);
+  border-radius: 4px;
+  outline: none;
+  background: var(--md-bg-secondary);
+  color: var(--md-text-primary);
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .md-doc-item-input:focus {
-    background: var(--md-bg-primary);
-    border-color: var(--md-color-primary);
+  background: var(--md-bg-primary);
+  border-color: var(--md-color-primary);
 }
 
 /* 操作按钮组 */
 .md-doc-item-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    height: 22px;
-    opacity: 0;
-    flex-shrink: 0;
-    margin-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  opacity: 0;
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .md-doc-item:hover .md-doc-item-actions,
 .md-doc-item:focus-within .md-doc-item-actions {
-    opacity: 1;
+  opacity: 1;
 }
 
 /* 超小按钮 */
 .md-btn.md-btn-xs {
-    padding: 2px 6px;
-    min-height: 22px;
-    min-width: 22px;
-    font-size: 12px;
+  padding: 2px 6px;
+  min-height: 22px;
+  min-width: 22px;
+  font-size: 12px;
 }
 
 .md-btn.md-btn-icon.md-btn-xs {
-    padding: 2px;
-    font-size: 14px;
+  padding: 2px;
+  font-size: 14px;
 }
 
 /* 删除按钮 */
 .md-doc-item-delete {
-    background: none;
-    border: none;
-    color: var(--md-text-tertiary);
-    cursor: pointer;
-    padding: 2px;
-    font-size: 14px;
-    border-radius: 3px;
+  background: none;
+  border: none;
+  color: var(--md-text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 14px;
+  border-radius: 3px;
 }
 
 .md-doc-item-delete:hover {
-    color: var(--md-color-danger);
-    background-color: rgba(244, 67, 54, 0.1);
+  color: var(--md-color-danger);
+  background-color: rgba(244, 67, 54, 0.1);
 }
 
 /* 新建按钮 */
 .md-new-file-btn,
 .md-new-folder-btn {
-    background: none;
-    border: none;
-    color: var(--md-text-secondary);
-    cursor: pointer;
-    padding: 2px;
-    font-size: 14px;
-    border-radius: 3px;
+  background: none;
+  border: none;
+  color: var(--md-text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 14px;
+  border-radius: 3px;
 }
 
 .md-new-file-btn:hover {
-    color: var(--md-color-success);
-    background-color: rgba(76, 175, 80, 0.1);
+  color: var(--md-color-success);
+  background-color: rgba(76, 175, 80, 0.1);
 }
 
 .md-new-folder-btn:hover {
-    color: var(--md-color-primary);
-    background-color: rgba(33, 150, 243, 0.1);
+  color: var(--md-color-primary);
+  background-color: rgba(33, 150, 243, 0.1);
 }
 
 /* 子节点容器 */
 .md-tree-children {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .md-tree-children.collapsed {
-    display: none;
+  display: none;
 }
 
 /* 拖拽相关样式 */
 .md-doc-item.draggable {
-    cursor: grab;
+  cursor: grab;
 }
 
 .md-doc-item.draggable:active {
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
 .md-doc-item.md-dragging {
-    opacity: 0.5;
-    background-color: var(--md-bg-hover);
+  opacity: 0.5;
+  background-color: var(--md-bg-hover);
 }
 
 /* 拖拽时禁用过渡效果，避免抖动 */
 body.is-dragging-tree .md-doc-item,
 body.is-dragging-tree .md-tree-node {
-    transition: none !important;
+  transition: none !important;
 }
 
 /* 拖拽时降低选中状态的层级，确保拖拽目标高亮可见 */
 body.is-dragging-tree .md-doc-item.active {
-    z-index: 1;
+  z-index: 1;
 }
 
 /* 文件夹项高亮 - 使用 box-shadow 代替 outline，避免被背景色遮挡 */
 .md-drop-target {
-    background-color: var(--md-tree-drop-bg);
-    position: relative;
-    z-index: 10;
+  background-color: var(--md-tree-drop-bg);
+  position: relative;
+  z-index: 10;
 }
 
 /* 使用伪元素绘制边框，确保在背景色之上 */
 .md-drop-target::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border: 2px dashed var(--md-tree-drop-border);
-    border-radius: 4px;
-    pointer-events: none;
-    z-index: 11;
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px dashed var(--md-tree-drop-border);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 11;
 }
 
 .md-drop-target::after {
-    content: '放置到此处';
-    position: absolute;
-    right: 8px;
-    font-size: 11px;
-    color: var(--md-tree-drop-text);
-    background-color: var(--md-tree-drop-label-bg);
-    padding: 2px 6px;
-    border-radius: 3px;
-    pointer-events: none;
-    z-index: 12;
+  content: '放置到此处';
+  position: absolute;
+  right: 8px;
+  font-size: 11px;
+  color: var(--md-tree-drop-text);
+  background-color: var(--md-tree-drop-label-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 12;
 }
 
 /* 展开的文件夹区域高亮 - 使用伪元素避免布局抖动 */
 .md-drop-target-expanded {
-    background-color: var(--md-tree-drop-bg);
-    position: relative;
-    z-index: 10;
+  background-color: var(--md-tree-drop-bg);
+  position: relative;
+  z-index: 10;
 }
 
 /* 使用伪元素添加边框，不影响布局 */
 .md-drop-target-expanded::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border: 2px dashed var(--md-tree-drop-border);
-    border-radius: 4px;
-    pointer-events: none;
-    z-index: 12;
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px dashed var(--md-tree-drop-border);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 12;
 }
 
 .md-drop-target-expanded > .md-doc-item {
-    background-color: transparent !important;
-    outline: none;
+  background-color: transparent !important;
+  outline: none;
 }
 
 .md-drop-target-expanded > .md-doc-item::after {
-    content: '放置到此文件夹';
-    position: absolute;
-    right: 8px;
-    font-size: 11px;
-    color: var(--md-tree-drop-text);
-    background-color: var(--md-tree-drop-label-bg);
-    padding: 2px 6px;
-    border-radius: 3px;
-    z-index: 13;
-    pointer-events: none;
+  content: '放置到此文件夹';
+  position: absolute;
+  right: 8px;
+  font-size: 11px;
+  color: var(--md-tree-drop-text);
+  background-color: var(--md-tree-drop-label-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  z-index: 13;
+  pointer-events: none;
 }
 
 /* 根目录区域高亮 - 使用伪元素绘制边框 */
 .md-drop-target-root {
-    background-color: var(--md-tree-drop-bg);
-    border-radius: 6px;
-    position: relative;
-    min-height: 100px;
-    z-index: 10;
+  background-color: var(--md-tree-drop-bg);
+  border-radius: 6px;
+  position: relative;
+  min-height: 100px;
+  z-index: 10;
 }
 
 .md-drop-target-root::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border: 2px dashed var(--md-tree-drop-border);
-    border-radius: 6px;
-    pointer-events: none;
-    z-index: 11;
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px dashed var(--md-tree-drop-border);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 11;
 }
 
 .md-drop-target-root::after {
-    content: '放置到根目录';
-    position: fixed;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 12px;
-    color: var(--md-tree-drop-text);
-    background-color: var(--md-tree-drop-label-bg);
-    padding: 4px 8px;
-    border-radius: 4px;
-    z-index: 1001;
-    pointer-events: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  content: '放置到根目录';
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--md-tree-drop-text);
+  background-color: var(--md-tree-drop-label-bg);
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 1001;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* 拖拽时的全局样式 */
 body.is-dragging-tree {
-    user-select: none;
+  user-select: none;
 }
 
 /* VSCode 风格的树型连线 - 为每个层级显示连接线 */
 .md-tree-children {
-    position: relative;
+  position: relative;
 }
 
 /* 为每个层级的子容器添加竖线，位置与折叠符号中心对齐 */
 /* 计算：indent (level * 16px) + toggle 中心 (8px) + margin 补偿 (4px) */
 .md-tree-children::before {
-    content: '';
-    position: absolute;
-    left: 12px;  /* 0 * 16 + 8 + 4 = 12px */
-    top: 0;
-    bottom: 0;
-    width: 0.5px;
-    /* 使用更明显的颜色，根据主题自动调整 */
-    background-color: var(--md-text-tertiary);
-    opacity: 0.3;
-    /* 确保连接线在文档项背景之上 */
-    z-index: 3;
-    pointer-events: none;
+  content: '';
+  position: absolute;
+  left: 12px; /* 0 * 16 + 8 + 4 = 12px */
+  top: 0;
+  bottom: 0;
+  width: 0.5px;
+  /* 使用更明显的颜色，根据主题自动调整 */
+  background-color: var(--md-text-tertiary);
+  opacity: 0.3;
+  /* 确保连接线在文档项背景之上 */
+  z-index: 3;
+  pointer-events: none;
 }
 
 /* 第一层级的竖线位置（与该层级的折叠符号中心对齐） */
-.md-tree-node[data-level="1"] > .md-tree-children::before {
-    left: 28px;  /* 1 * 16 + 8 + 4 = 28px */
+.md-tree-node[data-level='1'] > .md-tree-children::before {
+  left: 28px; /* 1 * 16 + 8 + 4 = 28px */
 }
 
 /* 第二层级的竖线位置 */
-.md-tree-node[data-level="2"] > .md-tree-children::before {
-    left: 44px;  /* 2 * 16 + 8 + 4 = 44px */
+.md-tree-node[data-level='2'] > .md-tree-children::before {
+  left: 44px; /* 2 * 16 + 8 + 4 = 44px */
 }
 
 /* 第三层级的竖线位置 */
-.md-tree-node[data-level="3"] > .md-tree-children::before {
-    left: 60px;  /* 3 * 16 + 8 + 4 = 60px */
+.md-tree-node[data-level='3'] > .md-tree-children::before {
+  left: 60px; /* 3 * 16 + 8 + 4 = 60px */
 }
 
 /* 第四层级的竖线位置 */
-.md-tree-node[data-level="4"] > .md-tree-children::before {
-    left: 76px;  /* 4 * 16 + 8 + 4 = 76px */
+.md-tree-node[data-level='4'] > .md-tree-children::before {
+  left: 76px; /* 4 * 16 + 8 + 4 = 76px */
 }
 
 /* 更深层级使用相同间距 */
-.md-tree-node[data-level="5"] > .md-tree-children::before,
-.md-tree-node[data-level="6"] > .md-tree-children::before,
-.md-tree-node[data-level="7"] > .md-tree-children::before {
-    left: 88px;
+.md-tree-node[data-level='5'] > .md-tree-children::before,
+.md-tree-node[data-level='6'] > .md-tree-children::before,
+.md-tree-node[data-level='7'] > .md-tree-children::before {
+  left: 88px;
 }
 
 /* ==================== 数学公式样式 ==================== */
 
 /* 块级数学公式 */
 .markdown-body .math-block {
-    display: block;
-    overflow-x: auto;
-    text-align: center;
-    background-color: transparent;
-    border-radius: 2px;
-    line-height: 1.4;
+  display: block;
+  overflow-x: auto;
+  text-align: center;
+  background-color: transparent;
+  border-radius: 2px;
+  line-height: 1.4;
 }
 
 /* 行内数学公式 */
 .markdown-body .math-inline {
-    display: inline;
-    padding: 0 2px;
-    vertical-align: baseline;
+  display: inline;
+  padding: 0 2px;
+  vertical-align: baseline;
 }
 
 /* 数学公式字体大小 */
 .markdown-body .math-block .katex {
-    font-size: 1.05em;
+  font-size: 1.05em;
 }
 
 .markdown-body .math-inline .katex {
-    font-size: 1em;
+  font-size: 1em;
 }
 
 /* 数学公式错误样式 */
 .markdown-body .math-error {
-    color: #cc0000;
-    font-family: monospace;
-    background-color: #ffeeee;
-    padding: 2px 4px;
-    border-radius: 3px;
+  color: #cc0000;
+  font-family: monospace;
+  background-color: #ffeeee;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 /* 暗色主题下的数学公式 */
 body.dark-mode .markdown-body .math-block {
-    background-color: transparent;
+  background-color: transparent;
 }
 
 body.dark-mode .markdown-body .math-error {
-    background-color: #3a1d1d;
+  background-color: #3a1d1d;
 }
 
 /* ==================== 打印样式 ==================== */
 @media print {
-    /* 隐藏不需要打印的元素 */
-    .markdown-toolbar,
-    .markdown-editor-pane,
-    .markdown-divider,
-    .md-sidebar,
-    .md-sidebar-overlay,
-    .status-overlay,
-    .code-copy-btn,
-    .md-sidebar-section-header,
-    .md-sidebar-section-toggle,
-    .md-doc-toolbar {
-        display: none !important;
-    }
+  /* 隐藏不需要打印的元素 */
+  .markdown-toolbar,
+  .markdown-editor-pane,
+  .markdown-divider,
+  .md-sidebar,
+  .md-sidebar-overlay,
+  .status-overlay,
+  .code-copy-btn,
+  .md-sidebar-section-header,
+  .md-sidebar-section-toggle,
+  .md-doc-toolbar {
+    display: none !important;
+  }
 
-    /* 只显示预览区域 */
-    .markdown-container {
-        display: block !important;
-        height: auto !important;
-        min-height: auto !important;
-        max-height: none !important;
-    }
+  /* 只显示预览区域 */
+  .markdown-container {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+  }
 
-    .markdown-preview-pane {
-        display: block !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: auto !important;
-        max-height: none !important;
-        border: none !important;
-        overflow: visible !important;
-        flex: none !important;
-    }
+  .markdown-preview-pane {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    border: none !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
 
-    .markdown-preview-wrapper {
-        padding: 0 !important;
-        overflow: visible !important;
-        height: auto !important;
-        min-height: auto !important;
-        max-height: none !important;
-        flex: none !important;
-    }
+  .markdown-preview-wrapper {
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+  }
 
-    /* 优化预览内容样式 */
-    #markdown-preview {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow: visible !important;
-        box-sizing: border-box !important;
-    }
+  /* 优化预览内容样式 */
+  #markdown-preview {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
 
-    .markdown-body {
-        font-size: 11.5pt;
-        line-height: 1.5;
-        color: #000;
-        max-width: 100% !important;
-        width: 100% !important;
-        overflow-wrap: break-word;
-        word-wrap: break-word;
-        word-break: break-word;
-        box-sizing: border-box !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
+  .markdown-body {
+    font-size: 11.5pt;
+    line-height: 1.5;
+    color: #000;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 
-    /* 标题样式 - 适度紧凑，允许自然分页 */
-    .markdown-body h1 {
-        font-size: 22pt;
-        page-break-after: auto;
-        page-break-before: auto;
-        margin-top: 8px;
-        margin-bottom: 10px;
-    }
+  /* 标题样式 - 适度紧凑，允许自然分页 */
+  .markdown-body h1 {
+    font-size: 22pt;
+    page-break-after: auto;
+    page-break-before: auto;
+    margin-top: 8px;
+    margin-bottom: 10px;
+  }
 
-    .markdown-body h2 {
-        font-size: 18pt;
-        page-break-after: auto;
-        page-break-before: auto;
-        margin-top: 12px;
-        margin-bottom: 8px;
-    }
+  .markdown-body h2 {
+    font-size: 18pt;
+    page-break-after: auto;
+    page-break-before: auto;
+    margin-top: 12px;
+    margin-bottom: 8px;
+  }
 
-    .markdown-body h3 {
-        font-size: 14pt;
-        page-break-after: auto;
-        page-break-before: auto;
-        margin-top: 10px;
-        margin-bottom: 6px;
-    }
+  .markdown-body h3 {
+    font-size: 14pt;
+    page-break-after: auto;
+    page-break-before: auto;
+    margin-top: 10px;
+    margin-bottom: 6px;
+  }
 
-    .markdown-body h4,
-    .markdown-body h5,
-    .markdown-body h6 {
-        page-break-after: auto;
-        page-break-before: auto;
-        margin-top: 8px;
-        margin-bottom: 5px;
-        font-size: 12pt;
-    }
+  .markdown-body h4,
+  .markdown-body h5,
+  .markdown-body h6 {
+    page-break-after: auto;
+    page-break-before: auto;
+    margin-top: 8px;
+    margin-bottom: 5px;
+    font-size: 12pt;
+  }
 
-    /* 段落样式 - 适度间距，允许跨页 */
-    .markdown-body p {
-        margin-top: 4px;
-        margin-bottom: 8px;
-        page-break-inside: auto;
-        page-break-before: auto;
-        page-break-after: auto;
-        orphans: 2;
-        widows: 2;
-    }
+  /* 段落样式 - 适度间距，允许跨页 */
+  .markdown-body p {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    page-break-inside: auto;
+    page-break-before: auto;
+    page-break-after: auto;
+    orphans: 2;
+    widows: 2;
+  }
 
-    /* 列表样式 - 适度间距，允许跨页 */
-    .markdown-body ul,
-    .markdown-body ol {
-        margin-top: 4px;
-        margin-bottom: 8px;
-        padding-left: 1.8em;
-        max-width: 100% !important;
-        page-break-before: auto;
-        page-break-after: auto;
-        page-break-inside: auto;
-    }
+  /* 列表样式 - 适度间距，允许跨页 */
+  .markdown-body ul,
+  .markdown-body ol {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    padding-left: 1.8em;
+    max-width: 100% !important;
+    page-break-before: auto;
+    page-break-after: auto;
+    page-break-inside: auto;
+  }
 
-    .markdown-body li {
-        margin-top: 2px;
-        margin-bottom: 2px;
-        max-width: 100% !important;
-        word-wrap: break-word;
-        page-break-inside: auto;
-        orphans: 2;
-        widows: 2;
-    }
+  .markdown-body li {
+    margin-top: 2px;
+    margin-bottom: 2px;
+    max-width: 100% !important;
+    word-wrap: break-word;
+    page-break-inside: auto;
+    orphans: 2;
+    widows: 2;
+  }
 
-    /* 引用块样式 - 适度间距，允许跨页 */
-    .markdown-body blockquote {
-        padding: 0 1em;
-        margin: 6px 0;
-        border-left: 0.25em solid #ddd;
-        max-width: 100% !important;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        page-break-inside: auto;
-        page-break-before: auto;
-        page-break-after: auto;
-    }
+  /* 引用块样式 - 适度间距，允许跨页 */
+  .markdown-body blockquote {
+    padding: 0 1em;
+    margin: 6px 0;
+    border-left: 0.25em solid #ddd;
+    max-width: 100% !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    page-break-inside: auto;
+    page-break-before: auto;
+    page-break-after: auto;
+  }
 
-    /* 代码块样式 - 适度间距，允许跨页 */
-    .markdown-body pre {
-        background-color: #f5f5f5 !important;
-        border: 1px solid #ddd;
-        page-break-inside: auto;
-        page-break-before: auto;
-        page-break-after: auto;
-        overflow-wrap: break-word;
-        word-wrap: break-word;
-        word-break: break-all;
-        white-space: pre-wrap;
-        max-width: 100% !important;
-        overflow: visible !important;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-        display: block;
-        font-size: 10pt;
-        line-height: 1.4;
-        padding: 10px !important;
-    }
+  /* 代码块样式 - 适度间距，允许跨页 */
+  .markdown-body pre {
+    background-color: #f5f5f5 !important;
+    border: 1px solid #ddd;
+    page-break-inside: auto;
+    page-break-before: auto;
+    page-break-after: auto;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-all;
+    white-space: pre-wrap;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+    display: block;
+    font-size: 10pt;
+    line-height: 1.4;
+    padding: 10px !important;
+  }
 
-    .markdown-body code {
-        background-color: #f5f5f5;
-        font-size: 10pt;
-        word-wrap: break-word;
-        word-break: break-all;
-    }
+  .markdown-body code {
+    background-color: #f5f5f5;
+    font-size: 10pt;
+    word-wrap: break-word;
+    word-break: break-all;
+  }
 
-    /* 代码块包装器 - 允许跨页 */
-    .code-block-wrapper {
-        page-break-inside: auto;
-        page-break-before: auto;
-        page-break-after: auto;
-        max-width: 100% !important;
-        overflow: visible !important;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-    }
+  /* 代码块包装器 - 允许跨页 */
+  .code-block-wrapper {
+    page-break-inside: auto;
+    page-break-before: auto;
+    page-break-after: auto;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+  }
 
-    /* 表格样式 - 适度间距，允许跨页 */
-    .markdown-body table {
-        page-break-inside: auto;
-        page-break-before: auto;
-        page-break-after: auto;
-        border-collapse: collapse;
-        max-width: 100% !important;
-        width: 100% !important;
-        overflow: visible !important;
-        word-wrap: break-word;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-        font-size: 11pt;
-    }
+  /* 表格样式 - 适度间距，允许跨页 */
+  .markdown-body table {
+    page-break-inside: auto;
+    page-break-before: auto;
+    page-break-after: auto;
+    border-collapse: collapse;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: visible !important;
+    word-wrap: break-word;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+    font-size: 11pt;
+  }
 
-    .markdown-body table th,
-    .markdown-body table td {
-        border: 1px solid #000;
-        word-wrap: break-word;
-        max-width: 100% !important;
-        padding: 4px 8px !important;
-    }
+  .markdown-body table th,
+  .markdown-body table td {
+    border: 1px solid #000;
+    word-wrap: break-word;
+    max-width: 100% !important;
+    padding: 4px 8px !important;
+  }
 
-    /* 表格行尽量避免分页 */
-    .markdown-body table tr {
-        page-break-inside: avoid;
-        page-break-after: auto;
-    }
+  /* 表格行尽量避免分页 */
+  .markdown-body table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
 
-    /* 图片样式 - 强制在一页内，超过则缩放 */
-    .markdown-body img {
-        max-width: 100% !important;
-        max-height: 85vh !important;
-        height: auto !important;
-        width: auto !important;
-        object-fit: contain;
-        page-break-inside: avoid;
-        page-break-before: auto;
-        page-break-after: auto;
-        display: block;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-    }
+  /* 图片样式 - 强制在一页内，超过则缩放 */
+  .markdown-body img {
+    max-width: 100% !important;
+    max-height: 85vh !important;
+    height: auto !important;
+    width: auto !important;
+    object-fit: contain;
+    page-break-inside: avoid;
+    page-break-before: auto;
+    page-break-after: auto;
+    display: block;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+  }
 
-    /* 链接样式 */
-    .markdown-body a {
-        color: #000;
-        text-decoration: underline;
-        word-break: break-all;
-        overflow-wrap: break-word;
-    }
+  /* 链接样式 */
+  .markdown-body a {
+    color: #000;
+    text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: break-word;
+  }
 
-    .markdown-body a[href^="http"]::after {
-        content: " (" attr(href) ")";
-        font-size: 0.8em;
-        word-break: break-all;
-    }
+  .markdown-body a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.8em;
+    word-break: break-all;
+  }
 
-    /* Mermaid 图表 - 强制在一页内，超过则缩放 */
-    .markdown-body .mermaid {
-        page-break-inside: avoid;
-        page-break-before: auto;
-        page-break-after: auto;
-        border: 1px solid #ddd;
-        max-width: 100% !important;
-        max-height: 85vh !important;
-        overflow: visible !important;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-    }
+  /* Mermaid 图表 - 强制在一页内，超过则缩放 */
+  .markdown-body .mermaid {
+    page-break-inside: avoid;
+    page-break-before: auto;
+    page-break-after: auto;
+    border: 1px solid #ddd;
+    max-width: 100% !important;
+    max-height: 85vh !important;
+    overflow: visible !important;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+  }
 
-    .markdown-body .mermaid svg {
-        max-width: 100% !important;
-        max-height: 85vh !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
+  .markdown-body .mermaid svg {
+    max-width: 100% !important;
+    max-height: 85vh !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
 
-    /* 数学公式 - 适度间距，允许跨页 */
-    .markdown-body .math-block {
-        page-break-inside: auto;
-        page-break-before: auto;
-        page-break-after: auto;
-        max-width: 100% !important;
-        overflow: visible !important;
-        margin-top: 6px !important;
-        margin-bottom: 6px !important;
-    }
+  /* 数学公式 - 适度间距，允许跨页 */
+  .markdown-body .math-block {
+    page-break-inside: auto;
+    page-break-before: auto;
+    page-break-after: auto;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+  }
 
-    .markdown-body .katex {
-        max-width: 100% !important;
-        overflow: visible !important;
-    }
+  .markdown-body .katex {
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
 
-    .markdown-body .katex-display {
-        max-width: 100% !important;
-        overflow-x: auto !important;
-        overflow-y: hidden !important;
-    }
+  .markdown-body .katex-display {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
 
-    /* 页面设置 - 适度的边距 */
-    @page {
-        margin: 1.3cm;
-        size: A4;
-    }
+  /* 页面设置 - 适度的边距 */
+  @page {
+    margin: 1.3cm;
+    size: A4;
+  }
 
-    @page :first {
-        margin-top: 1.1cm;
-    }
+  @page :first {
+    margin-top: 1.1cm;
+  }
 
-    /* 标题后紧跟内容，适度间距 */
-    .markdown-body h1 + *,
-    .markdown-body h2 + *,
-    .markdown-body h3 + *,
-    .markdown-body h4 + *,
-    .markdown-body h5 + *,
-    .markdown-body h6 + * {
-        page-break-before: auto;
-        margin-top: 4px;
-    }
+  /* 标题后紧跟内容，适度间距 */
+  .markdown-body h1 + *,
+  .markdown-body h2 + *,
+  .markdown-body h3 + *,
+  .markdown-body h4 + *,
+  .markdown-body h5 + *,
+  .markdown-body h6 + * {
+    page-break-before: auto;
+    margin-top: 4px;
+  }
 
-    /* 适度的元素间距 */
-    .markdown-body > * {
-        margin-top: 0;
-        margin-bottom: 6px;
-    }
+  /* 适度的元素间距 */
+  .markdown-body > * {
+    margin-top: 0;
+    margin-bottom: 6px;
+  }
 
-    /* 允许内容自然跨页，避免孤页 */
-    .markdown-body * {
-        page-break-before: auto;
-        page-break-after: auto;
-    }
+  /* 允许内容自然跨页，避免孤页 */
+  .markdown-body * {
+    page-break-before: auto;
+    page-break-after: auto;
+  }
 
-    /* 所有文本内容允许跨页 */
-    .markdown-body p,
-    .markdown-body pre,
-    .markdown-body table,
-    .markdown-body .math-block,
-    .markdown-body ul,
-    .markdown-body ol,
-    .markdown-body blockquote {
-        page-break-inside: auto;
-    }
+  /* 所有文本内容允许跨页 */
+  .markdown-body p,
+  .markdown-body pre,
+  .markdown-body table,
+  .markdown-body .math-block,
+  .markdown-body ul,
+  .markdown-body ol,
+  .markdown-body blockquote {
+    page-break-inside: auto;
+  }
 
-    /* 只有图片和图表强制在一页内 */
-    .markdown-body img,
-    .markdown-body .mermaid {
-        page-break-inside: avoid;
-    }
+  /* 只有图片和图表强制在一页内 */
+  .markdown-body img,
+  .markdown-body .mermaid {
+    page-break-inside: avoid;
+  }
 
-    /* 优化内容密度，减少空白 */
-    .markdown-body {
-        text-align: justify;
-    }
+  /* 优化内容密度，减少空白 */
+  .markdown-body {
+    text-align: justify;
+  }
 
-    /* 打印时的背景色 */
-    body {
-        background: #fff !important;
-        color: #000 !important;
-        height: auto !important;
-        min-height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-    }
+  /* 打印时的背景色 */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
 
-    html {
-        height: auto !important;
-        overflow: visible !important;
-    }
+  html {
+    height: auto !important;
+    overflow: visible !important;
+  }
 
-    /* 防止空白页 */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        box-sizing: border-box !important;
-    }
+  /* 防止空白页 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-sizing: border-box !important;
+  }
 
-    /* 确保所有块级元素不会溢出 */
-    div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre, table, section, article {
-        max-width: 100% !important;
-        overflow-wrap: break-word;
-        word-wrap: break-word;
-    }
+  /* 确保所有块级元素不会溢出 */
+  div,
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  ul,
+  ol,
+  li,
+  blockquote,
+  pre,
+  table,
+  section,
+  article {
+    max-width: 100% !important;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
 
-    /* 确保内容不会溢出 */
-    body, html, #markdown-preview, .markdown-body {
-        overflow-x: hidden !important;
-        overflow-y: visible !important;
-        width: 100% !important;
-        max-width: 100% !important;
-    }
+  /* 确保内容不会溢出 */
+  body,
+  html,
+  #markdown-preview,
+  .markdown-body {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 
-    /* 水平线样式 - 适度间距 */
-    .markdown-body hr {
-        margin: 10px 0;
-        page-break-inside: avoid;
-    }
+  /* 水平线样式 - 适度间距 */
+  .markdown-body hr {
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
 }
 
 /* ==================== 自定义对话框样式 ==================== */
 .md-dialog-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    opacity: 0;
-    transition: opacity 0.2s ease;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .md-dialog-overlay.md-dialog-overlay-show {
-    opacity: 1;
+  opacity: 1;
 }
 
 .md-dialog {
-    background: var(--md-bg-secondary);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    width: var(--dialog-width, 400px);
-    max-width: 90vw;
-    max-height: 90vh;
-    overflow: hidden;
-    transform: scale(0.9);
-    transition: transform 0.2s ease;
-    display: flex;
-    flex-direction: column;
+  background: var(--md-bg-secondary);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: var(--dialog-width, 400px);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .md-dialog-overlay.md-dialog-overlay-show .md-dialog {
-    transform: scale(1);
+  transform: scale(1);
 }
 
 /* 标题栏 - 使用 toolbar 颜色 */
 .md-dialog-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background-color: var(--md-toolbar-bg);
-    color: var(--md-toolbar-text);
-    border-bottom: 1px solid var(--md-toolbar-border);
-    flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--md-toolbar-bg);
+  color: var(--md-toolbar-text);
+  border-bottom: 1px solid var(--md-toolbar-border);
+  flex-shrink: 0;
 }
 
 .md-dialog-header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .md-dialog-icon {
-    font-size: 20px;
-    flex-shrink: 0;
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .md-dialog-info .md-dialog-icon {
-    color: #4fc3f7;
+  color: #4fc3f7;
 }
 
 .md-dialog-success .md-dialog-icon {
-    color: #81c784;
+  color: #81c784;
 }
 
 .md-dialog-warning .md-dialog-icon {
-    color: #ffb74d;
+  color: #ffb74d;
 }
 
 .md-dialog-error .md-dialog-icon,
 .md-dialog-danger .md-dialog-icon {
-    color: #e57373;
+  color: #e57373;
 }
 
 .md-dialog-title {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--md-toolbar-text);
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--md-toolbar-text);
 }
 
 /* 内容区域 */
 .md-dialog-body {
-    padding: 20px;
-    overflow-y: auto;
-    flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .md-dialog-message {
-    color: var(--md-text-primary);
-    font-size: 14px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+  color: var(--md-text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 /* 底部按钮区域 */
 .md-dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 12px 16px;
-    background-color: var(--md-bg-tertiary);
-    border-top: 1px solid var(--md-border-primary);
-    flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  background-color: var(--md-bg-tertiary);
+  border-top: 1px solid var(--md-border-primary);
+  flex-shrink: 0;
 }
 
 /* 响应式调整 */
 @media (max-width: 480px) {
-    .md-dialog {
-        width: calc(100vw - 32px) !important;
-        max-width: calc(100vw - 32px);
-    }
+  .md-dialog {
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px);
+  }
 
-    .md-dialog-header {
-        padding: 10px 12px;
-    }
+  .md-dialog-header {
+    padding: 10px 12px;
+  }
 
-    .md-dialog-icon {
-        font-size: 18px;
-    }
+  .md-dialog-icon {
+    font-size: 18px;
+  }
 
-    .md-dialog-title {
-        font-size: 14px;
-    }
+  .md-dialog-title {
+    font-size: 14px;
+  }
 
-    .md-dialog-body {
-        padding: 16px;
-    }
+  .md-dialog-body {
+    padding: 16px;
+  }
 
-    .md-dialog-footer {
-        padding: 10px 12px;
-        flex-direction: column-reverse;
-    }
+  .md-dialog-footer {
+    padding: 10px 12px;
+    flex-direction: column-reverse;
+  }
 
-    .md-dialog-footer .md-btn {
-        width: 100%;
-    }
+  .md-dialog-footer .md-btn {
+    width: 100%;
+  }
 }
 
 /* ==================== Prism 代码高亮主题 ==================== */
 /* 使用 CSS 变量实现主题切换 - 符合现代 CSS 最佳实践 */
 
 :root {
-    /* Prism Light Theme Variables */
-    --prism-bg: #f5f5f5;
-    --prism-text-shadow: 0 1px #fff;
-    --prism-comment: #708090;
-    --prism-punctuation: #999;
-    --prism-property: #905;
-    --prism-selector: #690;
-    --prism-operator: #9a6e3a;
-    --prism-keyword: #07a;
-    --prism-function: #dd4a68;
-    --prism-regex: #e90;
+  /* Prism Light Theme Variables */
+  --prism-bg: #f5f5f5;
+  --prism-text-shadow: 0 1px #fff;
+  --prism-comment: #708090;
+  --prism-punctuation: #999;
+  --prism-property: #905;
+  --prism-selector: #690;
+  --prism-operator: #9a6e3a;
+  --prism-keyword: #07a;
+  --prism-function: #dd4a68;
+  --prism-regex: #e90;
 }
 
-[data-mode="dark"] {
-    /* Prism Dark Theme Variables - Tomorrow Night */
-    --prism-bg: #1e1e1e;
-    --prism-text-shadow: 0 1px rgba(0, 0, 0, 0.3);
-    --prism-comment: #8e929a;
-    --prism-punctuation: #d4d4d4;
-    --prism-property: #b5cea8;
-    --prism-selector: #ce9178;
-    --prism-operator: #d4d4d4;
-    --prism-keyword: #c586c0;
-    --prism-function: #dcdcaa;
-    --prism-regex: #d16969;
+[data-mode='dark'] {
+  /* Prism Dark Theme Variables - Tomorrow Night */
+  --prism-bg: #1e1e1e;
+  --prism-text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+  --prism-comment: #8e929a;
+  --prism-punctuation: #d4d4d4;
+  --prism-property: #b5cea8;
+  --prism-selector: #ce9178;
+  --prism-operator: #d4d4d4;
+  --prism-keyword: #c586c0;
+  --prism-function: #dcdcaa;
+  --prism-regex: #d16969;
 }
 
 /* 应用 CSS 变量到 Prism Token */
-code[class*="language-"],
-pre[class*="language-"] {
-    text-shadow: var(--prism-text-shadow);
-    background: var(--prism-bg);
+code[class*='language-'],
+pre[class*='language-'] {
+  text-shadow: var(--prism-text-shadow);
+  background: var(--prism-bg);
 }
 
 .token.comment,
 .token.prolog,
 .token.doctype,
 .token.cdata {
-    color: var(--prism-comment);
+  color: var(--prism-comment);
 }
 
 .token.punctuation {
-    color: var(--prism-punctuation);
+  color: var(--prism-punctuation);
 }
 
 .token.property,
@@ -2400,7 +2426,7 @@ pre[class*="language-"] {
 .token.constant,
 .token.symbol,
 .token.deleted {
-    color: var(--prism-property);
+  color: var(--prism-property);
 }
 
 .token.selector,
@@ -2409,7 +2435,7 @@ pre[class*="language-"] {
 .token.char,
 .token.builtin,
 .token.inserted {
-    color: var(--prism-selector);
+  color: var(--prism-selector);
 }
 
 .token.operator,
@@ -2417,22 +2443,22 @@ pre[class*="language-"] {
 .token.url,
 .language-css .token.string,
 .style .token.string {
-    color: var(--prism-operator);
+  color: var(--prism-operator);
 }
 
 .token.atrule,
 .token.attr-value,
 .token.keyword {
-    color: var(--prism-keyword);
+  color: var(--prism-keyword);
 }
 
 .token.function,
 .token.class-name {
-    color: var(--prism-function);
+  color: var(--prism-function);
 }
 
 .token.regex,
 .token.important,
 .token.variable {
-    color: var(--prism-regex);
+  color: var(--prism-regex);
 }

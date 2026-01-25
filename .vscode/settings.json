@@ -1,0 +1,63 @@
+{
+  // 编辑器配置
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+
+  // ESLint 配置
+  "eslint.enable": true,
+  "eslint.validate": ["javascript"],
+  "eslint.run": "onType",
+
+  // Prettier 配置
+  "prettier.enable": true,
+  "prettier.requireConfig": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Vitest 配置
+  "vitest.enable": true,
+
+  // 文件关联
+  "files.associations": {
+    "*.js": "javascript"
+  },
+
+  // 排除文件
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true
+  },
+
+  // 搜索排除
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/coverage": true,
+    "**/*.test.js": true
+  },
+
+  // TypeScript/JavaScript 配置
+  "javascript.suggestionActions.enabled": true,
+  "javascript.preferences.quoteStyle": "single",
+
+  // 测试配置
+  "testing.automaticallyOpenPeekView": "never"
+}

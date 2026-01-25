@@ -2,7 +2,7 @@
  * 本地存储管理器
  * 负责管理所有与 localStorage 相关的数据存储和读取
  * 支持异步操作以避免阻塞主线程
- * 
+ *
  * @example
  * ```js
  * // 保存内容
@@ -10,17 +10,17 @@
  * if (!result.success) {
  *   console.error(result.error);
  * }
- * 
+ *
  * // 加载内容
  * const content = StoreManager.loadContent('default content');
  * ```
  */
 export class StoreManager {
     // ==================== 异步存储队列 ====================
-    
+
     /** @type {Map} 待处理的存储操作队列 */
     static #pendingOperations = new Map();
-    
+
     /** @type {boolean} 是否正在处理队列 */
     static #isProcessing = false;
 
@@ -30,12 +30,12 @@ export class StoreManager {
      * @param {Function} operation - 存储操作（可以是同步或异步函数）
      * @returns {Promise} 操作结果
      */
-    static async #scheduleAsync(operation) {
+    static #scheduleAsync(operation) {
         const id = Date.now() + Math.random();
-        
+
         return new Promise((resolve, reject) => {
             StoreManager.#pendingOperations.set(id, { operation, resolve, reject });
-            
+
             if (!StoreManager.#isProcessing) {
                 StoreManager.#processQueue();
             }
@@ -46,7 +46,7 @@ export class StoreManager {
      * 处理操作队列 - 使用 async/await 重构
      * @private
      */
-    static async #processQueue() {
+    static #processQueue() {
         if (StoreManager.#pendingOperations.size === 0) {
             StoreManager.#isProcessing = false;
             return;
@@ -400,7 +400,7 @@ i\\hbar \\frac{\\partial}{\\partial t}\\Psi(x,t) = \\hat{H}\\Psi(x,t)
 $$
 `;
     // ==================== 存储键名常量 ====================
-    
+
     /** @type {Object} 存储键名映射 */
     static #STORAGE_KEYS = {
         CONTENT: 'markdown_editor_content',
@@ -413,11 +413,8 @@ $$
         SIDEBAR_RIGHT: 'markdown_editor_sidebar_right'
     };
 
-    /** @type {number} 最大存储大小（字节）- 约 5MB */
-    static #MAX_STORAGE_SIZE = 5 * 1024 * 1024;
-
     // ==================== 内容存储 ====================
-    
+
     /**
      * 保存编辑器内容到本地存储（异步）
      * @param {string} content - 编辑器内容
@@ -528,7 +525,7 @@ $$
         try {
             const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.DOCUMENTS);
             if (!saved) return [];
-            
+
             const documents = JSON.parse(saved);
             // 验证数据格式
             if (!Array.isArray(documents)) {
@@ -647,9 +644,10 @@ $$
      */
     static saveSidebarState(side, isOpen) {
         try {
-            const key = side === 'left' 
-                ? StoreManager.#STORAGE_KEYS.SIDEBAR_LEFT 
-                : StoreManager.#STORAGE_KEYS.SIDEBAR_RIGHT;
+            const key =
+                side === 'left'
+                    ? StoreManager.#STORAGE_KEYS.SIDEBAR_LEFT
+                    : StoreManager.#STORAGE_KEYS.SIDEBAR_RIGHT;
             localStorage.setItem(key, JSON.stringify(isOpen));
             return true;
         } catch (e) {
@@ -666,9 +664,10 @@ $$
      */
     static loadSidebarState(side, defaultState = false) {
         try {
-            const key = side === 'left' 
-                ? StoreManager.#STORAGE_KEYS.SIDEBAR_LEFT 
-                : StoreManager.#STORAGE_KEYS.SIDEBAR_RIGHT;
+            const key =
+                side === 'left'
+                    ? StoreManager.#STORAGE_KEYS.SIDEBAR_LEFT
+                    : StoreManager.#STORAGE_KEYS.SIDEBAR_RIGHT;
             const saved = localStorage.getItem(key);
             return saved !== null ? JSON.parse(saved) : defaultState;
         } catch (e) {

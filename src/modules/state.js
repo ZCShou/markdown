@@ -1,7 +1,7 @@
 /**
  * 编辑器状态管理器
  * 采用观察者模式，实现状态驱动的UI更新
- * 
+ *
  * @example
  * ```js
  * const state = new EditorState();
@@ -13,12 +13,15 @@
  */
 import { StoreManager } from './store.js';
 
+/**
+ *
+ */
 export class EditorState {
     // ==================== 私有字段 ====================
-    
+
     /** @private */
     #updateTimestampTimeout = null;
-    
+
     /** @type {Object} 核心状态对象 */
     #state = {
         // 文档相关
@@ -46,18 +49,14 @@ export class EditorState {
         // 渲染状态
         isRenderingMermaid: false,
         lastRenderedContent: '',
-        headings: []  // 标题数据，用于目录生成
+        headings: [] // 标题数据，用于目录生成
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
     #listeners = new Map();
-    
+
     /** @type {Set<Function>} 全局监听器 */
     #globalListeners = new Set();
-
-    constructor() {
-        // 构造函数留空，初始化通过字段默认值完成
-    }
 
     /**
      * 获取状态快照（只读）
@@ -88,7 +87,7 @@ export class EditorState {
     setState(updates, options = {}) {
         let hasChanges = false;
         const changedKeys = [];
-        
+
         // 检查是否有实际变化（除非强制更新）
         if (!options.force) {
             for (const key in updates) {
@@ -97,19 +96,19 @@ export class EditorState {
                     changedKeys.push(key);
                 }
             }
-            
+
             // 如果没有变化且不是静默更新，可以跳过
             if (!hasChanges && !options.silent) {
                 return;
             }
         }
-        
+
         // 只在需要通知时创建旧状态副本
-        const oldState = (!options.silent && hasChanges) ? { ...this.#state } : null;
-        
+        const oldState = !options.silent && hasChanges ? { ...this.#state } : null;
+
         // 更新状态
         Object.assign(this.#state, updates);
-        
+
         // 如果不是静默更新，通知监听器（传递 force 选项）
         if (!options.silent && oldState) {
             this.#notify(oldState, this.#state, options.force, changedKeys);
@@ -123,7 +122,7 @@ export class EditorState {
      */
     subscribe(listener) {
         this.#globalListeners.add(listener);
-        
+
         // 返回取消订阅函数
         return () => {
             this.#globalListeners.delete(listener);
@@ -138,14 +137,14 @@ export class EditorState {
      */
     subscribeTo(keys, listener) {
         const keyArray = Array.isArray(keys) ? keys : [keys];
-        
+
         keyArray.forEach(key => {
             if (!this.#listeners.has(key)) {
                 this.#listeners.set(key, new Set());
             }
             this.#listeners.get(key).add(listener);
         });
-        
+
         // 返回取消订阅函数
         return () => {
             keyArray.forEach(key => {
@@ -177,7 +176,7 @@ export class EditorState {
 
         // 通知特定键的监听器（只通知变化的键）
         const keysToNotify = force ? Object.keys(newState) : changedKeys;
-        
+
         keysToNotify.forEach(key => {
             const listeners = this.#listeners.get(key);
             if (listeners) {
@@ -228,14 +227,16 @@ export class EditorState {
         const toDelete = new Set([docId]);
         let changed = true;
 
+        const checkChildren = doc => {
+            if (doc.parentId && toDelete.has(doc.parentId) && !toDelete.has(doc.id)) {
+                toDelete.add(doc.id);
+                changed = true;
+            }
+        };
+
         while (changed) {
             changed = false;
-            this.#state.documents.forEach(doc => {
-                if (doc.parentId && toDelete.has(doc.parentId) && !toDelete.has(doc.id)) {
-                    toDelete.add(doc.id);
-                    changed = true;
-                }
-            });
+            this.#state.documents.forEach(checkChildren);
         }
 
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
@@ -252,25 +253,28 @@ export class EditorState {
         if (this.#state.currentDocId === docId) {
             return;
         }
-        
+
         const doc = this.#state.documents.find(d => d.id === docId);
         if (doc) {
             const updates = { currentDocId: docId };
-            
+
             // 只有当文档不是文件夹时，才更新内容
             if (doc.type !== 'folder') {
                 updates.content = doc.content || '';
             }
-            
+
             // 更新状态
             this.setState(updates);
-            
+
             // 异步保存当前文档 ID 到本地存储，避免阻塞主线程
             // 使用 requestIdleCallback 在浏览器空闲时执行
             if (typeof requestIdleCallback !== 'undefined') {
-                requestIdleCallback(() => {
-                    StoreManager.saveCurrentDocId(docId);
-                }, { timeout: 2000 });
+                requestIdleCallback(
+                    () => {
+                        StoreManager.saveCurrentDocId(docId);
+                    },
+                    { timeout: 2000 }
+                );
             } else {
                 // 降级方案：使用 setTimeout
                 setTimeout(() => {
@@ -288,13 +292,15 @@ export class EditorState {
         // 只更新 content 状态，不触发 documents 更新
         // documents 的更新通过防抖保存机制处理，避免每次输入都重新渲染文档列表
         this.setState({ content });
-        
+
         // 静默更新 documents 数组（不触发订阅者通知）
         if (this.#state.currentDocId) {
-            const docIndex = this.#state.documents.findIndex(d => d.id === this.#state.currentDocId);
+            const docIndex = this.#state.documents.findIndex(
+                d => d.id === this.#state.currentDocId
+            );
             if (docIndex !== -1) {
                 this.#state.documents[docIndex].content = content;
-                
+
                 // 延迟更新 updatedAt（2秒），避免每次输入都创建新的 Date 对象
                 if (this.#updateTimestampTimeout) {
                     clearTimeout(this.#updateTimestampTimeout);
@@ -344,8 +350,6 @@ export class EditorState {
         return this.#state.documents.filter(doc => doc.parentId === folderId);
     }
 
-
-
     /**
      * 移动文档到另一个文件夹
      * @param {string} docId - 文档ID
@@ -355,13 +359,14 @@ export class EditorState {
     moveDocument(docId, targetFolderId) {
         // 防止将文件夹移动到其子文件夹中
         if (targetFolderId) {
-            let current = this.#state.documents.find(d => d.id === targetFolderId);
+            const findDoc = id => this.#state.documents.find(d => d.id === id);
+            let current = findDoc(targetFolderId);
             while (current && current.parentId) {
                 if (current.parentId === docId) {
                     // 无效移动，不执行操作
                     return false;
                 }
-                current = this.#state.documents.find(d => d.id === current.parentId);
+                current = findDoc(current.parentId);
             }
         }
 
@@ -489,7 +494,7 @@ export class EditorState {
             clearTimeout(this.#updateTimestampTimeout);
             this.#updateTimestampTimeout = null;
         }
-        
+
         // 清理所有监听器
         this.#listeners.clear();
         this.#globalListeners.clear();

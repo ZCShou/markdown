@@ -1,0 +1,45 @@
+{
+  "recommendations": [
+    // ESLint
+    "dbaeumer.vscode-eslint",
+
+    // Prettier
+    "esbenp.prettier-vscode",
+
+    // Vitest
+    "vitest.explorer",
+
+    // Code Spell Checker
+    "streetsidesoftware.code-spell-checker",
+
+    // Auto Rename Tag
+    "formulahendry.auto-rename-tag",
+
+    // Auto Close Tag
+    "formulahendry.auto-close-tag",
+
+    // Path Intellisense
+    "christian-kohler.path-intellisense",
+
+    // Import Cost
+    "wix.vscode-import-cost",
+
+    // TODO Highlight
+    "wayou.vscode-todo-highlight",
+
+    // Material Icon Theme
+    "PKief.material-icon-theme",
+
+    // One Dark Pro
+    "zhuangtongfa.material-theme",
+
+    // GitLens
+    "eamodio.gitlens",
+
+    // Error Lens
+    "usernamehw.errorlens",
+
+    // Jest Runner (如果使用 Jest)
+    "firsttris.vscode-jest-runner"
+  ]
+}

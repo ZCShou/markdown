@@ -5,9 +5,14 @@
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
 
+/**
+ *
+ */
 export class TOC extends BaseComponent {
     /**
      * 构造函数
+     * @param state
+     * @param containerId
      */
     constructor(state, containerId) {
         super(state, containerId);
@@ -33,11 +38,13 @@ export class TOC extends BaseComponent {
      */
     bindEvents() {
         // 使用事件委托处理目录项点击
-        this.addEventListener(this.container, 'click', (e) => {
+        this.addEventListener(this.container, 'click', e => {
             const item = e.target.closest('.md-toc-item');
             if (!item) return;
 
-            const headingId = item.dataset.headingId;
+            const {
+                dataset: { headingId }
+            } = item;
             if (headingId) {
                 this.scrollToHeading(headingId);
             }
@@ -57,7 +64,7 @@ export class TOC extends BaseComponent {
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer);
         }
-        
+
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = null;
             this.generateTOC();
@@ -71,9 +78,9 @@ export class TOC extends BaseComponent {
     generateTOC() {
         const headings = this.state.get('headings');
         const headingCount = headings ? headings.length : 0;
-        
+
         if (headingCount === 0) {
-            this.container.innerHTML = `<p class="md-empty-state">暂无目录</p>`;
+            this.container.innerHTML = '<p class="md-empty-state">暂无目录</p>';
             return;
         }
 
@@ -86,7 +93,7 @@ export class TOC extends BaseComponent {
             if (this.animationFrameId) {
                 cancelAnimationFrame(this.animationFrameId);
             }
-            
+
             this.animationFrameId = requestAnimationFrame(() => {
                 this.animationFrameId = null;
                 this._rebuildTOC(headings);
@@ -99,6 +106,7 @@ export class TOC extends BaseComponent {
 
     /**
      * 完全重建目录
+     * @param headings
      * @private
      */
     _rebuildTOC(headings) {
@@ -106,21 +114,21 @@ export class TOC extends BaseComponent {
 
         // 使用 DocumentFragment 提升性能
         const fragment = document.createDocumentFragment();
-        
+
         for (let i = 0; i < headingCount; i++) {
             const heading = headings[i];
-            
+
             // 直接使用已有的数据，无需解析
             const headingId = heading.id || `heading-${i}`;
             const level = heading.level || +heading.tagName.substring(1);
             const text = heading.textContent || '';
-            
+
             const item = document.createElement('div');
             item.className = `md-toc-item level-${level}`;
             item.dataset.headingId = headingId;
             item.dataset.level = level; // 存储 level 避免后续正则匹配
             item.textContent = text;
-            
+
             fragment.appendChild(item);
         }
 
@@ -130,26 +138,28 @@ export class TOC extends BaseComponent {
 
     /**
      * 增量更新目录（性能优化 - 减少不必要的 DOM 操作）
+     * @param headings
+     * @param currentItems
      * @private
      */
     _updateTOC(headings, currentItems) {
         const itemsToUpdate = [];
-        
+
         for (let i = 0; i < headings.length; i++) {
             const heading = headings[i];
             const currentItem = currentItems[i];
-            
+
             // 直接使用已有的数据，无需解析
             const headingId = heading.id || `heading-${i}`;
             const level = heading.level || +heading.tagName.substring(1);
             const text = heading.textContent || '';
-            
+
             // 一次性读取当前值，避免重复查询 DOM
-            const dataset = currentItem.dataset;
+            const { dataset } = currentItem;
             const currentId = dataset.headingId;
             const currentLevel = +dataset.level; // 直接从 data-level 读取，避免正则匹配
             const currentText = currentItem.textContent;
-            
+
             // 检查是否需要更新
             if (currentId !== headingId || currentText !== text || currentLevel !== level) {
                 itemsToUpdate.push({
@@ -160,16 +170,17 @@ export class TOC extends BaseComponent {
                 });
             }
         }
-        
+
         // 只在有变化时批量更新 DOM
         if (itemsToUpdate.length > 0) {
             for (let i = 0; i < itemsToUpdate.length; i++) {
                 const item = itemsToUpdate[i];
-                const dataset = item.element.dataset;
+                const { element } = item;
+                const { dataset } = element;
                 dataset.headingId = item.headingId;
                 dataset.level = item.level;
-                item.element.textContent = item.text;
-                item.element.className = `md-toc-item level-${item.level}`;
+                element.textContent = item.text;
+                element.className = `md-toc-item level-${item.level}`;
             }
         }
     }

@@ -1,21 +1,21 @@
 /**
  * DOM 统一管理器
- * 
+ *
  * 集中管理项目中所有的 DOM 元素引用，提供统一的访问接口
- * 
+ *
  * @example
  * ```js
  * import { dom } from './utils/dom.js';
- * 
+ *
  * // 获取元素
  * const container = dom.app.container;
  * const editor = dom.editor.element;
- * 
+ *
  * // 检查元素是否存在
  * if (dom.sidebar.left.exists()) {
  *     dom.sidebar.left.toggle();
  * }
- * 
+ *
  * // 批量操作
  * dom.buttons.all.forEach(btn => btn.classList.add('active'));
  * ```
@@ -38,6 +38,7 @@ class DOMElement {
 
     /**
      * 获取元素（带缓存）
+     * @returns {Element|null} DOM 元素或 null
      */
     get element() {
         if (!this._element) {
@@ -46,13 +47,9 @@ class DOMElement {
         return this._element;
     }
 
-
     /**
      * 检查元素是否存在
      * @returns {boolean} 是否存在
-     */
-    /**
-     * 检查元素是否存在
      */
     exists() {
         return this.element !== null;
@@ -90,6 +87,7 @@ class DOMElement {
 
     /**
      * 添加类名
+     * @param {...any} classNames
      */
     addClass(...classNames) {
         if (this.exists()) {
@@ -99,6 +97,7 @@ class DOMElement {
 
     /**
      * 移除类名
+     * @param {...any} classNames
      */
     removeClass(...classNames) {
         if (this.exists()) {
@@ -108,6 +107,7 @@ class DOMElement {
 
     /**
      * 切换类名
+     * @param className
      */
     toggleClass(className) {
         if (this.exists()) {
@@ -117,6 +117,8 @@ class DOMElement {
 
     /**
      * 检查是否有类名
+     * @param {string} className - 类名
+     * @returns {boolean} 是否有该类名
      */
     hasClass(className) {
         return this.exists() && this.element.classList.contains(className);
@@ -124,6 +126,8 @@ class DOMElement {
 
     /**
      * 设置属性
+     * @param name
+     * @param value
      */
     setAttribute(name, value) {
         if (this.exists()) {
@@ -133,6 +137,8 @@ class DOMElement {
 
     /**
      * 获取属性
+     * @param {string} name - 属性名
+     * @returns {string|null} 属性值或 null
      */
     getAttribute(name) {
         return this.exists() ? this.element.getAttribute(name) : null;
@@ -140,6 +146,7 @@ class DOMElement {
 
     /**
      * 设置文本内容
+     * @param text
      */
     setText(text) {
         if (this.exists()) {
@@ -149,6 +156,7 @@ class DOMElement {
 
     /**
      * 设置 HTML 内容
+     * @param html
      */
     setHTML(html) {
         if (this.exists()) {
@@ -158,6 +166,9 @@ class DOMElement {
 
     /**
      * 添加事件监听
+     * @param event
+     * @param handler
+     * @param options
      */
     on(event, handler, options) {
         if (this.exists()) {
@@ -167,6 +178,9 @@ class DOMElement {
 
     /**
      * 移除事件监听
+     * @param event
+     * @param handler
+     * @param options
      */
     off(event, handler, options) {
         if (this.exists()) {
@@ -296,33 +310,33 @@ class DOMElementList {
     }
 }
 
-    /**
-     * 移除事件监听
-     * @param {string} event - 事件名
-     * @param {Function} handler - 事件处理函数
-     * @param {Object|boolean} [options] - 事件选项
-     * @returns {void}
-     */
+/**
+ * 移除事件监听
+ * @param {string} event - 事件名
+ * @param {Function} handler - 事件处理函数
+ * @param {Object|boolean} [options] - 事件选项
+ * @returns {void}
+ */
 
 /**
  * DOM 管理器
  * 集中管理所有 DOM 元素
  */
 
-    /**
-     * 清除缓存
-     * @returns {void}
-     */
+/**
+ * 清除缓存
+ * @returns {void}
+ */
 export const dom = {
     // ==================== 缓存 ====================
-    
+
     /**
      * 全局缓存（用于静态元素）
      */
     globalCache: new Map(),
 
     // ==================== 应用容器 ====================
-    
+
     /**
      * 应用主容器
      */
@@ -332,7 +346,7 @@ export const dom = {
     },
 
     // ==================== 编辑器区域 ====================
-    
+
     /**
      * 编辑器相关元素
      */
@@ -343,7 +357,7 @@ export const dom = {
     },
 
     // ==================== 预览区域 ====================
-    
+
     /**
      * 预览相关元素
      */
@@ -355,7 +369,7 @@ export const dom = {
     },
 
     // ==================== 分隔条 ====================
-    
+
     /**
      * 分隔条元素
      */
@@ -364,20 +378,20 @@ export const dom = {
     },
 
     // ==================== 侧边栏 ====================
-    
+
     /**
      * 侧边栏元素
      */
     sidebar: {
         left: new DOMElement('#md-sidebar-left'),
         right: new DOMElement('#md-sidebar-right'),
-        
+
         // 左侧边栏内容
         leftContent: {
             documents: new DOMElement('#md-documents-content'),
             toc: new DOMElement('#md-toc-content')
         },
-        
+
         // 右侧边栏内容
         rightContent: {
             settings: new DOMElement('#md-settings-content'),
@@ -386,7 +400,7 @@ export const dom = {
     },
 
     // ==================== 文档列表 ====================
-    
+
     /**
      * 文档列表元素
      */
@@ -396,7 +410,7 @@ export const dom = {
     },
 
     // ==================== 目录 ====================
-    
+
     /**
      * 目录元素
      */
@@ -406,7 +420,7 @@ export const dom = {
     },
 
     // ==================== 按钮 ====================
-    
+
     /**
      * 按钮元素
      */
@@ -414,24 +428,24 @@ export const dom = {
         // 侧边栏切换按钮
         toggleLeft: new DOMElement('#md-toggle-left-sidebar'),
         toggleRight: new DOMElement('#md-toggle-right-sidebar'),
-        
+
         // 关闭按钮
         closeLeft: new DOMElement('#md-close-left-sidebar'),
         closeRight: new DOMElement('#md-close-right-sidebar'),
-        
+
         // 文档操作按钮
         newFile: new DOMElement('#md-new-file'),
         newFolder: new DOMElement('#md-new-folder'),
         delete: new DOMElement('#md-delete-item'),
-        
+
         // 导出按钮
         exportHTML: new DOMElement('#md-export-html'),
         exportMD: new DOMElement('#md-export-md'),
-        
+
         // 布局和主题
         layoutToggle: new DOMElement('#md-layout-toggle'),
         themeToggle: new DOMElement('#theme-toggle'),
-        
+
         // 所有按钮（用于批量操作）
         all: new DOMElementList('.md-btn')
     },
@@ -447,20 +461,20 @@ export const dom = {
     },
 
     // ==================== 工具方法 ====================
-    
+
     /**
      * 初始化所有 DOM 元素
      * 预加载所有元素到缓存
-        * @returns {void}
-        */
+     * @returns {void}
+     */
     init() {
         // 遍历所有 DOM 元素并触发 getter
-        const initElement = (obj) => {
+        const initElement = obj => {
             for (const key in obj) {
                 const value = obj[key];
                 if (value instanceof DOMElement) {
                     // 触发 getter，加载元素到缓存
-                    const element = value.element;
+                    const element = value.element; // eslint-disable-line prefer-destructuring
                     if (!element) {
                         console.warn(`Element not found: ${value.selector}`);
                     }
@@ -476,16 +490,16 @@ export const dom = {
                 }
             }
         };
-        
+
         initElement(this);
     },
 
     /**
      * 清除所有缓存
-        * @returns {void}
-        */
+     * @returns {void}
+     */
     clearCache() {
-        const clearElementCache = (obj) => {
+        const clearElementCache = obj => {
             for (const key in obj) {
                 const value = obj[key];
                 if (value instanceof DOMElement || value instanceof DOMElementList) {
@@ -495,28 +509,23 @@ export const dom = {
                 }
             }
         };
-        
+
         clearElementCache(this);
     },
 
     /**
      * 检查所有必需元素是否存在
-        * @returns {boolean} 所有必需元素是否存在
-        */
+     * @returns {boolean} 所有必需元素是否存在
+     */
     checkRequired() {
-        const required = [
-            'app.container',
-            'editor.element',
-            'preview.element',
-            'divider.element'
-        ];
-        
+        const required = ['app.container', 'editor.element', 'preview.element', 'divider.element'];
+
         const missing = [];
-        
+
         for (const path of required) {
             const keys = path.split('.');
             let obj = this;
-            
+
             for (const key of keys) {
                 obj = obj[key];
                 if (!obj) {
@@ -524,17 +533,17 @@ export const dom = {
                     break;
                 }
             }
-            
+
             if (obj && !obj.exists()) {
                 missing.push(path);
             }
         }
-        
+
         if (missing.length > 0) {
             console.error('Missing required DOM elements:', missing);
             return false;
         }
-        
+
         return true;
     },
 
@@ -544,12 +553,12 @@ export const dom = {
      */
     debug() {
         const info = {};
-        
+
         const collectInfo = (obj, prefix = '') => {
             for (const key in obj) {
                 const value = obj[key];
                 const path = prefix ? `${prefix}.${key}` : key;
-                
+
                 if (value instanceof DOMElement) {
                     info[path] = {
                         type: 'element',
@@ -569,7 +578,7 @@ export const dom = {
                 }
             }
         };
-        
+
         collectInfo(this);
         return info;
     },
@@ -589,10 +598,10 @@ export const dom = {
             }
 
             const observer = new MutationObserver(() => {
-                const element = document.querySelector(selector);
-                if (element) {
+                const targetElement = document.querySelector(selector);
+                if (targetElement) {
                     observer.disconnect();
-                    resolve(element);
+                    resolve(targetElement);
                 }
             });
 
@@ -722,31 +731,31 @@ export const dom = {
 
 /**
  * 使用示例：
- * 
+ *
  * ```js
  * import { dom } from './utils/dom.js';
- * 
+ *
  * // 初始化（可选，用于预加载和检查）
  * dom.init();
- * 
+ *
  * // 检查必需元素
  * if (!dom.checkRequired()) {
  *     console.error('Missing required elements');
  * }
- * 
+ *
  * // 获取元素
  * const editor = dom.editor.element;
  * const preview = dom.preview.element;
- * 
+ *
  * // 操作元素
  * dom.sidebar.left.show();
  * dom.sidebar.right.hide();
- * 
+ *
  * // 批量操作
  * dom.documentList.items.forEach(item => {
  *     item.classList.add('active');
  * });
- * 
+ *
  * // 调试
  * console.log(dom.debug());
  * ```

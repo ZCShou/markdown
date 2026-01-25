@@ -1,10 +1,10 @@
 /**
  * 通用工具函数
- * 
+ *
  * @example
  * ```js
  * import { debounce, formatDate } from '../utils/helpers.js';
- * 
+ *
  * const debouncedFn = debounce(() => console.log('Hello'), 300);
  * const dateStr = formatDate(new Date());
  * ```
@@ -42,7 +42,7 @@ export function throttle(func, limit) {
         if (!inThrottle) {
             func(...args);
             inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
+            setTimeout(() => (inThrottle = false), limit);
         }
     };
 }
@@ -55,18 +55,18 @@ export function throttle(func, limit) {
  */
 export function formatDate(date, format = 'YYYY-MM-DD HH:mm:ss') {
     const d = date instanceof Date ? date : new Date(date);
-    
+
     if (isNaN(d.getTime())) {
         return '';
     }
-    
+
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const seconds = String(d.getSeconds()).padStart(2, '0');
-    
+
     return format
         .replace('YYYY', year)
         .replace('MM', month)
@@ -95,19 +95,19 @@ export function deepClone(obj) {
     if (obj === null || typeof obj !== 'object') {
         return obj;
     }
-    
+
     if (obj instanceof Date) {
         return new Date(obj.getTime());
     }
-    
+
     if (obj instanceof Array) {
         return obj.map(item => deepClone(item));
     }
-    
+
     if (obj instanceof Object) {
         const clonedObj = {};
         for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
+            if (Object.hasOwn(obj, key)) {
                 clonedObj[key] = deepClone(obj[key]);
             }
         }
@@ -124,19 +124,19 @@ export function isEmpty(value) {
     if (value === null || value === undefined) {
         return true;
     }
-    
+
     if (typeof value === 'string') {
         return value.trim().length === 0;
     }
-    
+
     if (Array.isArray(value)) {
         return value.length === 0;
     }
-    
+
     if (typeof value === 'object') {
         return Object.keys(value).length === 0;
     }
-    
+
     return false;
 }
 
@@ -198,7 +198,7 @@ export function supportsFeature(feature) {
                 localStorage.setItem(test, test);
                 localStorage.removeItem(test);
                 return true;
-            } catch (e) {
+            } catch {
                 return false;
             }
         default:

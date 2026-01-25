@@ -1,15 +1,15 @@
 /**
  * 自定义通用对话框组件
  * 支持确认对话框、警告对话框、自定义对话框
- * 
+ *
  * @example
  * ```js
  * // 确认对话框
  * const confirmed = await Dialog.confirm('确定要删除吗？');
- * 
+ *
  * // 警告对话框
  * await Dialog.alert('操作成功！');
- * 
+ *
  * // 自定义对话框
  * const result = await Dialog.show({
  *     title: '自定义标题',
@@ -23,6 +23,9 @@
  */
 import { dom } from '../utils/dom.js';
 
+/**
+ *
+ */
 export class Dialog {
     /**
      * 确认对话框
@@ -65,19 +68,13 @@ export class Dialog {
      * @returns {Promise<void>}
      */
     static async alert(message, options = {}) {
-        const {
-            title = '提示',
-            buttonText = '确定',
-            type = 'info'
-        } = options;
+        const { title = '提示', buttonText = '确定', type = 'info' } = options;
 
         await this.show({
             title,
             message,
             type,
-            buttons: [
-                { text: buttonText, value: true, type: 'primary' }
-            ]
+            buttons: [{ text: buttonText, value: true, type: 'primary' }]
         });
     }
 
@@ -93,7 +90,7 @@ export class Dialog {
      * @param {boolean} options.closeOnEscape - 按 ESC 是否关闭
      * @returns {Promise<any>} 点击按钮的值
      */
-    static async show(options = {}) {
+    static show(options = {}) {
         const {
             title = '对话框',
             message = '',
@@ -104,11 +101,11 @@ export class Dialog {
             closeOnEscape = true
         } = options;
 
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             // 创建遮罩层
             const overlay = document.createElement('div');
             overlay.classList.add('md-dialog-overlay');
-            
+
             // 创建对话框
             const dialog = document.createElement('div');
             dialog.classList.add('md-dialog', `md-dialog-${type}`);
@@ -116,18 +113,18 @@ export class Dialog {
             if (width !== '400px') {
                 dialog.style.setProperty('--dialog-width', width);
             }
-            
+
             // 图标映射
             const iconMap = {
-                'info': 'info',
-                'success': 'check',
-                'warning': 'warning',
-                'error': 'error',
-                'danger': 'error'
+                info: 'info',
+                success: 'check',
+                warning: 'warning',
+                error: 'error',
+                danger: 'error'
             };
-            
+
             const iconName = iconMap[type] || 'info';
-            
+
             // 构建对话框 HTML
             dialog.innerHTML = `
                 <div class="md-dialog-header">
@@ -140,20 +137,24 @@ export class Dialog {
                     <div class="md-dialog-message">${message}</div>
                 </div>
                 <div class="md-dialog-footer">
-                    ${buttons.map((btn, index) => `
+                    ${buttons
+                        .map(
+                            (btn, index) => `
                         <button class="md-btn md-btn-${btn.type || 'secondary'}${index === buttons.length - 1 ? ' md-btn-primary' : ''}" data-value="${this.escapeHtml(String(btn.value))}">
                             ${this.escapeHtml(btn.text)}
                         </button>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             `;
-            
+
             // 添加到 DOM
             overlay.appendChild(dialog);
             document.body.appendChild(overlay);
-            
+
             // 触发重排以启动动画
-            overlay.offsetHeight;
+            void overlay.offsetHeight;
             overlay.classList.add('md-dialog-overlay-show');
 
             // 使用 dom.js 统一查询，聚焦第一个按钮
@@ -161,34 +162,11 @@ export class Dialog {
             if (firstButton) {
                 setTimeout(() => firstButton.focus(), 100);
             }
-            
-            // 处理按钮点击
-            const handleButtonClick = (e) => {
-                const button = e.target.closest('.md-dialog-footer button');
-                if (button) {
-                    const value = button.dataset.value;
-                    closeDialog(value === 'true' ? true : value === 'false' ? false : value);
-                }
-            };
-            
-            // 处理遮罩点击
-            const handleOverlayClick = (e) => {
-                if (e.target === overlay && closeOnOverlay) {
-                    closeDialog(null);
-                }
-            };
-            
-            // 处理 ESC 键
-            const handleKeyDown = (e) => {
-                if (e.key === 'Escape' && closeOnEscape) {
-                    closeDialog(null);
-                }
-            };
-            
+
             // 关闭对话框
-            const closeDialog = (result) => {
+            function closeDialog(result) {
                 overlay.classList.remove('md-dialog-overlay-show');
-                
+
                 // 等待动画结束
                 setTimeout(() => {
                     overlay.removeEventListener('click', handleOverlayClick);
@@ -197,15 +175,38 @@ export class Dialog {
                     document.body.removeChild(overlay);
                     resolve(result);
                 }, 200);
+            }
+
+            // 处理按钮点击
+            const handleButtonClick = e => {
+                const button = e.target.closest('.md-dialog-footer button');
+                if (button) {
+                    const { value } = button.dataset;
+                    closeDialog(value === 'true' ? true : value === 'false' ? false : value);
+                }
             };
-            
+
+            // 处理遮罩点击
+            const handleOverlayClick = e => {
+                if (e.target === overlay && closeOnOverlay) {
+                    closeDialog(null);
+                }
+            };
+
+            // 处理 ESC 键
+            const handleKeyDown = e => {
+                if (e.key === 'Escape' && closeOnEscape) {
+                    closeDialog(null);
+                }
+            };
+
             // 绑定事件
             overlay.addEventListener('click', handleOverlayClick);
             dialog.addEventListener('click', handleButtonClick);
             document.addEventListener('keydown', handleKeyDown);
         });
     }
-    
+
     /**
      * 转义 HTML
      * @param {string} text - 要转义的文本

@@ -6,9 +6,15 @@ import { BaseComponent } from './BaseComponent.js';
 import { StoreManager } from '../modules/store.js';
 import { dom } from '../utils/dom.js';
 
+/**
+ *
+ */
 export class Sidebar extends BaseComponent {
     /**
      * 构造函数
+     * @param state
+     * @param containerId
+     * @param side
      */
     constructor(state, containerId, side) {
         super(state, containerId);
@@ -22,7 +28,7 @@ export class Sidebar extends BaseComponent {
     subscribe() {
         const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
 
-        this.unsubscribe = this.state.subscribeTo(stateKey, (isOpen) => {
+        this.unsubscribe = this.state.subscribeTo(stateKey, isOpen => {
             this.updateVisibility(isOpen);
         });
     }
@@ -32,7 +38,7 @@ export class Sidebar extends BaseComponent {
      * @returns {void}
      */
     bindEvents() {
-        this.addEventListener(this.container, 'click', (e) => {
+        this.addEventListener(this.container, 'click', e => {
             this.handleSectionClick(e);
         });
     }

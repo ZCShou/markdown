@@ -1,30 +1,30 @@
 /**
  * UI 组件基类
  * 提供组件通用功能：状态订阅、事件管理、工具方法
- * 
+ *
  * DOM 访问说明：
  * - 全局元素：使用 dom.js（如 dom.editor.element）
  * - 组件内查询：使用 dom.getIn() 或 dom.getAllIn()
- * 
+ *
  * @example
  * ```js
  * class MyComponent extends BaseComponent {
  *   constructor(state, containerId) {
  *     super(state, containerId);
  *   }
- *   
+ *
  *   render() {
  *     // 使用 dom.js 访问全局元素
  *     const editor = dom.editor.element;
- *     
+ *
  *     // 在组件内查询元素
  *     const items = dom.getAllIn(this.container, '.item');
- *     
+ *
  *     // 创建元素
  *     const btn = this.createElement('button', {
  *       textContent: 'Click me'
  *     });
- *     
+ *
  *     this.container.appendChild(btn);
  *   }
  * }
@@ -33,6 +33,9 @@
 import { debounce, escapeHtml } from '../utils/helpers.js';
 import { dom } from '../utils/dom.js';
 
+/**
+ *
+ */
 export class BaseComponent {
     /**
      * 构造函数
@@ -53,6 +56,7 @@ export class BaseComponent {
      * @param {Error} error - 错误对象
      * @param {string} context - 错误上下文
      * @param {Object} metadata - 附加元数据
+     * @returns {Object} 错误信息对象
      */
     handleError(error, context = 'unknown', metadata = {}) {
         const errorInfo = {
@@ -68,9 +72,11 @@ export class BaseComponent {
         console.error(`[${errorInfo.component}] Error in ${context}:`, error, metadata);
 
         // 触发错误事件供外部监听
-        window.dispatchEvent(new CustomEvent('md:componentError', {
-            detail: errorInfo
-        }));
+        window.dispatchEvent(
+            new CustomEvent('md:componentError', {
+                detail: errorInfo
+            })
+        );
 
         // 显示用户友好的错误消息
         this.showMessage(`操作失败: ${error.message}`, 'error');
@@ -216,9 +222,11 @@ export class BaseComponent {
      */
     showMessage(message, type = 'info', duration = 2000) {
         // 触发自定义事件，由主编辑器处理
-        window.dispatchEvent(new CustomEvent('md:showMessage', {
-            detail: { message, type, duration }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('md:showMessage', {
+                detail: { message, type, duration }
+            })
+        );
     }
 
     /**
