@@ -15,6 +15,7 @@ import { Preview } from '../components/Preview.js';
 import { Editor } from '../components/Editor.js';
 import { Sidebar } from '../components/Sidebar.js';
 import { TOC } from '../components/TOC.js';
+import { Dialog } from '../components/Dialog.js';
 import { StoreManager } from './store.js';
 import { dom } from '../utils/dom.js';
 
@@ -600,6 +601,8 @@ export class MarkdownEditor {
                 const parentId = currentDoc?.type === 'folder' ? currentDocId : null;
                 this.components.documentList.createItem('folder', parentId);
             },
+            'md-import-docs': () => this.importDocuments(),
+            'md-export-docs': () => this.exportDocuments(),
             'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
             'md-export-html': () => this.components.preview.exportHTML(),
             'md-export-md': () => this.components.preview.exportMarkdown(),
@@ -618,6 +621,181 @@ export class MarkdownEditor {
             const { message, type, duration } = e.detail;
             this.showMessage(message, type, duration);
         });
+    }
+
+    // ==================== 文档导入导出 ====================
+
+    /**
+     * 导出所有文档（优化版）
+     */
+    exportDocuments() {
+        const documents = this.state.get('documents');
+        if (!documents?.length) {
+            this.showMessage('没有可导出的文档', 'warning');
+            return;
+        }
+
+        try {
+            // 直接序列化，减少中间变量
+            const blob = new Blob(
+                [JSON.stringify({
+                    version: '1.0',
+                    exportDate: new Date().toISOString(),
+                    documents // 直接使用原数组，避免 map 操作
+                }, null, 2)],
+                { type: 'application/json' }
+            );
+
+            // 使用一次性下载链接
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `markdown-docs-${new Date().toLocaleDateString()}.json`;
+            a.click();
+
+            // 延迟清理，确保下载开始
+            setTimeout(() => URL.revokeObjectURL(a.href), 100);
+
+            this.showMessage(`成功导出 ${documents.length} 个文档`, 'success');
+        } catch (error) {
+            console.error('导出文档失败:', error);
+            this.showMessage('导出文档失败', 'error');
+        }
+    }
+
+    /**
+     * 导入文档（优化版：先验证，再询问）
+     */
+    importDocuments() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+
+        input.onchange = async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            try {
+                // 先读取并验证文件
+                const importData = this.#validateImportFile(await file.text());
+                if (!importData) return;
+
+                // 验证通过后再询问导入方式
+                const importMode = await this.#askImportMode(importData.documents.length);
+                if (!importMode) return;
+
+                // 执行导入
+                this.#executeImport(importData.documents, importMode);
+            } catch (error) {
+                console.error('导入文档失败:', error);
+                this.showMessage(`导入失败：${error.message}`, 'error');
+            } finally {
+                input.remove();
+            }
+        };
+
+        input.click();
+    }
+
+    /**
+     * 验证导入文件
+     * @private
+     * @param {string} text - 文件内容
+     * @returns {Object|null} 验证通过返回数据，否则返回 null
+     */
+    #validateImportFile(text) {
+        try {
+            const data = JSON.parse(text);
+
+            // 快速验证：检查必要字段
+            if (!Array.isArray(data?.documents)) {
+                throw new Error('文件格式无效：缺少文档列表');
+            }
+
+            // 验证每个文档的基本结构
+            for (const doc of data.documents) {
+                if (!doc.id || !doc.name || !doc.type) {
+                    throw new Error('文件格式无效：文档数据不完整');
+                }
+            }
+
+            return data;
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                this.showMessage('文件解析失败：不是有效的 JSON 文件', 'error');
+            } else {
+                this.showMessage(error.message, 'error');
+            }
+            return null;
+        }
+    }
+
+    /**
+     * 执行导入操作
+     * @private
+     * @param {Array} importDocs - 要导入的文档
+     * @param {string} mode - 导入模式：'replace' | 'merge'
+     */
+    #executeImport(importDocs, mode) {
+        const currentDocs = this.state.get('documents');
+        const newDocuments = mode === 'replace'
+            ? importDocs
+            : this.#mergeDocuments(currentDocs, importDocs);
+
+        // 批量更新
+        this.state.setState({ documents: newDocuments });
+        StoreManager.saveDocuments(newDocuments);
+
+        const modeText = mode === 'replace' ? '替换' : '合并';
+        this.showMessage(`成功${modeText}导入 ${importDocs.length} 个文档`, 'success');
+    }
+
+    /**
+     * 合并文档列表（优化版：使用 Map 提升性能）
+     * @private
+     * @param {Array} currentDocs - 当前文档
+     * @param {Array} importDocs - 导入文档
+     * @returns {Array} 合并后的文档
+     */
+    #mergeDocuments(currentDocs, importDocs) {
+        // 使用 Map 快速查找，时间复杂度从 O(n²) 降到 O(n)
+        const docMap = new Map(currentDocs.map(doc => [doc.id, doc]));
+        let addedCount = 0;
+
+        for (const doc of importDocs) {
+            if (!docMap.has(doc.id)) {
+                docMap.set(doc.id, doc);
+                addedCount++;
+            }
+        }
+
+        // 如果没有新文档，提示用户
+        if (addedCount === 0) {
+            this.showMessage('所有文档已存在，无需导入', 'info');
+        }
+
+        return Array.from(docMap.values());
+    }
+
+    /**
+     * 询问用户导入模式（使用 Dialog 组件）
+     * @private
+     * @param {number} docCount - 文档数量
+     * @returns {Promise<string|null>} 导入模式：'replace' | 'merge' | null
+     */
+    async #askImportMode(docCount) {
+        const result = await Dialog.show({
+            title: '导入文档',
+            message: `检测到 <strong>${docCount}</strong> 个文档，请选择导入方式：`,
+            type: 'info',
+            buttons: [
+                { text: '合并', value: 'merge', type: 'primary' },
+                { text: '替换', value: 'replace', type: 'danger' }
+            ],
+            closeOnOverlay: true,
+            closeOnEscape: true
+        });
+
+        return result;
     }
 
     // ==================== 初始化 ====================

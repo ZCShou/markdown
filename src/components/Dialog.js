@@ -129,9 +129,11 @@ export class Dialog {
             dialog.innerHTML = `
                 <div class="md-dialog-header">
                     <div class="md-dialog-header-left">
-                        <i class="codicon codicon-${iconName} md-dialog-icon"></i>
                         <h3 class="md-dialog-title">${this.escapeHtml(title)}</h3>
                     </div>
+                    <button class="md-btn md-btn-icon md-btn-ghost md-dialog-close" data-action="close" aria-label="关闭">
+                        <i class="codicon codicon-close"></i>
+                    </button>
                 </div>
                 <div class="md-dialog-body">
                     <div class="md-dialog-message">${message}</div>
@@ -179,8 +181,17 @@ export class Dialog {
 
             // 处理按钮点击
             const handleButtonClick = e => {
-                const button = e.target.closest('.md-dialog-footer button');
-                if (button) {
+                const button = e.target.closest('button');
+                if (!button) return;
+
+                // 处理关闭按钮
+                if (button.dataset.action === 'close') {
+                    closeDialog(null);
+                    return;
+                }
+
+                // 处理底部按钮
+                if (button.closest('.md-dialog-footer')) {
                     const { value } = button.dataset;
                     closeDialog(value === 'true' ? true : value === 'false' ? false : value);
                 }
