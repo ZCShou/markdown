@@ -209,9 +209,8 @@ export class MarkdownEditor {
             }
         };
 
-        // 从本地存储加载同步滚动状态
-        const savedSyncScroll = StoreManager.loadSyncScrollEnabled(true);
-        this.syncScrollEnabled = savedSyncScroll;
+        // 从状态管理器获取同步滚动状态
+        this.syncScrollEnabled = this.state.get('syncScrollEnabled');
         updateSyncScrollIcon(this.syncScrollEnabled);
 
         // 缓存可滚动高度，避免频繁查询 DOM
@@ -263,9 +262,11 @@ export class MarkdownEditor {
 
         // 监听按钮点击
         syncScrollButton.addEventListener('click', () => {
-            this.syncScrollEnabled = !this.syncScrollEnabled;
-            StoreManager.saveSyncScrollEnabled(this.syncScrollEnabled);
-            updateSyncScrollIcon(this.syncScrollEnabled);
+            const newEnabled = !this.syncScrollEnabled;
+            this.syncScrollEnabled = newEnabled;
+            // 通过状态管理器更新（会自动持久化）
+            this.state.setState({ syncScrollEnabled: newEnabled });
+            updateSyncScrollIcon(newEnabled);
         });
 
         // 优化的同步函数：使用更激进的节流
@@ -876,21 +877,16 @@ export class MarkdownEditor {
      * @private
      * @param {Array} docs - 要处理的文档
      * @param {string} mode - 导入模式
-     * @param {boolean} save - 是否保存到 localStorage
+     * @param {boolean} notify - 是否通知监听器
      */
-    #processImportBatch(docs, mode, save) {
+    #processImportBatch(docs, mode, notify) {
         const currentDocs = this.state.get('documents');
         const newDocuments = mode === 'replace'
             ? docs
             : this.#mergeDocuments(currentDocs, docs);
 
-        // 更新状态
-        this.state.setState({ documents: newDocuments }, { silent: !save });
-
-        // 保存到 localStorage
-        if (save) {
-            StoreManager.saveDocuments(newDocuments);
-        }
+        // 更新状态（会自动持久化）
+        this.state.setState({ documents: newDocuments }, { silent: !notify });
     }
 
     /**
@@ -947,11 +943,10 @@ export class MarkdownEditor {
     /**
      * 获取初始文档和内容
      * @param documents
+     * @param savedDocId
      * @returns {{currentDocId: string|null, content: string}}
      */
-    #getInitialDocument(documents) {
-        const savedDocId = StoreManager.loadCurrentDocId();
-
+    #getInitialDocument(documents, savedDocId) {
         // 尝试使用保存的文档 ID
         if (savedDocId) {
             const doc = documents.find(d => d.id === savedDocId && d.type !== 'folder');
@@ -966,10 +961,10 @@ export class MarkdownEditor {
             return { currentDocId: firstDoc.id, content: firstDoc.content || '' };
         }
 
-        // 没有文档，使用保存的内容
+        // 没有文档，使用默认内容
         return {
             currentDocId: null,
-            content: StoreManager.loadContent(StoreManager.DEFAULT_CONTENT)
+            content: EditorState.DEFAULT_CONTENT
         };
     }
 
@@ -979,33 +974,22 @@ export class MarkdownEditor {
     init() {
         if (this.isInitialized) return;
 
-        // 加载保存的数据
-        const documents = StoreManager.loadDocuments();
-        const { currentDocId, content } = this.#getInitialDocument(documents);
+        // 从 EditorState 加载初始数据（已包含 localStorage 数据）
+        const { documents, savedDocId, settings, syncScrollEnabled } = this.state.loadInitialState();
+        const { currentDocId, content } = this.#getInitialDocument(documents, savedDocId);
 
-        // 从 localStorage 加载配置
-        const saved = StoreManager.loadSettings();
-        const defaultSettings = EditorState.DEFAULT_SETTINGS;
-
-        // 合并保存的设置和默认设置
-        const savedSettings = saved ? {
-            editor: { ...defaultSettings.editor, ...saved.editor },
-            interface: { ...defaultSettings.interface, ...saved.interface },
-            export: { ...defaultSettings.export, ...saved.export }
-        } : defaultSettings;
-
-        // 设置初始状态
+        // 设置初始状态（skipPersist: true 避免重复保存）
         this.state.setState({
             documents,
             content,
             currentDocId,
             selectedDocIds: currentDocId ? [currentDocId] : [],
             lastClickedDocId: currentDocId,
-            editor: savedSettings.editor,
-            interface: savedSettings.interface,
-            export: savedSettings.export
-        });
-        StoreManager.saveDocuments(documents);
+            editor: settings.editor,
+            interface: settings.interface,
+            export: settings.export,
+            syncScrollEnabled
+        }, { skipPersist: true });
 
         // 初始化组件
         this.initComponents();
@@ -1019,38 +1003,20 @@ export class MarkdownEditor {
         this.components.leftSidebar.applySectionStates();
         this.components.rightSidebar.applySectionStates();
 
-        // 监听 state 变化，自动保存到 localStorage
-        this.#setupAutoSave();
+        // 启动自动持久化
+        this.state.startPersistence();
+
+        // 监听 state 变化，应用到 UI
+        this.#setupUIUpdates();
 
         this.isInitialized = true;
     }
 
     /**
-     * 设置自动保存和配置应用
+     * 设置 UI 更新（状态变化时应用到界面）
      * @private
      */
-    #setupAutoSave() {
-        // 防抖保存定时器
-        let saveTimeout = null;
-        
-        // 监听配置变化，防抖保存到 localStorage
-        this.state.subscribe((newState) => {
-            if (saveTimeout) {
-                clearTimeout(saveTimeout);
-            }
-            
-            saveTimeout = setTimeout(() => {
-                const settingsToSave = {
-                    editor: newState.editor,
-                    interface: newState.interface,
-                    export: newState.export
-                };
-                
-                // 使用 StoreManager 统一管理存储
-                StoreManager.saveSettings(settingsToSave);
-            }, 300); // 300ms 防抖
-        });
-
+    #setupUIUpdates() {
         // 缓存 DOM 元素，避免重复查询
         let cachedElements = null;
         

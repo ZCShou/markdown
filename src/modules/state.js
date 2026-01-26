@@ -1,6 +1,7 @@
 /**
  * 编辑器状态管理器
  * 采用观察者模式，实现状态驱动的UI更新
+ * 集成自动持久化功能，统一管理数据存储
  *
  * @example
  * ```js
@@ -12,6 +13,7 @@
  * ```
  */
 import { StoreManager } from './store.js';
+import { PersistenceManager } from './persistence.js';
 
 /**
  *
@@ -51,6 +53,315 @@ export class EditorState {
         }
     };
 
+    /**
+     * 默认 Markdown 内容
+     * @static
+     * @type {string}
+     */
+    static DEFAULT_CONTENT = `# Markdown 语法指南
+
+## 标题
+
+# 这是一级标题
+## 这是二级标题
+###### 这是六级标题
+
+## 强调
+
+*这段文本会是斜体*
+
+_这段文本也会是斜体_
+
+**这段文本会是粗体**
+
+__这段文本也会是粗体_
+
+_你可以**组合**使用它们_
+
+## 列表
+
+### 无序列表
+
+* 项目 1
+* 项目 2
+  * 项目 2a
+  * 项目 2b
+
+### 有序列表
+
+1. 项目 1
+2. 项目 2
+3. 项目 3
+  1. 项目 3a
+  2. 项目 3b
+
+### 复选列表
+
+- [x] 已完成任务
+- [ ] 未完成任务
+
+## 代码
+
+### 行内代码
+
+这是一个 \`行内代码\` 示例。
+
+### 代码块
+
+#### JavaScript
+\`\`\`javascript
+function hello() {
+    console.log("Hello, World!");
+}
+\`\`\`
+
+#### Python
+\`\`\`python
+def hello():
+    print("Hello, World!")
+\`\`\`
+
+#### Java
+\`\`\`java
+public class Hello {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+\`\`\`
+
+#### C
+\`\`\`c
+#include <stdio.h>
+int main() {
+    printf("Hello, World!\\n");
+    return 0;
+}
+\`\`\`
+
+#### C++
+\`\`\`cpp
+#include <iostream>
+int main() {
+    std::cout << "Hello, World!" << std::endl;
+    return 0;
+}
+\`\`\`
+
+#### C#
+\`\`\`csharp
+using System;
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello, World!");
+    }
+}
+\`\`\`
+
+#### Ruby
+\`\`\`ruby
+puts "Hello, World!"
+\`\`\`
+
+#### Go
+\`\`\`go
+package main
+import "fmt"
+func main() {
+    fmt.Println("Hello, World!")
+}
+\`\`\`
+
+#### Rust
+\`\`\`rust
+fn main() {
+    println!("Hello, World!");
+}
+\`\`\`
+
+#### Swift
+\`\`\`swift
+print("Hello, World!")
+\`\`\`
+
+#### Kotlin
+\`\`\`kotlin
+fun main() {
+    println("Hello, World!")
+}
+\`\`\`
+
+#### TypeScript
+\`\`\`typescript
+function hello(): void {
+    console.log("Hello, World!");
+}
+\`\`\`
+
+#### SQL
+\`\`\`sql
+SELECT * FROM users WHERE name = 'Alice';
+\`\`\`
+
+#### Bash
+\`\`\`bash
+echo "Hello, World!"
+\`\`\`
+
+#### JSON
+\`\`\`json
+{
+    "message": "Hello, World!"
+}
+\`\`\`
+
+#### YAML
+\`\`\`yaml
+message: Hello, World!
+\`\`\`
+
+## 引用
+
+> 这是一段引用文字。
+>> 这是嵌套引用。
+
+## 表格
+
+| 左列 | 右列 |
+| --- | --- |
+| 左 foo | 右 foo |
+| 左 bar | 右 bar |
+
+## 链接
+
+[访问 GitHub](https://github.com)
+
+## Mermaid 图表
+
+\`\`\`mermaid
+graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[执行]
+    B -->|否| D[跳过]
+    C --> E[结束]
+    D --> E
+\`\`\`
+
+\`\`\`mermaid
+sequenceDiagram
+    participant A as 用户
+    participant B as 系统
+    A->>B: 发送请求
+    B-->>A: 返回响应
+\`\`\`
+
+## 数学公式
+
+### 行内公式
+
+爱因斯坦质能方程是 $E = mc^2$，这是物理学中最著名的公式之一。
+
+勾股定理：$a^2 + b^2 = c^2$
+
+圆的面积：$A = \\pi r^2$
+
+### 块级公式
+
+#### 基础运算
+
+$$
+E = mc^2
+$$
+
+$$
+a^2 + b^2 = c^2
+$$
+
+#### 分数和根号
+
+$$
+\\frac{a}{b} = \\frac{c}{d}
+$$
+
+$$
+\\sqrt{x^2 + y^2}
+$$
+
+$$
+\\sqrt[3]{x}
+$$
+
+#### 求和与积分
+
+$$
+\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
+$$
+
+$$
+\\sum_{i=1}^{\\infty} \\frac{1}{i^2} = \\frac{\\pi^2}{6}
+$$
+
+$$
+\\int_{a}^{b} f(x) dx
+$$
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+$$
+
+#### 极限
+
+$$
+\\lim_{x \\to \\infty} \\frac{1}{x} = 0
+$$
+
+$$
+\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1
+$$
+
+#### 矩阵
+
+$$
+\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix}
+$$
+
+$$
+\\begin{bmatrix}
+1 & 2 & 3 \\\\
+4 & 5 & 6 \\\\
+7 & 8 & 9
+\\end{bmatrix}
+$$
+
+#### 方程组
+
+$$
+\\begin{cases}
+x + y = 10 \\\\
+x - y = 2
+\\end{cases}
+$$
+
+解得：$x = 6, y = 4$
+
+#### 复杂公式
+
+$$
+e^{i\\pi} + 1 = 0
+$$
+
+$$
+\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}
+$$
+
+$$
+i\\hbar \\frac{\\partial}{\\partial t}\\Psi(x,t) = \\hat{H}\\Psi(x,t)
+$$
+`;
+
     // ==================== 私有字段 ====================
 
     /** @private */
@@ -78,7 +389,10 @@ export class EditorState {
         // 渲染状态
         isRenderingMermaid: false,
         lastRenderedContent: '',
-        headings: [] // 标题数据，用于目录生成
+        headings: [], // 标题数据，用于目录生成
+
+        // UI 状态
+        syncScrollEnabled: true // 同步滚动开关
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -86,6 +400,9 @@ export class EditorState {
 
     /** @type {Set<Function>} 全局监听器 */
     #globalListeners = new Set();
+
+    /** @private */
+    #persistence = new PersistenceManager(() => this.#state);
 
     /**
      * 获取状态快照（只读）
@@ -112,6 +429,7 @@ export class EditorState {
      * @param {Object} options - 选项
      * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
      * @param {boolean} [options.force=false] - 是否强制更新（即使值相同也触发通知）
+     * @param {boolean} [options.skipPersist=false] - 是否跳过持久化
      */
     setState(updates, options = {}) {
         let hasChanges = false;
@@ -142,6 +460,56 @@ export class EditorState {
         if (!options.silent && oldState) {
             this.#notify(oldState, this.#state, options.force, changedKeys);
         }
+
+        // 自动持久化（除非明确跳过）
+        if (!options.skipPersist) {
+            this.#persistence.schedule(changedKeys);
+        }
+    }
+
+    // ==================== 持久化方法 ====================
+
+    /**
+     * 从 localStorage 加载初始状态
+     * @returns {Object} 加载的状态
+     */
+    loadInitialState() {
+        const documents = StoreManager.loadDocuments();
+        const savedDocId = StoreManager.loadCurrentDocId();
+        const savedSettings = StoreManager.loadSettings();
+        const syncScrollEnabled = StoreManager.loadSyncScrollEnabled(true);
+
+        // 合并保存的设置和默认设置
+        const settings = savedSettings ? {
+            editor: { ...EditorState.DEFAULT_SETTINGS.editor, ...savedSettings.editor },
+            interface: { ...EditorState.DEFAULT_SETTINGS.interface, ...savedSettings.interface },
+            export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
+        } : {
+            editor: { ...EditorState.DEFAULT_SETTINGS.editor },
+            interface: { ...EditorState.DEFAULT_SETTINGS.interface },
+            export: { ...EditorState.DEFAULT_SETTINGS.export }
+        };
+
+        return {
+            documents,
+            savedDocId,
+            settings,
+            syncScrollEnabled
+        };
+    }
+
+    /**
+     * 启动自动持久化
+     */
+    startPersistence() {
+        this.#persistence.start();
+    }
+
+    /**
+     * 停止自动持久化
+     */
+    stopPersistence() {
+        this.#persistence.stop();
     }
 
     /**
@@ -226,11 +594,13 @@ export class EditorState {
      * 添加文档
      * @param {Object} doc - 文档对象
      * @param {string} [parentId] - 父文件夹ID
+     * @param {Object} options - 选项
+     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
      */
-    addDocument(doc, parentId = null) {
+    addDocument(doc, parentId = null, options = {}) {
         const newDoc = { ...doc, parentId };
         const documents = [...this.#state.documents, newDoc];
-        this.setState({ documents });
+        this.setState({ documents }, options);
     }
 
     /**
@@ -340,24 +710,8 @@ export class EditorState {
                 updates.content = doc.content || '';
             }
 
-            // 更新状态
+            // 更新状态（会自动持久化 currentDocId）
             this.setState(updates);
-
-            // 异步保存当前文档 ID 到本地存储，避免阻塞主线程
-            // 使用 requestIdleCallback 在浏览器空闲时执行
-            if (typeof requestIdleCallback !== 'undefined') {
-                requestIdleCallback(
-                    () => {
-                        StoreManager.saveCurrentDocId(docId);
-                    },
-                    { timeout: 2000 }
-                );
-            } else {
-                // 降级方案：使用 setTimeout
-                setTimeout(() => {
-                    StoreManager.saveCurrentDocId(docId);
-                }, 0);
-            }
         }
     }
 

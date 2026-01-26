@@ -3,7 +3,7 @@
  * 负责文档列表的渲染和交互，支持文件夹嵌套
  */
 import { BaseComponent } from './BaseComponent.js';
-import { StoreManager } from '../modules/store.js';
+import { EditorState } from '../modules/state.js';
 import { dom } from '../utils/dom.js';
 import { Dialog } from './Dialog.js';
 
@@ -586,7 +586,7 @@ export class DocumentList extends BaseComponent {
         }
         
         if (anyMoved) {
-            StoreManager.saveDocuments(this.state.get('documents'));
+            // 状态已通过 moveDocument 自动更新和持久化
             if (targetId) this.expandFolder(targetId);
         }
 
@@ -693,8 +693,8 @@ export class DocumentList extends BaseComponent {
         });
         if (!confirmed) return;
 
+        // deleteDocument 会自动触发状态更新和持久化
         this.state.deleteDocument(docId);
-        StoreManager.saveDocuments(this.state.get('documents'));
     }
 
     /**
@@ -721,8 +721,8 @@ export class DocumentList extends BaseComponent {
             id: Date.now().toString(),
             name: type === 'folder' ? '新建文件夹' : '新建文档',
             type,
-            content: type === 'file' ? StoreManager.DEFAULT_CONTENT : undefined,
             parentId,
+            content: type === 'file' ? EditorState.DEFAULT_CONTENT : undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -730,11 +730,8 @@ export class DocumentList extends BaseComponent {
         // 先标记需要进入编辑模式
         this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
 
-        // 使用 silent 选项添加文档，避免触发订阅回调的完全重渲染
-        const documents = this.state.get('documents');
-        documents.push(doc);
-        this.state.setState({ documents }, { silent: true });
-        StoreManager.saveDocuments(documents);
+        // 使用 state.addDocument 方法添加文档（支持 silent 选项）
+        this.state.addDocument(doc, parentId, { silent: true });
 
         // 展开所有祖先文件夹，确保新文件可见（优化版：批量更新）
         this.#expandAncestorFolders(parentId);
@@ -849,7 +846,7 @@ export class DocumentList extends BaseComponent {
                     },
                     { silent: true }
                 );
-                StoreManager.saveDocuments(this.state.get('documents'));
+                // 状态已自动持久化（即使使用 silent 选项）
 
                 const newNameSpan = this.createElement('span', {
                     className: 'md-doc-item-name',
@@ -948,9 +945,7 @@ export class DocumentList extends BaseComponent {
 
         // 使用批量删除方法（性能优化：一次性处理所有删除）
         this.state.deleteDocuments(docIdsToDelete, { silent: true });
-
-        // 保存并更新状态
-        StoreManager.saveDocuments(this.state.get('documents'));
+        // 状态已自动持久化（即使使用 silent 选项）
 
         // 如果删除了当前文档，清空内容
         const currentDocId = this.state.get('currentDocId');
@@ -959,7 +954,7 @@ export class DocumentList extends BaseComponent {
                 currentDocId: null,
                 content: ''
             });
-            StoreManager.saveContent('');
+            // content 状态会自动持久化
         }
 
         // 清空选中状态

@@ -3,7 +3,6 @@
  * 负责编辑器的输入、缩进、快捷键等功能
  */
 import { BaseComponent } from './BaseComponent.js';
-import { StoreManager } from '../modules/store.js';
 
 /**
  *
@@ -98,44 +97,23 @@ export class Editor extends BaseComponent {
     save(showMessage = false) {
         if (!this.container) return false;
 
-        try {
-            const content = this.container.value || '';
-            const documents = this.state.get('documents') || [];
-
-            StoreManager.saveContent(content);
-            StoreManager.saveDocuments(documents);
-
-            if (showMessage) this.showMessage('内容已保存', 'success');
-            return true;
-        } catch (error) {
-            console.error('Failed to save data:', error);
-            if (showMessage) this.showMessage('保存失败: ' + error.message, 'error');
-            return false;
-        }
+        // 状态管理器已自动处理持久化，这里只显示消息
+        if (showMessage) this.showMessage('内容已保存', 'success');
+        return true;
     }
 
     /**
-     * 异步保存内容到本地存储
+     * 异步保存（显示保存消息）
+     * 注意：实际持久化由状态管理器自动处理
      * @param {boolean} showMessage - 是否显示保存消息
      * @returns {Promise<boolean>} 是否保存成功
      */
     async saveAsync(showMessage = false) {
         if (!this.container) return false;
 
-        try {
-            const content = this.container.value || '';
-            const documents = this.state.get('documents') || [];
-
-            await StoreManager.saveContentAsync(content);
-            await StoreManager.saveDocumentsAsync(documents);
-
-            if (showMessage) this.showMessage('内容已保存', 'success');
-            return true;
-        } catch (error) {
-            console.error('Failed to save data:', error);
-            if (showMessage) this.showMessage('保存失败: ' + error.message, 'error');
-            return false;
-        }
+        // 状态管理器已自动处理持久化，这里只显示消息
+        if (showMessage) this.showMessage('内容已保存', 'success');
+        return true;
     }
 
     /**
