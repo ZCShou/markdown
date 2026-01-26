@@ -16,6 +16,7 @@ import { Editor } from '../components/Editor.js';
 import { Sidebar } from '../components/Sidebar.js';
 import { TOC } from '../components/TOC.js';
 import { Dialog } from '../components/Dialog.js';
+import { SearchReplace } from '../components/SearchReplace.js';
 import { StoreManager } from './store.js';
 import { dom } from '../utils/dom.js';
 
@@ -169,6 +170,9 @@ export class MarkdownEditor {
 
         // 目录组件
         this.components.toc = new TOC(this.state, 'md-toc');
+
+        // 搜索替换组件
+        this.components.searchReplace = new SearchReplace(this.state, 'md-search-replace-panel');
 
         // 初始化所有组件
         Object.values(this.components).forEach(component => {
@@ -607,6 +611,7 @@ export class MarkdownEditor {
             'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
             'md-export-html': () => this.components.preview.exportHTML(),
             'md-export-md': () => this.components.preview.exportMarkdown(),
+            'md-search-toggle-btn': () => this.components.searchReplace.show(false),
             'md-export-pdf': () => this.components.preview.exportPDF(),
             'md-layout-toggle': () => this.toggleLayout(),
             'theme-toggle': () => this.toggleTheme()
@@ -621,6 +626,36 @@ export class MarkdownEditor {
         window.addEventListener('md:showMessage', e => {
             const { message, type, duration } = e.detail;
             this.showMessage(message, type, duration);
+        });
+
+        // 全局快捷键
+        this.setupGlobalShortcuts();
+    }
+
+    /**
+     * 设置全局快捷键
+     */
+    setupGlobalShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + F - 搜索
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                this.components.searchReplace.show(false);
+                return;
+            }
+
+            // Ctrl/Cmd + H - 替换
+            if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+                e.preventDefault();
+                this.components.searchReplace.show(true);
+                return;
+            }
+
+            // Escape - 关闭搜索面板
+            if (e.key === 'Escape' && this.components.searchReplace.isVisible()) {
+                this.components.searchReplace.hide();
+                return;
+            }
         });
     }
 

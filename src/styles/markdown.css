@@ -101,6 +101,11 @@
   --md-tree-drop-border: #4caf50;
   --md-tree-drop-text: #2e7d32;
   --md-tree-drop-label-bg: rgba(255, 255, 255, 0.9);
+
+  /* 搜索面板颜色 */
+  --md-search-panel-shadow: -2px 2px 8px rgba(0, 0, 0, 0.1);
+  --md-search-focus-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+  --md-search-option-active-bg: var(--md-bg-active);
 }
 
 [data-mode='dark'] {
@@ -205,6 +210,11 @@
   --md-tree-drop-border: #66bb6a;
   --md-tree-drop-text: #81c784;
   --md-tree-drop-label-bg: rgba(30, 30, 30, 0.9);
+
+  /* 搜索面板颜色 */
+  --md-search-panel-shadow: -2px 2px 8px rgba(0, 0, 0, 0.3);
+  --md-search-focus-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+  --md-search-option-active-bg: rgba(33, 150, 243, 0.15);
 }
 
 html,
@@ -275,6 +285,7 @@ html::-webkit-scrollbar-thumb:hover,
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* ==================== 按钮样式 ==================== */
@@ -751,6 +762,7 @@ html::-webkit-scrollbar-thumb:hover,
   min-height: 0;
   background-color: var(--md-bg-secondary);
   overflow: hidden;
+  position: relative;
 
   /* 分割比例变量（0-1之间） */
   --split-ratio: 0.5;
@@ -2534,5 +2546,165 @@ pre[class*='language-'] {
   color: var(--prism-regex);
 }
 
-/* ==================== 导入对话框样式 ==================== */
-/* 导入对话框复用通用对话框样式，无需额外样式定义 */
+/* ==================== 搜索替换面板样式 ==================== */
+.md-search-replace-panel {
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  z-index: 10;
+  background: var(--md-bg-secondary);
+  border: 1px solid var(--md-border-primary);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  display: none;
+}
+
+.md-search-replace-panel.show {
+  display: block;
+}
+
+.md-search-replace-content {
+  display: flex;
+  gap: 6px;
+}
+
+.md-search-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.md-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.md-replace-row {
+  display: none;
+}
+
+.md-search-replace-panel.replace-mode .md-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.md-search-toggle {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-search-toggle:hover {
+  background: transparent !important;
+}
+
+.md-search-replace-panel.replace-mode .md-search-replace-content {
+  align-items: center;
+}
+
+.md-search-replace-panel.replace-mode .md-search-toggle .codicon-chevron-right {
+  transform: rotate(90deg);
+}
+
+.md-search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 300px;
+}
+
+.md-search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--md-text-tertiary);
+  pointer-events: none;
+  font-size: 14px;
+}
+
+.md-search-input {
+  width: 100%;
+  padding: 6px 8px 6px 28px;
+  border: 1px solid var(--md-border-primary);
+  border-radius: 4px;
+  background: var(--md-bg-secondary);
+  color: var(--md-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.md-search-input:focus {
+  border-color: var(--md-color-primary);
+  box-shadow: var(--md-search-focus-shadow);
+}
+
+.md-search-input-options {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.md-search-option-btn {
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  font-size: 11px;
+  opacity: 0.6;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-search-option-btn:hover,
+.md-search-option-btn.active,
+.md-search-option-btn[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.md-search-option-btn.active,
+.md-search-option-btn[aria-pressed="true"] {
+  background: var(--md-search-option-active-bg);
+  color: var(--md-color-primary);
+}
+
+.md-search-match-info {
+  width: 60px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--md-text-secondary);
+  flex-shrink: 0;
+}
+
+.md-search-close {
+  flex-shrink: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .md-search-replace-panel {
+    max-width: 100%;
+    border-radius: 0;
+  }
+  
+  .md-search-input-options {
+    position: static;
+    transform: none;
+    margin-top: 4px;
+  }
+  
+  .md-search-input {
+    padding-right: 8px;
+  }
+}
