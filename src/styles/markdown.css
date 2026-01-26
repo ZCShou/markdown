@@ -1678,7 +1678,7 @@ body.is-dragging-tree .md-doc-item.active {
 }
 
 .md-drop-target::after {
-  content: '放置到此处';
+  content: '拖放到此文件夹';
   position: absolute;
   right: 8px;
   font-size: 11px;
@@ -1714,7 +1714,7 @@ body.is-dragging-tree .md-doc-item.active {
 }
 
 .md-drop-target-expanded > .md-doc-item::after {
-  content: '放置到此文件夹';
+  content: '拖放到此文件夹';
   position: absolute;
   right: 8px;
   font-size: 11px;
