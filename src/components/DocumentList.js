@@ -330,12 +330,7 @@ export class DocumentList extends BaseComponent {
 
             // 普通点击：延迟处理以避免与双击冲突
             this.clickTimeout = setTimeout(() => {
-                if (docType === 'folder') {
-                    this.state.setCurrentDocument(docId);
-                    this.toggleFolder(docId);
-                } else {
-                    this.handleOpen(docId);
-                }
+                this.handleOpen(docId);
             }, 120);
         } else if (!item && !this.editingDocId) {
             // 点击空闲位置：清空选中状态（性能优化：避免不必要的状态更新）
@@ -447,16 +442,17 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
-        // 检查是否在展开的文件夹内
-        const expandedFolder = this.#findExpandedFolder(targetNode);
-        if (expandedFolder) {
-            this.#setDropTarget(expandedFolder, 'expanded');
+        // 检查目标项是否是折叠的文件夹（必须在检查展开的父文件夹之前）
+        if (targetItem.dataset.docType === 'folder') {
+            // 折叠的文件夹 → 高亮文件夹本身
+            this.#setDropTarget(targetItem, 'item');
             return;
         }
 
-        // 折叠的文件夹项 → 高亮文件夹
-        if (targetItem.dataset.docType === 'folder') {
-            this.#setDropTarget(targetItem, 'item');
+        // 检查是否在展开的文件夹内（只对文件项检查）
+        const expandedFolder = this.#findExpandedFolder(targetNode);
+        if (expandedFolder) {
+            this.#setDropTarget(expandedFolder, 'expanded');
             return;
         }
 
@@ -565,8 +561,8 @@ export class DocumentList extends BaseComponent {
             targetId = this.dragTarget.dataset.docId;
         }
 
-        // 检查是否拖到自己或自己的子项
-        if ((!targetId && this.dragTargetType !== 'root') || this.draggedItems.includes(targetId)) {
+        // 验证目标有效性
+        if (this.dragTargetType !== 'root' && !targetId) {
             this.#clearDropTarget();
             return;
         }
@@ -574,11 +570,16 @@ export class DocumentList extends BaseComponent {
         // 批量移动所有选中的文档
         let anyMoved = false;
         for (const draggedId of this.draggedItems) {
-            // 防止将文件夹拖到自己的子文件夹中
-            if (this.#isDescendant(targetId, draggedId)) {
+            // 检查是否拖到自己
+            if (draggedId === targetId) {
                 continue;
             }
-            
+
+            // 防止将文件夹拖到自己的子文件夹中
+            if (targetId && this.#isDescendant(draggedId, targetId)) {
+                continue;
+            }
+
             const moved = this.state.moveDocument(draggedId, targetId);
             if (moved) {
                 anyMoved = true;
@@ -605,10 +606,10 @@ export class DocumentList extends BaseComponent {
         
         const documents = this.state.get('documents');
         const docMap = new Map(documents.map(d => [d.id, d]));
-        let current = docMap.get(ancestorId);
+        let current = docMap.get(descendantId);  // 从 descendantId 开始向上遍历
         
         while (current?.parentId) {
-            if (current.parentId === descendantId) return true;
+            if (current.parentId === ancestorId) return true;  // 检查是否遇到 ancestorId
             current = docMap.get(current.parentId);
         }
         
@@ -1053,13 +1054,16 @@ export class DocumentList extends BaseComponent {
      * @param {Object} doc - 新文档对象
      */
     #renderNewItem(doc) {
-        this.#lastDocCount = this.state.get('documents').length;
+        const docCount = this.state.get('documents').length;
 
         // 第一个文档需要完全渲染（移除空状态）
-        if (this.#lastDocCount === 1) {
+        if (docCount === 1) {
             this.render(true);
             return;
         }
+
+        // 更新计数器（只在成功增量渲染后更新）
+        this.#lastDocCount = docCount;
 
         // 获取或创建目标容器
         const targetContainer = doc.parentId
