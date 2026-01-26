@@ -595,17 +595,23 @@ export class MarkdownEditor {
         // 文档操作按钮
         const docButtons = {
             'md-new-file': () => {
-                const currentDocId = this.state.get('currentDocId');
+                const selectedDocIds = this.state.get('selectedDocIds') || [];
                 const documents = this.state.get('documents');
-                const currentDoc = documents.find(d => d.id === currentDocId);
-                const parentId = currentDoc?.type === 'folder' ? currentDocId : null;
+                // 如果有选中的文件夹，在第一个选中的文件夹中创建；否则在根目录创建
+                const selectedFolder = selectedDocIds.length > 0
+                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
+                    : null;
+                const parentId = selectedFolder ? selectedFolder.id : null;
                 this.components.documentList.createItem('file', parentId);
             },
             'md-new-folder': () => {
-                const currentDocId = this.state.get('currentDocId');
+                const selectedDocIds = this.state.get('selectedDocIds') || [];
                 const documents = this.state.get('documents');
-                const currentDoc = documents.find(d => d.id === currentDocId);
-                const parentId = currentDoc?.type === 'folder' ? currentDocId : null;
+                // 如果有选中的文件夹，在第一个选中的文件夹中创建；否则在根目录创建
+                const selectedFolder = selectedDocIds.length > 0
+                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
+                    : null;
+                const parentId = selectedFolder ? selectedFolder.id : null;
                 this.components.documentList.createItem('folder', parentId);
             },
             'md-import-docs': () => this.importDocuments(),
