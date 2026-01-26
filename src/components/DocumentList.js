@@ -338,9 +338,9 @@ export class DocumentList extends BaseComponent {
                 }
             }, 120);
         } else if (!item && !this.editingDocId) {
-            // 点击空闲位置：清空选中状态
-            const selectedDocIds = this.state.get('selectedDocIds') || [];
-            if (selectedDocIds.length > 0) {
+            // 点击空闲位置：清空选中状态（性能优化：避免不必要的状态更新）
+            const selectedDocIds = this.state.get('selectedDocIds');
+            if (selectedDocIds && selectedDocIds.length > 0) {
                 this.state.setState({ selectedDocIds: [] });
             }
         }
@@ -946,10 +946,8 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
-        // 批量删除文档
-        for (const docId of docIdsToDelete) {
-            this.state.deleteDocument(docId, { silent: true });
-        }
+        // 使用批量删除方法（性能优化：一次性处理所有删除）
+        this.state.deleteDocuments(docIdsToDelete, { silent: true });
 
         // 保存并更新状态
         StoreManager.saveDocuments(this.state.get('documents'));

@@ -221,30 +221,67 @@ export class EditorState {
     }
 
     /**
+     * 收集文档及其所有子项（优化版：单次遍历 + 递归）
+     * @private
+     * @param {string} docId - 文档ID
+     * @param {Set} toDelete - 要删除的文档ID集合
+     */
+    #collectDescendants(docId, toDelete) {
+        // 使用 Map 优化查找性能
+        const docMap = new Map(this.#state.documents.map(d => [d.id, d]));
+        const stack = [docId];
+
+        while (stack.length > 0) {
+            const currentId = stack.pop();
+            
+            // 查找所有子项
+            for (const doc of this.#state.documents) {
+                if (doc.parentId === currentId && !toDelete.has(doc.id)) {
+                    toDelete.add(doc.id);
+                    stack.push(doc.id);
+                }
+            }
+        }
+    }
+
+    /**
      * 删除文档（及其所有子项）
      * @param {string} docId - 文档ID
      * @param {Object} options - 选项
      * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
      */
     deleteDocument(docId, options = {}) {
-        // 递归删除所有子项
         const toDelete = new Set([docId]);
-        let changed = true;
-
-        const checkChildren = doc => {
-            if (doc.parentId && toDelete.has(doc.parentId) && !toDelete.has(doc.id)) {
-                toDelete.add(doc.id);
-                changed = true;
-            }
-        };
-
-        while (changed) {
-            changed = false;
-            this.#state.documents.forEach(checkChildren);
-        }
+        this.#collectDescendants(docId, toDelete);
 
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
         const currentDocId = this.#state.currentDocId === docId ? null : this.#state.currentDocId;
+        this.setState({ documents, currentDocId }, options);
+    }
+
+    /**
+     * 批量删除文档（优化版：一次性处理所有删除）
+     * @param {string[]} docIds - 文档ID数组
+     * @param {Object} options - 选项
+     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
+     */
+    deleteDocuments(docIds, options = {}) {
+        if (!docIds || docIds.length === 0) return;
+
+        const toDelete = new Set(docIds);
+        
+        // 收集所有子项
+        for (const docId of docIds) {
+            this.#collectDescendants(docId, toDelete);
+        }
+
+        const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
+        
+        // 检查当前文档是否被删除
+        const currentDocId = toDelete.has(this.#state.currentDocId) 
+            ? null 
+            : this.#state.currentDocId;
+        
         this.setState({ documents, currentDocId }, options);
     }
 
