@@ -898,29 +898,6 @@ $$
         return true;
     }
 
-    /**
-     * 复制文档
-     * @param {string} docId - 文档ID
-     * @param {string} [targetFolderId] - 目标文件夹ID
-     * @returns {string} 新文档ID
-     */
-    duplicateDocument(docId, targetFolderId = null) {
-        const original = this.#state.documents.find(d => d.id === docId);
-        if (!original) return null;
-
-        const newDoc = {
-            ...original,
-            id: Date.now().toString(),
-            name: `${original.name} (副本)`,
-            parentId: targetFolderId !== null ? targetFolderId : original.parentId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        this.addDocument(newDoc, targetFolderId);
-        return newDoc.id;
-    }
-
     // ==================== 编辑器配置操作 ====================
 
     /**
@@ -974,18 +951,6 @@ $$
     }
 
     /**
-     * 切换侧边栏
-     * @param {string} side - 'left' 或 'right'
-     * @returns {boolean} 新的开关状态
-     */
-    toggleSidebar(side) {
-        const key = side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
-        const newValue = !this.#state.interface[key];
-        this.updateInterfaceConfig({ [key]: newValue });
-        return newValue;
-    }
-
-    /**
      * 关闭所有侧边栏
      */
     closeAllSidebars() {
@@ -1005,14 +970,6 @@ $$
             [sectionName]: !this.#state.interface.sections[sectionName]
         };
         this.updateInterfaceConfig({ sections });
-    }
-
-    /**
-     * 更新布局比例
-     * @param {number} ratio - 比例值 (0-1)
-     */
-    updateLeftRatio(ratio) {
-        this.updateInterfaceConfig({ leftRatio: ratio });
     }
 
     // ==================== 导出配置操作 ====================
