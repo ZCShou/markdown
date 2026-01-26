@@ -17,6 +17,40 @@ import { StoreManager } from './store.js';
  *
  */
 export class EditorState {
+    // ==================== 静态常量 ====================
+
+    /**
+     * 默认设置配置
+     * @static
+     * @type {Object}
+     */
+    static DEFAULT_SETTINGS = {
+        editor: {
+            fontSize: 14,
+            lineHeight: 1.6,
+            autoSave: true,
+            insertSpaces: true,
+            tabSize: 4
+        },
+        interface: {
+            theme: 'light',
+            layout: 'layout-both',
+            leftRatio: 0.5,
+            leftSidebarOpen: false,
+            rightSidebarOpen: false,
+            sections: {
+                toc: true,
+                export: true
+            }
+        },
+        export: {
+            includeStyle: true,
+            codeHighlight: true,
+            pdfSize: 'A4',
+            pdfMargin: 'default'
+        }
+    };
+
     // ==================== 私有字段 ====================
 
     /** @private */
@@ -32,40 +66,14 @@ export class EditorState {
         // 编辑器内容
         content: '',
 
-        // 编辑器配置
-        editor: {
-            fontSize: 14,
-            lineHeight: 1.6,
-            autoSave: true
-        },
+        // 编辑器配置 - 引用默认设置
+        editor: { ...EditorState.DEFAULT_SETTINGS.editor },
 
-        // 界面配置
-        interface: {
-            // 主题设置
-            theme: 'light',
-            
-            // 布局设置
-            layout: 'layout-both',
-            leftRatio: 0.5,
-            
-            // 侧边栏状态
-            leftSidebarOpen: false,
-            rightSidebarOpen: false,
-            
-            // 侧边栏区块状态
-            sections: {
-                toc: true,
-                export: true
-            }
-        },
+        // 界面配置 - 引用默认设置
+        interface: { ...EditorState.DEFAULT_SETTINGS.interface },
 
-        // 导出配置
-        export: {
-            includeStyle: true,
-            codeHighlight: true,
-            pdfSize: 'A4',
-            pdfMargin: 'default'
-        },
+        // 导出配置 - 引用默认设置
+        export: { ...EditorState.DEFAULT_SETTINGS.export },
 
         // 渲染状态
         isRenderingMermaid: false,

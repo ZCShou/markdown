@@ -984,7 +984,15 @@ export class MarkdownEditor {
         const { currentDocId, content } = this.#getInitialDocument(documents);
 
         // 从 localStorage 加载配置
-        const savedSettings = this.#loadSettingsFromStorage();
+        const saved = StoreManager.loadSettings();
+        const defaultSettings = EditorState.DEFAULT_SETTINGS;
+
+        // 合并保存的设置和默认设置
+        const savedSettings = saved ? {
+            editor: { ...defaultSettings.editor, ...saved.editor },
+            interface: { ...defaultSettings.interface, ...saved.interface },
+            export: { ...defaultSettings.export, ...saved.export }
+        } : defaultSettings;
 
         // 设置初始状态
         this.state.setState({
@@ -1015,54 +1023,6 @@ export class MarkdownEditor {
         this.#setupAutoSave();
 
         this.isInitialized = true;
-    }
-
-    /**
-     * 从 localStorage 加载设置
-     * @private
-     * @returns {Object} 设置对象
-     */
-    #loadSettingsFromStorage() {
-        // 使用 StoreManager 统一管理存储
-        const saved = StoreManager.loadSettings();
-        
-        // 默认设置
-        const defaultSettings = {
-            editor: {
-                fontSize: 14,
-                lineHeight: 1.6,
-                autoSave: true
-            },
-            interface: {
-                theme: 'light',
-                layout: 'layout-both',
-                leftRatio: 0.5,
-                leftSidebarOpen: false,
-                rightSidebarOpen: false,
-                sections: {
-                    toc: true,
-                    export: true
-                }
-            },
-            export: {
-                includeStyle: true,
-                codeHighlight: true,
-                pdfSize: 'A4',
-                pdfMargin: 'default'
-            }
-        };
-
-        // 如果没有保存的设置，直接返回默认值
-        if (!saved) {
-            return defaultSettings;
-        }
-
-        // 合并保存的设置和默认设置
-        return {
-            editor: { ...defaultSettings.editor, ...saved.editor },
-            interface: { ...defaultSettings.interface, ...saved.interface },
-            export: { ...defaultSettings.export, ...saved.export }
-        };
     }
 
     /**

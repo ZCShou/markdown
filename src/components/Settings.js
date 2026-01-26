@@ -4,6 +4,7 @@
  * 所有状态由 state.js 管理
  */
 import { dom } from '../utils/dom.js';
+import { EditorState } from '../modules/state.js';
 
 export class Settings {
     /**
@@ -49,6 +50,8 @@ export class Settings {
             fontSizeInput: dom.get('#setting-font-size'),
             lineHeightInput: dom.get('#setting-line-height'),
             autoSaveInput: dom.get('#setting-auto-save'),
+            insertSpacesInput: dom.get('#setting-insert-spaces'),
+            tabSizeInput: dom.get('#setting-tab-size'),
             
             // 界面设置
             themeSelect: dom.get('#setting-theme'),
@@ -229,6 +232,12 @@ export class Settings {
         if (this.cachedElements.autoSaveInput) {
             this.cachedElements.autoSaveInput.checked = editor.autoSave ?? true;
         }
+        if (this.cachedElements.insertSpacesInput) {
+            this.cachedElements.insertSpacesInput.checked = editor.insertSpaces ?? true;
+        }
+        if (this.cachedElements.tabSizeInput) {
+            this.cachedElements.tabSizeInput.value = editor.tabSize ?? 4;
+        }
         if (this.cachedElements.themeSelect) {
             this.cachedElements.themeSelect.value = interfaceState.theme ?? 'auto';
         }
@@ -286,7 +295,9 @@ export class Settings {
         const editorConfig = {
             fontSize: parseInt(this.cachedElements.fontSizeInput?.value) || 14,
             lineHeight: parseFloat(this.cachedElements.lineHeightInput?.value) || 1.6,
-            autoSave: this.cachedElements.autoSaveInput?.checked || false
+            autoSave: this.cachedElements.autoSaveInput?.checked || false,
+            insertSpaces: this.cachedElements.insertSpacesInput?.checked ?? true,
+            tabSize: parseInt(this.cachedElements.tabSizeInput?.value) || 4
         };
         
         // 读取界面配置
@@ -321,7 +332,9 @@ export class Settings {
         const editorConfig = {
             fontSize: parseInt(dom.get('#setting-font-size')?.value) || 14,
             lineHeight: parseFloat(dom.get('#setting-line-height')?.value) || 1.6,
-            autoSave: dom.get('#setting-auto-save')?.checked || false
+            autoSave: dom.get('#setting-auto-save')?.checked || false,
+            insertSpaces: dom.get('#setting-insert-spaces')?.checked ?? true,
+            tabSize: parseInt(dom.get('#setting-tab-size')?.value) || 4
         };
         
         // 读取界面配置
@@ -374,33 +387,17 @@ export class Settings {
      */
     resetSettings() {
         if (confirm('确定要重置所有设置为默认值吗？')) {
+            // 使用 state.js 中定义的默认设置
+            const defaults = EditorState.DEFAULT_SETTINGS;
+            
             // 重置编辑器配置
-            this.state.updateEditorConfig({
-                fontSize: 14,
-                lineHeight: 1.6,
-                autoSave: true
-            });
+            this.state.updateEditorConfig(defaults.editor);
             
             // 重置界面配置
-            this.state.updateInterfaceConfig({
-                theme: 'auto',
-                layout: 'layout-both',
-                leftRatio: 0.5,
-                leftSidebarOpen: false,
-                rightSidebarOpen: false,
-                sections: {
-                    toc: true,
-                    export: true
-                }
-            });
+            this.state.updateInterfaceConfig(defaults.interface);
             
             // 重置导出配置
-            this.state.updateExportConfig({
-                includeStyle: true,
-                codeHighlight: true,
-                pdfSize: 'A4',
-                pdfMargin: 'default'
-            });
+            this.state.updateExportConfig(defaults.export);
 
             this.loadStateToUI();
             this.showNotification('设置已重置');

@@ -168,7 +168,12 @@ export class Editor extends BaseComponent {
 
         const { selectionStart: start, selectionEnd: end, value } = this.container;
         const selectedText = value.substring(start, end);
-        const INDENT = '  ';
+        
+        // 根据设置获取缩进字符串
+        const editorConfig = this.state.get('editor') || {};
+        const insertSpaces = editorConfig.insertSpaces ?? true;
+        const tabSize = editorConfig.tabSize ?? 4;
+        const INDENT = insertSpaces ? ' '.repeat(tabSize) : '\t';
 
         // 获取行边界
         const getLineBoundaries = pos => {
