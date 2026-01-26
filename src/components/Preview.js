@@ -1264,35 +1264,52 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 渲染 Markdown 为 HTML（优化版：简化逻辑）
+     * 渲染 Markdown 为 HTML（性能优化版）
      * @param {string} markdown - Markdown 文本
      * @returns {string} HTML 字符串
      */
     renderMarkdown(markdown) {
         try {
             const mathBlocks = [];
-            const placeholders = [];
+            const supSubBlocks = [];
+            const codeBlocks = [];
+            const strikeBlocks = [];
 
-            // 单次遍历：保护代码并提取数学公式
+            // 性能优化：按优先级处理，避免符号冲突
             let processedMarkdown = markdown
-                // 先保护代码块
+                // 第一步：保护代码块（避免内部符号被处理）
                 .replace(/```[\s\S]*?```|`[^`\n]+?`/g, match => {
-                    placeholders.push(match);
-                    return `\x00${placeholders.length - 1}\x00`;
+                    codeBlocks.push(match);
+                    return `\x00CODE${codeBlocks.length - 1}\x00`;
                 })
-                // 再提取数学公式
+                // 第二步：保护数学公式（公式中可能包含 ^ 和 ~）
                 .replace(/\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g, (match, block, inline) => {
                     const latex = block !== undefined ? block : inline;
                     const displayMode = block !== undefined;
                     mathBlocks.push({ latex, displayMode });
-                    return `\x01${mathBlocks.length - 1}\x01`;
+                    return `\x02MATH${mathBlocks.length - 1}\x02`;
+                })
+                // 第三步：保护删除线 ~~text~~（避免被下标误匹配）
+                .replace(/~~([^~\n]{1,200})~~/g, (match, content) => {
+                    strikeBlocks.push(content);
+                    return `\x03STRIKE${strikeBlocks.length - 1}\x03`;
+                })
+                // 第四步：提取上标 ^text^（限制长度，避免跨行）
+                .replace(/\^([^\n^]{1,50})\^/g, (match, content) => {
+                    supSubBlocks.push({ type: 'sup', content });
+                    return `\x01SUP${supSubBlocks.length - 1}\x01`;
+                })
+                // 第五步：提取下标 ~text~（限制长度，避免跨行）
+                // 此时删除线和数学公式已被保护，不会误匹配
+                .replace(/~([^~\n]{1,50})~/g, (match, content) => {
+                    supSubBlocks.push({ type: 'sub', content });
+                    return `\x01SUB${supSubBlocks.length - 1}\x01`;
                 });
 
-            // 恢复代码
+            // 恢复代码块（在 marked 解析前）
             processedMarkdown = processedMarkdown.replace(
-                // eslint-disable-next-line no-control-regex
-                /\x00(\d+)\x00/g,
-                (_, i) => placeholders[i]
+                /\x00CODE(\d+)\x00/g,
+                (_, i) => codeBlocks[+i] // 使用 + 运算符代替 parseInt
             );
 
             // 使用 marked 解析
@@ -1310,68 +1327,38 @@ export class Preview extends BaseComponent {
             }
 
             // 替换数学公式占位符
-            // eslint-disable-next-line no-control-regex
-            html = html.replace(/\x01(\d+)\x01/g, (_, index) => {
-                const math = mathBlocks[parseInt(index)];
+            html = html.replace(/\x02MATH(\d+)\x02/g, (_, index) => {
+                const math = mathBlocks[+index]; // 使用 + 运算符代替 parseInt
                 const tag = math.displayMode ? 'div' : 'span';
                 const cls = math.displayMode ? 'math-block' : 'math-inline';
                 return `<${tag} class="${cls}" data-latex="${math.latex}"></${tag}>`;
+            });
+
+            // 替换上标和下标占位符
+            html = html.replace(/\x01(SUP|SUB)(\d+)\x01/g, (_, type, index) => {
+                const item = supSubBlocks[+index]; // 使用 + 运算符代替 parseInt
+                const tag = item.type === 'sup' ? 'sup' : 'sub';
+                return `<${tag}>${item.content}</${tag}>`;
+            });
+
+            // 恢复删除线占位符
+            html = html.replace(/\x03STRIKE(\d+)\x03/g, (_, index) => {
+                return `<s>${strikeBlocks[+index]}</s>`; // 使用 + 运算符代替 parseInt
             });
 
             // 净化 HTML
             if (DOMPurify?.sanitize) {
                 html = DOMPurify.sanitize(html, {
                     ALLOWED_TAGS: [
-                        'p',
-                        'br',
-                        'strong',
-                        'em',
-                        'code',
-                        'pre',
-                        'blockquote',
-                        'ul',
-                        'ol',
-                        'li',
-                        'a',
-                        'h1',
-                        'h2',
-                        'h3',
-                        'h4',
-                        'h5',
-                        'h6',
-                        'table',
-                        'thead',
-                        'tbody',
-                        'tr',
-                        'th',
-                        'td',
-                        'hr',
-                        'img',
-                        'input',
-                        'span',
-                        'div',
-                        'dd',
-                        'dt',
-                        'dl',
-                        's'
+                        'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
+                        'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'img',
+                        'input', 'span', 'div', 'dd', 'dt', 'dl', 's', 'sup', 'sub'
                     ],
                     ALLOWED_ATTR: [
-                        'href',
-                        'src',
-                        'alt',
-                        'title',
-                        'class',
-                        'id',
-                        'type',
-                        'checked',
-                        'width',
-                        'height',
-                        'loading',
-                        'colspan',
-                        'rowspan',
-                        'start',
-                        'align',
-                        'style'
+                        'href', 'src', 'alt', 'title', 'class', 'id', 'type',
+                        'checked', 'width', 'height', 'loading', 'colspan',
+                        'rowspan', 'start', 'align', 'style'
                     ],
                     ALLOW_DATA_ATTR: true
                 });

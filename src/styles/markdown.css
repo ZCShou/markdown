@@ -1862,6 +1862,26 @@ body.dark-mode .markdown-body .math-error {
   background-color: #3a1d1d;
 }
 
+/* ==================== 上标和下标样式 ==================== */
+
+/* 上标样式 */
+.markdown-body sup {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  position: relative;
+  top: -0.5em;
+}
+
+/* 下标样式 */
+.markdown-body sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+  line-height: 0;
+  position: relative;
+  bottom: -0.25em;
+}
+
 /* ==================== 打印样式 ==================== */
 @media print {
   /* 隐藏不需要打印的元素 */
