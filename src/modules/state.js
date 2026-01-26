@@ -27,6 +27,8 @@ export class EditorState {
         // 文档相关
         documents: [],
         currentDocId: null,
+        selectedDocIds: [], // 多选文档ID列表
+        lastClickedDocId: null, // 用于Shift范围选择的起始点
 
         // 编辑器内容
         content: '',
@@ -247,16 +249,25 @@ export class EditorState {
     /**
      * 设置当前文档（优化版：异步保存）
      * @param {string} docId - 文档ID
+     * @param {Object} options - 选项
+     * @param {boolean} [options.clearSelection=true] - 是否清空多选状态
      */
-    setCurrentDocument(docId) {
+    setCurrentDocument(docId, options = {}) {
+        const { clearSelection = true } = options;
+        
         // 如果文档 ID 没有变化，直接返回
-        if (this.#state.currentDocId === docId) {
+        if (this.#state.currentDocId === docId && !clearSelection) {
             return;
         }
 
         const doc = this.#state.documents.find(d => d.id === docId);
         if (doc) {
-            const updates = { currentDocId: docId };
+            const updates = { currentDocId: docId, lastClickedDocId: docId };
+
+            // 如果需要清空多选状态，只保留当前文档
+            if (clearSelection) {
+                updates.selectedDocIds = [docId];
+            }
 
             // 只有当文档不是文件夹时，才更新内容
             if (doc.type !== 'folder') {
@@ -282,6 +293,95 @@ export class EditorState {
                 }, 0);
             }
         }
+    }
+
+    /**
+     * 切换文档选中状态（用于Ctrl+点击）
+     * @param {string} docId - 文档ID
+     */
+    toggleDocumentSelection(docId) {
+        const selectedDocIds = [...this.#state.selectedDocIds];
+        const index = selectedDocIds.indexOf(docId);
+        
+        if (index > -1) {
+            // 如果已选中，取消选中
+            selectedDocIds.splice(index, 1);
+            // 如果当前文档被取消选中，更新currentDocId为最后一个选中的文档
+            if (this.#state.currentDocId === docId && selectedDocIds.length > 0) {
+                this.setState({ 
+                    currentDocId: selectedDocIds[selectedDocIds.length - 1],
+                    selectedDocIds,
+                    lastClickedDocId: docId
+                });
+            } else {
+                this.setState({ selectedDocIds, lastClickedDocId: docId });
+            }
+        } else {
+            // 如果未选中，添加到选中列表
+            selectedDocIds.push(docId);
+            this.setState({ 
+                currentDocId: docId,
+                selectedDocIds,
+                lastClickedDocId: docId
+            });
+        }
+    }
+
+    /**
+     * 范围选择文档（用于Shift+点击）
+     * @param {string} endDocId - 结束文档ID
+     */
+    selectDocumentRange(endDocId) {
+        const startDocId = this.#state.lastClickedDocId || this.#state.currentDocId;
+        if (!startDocId) {
+            // 如果没有起始点，直接选中当前文档
+            this.setCurrentDocument(endDocId);
+            return;
+        }
+
+        // 获取扁平的文档列表（按显示顺序）
+        const flatDocs = this.#getFlatDocumentList();
+        const startIndex = flatDocs.findIndex(d => d.id === startDocId);
+        const endIndex = flatDocs.findIndex(d => d.id === endDocId);
+
+        if (startIndex === -1 || endIndex === -1) return;
+
+        // 确定范围
+        const minIndex = Math.min(startIndex, endIndex);
+        const maxIndex = Math.max(startIndex, endIndex);
+
+        // 选中范围内的所有文档
+        const selectedDocIds = flatDocs
+            .slice(minIndex, maxIndex + 1)
+            .map(doc => doc.id);
+
+        this.setState({
+            selectedDocIds,
+            currentDocId: endDocId,
+            lastClickedDocId: endDocId
+        });
+    }
+
+    /**
+     * 获取扁平的文档列表（按树型结构的显示顺序）
+     * @private
+     * @returns {Array} 扁平文档列表
+     */
+    #getFlatDocumentList() {
+        const result = [];
+        const tree = this.buildTree();
+
+        const traverse = (nodes) => {
+            for (const node of nodes) {
+                result.push(node);
+                if (node.children && node.children.length > 0) {
+                    traverse(node.children);
+                }
+            }
+        };
+
+        traverse(tree);
+        return result;
     }
 
     /**

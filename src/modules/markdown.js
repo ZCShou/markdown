@@ -965,6 +965,8 @@ export class MarkdownEditor {
             theme,
             layout,
             currentDocId,
+            selectedDocIds: currentDocId ? [currentDocId] : [],
+            lastClickedDocId: currentDocId,
             leftSidebarOpen,
             rightSidebarOpen,
             sections
