@@ -369,6 +369,79 @@ export class Preview extends BaseComponent {
             },
             true
         );
+
+        // 链接点击处理
+        this.addEventListener(
+            this.container,
+            'click',
+            e => {
+                // 检查点击的是否是链接
+                const link = e.target.closest('a');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                if (!href) return;
+
+                // 处理内部锚点链接（以 # 开头）
+                if (href.startsWith('#')) {
+                    e.preventDefault();
+                    this.#handleInternalLink(href);
+                    return;
+                }
+
+                // 处理外部链接：在新标签页中打开
+                // 检查是否是外部链接（http://, https://, // 等）
+                if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
+                    e.preventDefault();
+                    window.open(href, '_blank', 'noopener,noreferrer');
+                    return;
+                }
+
+                // 处理相对路径链接（如 ./file.md, ../other.md）
+                // 这些链接也保持默认行为，但在当前页面打开
+                // 如果需要在新标签页打开，可以取消下面的注释
+                /*
+                if (href.startsWith('./') || href.startsWith('../') || href.match(/^[^/]+\.md$/)) {
+                    e.preventDefault();
+                    window.open(href, '_blank', 'noopener,noreferrer');
+                    return;
+                }
+                */
+            },
+            false
+        );
+    }
+
+    /**
+     * 处理内部链接跳转
+     * @param {string} href - 链接的 href 属性值（如 #heading-1）
+     * @private
+     */
+    #handleInternalLink(href) {
+        // 移除 # 号并解码（处理中文等特殊字符）
+        const targetId = decodeURIComponent(href.slice(1));
+
+        // 使用 getElementById 查找目标元素（更安全，支持特殊字符）
+        // 先在容器内查找，如果找不到再在整个文档中查找
+        let targetElement = this.container.querySelector(`[id="${CSS.escape(targetId)}"]`);
+
+        // 如果在容器内找不到，尝试在整个文档中查找
+        if (!targetElement) {
+            targetElement = document.getElementById(targetId);
+        }
+
+        if (targetElement) {
+            // 平滑滚动到目标元素
+            targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+
+            // 更新 URL hash（不触发页面跳转）
+            history.replaceState(null, null, href);
+        } else {
+            console.warn(`未找到目标元素: ${targetId}`);
+        }
     }
 
     /**
