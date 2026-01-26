@@ -103,7 +103,7 @@
   --md-tree-drop-label-bg: rgba(255, 255, 255, 0.9);
 
   /* 搜索面板颜色 */
-  --md-search-panel-shadow: -2px 2px 8px rgba(0, 0, 0, 0.1);
+  --md-search-panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   --md-search-focus-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
   --md-search-option-active-bg: var(--md-bg-active);
 }
@@ -212,7 +212,7 @@
   --md-tree-drop-label-bg: rgba(30, 30, 30, 0.9);
 
   /* 搜索面板颜色 */
-  --md-search-panel-shadow: -2px 2px 8px rgba(0, 0, 0, 0.3);
+  --md-search-panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   --md-search-focus-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
   --md-search-option-active-bg: rgba(33, 150, 243, 0.15);
 }
@@ -2555,7 +2555,7 @@ pre[class*='language-'] {
   background: var(--md-bg-secondary);
   border: 1px solid var(--md-border-primary);
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--md-search-panel-shadow);
   padding: 8px;
   display: none;
 }
@@ -2630,7 +2630,7 @@ pre[class*='language-'] {
 
 .md-search-input {
   width: 100%;
-  padding: 6px 80px 6px 28px;
+  padding: 6px 80px 6px 8px;
   border: 1px solid var(--md-border-primary);
   border-radius: 4px;
   background: var(--md-bg-secondary);
