@@ -511,7 +511,7 @@ html::-webkit-scrollbar-thumb:hover,
   min-height: 200px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .md-doc-list:empty::before {
@@ -1628,7 +1628,7 @@ pre.has-copy-btn {
 .md-tree-children {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .md-tree-children.collapsed {
