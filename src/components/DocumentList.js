@@ -337,6 +337,12 @@ export class DocumentList extends BaseComponent {
                     this.handleOpen(docId);
                 }
             }, 120);
+        } else if (!item && !this.editingDocId) {
+            // 点击空闲位置：清空选中状态
+            const selectedDocIds = this.state.get('selectedDocIds') || [];
+            if (selectedDocIds.length > 0) {
+                this.state.setState({ selectedDocIds: [] });
+            }
         }
     }
 
@@ -900,46 +906,81 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 清空所有文件
+     * 删除选中的文件或清空所有文件
+     * 如果有选中的文件，则删除选中的文件；否则清空所有文件
      * @returns {Promise<void>}
      */
     async deleteCurrentItem() {
         const documents = this.state.get('documents');
+        const selectedDocIds = this.state.get('selectedDocIds') || [];
+
         if (documents.length === 0) {
             this.showMessage('当前没有文件', 'info');
             return;
         }
 
+        let docIdsToDelete = [];
+        let message = '';
+        let title = '';
+
+        if (selectedDocIds.length > 0) {
+            // 有选中项：删除选中的文件
+            docIdsToDelete = [...selectedDocIds];
+            message = `确定要删除选中的 ${docIdsToDelete.length} 个文件/文件夹吗？\n\n此操作不可恢复！`;
+            title = '删除确认';
+        } else {
+            // 无选中项：清空所有文件
+            docIdsToDelete = documents.map(doc => doc.id);
+            message = `确定要清空所有文件吗？\n\n这将删除 ${documents.length} 个文件/文件夹，此操作不可恢复！`;
+            title = '清空确认';
+        }
+
         // 显示确认对话框
-        const confirmed = await Dialog.confirm(
-            `确定要清空所有文件吗？\n\n这将删除 ${documents.length} 个文件/文件夹，此操作不可恢复！`,
-            {
-                title: '清空确认',
-                type: 'danger',
-                confirmText: '清空',
-                cancelText: '取消'
-            }
-        );
+        const confirmed = await Dialog.confirm(message, {
+            title,
+            type: 'danger',
+            confirmText: selectedDocIds.length > 0 ? '删除' : '清空',
+            cancelText: '取消'
+        });
         if (!confirmed) {
             return;
         }
 
-        // 清空所有文档和内容
-        this.state.setState({
-            documents: [],
-            currentDocId: null,
-            content: ''
-        });
-        StoreManager.saveDocuments([]);
-        StoreManager.saveContent('');
+        // 批量删除文档
+        for (const docId of docIdsToDelete) {
+            this.state.deleteDocument(docId, { silent: true });
+        }
 
-        // 清空展开状态
-        this.expandedFolders.clear();
+        // 保存并更新状态
+        StoreManager.saveDocuments(this.state.get('documents'));
+
+        // 如果删除了当前文档，清空内容
+        const currentDocId = this.state.get('currentDocId');
+        if (currentDocId && !this.state.get('documents').find(d => d.id === currentDocId)) {
+            this.state.setState({
+                currentDocId: null,
+                content: ''
+            });
+            StoreManager.saveContent('');
+        }
+
+        // 清空选中状态
+        this.state.setState({ selectedDocIds: [] });
+
+        // 清空展开状态（如果是清空所有文件）
+        if (selectedDocIds.length === 0) {
+            this.expandedFolders.clear();
+        }
 
         // 重新渲染
         this.render();
 
-        this.showMessage('已清空所有文件', 'success');
+        this.showMessage(
+            selectedDocIds.length > 0
+                ? `已删除 ${docIdsToDelete.length} 个文件`
+                : '已清空所有文件',
+            'success'
+        );
     }
 
     /**

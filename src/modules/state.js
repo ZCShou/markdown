@@ -223,8 +223,10 @@ export class EditorState {
     /**
      * 删除文档（及其所有子项）
      * @param {string} docId - 文档ID
+     * @param {Object} options - 选项
+     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
      */
-    deleteDocument(docId) {
+    deleteDocument(docId, options = {}) {
         // 递归删除所有子项
         const toDelete = new Set([docId]);
         let changed = true;
@@ -243,7 +245,7 @@ export class EditorState {
 
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
         const currentDocId = this.#state.currentDocId === docId ? null : this.#state.currentDocId;
-        this.setState({ documents, currentDocId });
+        this.setState({ documents, currentDocId }, options);
     }
 
     /**
