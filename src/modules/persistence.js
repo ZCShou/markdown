@@ -39,6 +39,17 @@ export class PersistenceManager {
         documents: (state) => StoreManager.saveDocuments(state.documents),
         currentDocId: (state) => StoreManager.saveCurrentDocId(state.currentDocId),
         syncScrollEnabled: (state) => StoreManager.saveSyncScrollEnabled(state.syncScrollEnabled),
+        content: (state) => {
+            // 保存当前文档内容到 documents 数组
+            if (state.currentDocId && state.documents) {
+                const docIndex = state.documents.findIndex(d => d.id === state.currentDocId);
+                if (docIndex !== -1) {
+                    state.documents[docIndex].content = state.content || '';
+                    state.documents[docIndex].updatedAt = new Date().toISOString();
+                    StoreManager.saveDocuments(state.documents);
+                }
+            }
+        },
         settings: (state) => StoreManager.saveSettings({
             editor: state.editor,
             interface: state.interface,

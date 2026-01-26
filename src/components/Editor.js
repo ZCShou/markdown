@@ -70,6 +70,7 @@ export class Editor extends BaseComponent {
 
         // 使用防抖减少状态更新频率（150ms）
         // 在回调中重新获取最新内容，避免闭包陷阱
+        // 注意：updateContent 会自动触发持久化（1000ms 防抖）
         this.debounce(
             'editor-input',
             () => {
@@ -77,15 +78,6 @@ export class Editor extends BaseComponent {
                 this.state.updateContent(content);
             },
             150
-        );
-
-        // 后台静默保存（防抖，1秒延迟，使用异步保存）
-        this.debounce(
-            'editor-auto-save',
-            () => {
-                this.saveAsync();
-            },
-            1000
         );
     }
 
@@ -163,17 +155,22 @@ export class Editor extends BaseComponent {
             };
         };
 
-        // 获取缩进大小
+        // 获取缩进大小（根据 tabSize 配置）
         const getIndentSize = indentStr => {
             if (indentStr.startsWith('\t')) return 1;
-            return Math.min(2, indentStr.length);
+            // 返回不超过 tabSize 的空格数
+            return Math.min(tabSize, indentStr.length);
         };
 
-        // 移除行缩进
+        // 移除行缩进（根据 tabSize 配置）
         const removeLineIndent = line => {
             if (line.startsWith('\t')) return line.substring(1);
-            if (line.startsWith('  ')) return line.substring(2);
-            if (line.startsWith(' ')) return line.substring(1);
+            // 根据 tabSize 移除相应数量的空格
+            const leadingSpaces = line.match(/^\s*/)[0];
+            if (leadingSpaces.length > 0) {
+                const spacesToRemove = Math.min(tabSize, leadingSpaces.length);
+                return line.substring(spacesToRemove);
+            }
             return line;
         };
 
@@ -190,8 +187,8 @@ export class Editor extends BaseComponent {
                     const indentSize = getIndentSize(indent);
                     this.container.value =
                         value.substring(0, lineStart) +
-                        indent.substring(indentSize) +
-                        value.substring(lineStart + indentSize);
+                        value.substring(lineStart, start).substring(indentSize) +
+                        value.substring(start);
                     this.container.selectionStart = this.container.selectionEnd =
                         start - indentSize;
                 }
