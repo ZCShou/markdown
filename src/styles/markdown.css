@@ -329,9 +329,26 @@ html::-webkit-scrollbar-thumb:hover,
   transform: rotate(-90deg);
 }
 
+/* 按钮悬停效果 */
 .md-btn:hover {
   background-color: var(--md-bg-hover);
   border-color: var(--md-text-secondary);
+}
+
+/* 标题栏中的按钮颜色 */
+.md-sidebar-header .md-btn,
+.markdown-toolbar .md-btn,
+.md-dialog-header .md-btn,
+.md-settings-header .md-btn {
+  color: var(--md-toolbar-text);
+}
+
+/* 标题栏中的按钮悬停效果（统一样式） */
+.md-sidebar-header .md-btn:hover,
+.markdown-toolbar .md-btn:hover,
+.md-dialog-header .md-btn:hover,
+.md-settings-header .md-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .md-btn:active {
@@ -360,10 +377,6 @@ html::-webkit-scrollbar-thumb:hover,
   border: 1px solid transparent;
 }
 
-.md-btn.md-btn-icon:hover {
-  background-color: var(--md-bg-hover);
-}
-
 .md-btn.md-btn-icon:active {
   transform: scale(0.95);
 }
@@ -372,10 +385,6 @@ html::-webkit-scrollbar-thumb:hover,
 .md-btn.md-btn-ghost {
   background-color: transparent;
   border: 1px solid transparent;
-}
-
-.md-btn.md-btn-ghost:hover {
-  background-color: var(--md-bg-hover);
 }
 
 /* 主要按钮 */
@@ -395,11 +404,6 @@ html::-webkit-scrollbar-thumb:hover,
   background-color: var(--md-bg-secondary);
   color: var(--md-text-primary);
   border-color: var(--md-border-primary);
-}
-
-.md-btn.md-btn-secondary:hover {
-  background-color: var(--md-bg-hover);
-  border-color: var(--md-text-secondary);
 }
 
 /* 危险按钮 */
@@ -489,14 +493,6 @@ html::-webkit-scrollbar-thumb:hover,
 .md-sidebar-toolbar {
   display: flex;
   gap: 4px;
-}
-
-.md-sidebar-header .md-btn {
-  color: var(--md-toolbar-text);
-}
-
-.md-sidebar-header .md-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .md-sidebar-header h3 {
@@ -734,15 +730,6 @@ html::-webkit-scrollbar-thumb:hover,
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-/* 顶部工具栏按钮 - 继承 .md-btn.md-btn-icon.md-btn-ghost 样式 */
-.markdown-toolbar .md-btn {
-  color: var(--md-toolbar-text);
-}
-
-.markdown-toolbar .md-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 侧边栏打开时隐藏对应的切换按钮 */
@@ -2357,14 +2344,6 @@ body.dark-mode .markdown-body .math-error {
 }
 
 /* 对话框标题栏中的按钮样式 - 与侧边栏标题栏保持一致 */
-.md-dialog-header .md-btn {
-  color: var(--md-toolbar-text);
-}
-
-.md-dialog-header .md-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
 .md-dialog-icon {
   font-size: 16px;
   flex-shrink: 0;
@@ -2737,7 +2716,8 @@ pre[class*='language-'] {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   width: 800px;
   max-width: 90vw;
-  max-height: 85vh;
+  height: 80vh;
+  max-height: 80vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -2769,14 +2749,6 @@ pre[class*='language-'] {
   padding-left: 8px;
 }
 
-.md-settings-header .md-btn {
-  color: var(--md-toolbar-text);
-}
-
-.md-settings-header .md-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
 /* 设置内容区域 */
 .md-settings-content {
   display: flex;
@@ -2790,17 +2762,18 @@ pre[class*='language-'] {
   width: 200px;
   background-color: var(--md-bg-tertiary);
   border-right: 1px solid var(--md-border-primary);
-  padding: 8px 0;
+  padding: 8px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex-shrink: 0;
+  min-height: 0;
 }
 
 .md-settings-nav-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 4px 0 4px;
-  margin: 0 4px;
+  padding: 6px;
   cursor: pointer;
   color: var(--md-text-primary);
   transition: background-color 0.2s ease;
@@ -2843,7 +2816,9 @@ pre[class*='language-'] {
 .md-settings-body {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  overflow-x: hidden;
+  padding: 8px;
+  min-height: 0;
 }
 
 .md-settings-section {
@@ -3002,7 +2977,7 @@ pre[class*='language-'] {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 8px;
   background-color: var(--md-bg-tertiary);
   border-top: 1px solid var(--md-border-primary);
   flex-shrink: 0;
@@ -3033,7 +3008,7 @@ pre[class*='language-'] {
 
   .md-settings-nav-item {
     flex-shrink: 0;
-    padding: 8px 12px;
+    padding: 8px;
     border-radius: 4px;
   }
 
@@ -3067,4 +3042,63 @@ pre[class*='language-'] {
   .md-settings-footer .md-btn {
     width: 100%;
   }
+}
+
+/* 隐藏类 */
+.hidden {
+  display: none !important;
+}
+
+/* 设置值显示 */
+.md-settings-value {
+  font-size: 13px;
+  color: var(--md-text-secondary);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* 滑块样式 */
+.md-settings-control input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 6px;
+  background: var(--md-border-secondary);
+  border-radius: 3px;
+  outline: none;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.md-settings-control input[type="range"]:hover {
+  opacity: 1;
+}
+
+.md-settings-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--md-color-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.md-settings-control input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.md-settings-control input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--md-color-primary);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.md-settings-control input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.2);
 }

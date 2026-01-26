@@ -461,7 +461,7 @@ export class Preview extends BaseComponent {
      */
     initMermaid() {
         if (this.mermaidInitialized) return;
-        this.#configureMermaid(this.state.get('theme'));
+        this.#configureMermaid(this.state.get('interface').theme);
         this.mermaidInitialized = true;
     }
 
@@ -483,7 +483,7 @@ export class Preview extends BaseComponent {
      * 更新 Mermaid 主题
      */
     updateMermaidTheme() {
-        this.#configureMermaid(this.state.get('theme'));
+        this.#configureMermaid(this.state.get('interface').theme);
 
         // 使用 dom.js 统一查询，重新渲染已有的 Mermaid 图表
         const mermaidDivs = dom.getAllIn(this.container, 'div.mermaid[data-mermaid]');

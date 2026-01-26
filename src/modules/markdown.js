@@ -175,8 +175,8 @@ export class MarkdownEditor {
         // 搜索替换组件
         this.components.searchReplace = new SearchReplace(this.state, 'md-search-replace-panel');
 
-        // 设置组件
-        this.components.settings = new Settings();
+        // 设置组件（传入 state 以实现状态同步）
+        this.components.settings = new Settings(this.state);
 
         // 初始化所有组件
         Object.values(this.components).forEach(component => {
@@ -210,10 +210,8 @@ export class MarkdownEditor {
         };
 
         // 从本地存储加载同步滚动状态
-        const savedSyncScroll = localStorage.getItem('md-sync-scroll');
-        if (savedSyncScroll !== null) {
-            this.syncScrollEnabled = savedSyncScroll === 'true';
-        }
+        const savedSyncScroll = StoreManager.loadSyncScrollEnabled(true);
+        this.syncScrollEnabled = savedSyncScroll;
         updateSyncScrollIcon(this.syncScrollEnabled);
 
         // 缓存可滚动高度，避免频繁查询 DOM
@@ -266,7 +264,7 @@ export class MarkdownEditor {
         // 监听按钮点击
         syncScrollButton.addEventListener('click', () => {
             this.syncScrollEnabled = !this.syncScrollEnabled;
-            localStorage.setItem('md-sync-scroll', this.syncScrollEnabled);
+            StoreManager.saveSyncScrollEnabled(this.syncScrollEnabled);
             updateSyncScrollIcon(this.syncScrollEnabled);
         });
 
@@ -383,7 +381,7 @@ export class MarkdownEditor {
 
         // 重新计算分割比例（响应侧边栏变化）
         const recalculateSplitRatio = () => {
-            const currentLayout = this.state.get('layout');
+            const currentLayout = this.state.get('interface').layout;
             if (currentLayout !== 'layout-both') {
                 clearSplitRatio();
                 return;
@@ -396,13 +394,13 @@ export class MarkdownEditor {
         };
 
         // 初始化宽度（只在双面板模式下设置固定比例）
-        const currentLayout = this.state.get('layout');
+        const currentLayout = this.state.get('interface').layout;
         if (currentLayout === 'layout-both') {
             updateSplitRatio(this.lastLeftRatio);
         }
 
         // 监听侧边栏状态变化，重新计算分割比例
-        this.state.subscribeTo(['leftSidebarOpen', 'rightSidebarOpen'], () => {
+        this.state.subscribeTo('interface', () => {
             recalculateSplitRatio();
         });
 
@@ -516,7 +514,6 @@ export class MarkdownEditor {
      */
     toggleTheme() {
         const newMode = this.state.toggleTheme();
-        StoreManager.saveTheme(newMode);
         this.applyTheme(newMode);
     }
 
@@ -524,7 +521,7 @@ export class MarkdownEditor {
      * 初始化主题
      */
     initTheme() {
-        const mode = this.state.get('theme');
+        const mode = this.state.get('interface').theme;
         this.applyTheme(mode);
     }
 
@@ -535,7 +532,6 @@ export class MarkdownEditor {
      */
     toggleLayout() {
         const newLayout = this.state.toggleLayout();
-        StoreManager.saveLayout(newLayout);
         this.applyLayout(newLayout);
     }
 
@@ -544,7 +540,7 @@ export class MarkdownEditor {
      * @param layout
      */
     applyLayout(layout) {
-        const container = dom.app.container?.element;
+        const container = dom.get('.markdown-container');
         if (!container) return;
 
         const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
@@ -570,7 +566,8 @@ export class MarkdownEditor {
      * 初始化布局
      */
     initLayout() {
-        const layout = this.state.get('layout');
+        const interfaceState = this.state.get('interface');
+        const layout = interfaceState?.layout ?? 'layout-both';
         this.applyLayout(layout);
     }
 
@@ -984,31 +981,21 @@ export class MarkdownEditor {
 
         // 加载保存的数据
         const documents = StoreManager.loadDocuments();
-        const theme = StoreManager.loadTheme('light');
-        const layout = StoreManager.loadLayout() || 'layout-both';
-        const leftSidebarOpen = StoreManager.loadSidebarState('left', false);
-        const rightSidebarOpen = StoreManager.loadSidebarState('right', false);
-
-        // 加载区块状态
-        const sections = {
-            toc: !StoreManager.loadSectionState('toc', false),
-            export: !StoreManager.loadSectionState('export', false)
-        };
-
         const { currentDocId, content } = this.#getInitialDocument(documents);
+
+        // 从 localStorage 加载配置
+        const savedSettings = this.#loadSettingsFromStorage();
 
         // 设置初始状态
         this.state.setState({
             documents,
             content,
-            theme,
-            layout,
             currentDocId,
             selectedDocIds: currentDocId ? [currentDocId] : [],
             lastClickedDocId: currentDocId,
-            leftSidebarOpen,
-            rightSidebarOpen,
-            sections
+            editor: savedSettings.editor,
+            interface: savedSettings.interface,
+            export: savedSettings.export
         });
         StoreManager.saveDocuments(documents);
 
@@ -1024,7 +1011,176 @@ export class MarkdownEditor {
         this.components.leftSidebar.applySectionStates();
         this.components.rightSidebar.applySectionStates();
 
+        // 监听 state 变化，自动保存到 localStorage
+        this.#setupAutoSave();
+
         this.isInitialized = true;
+    }
+
+    /**
+     * 从 localStorage 加载设置
+     * @private
+     * @returns {Object} 设置对象
+     */
+    #loadSettingsFromStorage() {
+        // 使用 StoreManager 统一管理存储
+        const saved = StoreManager.loadSettings();
+        
+        // 默认设置
+        const defaultSettings = {
+            editor: {
+                fontSize: 14,
+                lineHeight: 1.6,
+                autoSave: true
+            },
+            interface: {
+                theme: 'light',
+                layout: 'layout-both',
+                leftRatio: 0.5,
+                leftSidebarOpen: false,
+                rightSidebarOpen: false,
+                sections: {
+                    toc: true,
+                    export: true
+                }
+            },
+            export: {
+                includeStyle: true,
+                codeHighlight: true,
+                pdfSize: 'A4',
+                pdfMargin: 'default'
+            }
+        };
+
+        // 如果没有保存的设置，直接返回默认值
+        if (!saved) {
+            return defaultSettings;
+        }
+
+        // 合并保存的设置和默认设置
+        return {
+            editor: { ...defaultSettings.editor, ...saved.editor },
+            interface: { ...defaultSettings.interface, ...saved.interface },
+            export: { ...defaultSettings.export, ...saved.export }
+        };
+    }
+
+    /**
+     * 设置自动保存和配置应用
+     * @private
+     */
+    #setupAutoSave() {
+        // 防抖保存定时器
+        let saveTimeout = null;
+        
+        // 监听配置变化，防抖保存到 localStorage
+        this.state.subscribe((newState) => {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            saveTimeout = setTimeout(() => {
+                const settingsToSave = {
+                    editor: newState.editor,
+                    interface: newState.interface,
+                    export: newState.export
+                };
+                
+                // 使用 StoreManager 统一管理存储
+                StoreManager.saveSettings(settingsToSave);
+            }, 300); // 300ms 防抖
+        });
+
+        // 缓存 DOM 元素，避免重复查询
+        let cachedElements = null;
+        
+        const getElements = () => {
+            if (!cachedElements) {
+                cachedElements = {
+                    editor: dom.getById('markdown-editor')?.element,
+                    container: dom.get('.markdown-container'),
+                    leftSidebar: dom.get('.md-sidebar-left'),
+                    rightSidebar: dom.get('.md-sidebar-right'),
+                    editorSection: dom.get('.markdown-editor-pane'),
+                    previewSection: dom.get('.markdown-preview-pane'),
+                    tocSection: dom.get('.md-sidebar-section-toc'),
+                    exportSection: dom.get('.md-sidebar-section-export')
+                };
+            }
+            return cachedElements;
+        };
+
+        // 监听编辑器配置变化，应用到编辑器
+        this.state.subscribeTo('editor', (newEditor) => {
+            const editor = getElements().editor;
+            if (editor) {
+                editor.style.fontSize = `${newEditor.fontSize ?? 14}px`;
+                editor.style.lineHeight = String(newEditor.lineHeight ?? 1.6);
+            }
+        });
+
+        // 监听界面配置变化，应用到界面
+        this.state.subscribeTo('interface', (newInterface, oldInterface) => {
+            const els = getElements();
+            
+            // 应用主题（只在主题变化时）
+            if (!oldInterface || newInterface.theme !== oldInterface.theme) {
+                this.applyTheme(newInterface.theme ?? 'light');
+            }
+
+            // 应用布局（只在布局变化时）
+            if (!oldInterface || newInterface.layout !== oldInterface.layout) {
+                if (els.container) {
+                    els.container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
+                    els.container.classList.add(newInterface.layout ?? 'layout-both');
+                }
+            }
+
+            // 应用侧边栏状态（只在状态变化时）
+            if (!oldInterface || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
+                if (els.leftSidebar) {
+                    els.leftSidebar.classList.toggle('open', newInterface.leftSidebarOpen);
+                }
+            }
+
+            if (!oldInterface || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
+                if (els.rightSidebar) {
+                    els.rightSidebar.classList.toggle('open', newInterface.rightSidebarOpen);
+                }
+            }
+
+            // 应用布局比例（只在双栏布局或比例变化时）
+            if (newInterface.layout === 'layout-both') {
+                if (els.editorSection && els.previewSection) {
+                    const leftRatio = newInterface.leftRatio ?? 0.5;
+                    els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`;
+                    els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`;
+                }
+            } else {
+                // 非双栏布局时，清除 flex 样式
+                if (els.editorSection) {
+                    els.editorSection.style.flex = '';
+                }
+                if (els.previewSection) {
+                    els.previewSection.style.flex = '';
+                }
+            }
+
+            // 应用侧边栏区块状态（只在 sections 变化时）
+            if (!oldInterface || newInterface.sections !== oldInterface.sections) {
+                if (els.tocSection) {
+                    els.tocSection.classList.toggle('hidden', !newInterface.sections?.toc);
+                }
+                if (els.exportSection) {
+                    els.exportSection.classList.toggle('hidden', !newInterface.sections?.export);
+                }
+            }
+
+            // 更新 Mermaid 主题（只在主题变化时）
+            if (!oldInterface || newInterface.theme !== oldInterface.theme) {
+                this.components.preview?.updateMermaidTheme();
+            }
+        });
     }
 
     /**

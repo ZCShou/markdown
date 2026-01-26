@@ -29,24 +29,43 @@ export class EditorState {
         currentDocId: null,
         selectedDocIds: [], // 多选文档ID列表
         lastClickedDocId: null, // 用于Shift范围选择的起始点
-
         // 编辑器内容
         content: '',
 
-        // UI 状态
-        theme: 'light',
-        layout: 'layout-both',
-        leftSidebarOpen: false,
-        rightSidebarOpen: false,
-
-        // 侧边栏区块状态
-        sections: {
-            toc: true,
-            export: true
+        // 编辑器配置
+        editor: {
+            fontSize: 14,
+            lineHeight: 1.6,
+            autoSave: true
         },
 
-        // 布局状态
-        leftRatio: 0.5,
+        // 界面配置
+        interface: {
+            // 主题设置
+            theme: 'light',
+            
+            // 布局设置
+            layout: 'layout-both',
+            leftRatio: 0.5,
+            
+            // 侧边栏状态
+            leftSidebarOpen: false,
+            rightSidebarOpen: false,
+            
+            // 侧边栏区块状态
+            sections: {
+                toc: true,
+                export: true
+            }
+        },
+
+        // 导出配置
+        export: {
+            includeStyle: true,
+            codeHighlight: true,
+            pdfSize: 'A4',
+            pdfMargin: 'default'
+        },
 
         // 渲染状态
         isRenderingMermaid: false,
@@ -540,15 +559,43 @@ export class EditorState {
         return newDoc.id;
     }
 
-    // ==================== UI 操作 ====================
+    // ==================== 编辑器配置操作 ====================
+
+    /**
+     * 更新编辑器配置
+     * @param {Object} config - 编辑器配置
+     */
+    updateEditorConfig(config) {
+        this.setState({ 
+            editor: { 
+                ...this.#state.editor, 
+                ...config 
+            } 
+        });
+    }
+
+    // ==================== 界面配置操作 ====================
+
+    /**
+     * 更新界面配置
+     * @param {Object} config - 界面配置
+     */
+    updateInterfaceConfig(config) {
+        this.setState({ 
+            interface: { 
+                ...this.#state.interface, 
+                ...config 
+            } 
+        });
+    }
 
     /**
      * 切换主题
      * @returns {string} 新主题名称
      */
     toggleTheme() {
-        const newTheme = this.#state.theme === 'dark' ? 'light' : 'dark';
-        this.setState({ theme: newTheme });
+        const newTheme = this.#state.interface.theme === 'dark' ? 'light' : 'dark';
+        this.updateInterfaceConfig({ theme: newTheme });
         return newTheme;
     }
 
@@ -558,9 +605,9 @@ export class EditorState {
      */
     toggleLayout() {
         const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
-        const currentIndex = layouts.indexOf(this.#state.layout);
+        const currentIndex = layouts.indexOf(this.#state.interface.layout);
         const nextLayout = layouts[(currentIndex + 1) % layouts.length];
-        this.setState({ layout: nextLayout });
+        this.updateInterfaceConfig({ layout: nextLayout });
         return nextLayout;
     }
 
@@ -571,8 +618,8 @@ export class EditorState {
      */
     toggleSidebar(side) {
         const key = side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
-        const newValue = !this.#state[key];
-        this.setState({ [key]: newValue });
+        const newValue = !this.#state.interface[key];
+        this.updateInterfaceConfig({ [key]: newValue });
         return newValue;
     }
 
@@ -580,9 +627,9 @@ export class EditorState {
      * 关闭所有侧边栏
      */
     closeAllSidebars() {
-        this.setState({
-            leftSidebarOpen: false,
-            rightSidebarOpen: false
+        this.updateInterfaceConfig({ 
+            leftSidebarOpen: false, 
+            rightSidebarOpen: false 
         });
     }
 
@@ -592,10 +639,10 @@ export class EditorState {
      */
     toggleSection(sectionName) {
         const sections = {
-            ...this.#state.sections,
-            [sectionName]: !this.#state.sections[sectionName]
+            ...this.#state.interface.sections,
+            [sectionName]: !this.#state.interface.sections[sectionName]
         };
-        this.setState({ sections });
+        this.updateInterfaceConfig({ sections });
     }
 
     /**
@@ -603,7 +650,22 @@ export class EditorState {
      * @param {number} ratio - 比例值 (0-1)
      */
     updateLeftRatio(ratio) {
-        this.setState({ leftRatio: ratio });
+        this.updateInterfaceConfig({ leftRatio: ratio });
+    }
+
+    // ==================== 导出配置操作 ====================
+
+    /**
+     * 更新导出配置
+     * @param {Object} config - 导出配置
+     */
+    updateExportConfig(config) {
+        this.setState({ 
+            export: { 
+                ...this.#state.export, 
+                ...config 
+            } 
+        });
     }
 
     // ==================== 渲染状态 ====================

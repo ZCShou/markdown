@@ -410,7 +410,9 @@ $$
         LAYOUT: 'markdown_editor_layout',
         SECTION_PREFIX: 'markdown_editor_section_',
         SIDEBAR_LEFT: 'markdown_editor_sidebar_left',
-        SIDEBAR_RIGHT: 'markdown_editor_sidebar_right'
+        SIDEBAR_RIGHT: 'markdown_editor_sidebar_right',
+        SETTINGS: 'markdown-editor-settings',
+        SYNC_SCROLL: 'md-sync-scroll'
     };
 
     // ==================== 内容存储 ====================
@@ -709,6 +711,69 @@ $$
         } catch (e) {
             console.warn('加载折叠状态失败:', e);
             return defaultState;
+        }
+    }
+
+    // ==================== 统一设置存储 ====================
+
+    /**
+     * 保存统一设置
+     * @param {Object} settings - 设置对象
+     * @returns {boolean} 是否成功
+     */
+    static saveSettings(settings) {
+        try {
+            localStorage.setItem(StoreManager.#STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+            return true;
+        } catch (e) {
+            console.warn('保存设置失败:', e);
+            return false;
+        }
+    }
+
+    /**
+     * 加载统一设置
+     * @returns {Object|null} 设置对象，失败返回 null
+     */
+    static loadSettings() {
+        try {
+            const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.SETTINGS);
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            console.warn('加载设置失败:', e);
+            return null;
+        }
+    }
+
+    // ==================== 同步滚动状态 ====================
+
+    /**
+     * 保存同步滚动状态
+     * @param {boolean} enabled - 是否启用
+     * @returns {boolean} 是否成功
+     */
+    static saveSyncScrollEnabled(enabled) {
+        try {
+            localStorage.setItem(StoreManager.#STORAGE_KEYS.SYNC_SCROLL, String(enabled));
+            return true;
+        } catch (e) {
+            console.warn('保存同步滚动状态失败:', e);
+            return false;
+        }
+    }
+
+    /**
+     * 加载同步滚动状态
+     * @param {boolean} defaultValue - 默认值
+     * @returns {boolean} 是否启用
+     */
+    static loadSyncScrollEnabled(defaultValue = true) {
+        try {
+            const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.SYNC_SCROLL);
+            return saved !== null ? saved === 'true' : defaultValue;
+        } catch (e) {
+            console.warn('加载同步滚动状态失败:', e);
+            return defaultValue;
         }
     }
 

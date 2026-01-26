@@ -21,10 +21,13 @@ describe('EditorState - 状态管理器测试', () => {
 
             expect(currentState).toHaveProperty('content');
             expect(currentState).toHaveProperty('documents');
-            expect(currentState).toHaveProperty('theme');
-            expect(currentState).toHaveProperty('layout');
+            expect(currentState).toHaveProperty('editor');
+            expect(currentState).toHaveProperty('interface');
+            expect(currentState).toHaveProperty('export');
             expect(currentState.documents).toEqual([]);
-            expect(currentState.theme).toBe('light');
+            expect(currentState.editor.fontSize).toBe(14);
+            expect(currentState.interface.theme).toBe('light');
+            expect(currentState.interface.layout).toBe('layout-both');
         });
     });
 
@@ -218,34 +221,34 @@ describe('EditorState - 状态管理器测试', () => {
         it('应该切换主题', () => {
             state.toggleTheme();
 
-            expect(state.get('theme')).toBe('dark');
+            expect(state.get('interface').theme).toBe('dark');
         });
 
         it('应该切换布局', () => {
             state.toggleLayout();
 
             // toggleLayout 在 layout-both 和 layout-editor-only 之间切换
-            expect(state.get('layout')).toBe('layout-editor-only');
+            expect(state.get('interface').layout).toBe('layout-editor-only');
         });
 
         it('应该切换侧边栏状态', () => {
             state.toggleSidebar('left');
             state.toggleSidebar('right');
 
-            expect(state.get('leftSidebarOpen')).toBe(true);
-            expect(state.get('rightSidebarOpen')).toBe(true);
+            expect(state.get('interface').leftSidebarOpen).toBe(true);
+            expect(state.get('interface').rightSidebarOpen).toBe(true);
         });
 
         it('应该切换区块状态', () => {
             state.toggleSection('toc');
 
-            expect(state.get('sections').toc).toBe(false);
+            expect(state.get('interface').sections.toc).toBe(false);
         });
 
         it('应该设置布局比例', () => {
             state.updateLeftRatio(0.7);
 
-            expect(state.get('leftRatio')).toBe(0.7);
+            expect(state.get('interface').leftRatio).toBe(0.7);
         });
     });
 

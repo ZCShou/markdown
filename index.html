@@ -392,10 +392,14 @@
                 </div>
                 <div class="md-settings-content">
                     <!-- Left Navigation -->
-                    <div class="md-settings-nav">
+                    <div class="md-settings-nav unified-scrollbar">
                         <div class="md-settings-nav-item active" data-section="basic" title="基本配置">
                             <i class="codicon codicon-settings-gear md-settings-nav-item-icon"></i>
                             <span class="md-settings-nav-item-text">基本配置</span>
+                        </div>
+                        <div class="md-settings-nav-item" data-section="interface" title="界面设置">
+                            <i class="codicon codicon-layout md-settings-nav-item-icon"></i>
+                            <span class="md-settings-nav-item-text">界面设置</span>
                         </div>
                         <div class="md-settings-nav-item" data-section="export" title="导出配置">
                             <i class="codicon codicon-export md-settings-nav-item-icon"></i>
@@ -403,7 +407,7 @@
                         </div>
                     </div>
                     <!-- Right Content -->
-                    <div class="md-settings-body">
+                    <div class="md-settings-body unified-scrollbar">
                         <!-- Basic Settings -->
                         <div class="md-settings-section active" id="settings-basic">
                             <div class="md-settings-group">
@@ -453,6 +457,89 @@
                                             <option value="dark">深色主题</option>
                                             <option value="auto">跟随系统</option>
                                         </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Interface Settings -->
+                        <div class="md-settings-section" id="settings-interface">
+                            <div class="md-settings-group">
+                                <h4>布局设置</h4>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>布局模式</span>
+                                        <span class="md-settings-description">选择编辑器布局模式</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <select id="setting-layout">
+                                            <option value="layout-both">双栏布局</option>
+                                            <option value="layout-editor-only">仅编辑</option>
+                                            <option value="layout-preview-only">仅预览</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>编辑器宽度比例</span>
+                                        <span class="md-settings-description">调整编辑器与预览的宽度比例</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <input type="range" id="setting-left-ratio" value="50" min="20" max="80" step="5" />
+                                        <span class="md-settings-value" id="setting-left-ratio-value">50%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md-settings-group">
+                                <h4>侧边栏设置</h4>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>默认打开左侧边栏</span>
+                                        <span class="md-settings-description">启动时自动打开左侧边栏</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-left-sidebar-open" />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>默认打开右侧边栏</span>
+                                        <span class="md-settings-description">启动时自动打开右侧边栏</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-right-sidebar-open" />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md-settings-group">
+                                <h4>侧边栏区块</h4>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>显示目录</span>
+                                        <span class="md-settings-description">在侧边栏中显示文档目录</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-section-toc" checked />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>显示导出选项</span>
+                                        <span class="md-settings-description">在侧边栏中显示导出选项</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-section-export" checked />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>

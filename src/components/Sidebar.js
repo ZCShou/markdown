@@ -28,8 +28,8 @@ export class Sidebar extends BaseComponent {
     subscribe() {
         const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
 
-        this.unsubscribe = this.state.subscribeTo(stateKey, isOpen => {
-            this.updateVisibility(isOpen);
+        this.unsubscribe = this.state.subscribeTo('interface', (interfaceState) => {
+            this.updateVisibility(interfaceState[stateKey]);
         });
     }
 
@@ -68,11 +68,15 @@ export class Sidebar extends BaseComponent {
      */
     toggle() {
         const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
-        const newValue = !this.state.get(stateKey);
-        this.state.setState({ [stateKey]: newValue });
-
-        // 保存到本地存储
-        StoreManager.saveSidebarState(this.side, newValue);
+        const interfaceState = this.state.get('interface');
+        const newValue = !interfaceState[stateKey];
+        
+        this.state.setState({ 
+            interface: { 
+                ...interfaceState, 
+                [stateKey]: newValue 
+            } 
+        });
 
         return newValue;
     }
@@ -111,12 +115,19 @@ export class Sidebar extends BaseComponent {
      * @returns {void}
      */
     toggleSection(sectionName) {
-        const sections = { ...this.state.get('sections') };
+        const interfaceState = this.state.get('interface');
+        const sections = { ...interfaceState.sections };
         const isExpanded = !sections[sectionName];
         sections[sectionName] = isExpanded;
 
-        this.state.setState({ sections });
-        StoreManager.saveSectionState(sectionName, !isExpanded);
+        this.state.setState({ 
+            interface: { 
+                ...interfaceState, 
+                sections 
+            } 
+        });
+        
+        // 更新 UI（注意：isExpanded 是展开状态，updateSectionState 需要折叠状态）
         this.updateSectionState(sectionName, !isExpanded);
     }
 
@@ -138,7 +149,7 @@ export class Sidebar extends BaseComponent {
      * @returns {void}
      */
     applySectionStates() {
-        const sections = this.state.get('sections');
+        const sections = this.state.get('interface').sections;
         const sectionNames = Object.keys(sections);
 
         for (let i = 0; i < sectionNames.length; i++) {
@@ -154,7 +165,8 @@ export class Sidebar extends BaseComponent {
     render() {
         // 侧边栏的初始状态由 HTML 决定，这里只需要应用状态
         const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
-        const isOpen = this.state.get(stateKey);
+        const interfaceState = this.state.get('interface');
+        const isOpen = interfaceState[stateKey];
         this.updateVisibility(isOpen);
 
         // 应用区块状态（确保初始状态正确）
