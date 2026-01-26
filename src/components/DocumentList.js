@@ -727,6 +727,9 @@ export class DocumentList extends BaseComponent {
             updatedAt: new Date().toISOString()
         };
 
+        // 清空选中状态，避免创建新文件时多个文件同时被选中
+        this.state.setState({ selectedDocIds: [] });
+
         // 先标记需要进入编辑模式
         this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
 
