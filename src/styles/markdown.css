@@ -2708,3 +2708,363 @@ pre[class*='language-'] {
     padding-right: 8px;
   }
 }
+
+/* ==================== 设置对话框样式 ==================== */
+.md-settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.md-settings-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.md-settings-dialog {
+  background: var(--md-bg-secondary);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 800px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.95);
+  transition: transform 0.2s ease;
+}
+
+.md-settings-overlay.show .md-settings-dialog {
+  transform: scale(1);
+}
+
+/* 设置对话框标题栏 */
+.md-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 4px 4px;
+  background-color: var(--md-toolbar-bg);
+  color: var(--md-toolbar-text);
+  border-bottom: 1px solid var(--md-toolbar-border);
+  flex-shrink: 0;
+}
+
+.md-settings-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--md-toolbar-text);
+  padding-left: 8px;
+}
+
+.md-settings-header .md-btn {
+  color: var(--md-toolbar-text);
+}
+
+.md-settings-header .md-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 设置内容区域 */
+.md-settings-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 左侧导航栏 */
+.md-settings-nav {
+  width: 200px;
+  background-color: var(--md-bg-tertiary);
+  border-right: 1px solid var(--md-border-primary);
+  padding: 8px 0;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.md-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 4px;
+  margin: 0 4px;
+  cursor: pointer;
+  color: var(--md-text-primary);
+  transition: background-color 0.2s ease;
+  user-select: none;
+  border-radius: 4px;
+  min-height: 34px;
+}
+
+.md-settings-nav-item:hover:not(.active) {
+  background-color: var(--md-tree-item-hover-bg);
+}
+
+.md-settings-nav-item:hover:not(.active) .md-settings-nav-item-icon,
+.md-settings-nav-item:hover:not(.active) .md-settings-nav-item-text {
+  color: var(--md-tree-item-hover-text);
+}
+
+.md-settings-nav-item.active {
+  background-color: var(--md-tree-item-active-bg) !important;
+  font-weight: 500;
+}
+
+.md-settings-nav-item.active .md-settings-nav-item-icon,
+.md-settings-nav-item.active .md-settings-nav-item-text {
+  color: var(--md-tree-item-active-text) !important;
+}
+
+.md-settings-nav-item-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.md-settings-nav-item-text {
+  font-size: 14px;
+}
+
+/* 右侧内容区域 */
+.md-settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.md-settings-section {
+  display: none;
+}
+
+.md-settings-section.active {
+  display: block;
+}
+
+.md-settings-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--md-text-primary);
+}
+
+/* 设置分组 */
+.md-settings-group {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--md-bg-tertiary);
+  border-radius: 6px;
+  border: 1px solid var(--md-border-primary);
+}
+
+.md-settings-group h4 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--md-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 设置项 */
+.md-settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--md-border-quaternary);
+}
+
+.md-settings-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.md-settings-item:first-child {
+  padding-top: 0;
+}
+
+.md-settings-label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.md-settings-label > span:first-child {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--md-text-primary);
+}
+
+.md-settings-description {
+  font-size: 12px;
+  color: var(--md-text-tertiary);
+}
+
+.md-settings-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 输入控件样式 */
+.md-settings-control input[type="number"],
+.md-settings-control select {
+  padding: 6px 12px;
+  border: 1px solid var(--md-border-primary);
+  border-radius: 4px;
+  background: var(--md-bg-secondary);
+  color: var(--md-text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  min-width: 80px;
+}
+
+.md-settings-control input[type="number"]:focus,
+.md-settings-control select:focus {
+  border-color: var(--md-color-primary);
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.md-settings-unit {
+  font-size: 13px;
+  color: var(--md-text-secondary);
+}
+
+/* 开关按钮样式 */
+.md-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.md-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.md-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--md-border-secondary);
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.md-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.md-switch input:checked + .md-switch-slider {
+  background-color: var(--md-color-primary);
+}
+
+.md-switch input:checked + .md-switch-slider:before {
+  transform: translateX(20px);
+}
+
+.md-switch input:focus + .md-switch-slider {
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+/* 设置对话框底部 */
+.md-settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  background-color: var(--md-bg-tertiary);
+  border-top: 1px solid var(--md-border-primary);
+  flex-shrink: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .md-settings-dialog {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .md-settings-content {
+    flex-direction: column;
+  }
+
+  .md-settings-nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--md-border-primary);
+    display: flex;
+    overflow-x: auto;
+    padding: 8px;
+  }
+
+  .md-settings-nav-item {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+  }
+
+  .md-settings-body {
+    padding: 16px;
+  }
+
+  .md-settings-group {
+    padding: 12px;
+  }
+
+  .md-settings-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .md-settings-control {
+    width: 100%;
+  }
+
+  .md-settings-control input[type="number"],
+  .md-settings-control select {
+    flex: 1;
+  }
+
+  .md-settings-footer {
+    flex-direction: column-reverse;
+  }
+
+  .md-settings-footer .md-btn {
+    width: 100%;
+  }
+}

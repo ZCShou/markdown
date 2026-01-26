@@ -17,6 +17,7 @@ import { Sidebar } from '../components/Sidebar.js';
 import { TOC } from '../components/TOC.js';
 import { Dialog } from '../components/Dialog.js';
 import { SearchReplace } from '../components/SearchReplace.js';
+import { Settings } from '../components/Settings.js';
 import { StoreManager } from './store.js';
 import { dom } from '../utils/dom.js';
 
@@ -173,6 +174,9 @@ export class MarkdownEditor {
 
         // 搜索替换组件
         this.components.searchReplace = new SearchReplace(this.state, 'md-search-replace-panel');
+
+        // 设置组件
+        this.components.settings = new Settings();
 
         // 初始化所有组件
         Object.values(this.components).forEach(component => {
