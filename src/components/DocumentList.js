@@ -743,28 +743,22 @@ export class DocumentList extends BaseComponent {
      * @param {string|null} folderId - 文件夹 ID
      */
     #expandAncestorFolders(folderId) {
+        // 根目录创建：不需要展开任何文件夹
+        if (!folderId) return;
+
         const documents = this.state.get('documents');
         const folderSet = new Set();
         const docMap = new Map(documents.map(d => [d.id, d]));
 
-        if (!folderId) {
-            // 根目录：收集所有根目录文件夹
-            for (const doc of documents) {
-                if (doc.type === 'folder' && !doc.parentId) {
-                    folderSet.add(doc.id);
-                }
-            }
-        } else {
-            // 收集目标文件夹及其所有祖先
-            folderSet.add(folderId);
-            let currentId = folderId;
+        // 收集目标文件夹及其所有祖先
+        folderSet.add(folderId);
+        let currentId = folderId;
 
-            while (currentId) {
-                const doc = docMap.get(currentId);
-                if (!doc || !doc.parentId) break;
-                folderSet.add(doc.parentId);
-                currentId = doc.parentId;
-            }
+        while (currentId) {
+            const doc = docMap.get(currentId);
+            if (!doc || !doc.parentId) break;
+            folderSet.add(doc.parentId);
+            currentId = doc.parentId;
         }
 
         if (folderSet.size === 0) return;
