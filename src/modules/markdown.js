@@ -927,10 +927,6 @@ export class MarkdownEditor {
         this.setupDivider();
         this.setupSyncScroll();
 
-        // 应用侧边栏区块状态
-        this.components.leftSidebar.applySectionStates();
-        this.components.rightSidebar.applySectionStates();
-
         // 启动自动持久化和 UI 更新
         this.state.startPersistence();
         this.#setupUIUpdates();

@@ -162,5 +162,11 @@ export class Sidebar extends BaseComponent {
         const interfaceState = this.state.get('interface');
         const isOpen = interfaceState[stateKey];
         this.updateVisibility(isOpen);
+
+        // 延迟应用区块状态，确保所有组件都已渲染完成
+        // 使用 requestAnimationFrame 确保在下一帧执行，此时所有组件的 DOM 都已准备好
+        requestAnimationFrame(() => {
+            this.applySectionStates();
+        });
     }
 }
