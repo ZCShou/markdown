@@ -1,7 +1,27 @@
 /**
  * 设置对话框组件
- * 只负责 UI 交互，不存储状态
- * 所有状态由 state.js 管理
+ * 
+ * @component Dialog
+ * @description 临时性对话框组件，用于编辑器设置
+ * 
+ * 与持久化组件的区别：
+ * - 持久化组件（Editor, Preview 等）：继承 BaseComponent，长期存在，订阅状态变化
+ * - 对话框组件（Settings）：独立类，临时显示，按需打开/关闭，不订阅状态变化
+ * 
+ * @example
+ * ```js
+ * const settings = new Settings(state);
+ * settings.init();
+ * settings.open();  // 打开对话框
+ * settings.close(); // 关闭对话框
+ * ```
+ * 
+ * @architecture
+ * - 不继承 BaseComponent（对话框不需要状态订阅和生命周期管理）
+ * - 直接使用 state 对象进行状态读写
+ * - 使用 DOM 缓存优化性能
+ * 
+ * @see BaseComponent 持久化组件基类
  */
 import { dom } from '../utils/dom.js';
 import { EditorState } from '../modules/state.js';
