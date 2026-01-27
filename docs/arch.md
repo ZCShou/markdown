@@ -8,8 +8,9 @@
 - [核心模块](#核心模块)
 - [组件体系](#组件体系)
 - [状态管理](#状态管理)
-- [数据流](#数据流)
+- [数据持久化](#数据持久化)
 - [DOM 管理](#dom-管理)
+- [数据流](#数据流)
 - [构建与部署](#构建与部署)
 - [性能优化](#性能优化)
 
@@ -17,17 +18,19 @@
 
 ## 概述
 
-本项目是一个独立的 Markdown 编辑器，采用现代化的前端架构设计，实现了状态驱动 UI、组件化开发、模块化管理等核心特性。编辑器支持实时预览、语法高亮、数学公式、流程图、文档管理等高级功能。
+本项目是一个独立的 Markdown 编辑器，采用现代化的前端架构设计，实现了状态驱动 UI、组件化开发、模块化管理等核心特性。编辑器支持实时预览、语法高亮、数学公式、流程图、文档管理、搜索替换、设置管理等高级功能。
 
 ### 核心特性
 
 1. **状态驱动 UI**：采用观察者模式，实现状态与 UI 的自动同步
 2. **组件化架构**：基于 BaseComponent 的组件继承体系
 3. **模块化设计**：ESM 模块系统，清晰的职责分离
-4. **本地存储**：基于 localStorage 的数据持久化
+4. **自动持久化**：集成 PersistenceManager，实现状态自动保存
 5. **实时预览**：Markdown 到 HTML 的实时转换
-6. **语法高亮**：支持多种编程语言的代码高亮
+6. **语法高亮**：支持 30+ 种编程语言的代码高亮
 7. **扩展功能**：数学公式（KaTeX）、流程图（Mermaid）
+8. **搜索替换**：类似 VSCode 的搜索替换界面
+9. **设置管理**：完整的编辑器和界面设置系统
 
 ### 项目结构
 
@@ -42,20 +45,25 @@ markdown-editor/
 │   │   ├── Preview.js         # 预览
 │   │   ├── Sidebar.js         # 侧边栏
 │   │   ├── TOC.js             # 目录
-│   │   └── Dialog.js          # 对话框
+│   │   ├── Dialog.js          # 对话框
+│   │   ├── SearchReplace.js   # 搜索替换
+│   │   └── Settings.js        # 设置管理
 │   ├── modules/               # 核心模块
 │   │   ├── markdown.js        # 编辑器主控制器
 │   │   ├── state.js           # 状态管理器
-│   │   └── store.js           # 存储管理器
+│   │   ├── store.js           # 存储管理器
+│   │   └── persistence.js     # 持久化管理器
 │   ├── utils/                 # 工具函数
-│   │   ├── dom.js             # DOM 管理
+│   │   ├── dom.js             # DOM 统一管理
 │   │   └── helpers.js         # 辅助函数
 │   └── styles/                # 样式文件
 │       └── markdown.css       # 主样式
 ├── public/                    # 静态资源
 │   └── manifest.json         # PWA 配置
 ├── docs/                      # 文档
+├── tests/                     # 测试文件
 ├── vite.config.js            # Vite 配置
+├── vitest.config.js          # Vitest 配置
 └── package.json              # 项目配置
 ```
 
@@ -88,6 +96,11 @@ markdown-editor/
 |------|------|------|
 | **terser** | ^5.46.0 | 代码压缩 |
 | **vite** | ^5.0.0 | 构建工具 |
+| **vitest** | ^4.0.18 | 单元测试框架 |
+| **@vitest/coverage-v8** | ^4.0.18 | 代码覆盖率 |
+| **jsdom** | ^27.4.0 | DOM 测试环境 |
+| **eslint** | ^9.39.2 | 代码检查 |
+| **prettier** | ^3.8.1 | 代码格式化 |
 
 ---
 
@@ -112,20 +125,23 @@ graph TB
         F[Sidebar<br/>侧边栏]
         G[TOC<br/>目录]
         H[Dialog<br/>对话框]
+        I[SearchReplace<br/>搜索替换]
+        J[Settings<br/>设置管理]
     end
     
     subgraph "状态管理层"
-        I[EditorState<br/>状态管理器]
+        K[EditorState<br/>状态管理器]
     end
     
-    subgraph "数据持久层"
-        J[StoreManager<br/>存储管理器]
-        K[localStorage<br/>本地存储]
+    subgraph "持久化层"
+        L[PersistenceManager<br/>持久化管理器]
+        M[StoreManager<br/>存储管理器]
+        N[localStorage<br/>本地存储]
     end
     
     subgraph "工具层"
-        L[DOM 工具]
-        M[辅助函数]
+        O[DOM 统一管理器]
+        P[辅助函数]
     end
     
     A --> B
@@ -135,29 +151,37 @@ graph TB
     B --> F
     B --> G
     B --> H
+    B --> I
+    B --> J
     
-    C --> I
-    D --> I
-    E --> I
-    F --> I
-    G --> I
-    
-    I --> J
+    C --> K
+    D --> K
+    E --> K
+    F --> K
+    G --> K
+    I --> K
     J --> K
     
-    C --> L
-    D --> L
-    E --> L
-    F --> L
-    G --> L
+    K --> L
+    L --> M
+    M --> N
     
-    C --> M
-    D --> M
-    E --> M
+    C --> O
+    D --> O
+    E --> O
+    F --> O
+    G --> O
+    I --> O
+    J --> O
     
-    style I fill:#e1f5ff
+    C --> P
+    D --> P
+    E --> P
+    
+    style K fill:#e1f5ff
     style B fill:#fff4e1
-    style J fill:#f0f0f0
+    style L fill:#f0fff0
+    style M fill:#f0f0f0
 ```
 
 ### 架构模式
@@ -297,20 +321,38 @@ static UI_CONFIG = {
     // 编辑器内容
     content: '',             // 当前编辑器内容
 
-    // UI 状态
-    theme: 'light',          // 主题模式
-    layout: 'layout-both',   // 布局模式
-    leftSidebarOpen: false,  // 左侧边栏状态
-    rightSidebarOpen: false, // 右侧边栏状态
-
-    // 侧边栏区块状态
-    sections: {
-        toc: true,           // 目录区块
-        export: true         // 导出区块
+    // 编辑器设置
+    editor: {
+        fontSize: 14,        // 字体大小
+        lineHeight: 1.6,     // 行高
+        autoSave: true,      // 自动保存
+        insertSpaces: true,  // 插入空格
+        tabSize: 4           // Tab 大小
     },
 
-    // 布局状态
-    leftRatio: 0.5,          // 左右面板比例
+    // 界面设置
+    interface: {
+        theme: 'light',          // 主题模式
+        layout: 'layout-both',   // 布局模式
+        leftRatio: 0.5,          // 左右面板比例
+        leftSidebarOpen: false,  // 左侧边栏状态
+        rightSidebarOpen: false, // 右侧边栏状态
+        sections: {
+            toc: true,           // 目录区块
+            export: true         // 导出区块
+        }
+    },
+
+    // 导出设置
+    export: {
+        includeStyle: true,      // 包含样式
+        codeHighlight: true,     // 代码高亮
+        pdfSize: 'A4',           // PDF 尺寸
+        pdfMargin: 'default'     // PDF 边距
+    },
+
+    // 同步滚动状态
+    syncScrollEnabled: true, // 同步滚动开关
 
     // 渲染状态
     isRenderingMermaid: false,  // 是否正在渲染 Mermaid
@@ -695,6 +737,145 @@ static loadTheme() {
         return 'light';
     }
 }
+
+/**
+ * 保存设置
+ */
+static saveSettings(settings) {
+    try {
+        localStorage.setItem(StoreManager.STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 加载设置
+ */
+static loadSettings() {
+    try {
+        const data = localStorage.getItem(StoreManager.STORAGE_KEYS.SETTINGS);
+        return data ? JSON.parse(data) : null;
+    } catch (error) {
+        console.error('[StoreManager] Failed to load settings:', error);
+        return null;
+    }
+}
+
+/**
+ * 保存同步滚动状态
+ */
+static saveSyncScrollEnabled(enabled) {
+    try {
+        localStorage.setItem(StoreManager.STORAGE_KEYS.SYNC_SCROLL, String(enabled));
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 加载同步滚动状态
+ */
+static loadSyncScrollEnabled() {
+    try {
+        const value = localStorage.getItem(StoreManager.STORAGE_KEYS.SYNC_SCROLL);
+        return value === 'true';
+    } catch (error) {
+        return true;
+    }
+}
+```
+
+### 4. PersistenceManager（持久化管理器）
+
+**职责**：
+- 管理状态的自动持久化
+- 提供防抖和配置化持久化
+- 分离持久化逻辑与状态管理
+- 支持立即持久化和延迟持久化
+
+**核心特性**：
+
+```javascript
+export class PersistenceManager {
+    /**
+     * 默认持久化配置
+     */
+    static DEFAULT_CONFIG = {
+        documents: { debounce: 300 },           // 文档列表：300ms 防抖
+        currentDocId: { immediate: true },      // 当前文档：立即持久化
+        content: { debounce: 1000 },            // 内容：1000ms 防抖
+        editor: { debounce: 300 },              // 编辑器设置：300ms 防抖
+        interface: { debounce: 300 },           // 界面设置：300ms 防抖
+        export: { debounce: 300 },              // 导出设置：300ms 防抖
+        syncScrollEnabled: { immediate: true }  // 同步滚动：立即持久化
+    };
+
+    /**
+     * 持久化处理器映射
+     */
+    static PERSIST_HANDLERS = {
+        documents: (state) => StoreManager.saveDocuments(state.documents),
+        currentDocId: (state) => StoreManager.saveCurrentDocId(state.currentDocId),
+        syncScrollEnabled: (state) => StoreManager.saveSyncScrollEnabled(state.syncScrollEnabled),
+        content: (state) => {
+            // 保存当前文档内容到 documents 数组
+            if (state.currentDocId && state.documents) {
+                const docIndex = state.documents.findIndex(d => d.id === state.currentDocId);
+                if (docIndex !== -1) {
+                    state.documents[docIndex].content = state.content || '';
+                    state.documents[docIndex].updatedAt = new Date().toISOString();
+                    StoreManager.saveDocuments(state.documents);
+                }
+            }
+        },
+        settings: (state) => StoreManager.saveSettings({
+            editor: state.editor,
+            interface: state.interface,
+            export: state.export
+        })
+    };
+}
+```
+
+**使用方式**：
+
+```javascript
+// 在 EditorState 中集成
+import { PersistenceManager } from './persistence.js';
+
+export class EditorState {
+    constructor() {
+        // ...
+        this.persistence = new PersistenceManager(() => this.getState());
+        this.persistence.start();
+    }
+
+    setState(updates, options = {}) {
+        const oldState = { ...this.#state };
+        const changedKeys = this.#applyUpdates(updates);
+
+        if (!options.silent) {
+            this.#notify(oldState, this.#state, false, changedKeys);
+            // 自动持久化
+            this.persistence.schedule(changedKeys);
+        }
+    }
+}
+```
+
+**配置化持久化**：
+
+```javascript
+// 自定义持久化配置
+const persistence = new PersistenceManager(() => state.getState());
+persistence.configure({
+    documents: { debounce: 500 },    // 自定义防抖时间
+    currentDocId: { immediate: true }
+});
+persistence.start();
 ```
 
 ---
@@ -707,12 +888,15 @@ static loadTheme() {
 - 提供组件通用功能
 - 状态订阅管理
 - 事件绑定和管理
-- DOM 操作辅助方法
+- DOM 操作辅助方法（使用 dom.js）
 - 错误处理机制
+- 消息提示功能
 
 **核心代码**：
 
 ```javascript
+import { dom } from '../utils/dom.js';
+
 export class BaseComponent {
     constructor(state, containerId) {
         this.state = state;
@@ -727,14 +911,20 @@ export class BaseComponent {
      * 初始化组件
      */
     init() {
-        this.container = document.getElementById(this.containerId);
-        if (!this.container) {
-            throw new Error(`Container not found: ${this.containerId}`);
-        }
+        try {
+            // 使用 dom.js 获取容器
+            this.container = dom.getById(this.containerId)?.element;
+            if (!this.container) {
+                console.warn(`Container not found: ${this.containerId}`);
+                return;
+            }
 
-        this.subscribe();
-        this.bindEvents();
-        this.render();
+            this.subscribe();
+            this.bindEvents();
+            this.render();
+        } catch (error) {
+            this.handleError(error, 'init', { containerId: this.containerId });
+        }
     }
 
     /**
@@ -783,26 +973,70 @@ export class BaseComponent {
     }
 
     /**
-     * 创建元素
+     * 全局错误处理器
+     */
+    handleError(error, context = 'unknown', metadata = {}) {
+        const errorInfo = {
+            component: this.constructor.name,
+            context,
+            message: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString(),
+            ...metadata
+        };
+
+        // 控制台输出
+        console.error(`[${errorInfo.component}] Error in ${context}:`, error, metadata);
+
+        // 触发错误事件
+        window.dispatchEvent(new CustomEvent('md:componentError', {
+            detail: errorInfo
+        }));
+
+        // 显示用户友好的错误消息
+        this.showMessage(`操作失败: ${error.message}`, 'error');
+
+        return errorInfo;
+    }
+
+    /**
+     * 包装函数以捕获错误
+     */
+    wrapWithErrorHandler(fn, context) {
+        return async (...args) => {
+            try {
+                return await fn(...args);
+            } catch (error) {
+                this.handleError(error, context, { args });
+                throw error;
+            }
+        };
+    }
+
+    /**
+     * 添加事件监听（自动管理清理）
+     */
+    addEventListener(element, event, handler, options) {
+        if (!element) return;
+
+        element.addEventListener(event, handler, options);
+
+        if (!this.eventHandlers.has(element)) {
+            this.eventHandlers.set(element, []);
+        }
+        this.eventHandlers.get(element).push({ event, handler, options });
+    }
+
+    /**
+     * 创建元素（使用 dom.js）
      */
     createElement(tag, options = {}) {
         const element = document.createElement(tag);
 
-        if (options.className) {
-            element.className = options.className;
-        }
-
-        if (options.id) {
-            element.id = options.id;
-        }
-
-        if (options.textContent) {
-            element.textContent = options.textContent;
-        }
-
-        if (options.innerHTML) {
-            element.innerHTML = options.innerHTML;
-        }
+        if (options.className) element.className = options.className;
+        if (options.id) element.id = options.id;
+        if (options.textContent) element.textContent = options.textContent;
+        if (options.innerHTML) element.innerHTML = options.innerHTML;
 
         if (options.attributes) {
             Object.entries(options.attributes).forEach(([key, value]) => {
@@ -828,32 +1062,24 @@ export class BaseComponent {
     }
 
     /**
-     * 创建文档片段
-     */
-    createFragment() {
-        return document.createDocumentFragment();
-    }
-
-    /**
-     * 绑定事件（带管理）
-     */
-    bindEvent(element, event, handler, options = {}) {
-        element.addEventListener(event, handler, options);
-
-        if (!this.eventHandlers.has(element)) {
-            this.eventHandlers.set(element, []);
-        }
-        this.eventHandlers.get(element).push({ event, handler, options });
-    }
-
-    /**
      * 显示消息
      */
     showMessage(message, type = 'info', duration = 2000) {
-        // 触发全局消息事件
-        window.dispatchEvent(new CustomEvent('md:showMessage', {
-            detail: { message, type, duration }
-        }));
+        const overlay = dom.status.overlay?.element;
+        const messageEl = dom.status.message?.element;
+
+        if (overlay && messageEl) {
+            messageEl.textContent = message;
+            messageEl.classList.remove('info', 'success', 'warning', 'error');
+            messageEl.classList.add(type);
+            overlay.classList.add('show');
+            messageEl.classList.add('show');
+
+            setTimeout(() => {
+                overlay.classList.remove('show');
+                messageEl.classList.remove('show');
+            }, duration);
+        }
     }
 
     /**
@@ -893,18 +1119,24 @@ graph TD
     A --> E[Sidebar]
     A --> F[TOC]
     A --> G[Dialog]
+    A --> H[SearchReplace]
     
-    B --> H[文档管理<br/>树型渲染<br/>拖拽排序]
-    C --> I[文本编辑<br/>语法高亮<br/>快捷键]
-    D --> J[Markdown 渲染<br/>代码高亮<br/>图表渲染]
-    E --> K[侧边栏<br/>区块管理<br/>折叠展开]
-    F --> L[目录生成<br/>滚动同步<br/>导航]
-    G --> M[对话框<br/>确认操作<br/>表单输入]
+    I[Settings] -.独立组件.-> J[UI 交互<br/>状态同步]
+    
+    B --> K[文档管理<br/>树型渲染<br/>拖拽排序]
+    C --> L[文本编辑<br/>语法高亮<br/>快捷键]
+    D --> M[Markdown 渲染<br/>代码高亮<br/>图表渲染]
+    E --> N[侧边栏<br/>区块管理<br/>折叠展开]
+    F --> O[目录生成<br/>滚动同步<br/>导航]
+    G --> P[对话框<br/>确认操作<br/>表单输入]
+    H --> Q[搜索替换<br/>正则支持<br/>批量操作]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#f3e5f5
+    style H fill:#fff0f5
+    style I fill:#f0f5ff
 ```
 
 ### 组件生命周期
@@ -922,6 +1154,207 @@ graph LR
     H --> I[取消订阅]
     H --> J[移除事件]
     H --> K[清空容器]
+```
+
+### 主要组件说明
+
+#### SearchReplace（搜索替换组件）
+
+**职责**：
+- 提供类似 VSCode 的搜索替换界面
+- 支持搜索和替换模式切换
+- 支持正则表达式、大小写敏感、全词匹配
+- 实时高亮匹配结果
+- 批量替换功能
+
+**核心功能**：
+
+```javascript
+export class SearchReplace extends BaseComponent {
+    constructor(state, containerId) {
+        super(state, containerId);
+        this.isReplaceMode = false;
+        this.currentMatchIndex = -1;
+        this.matches = [];
+        this.searchTerm = '';
+        this.replaceTerm = '';
+        this.caseSensitive = false;
+        this.regexMode = false;
+        this.wholeWord = false;
+    }
+
+    /**
+     * 执行搜索
+     */
+    performSearch() {
+        const content = this.state.content;
+        if (!this.searchTerm || !content) {
+            this.matches = [];
+            this.updateMatchCount();
+            return;
+        }
+
+        // 构建正则表达式
+        let regex;
+        try {
+            const flags = this.caseSensitive ? 'g' : 'gi';
+            const pattern = this.wholeWord ? `\\b${this.searchTerm}\\b` : this.searchTerm;
+            regex = new RegExp(pattern, flags);
+        } catch (error) {
+            this.showMessage('正则表达式错误', 'error');
+            return;
+        }
+
+        // 查找所有匹配
+        this.matches = [];
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+            this.matches.push({
+                index: match.index,
+                text: match[0],
+                length: match[0].length
+            });
+        }
+
+        this.currentMatchIndex = this.matches.length > 0 ? 0 : -1;
+        this.highlightMatches();
+        this.updateMatchCount();
+    }
+
+    /**
+     * 查找下一个
+     */
+    findNext() {
+        if (this.matches.length === 0) return;
+        this.currentMatchIndex = (this.currentMatchIndex + 1) % this.matches.length;
+        this.highlightMatches();
+    }
+
+    /**
+     * 替换当前匹配
+     */
+    replaceOne() {
+        if (this.currentMatchIndex === -1) return;
+
+        const match = this.matches[this.currentMatchIndex];
+        const content = this.state.content;
+        const before = content.substring(0, match.index);
+        const after = content.substring(match.index + match.length);
+        const newContent = before + this.replaceTerm + after;
+
+        this.state.setState({ content: newContent });
+        this.performSearch();
+    }
+
+    /**
+     * 替换所有匹配
+     */
+    replaceAll() {
+        if (this.matches.length === 0) return;
+
+        let content = this.state.content;
+        let count = 0;
+
+        for (let i = this.matches.length - 1; i >= 0; i--) {
+            const match = this.matches[i];
+            const before = content.substring(0, match.index);
+            const after = content.substring(match.index + match.length);
+            content = before + this.replaceTerm + after;
+            count++;
+        }
+
+        this.state.setState({ content });
+        this.performSearch();
+        this.showMessage(`已替换 ${count} 处`, 'success');
+    }
+}
+```
+
+#### Settings（设置组件）
+
+**职责**：
+- 提供完整的设置界面
+- 管理编辑器、界面、导出设置
+- 实时预览设置效果
+- 与状态管理器集成
+
+**核心功能**：
+
+```javascript
+export class Settings {
+    constructor(state) {
+        this.state = state;
+        this.overlay = null;
+        this.dialog = null;
+        this.currentSection = 'basic';
+        this.cachedElements = null;
+    }
+
+    /**
+     * 初始化设置组件
+     */
+    init() {
+        // 获取 DOM 元素
+        this.overlay = dom.get('#md-settings-overlay');
+        this.dialog = dom.get('.md-settings-dialog');
+
+        // 缓存 DOM 元素
+        this.cacheElements();
+
+        // 绑定事件
+        this.bindEvents();
+
+        // 应用已保存的设置
+        this.applySettings();
+    }
+
+    /**
+     * 打开设置对话框
+     */
+    open() {
+        this.overlay?.classList.add('show');
+        this.dialog?.classList.add('show');
+        this.loadCurrentSettings();
+    }
+
+    /**
+     * 关闭设置对话框
+     */
+    close() {
+        this.overlay?.classList.remove('show');
+        this.dialog?.classList.remove('show');
+    }
+
+    /**
+     * 应用设置
+     */
+    applySettings() {
+        const settings = this.state.getState();
+
+        // 应用编辑器设置
+        this.applyEditorSettings(settings.editor);
+
+        // 应用界面设置
+        this.applyInterfaceSettings(settings.interface);
+
+        // 应用导出设置
+        this.applyExportSettings(settings.export);
+    }
+
+    /**
+     * 保存设置
+     */
+    saveSettings() {
+        const settings = this.collectSettings();
+        this.state.setState({
+            editor: settings.editor,
+            interface: settings.interface,
+            export: settings.export
+        });
+        this.close();
+        this.showMessage('设置已保存', 'success');
+    }
+}
 ```
 
 ---
@@ -1030,6 +1463,153 @@ this.state.setState({ content: '...' }, { force: true });
 
 ---
 
+## 数据持久化
+
+### 持久化架构
+
+项目采用分层持久化架构，将持久化逻辑从状态管理中分离：
+
+```mermaid
+graph TB
+    A[EditorState] --> B[PersistenceManager]
+    B --> C[StoreManager]
+    C --> D[localStorage]
+    
+    B --> E[防抖调度]
+    B --> F[立即持久化]
+    B --> G[批量持久化]
+    
+    style A fill:#e1f5ff
+    style B fill:#f0fff0
+    style C fill:#f0f0f0
+```
+
+### PersistenceManager 工作流程
+
+```mermaid
+sequenceDiagram
+    participant S as EditorState
+    participant P as PersistenceManager
+    participant ST as StoreManager
+    participant L as localStorage
+
+    S->>P: schedule(changedKeys)
+    P->>P: 分离立即/延迟键
+    P->>ST: 立即持久化
+    P->>P: 设置防抖定时器
+    Note over P: 等待防抖延迟
+    P->>ST: 批量持久化
+    ST->>L: 写入数据
+```
+
+### 持久化配置
+
+**默认配置**：
+
+```javascript
+static DEFAULT_CONFIG = {
+    documents: { debounce: 300 },           // 文档列表：300ms 防抖
+    currentDocId: { immediate: true },      // 当前文档：立即持久化
+    content: { debounce: 1000 },            // 内容：1000ms 防抖
+    editor: { debounce: 300 },              // 编辑器设置：300ms 防抖
+    interface: { debounce: 300 },           // 界面设置：300ms 防抖
+    export: { debounce: 300 },              // 导出设置：300ms 防抖
+    syncScrollEnabled: { immediate: true }  // 同步滚动：立即持久化
+};
+```
+
+**自定义配置**：
+
+```javascript
+const persistence = new PersistenceManager(() => state.getState());
+persistence.configure({
+    documents: { debounce: 500 },    // 自定义防抖时间
+    currentDocId: { immediate: true }
+});
+persistence.start();
+```
+
+### 持久化策略
+
+**1. 立即持久化**：
+- 适用场景：关键状态（如当前文档 ID）
+- 特点：状态变化立即保存
+- 优点：数据不丢失
+- 缺点：频繁写入
+
+**2. 防抖持久化**：
+- 适用场景：频繁变化的状态（如内容、设置）
+- 特点：延迟保存，合并多次变化
+- 优点：减少写入次数，提升性能
+- 缺点：极端情况下可能丢失数据
+
+**3. 批量持久化**：
+- 适用场景：多个相关状态同时变化
+- 特点：合并为一次存储操作
+- 优点：减少存储次数
+- 实现：自动合并相同处理器的键
+
+### 数据恢复流程
+
+```mermaid
+graph LR
+    A[应用启动] --> B[StoreManager.loadDocuments]
+    A --> C[StoreManager.loadSettings]
+    A --> D[StoreManager.loadCurrentDocId]
+    
+    B --> E[EditorState 初始化]
+    C --> E
+    D --> E
+    
+    E --> F[组件渲染]
+    F --> G[用户可操作]
+```
+
+### 错误处理
+
+**存储失败处理**：
+
+```javascript
+static async saveDocumentsAsync(documents) {
+    try {
+        const serialized = JSON.stringify(documents);
+        await StoreManager.#scheduleAsync(() => {
+            localStorage.setItem(StoreManager.#STORAGE_KEYS.DOCUMENTS, serialized);
+        });
+        return { success: true };
+    } catch (e) {
+        const errorMsg = StoreManager.#handleStorageError(e, '保存文档列表失败');
+        console.warn(`${errorMsg}:`, e);
+        return { success: false, error: errorMsg };
+    }
+}
+```
+
+**数据损坏处理**：
+
+```javascript
+static loadDocuments() {
+    try {
+        const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.DOCUMENTS);
+        if (!saved) return [];
+
+        const documents = JSON.parse(saved);
+        // 验证数据格式
+        if (!Array.isArray(documents)) {
+            console.warn('文档列表格式错误，已重置');
+            return [];
+        }
+        return documents;
+    } catch (e) {
+        console.warn('加载文档列表失败:', e);
+        StoreManager.#clearCorruptedData(StoreManager.#STORAGE_KEYS.DOCUMENTS);
+        return [];
+    }
+}
+```
+
+---
+
 ## 数据流
 
 ### 单向数据流
@@ -1098,14 +1678,41 @@ sequenceDiagram
 
 ## DOM 管理
 
-### DOM 元素包装类
+### DOM 统一管理器（dom.js）
 
-**核心代码**：
+**设计理念**：
+- 集中管理所有 DOM 元素引用
+- 提供统一的访问接口
+- 内置缓存机制，减少 DOM 查询
+- 支持链式调用和批量操作
+
+**核心架构**：
+
+```mermaid
+graph TD
+    A[dom.js] --> B[DOMElement<br/>单个元素包装]
+    A --> C[DOMElementList<br/>元素列表包装]
+    A --> D[dom 对象<br/>全局元素管理]
+    A --> E[工具函数<br/>getIn/getAllIn]
+    
+    B --> F[缓存机制]
+    B --> G[便捷方法]
+    B --> H[存在检查]
+    
+    C --> I[批量操作]
+    C --> J[遍历支持]
+    
+    D --> K[分类管理]
+    D --> L[懒加载]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+```
+
+**DOMElement 类**：
 
 ```javascript
-/**
- * DOM 元素包装类
- */
 class DOMElement {
     constructor(selector, getter = null) {
         this.selector = selector;
@@ -1156,44 +1763,97 @@ class DOMElement {
             this.element.classList.remove(...classNames);
         }
     }
-}
 
-/**
- * DOM 元素列表包装类
- */
-class DOMElementList {
-    constructor(selector) {
-        this.selector = selector;
-        this._elements = null;
+    hasClass(className) {
+        return this.exists() && this.element.classList.contains(className);
     }
 
-    get elements() {
-        if (!this._elements) {
-            this._elements = Array.from(document.querySelectorAll(this.selector));
+    setAttribute(name, value) {
+        if (this.exists()) {
+            this.element.setAttribute(name, value);
         }
-        return this._elements;
     }
 
-    get length() {
-        return this.elements.length;
+    getAttribute(name) {
+        return this.exists() ? this.element.getAttribute(name) : null;
     }
 
-    forEach(callback) {
-        this.elements.forEach(callback);
+    setProperty(property, value) {
+        if (this.exists()) {
+            this.element[property] = value;
+        }
     }
 
-    addClass(...classNames) {
-        this.elements.forEach(el => el.classList.add(...classNames));
+    getProperty(property) {
+        return this.exists() ? this.element[property] : null;
     }
 
-    removeClass(...classNames) {
-        this.elements.forEach(el => el.classList.remove(...classNames));
+    on(event, handler, options) {
+        if (this.exists()) {
+            this.element.addEventListener(event, handler, options);
+        }
+        return this;
+    }
+
+    off(event, handler, options) {
+        if (this.exists()) {
+            this.element.removeEventListener(event, handler, options);
+        }
+        return this;
+    }
+
+    html(content) {
+        if (this.exists()) {
+            if (content !== undefined) {
+                this.element.innerHTML = content;
+                return this;
+            }
+            return this.element.innerHTML;
+        }
+        return null;
+    }
+
+    text(content) {
+        if (this.exists()) {
+            if (content !== undefined) {
+                this.element.textContent = content;
+                return this;
+            }
+            return this.element.textContent;
+        }
+        return null;
+    }
+
+    val(value) {
+        if (this.exists()) {
+            if (value !== undefined) {
+                this.element.value = value;
+                return this;
+            }
+            return this.element.value;
+        }
+        return null;
+    }
+
+    focus() {
+        if (this.exists()) {
+            this.element.focus();
+        }
+        return this;
+    }
+
+    blur() {
+        if (this.exists()) {
+            this.element.blur();
+        }
+        return this;
     }
 }
+```
 
-/**
- * DOM 统一管理器
- */
+**dom 全局对象**：
+
+```javascript
 export const dom = {
     // 应用容器
     app: {
@@ -1208,48 +1868,58 @@ export const dom = {
 
     // 预览
     preview: {
+        wrapper: new DOMElement('.markdown-preview-pane'),
         element: new DOMElement('#markdown-preview'),
         content: new DOMElement('#preview-content')
     },
 
     // 侧边栏
     sidebar: {
-        left: new DOMElement('#sidebar-left'),
-        right: new DOMElement('#sidebar-right'),
+        left: new DOMElement('.md-sidebar-left'),
+        right: new DOMElement('.md-sidebar-right'),
         toggle: new DOMElement('#sidebar-toggle')
     },
 
     // 按钮
     buttons: {
-        all: new DOMElementList('.md-btn')
+        newDoc: new DOMElement('#md-new-doc-btn'),
+        settings: new DOMElement('#md-settings-btn'),
+        search: new DOMElement('#md-search-btn')
     },
 
     // 状态
     status: {
         overlay: new DOMElement('#status-overlay'),
         message: new DOMElement('#status-message')
+    },
+
+    // 工具函数
+    getById(id) {
+        return new DOMElement(`#${id}`, () => document.getElementById(id));
+    },
+
+    get(selector) {
+        return new DOMElement(selector);
+    },
+
+    getAll(selector) {
+        return new DOMElementList(selector);
+    },
+
+    getIn(container, selector) {
+        return container?.querySelector(selector) || null;
+    },
+
+    getAllIn(container, selector) {
+        return container ? Array.from(container.querySelectorAll(selector)) : [];
     }
 };
-
-/**
- * 在指定容器内查询元素
- */
-export function getIn(container, selector) {
-    return container?.querySelector(selector) || null;
-}
-
-/**
- * 在指定容器内查询所有元素
- */
-export function getAllIn(container, selector) {
-    return container ? Array.from(container.querySelectorAll(selector)) : [];
-}
 ```
 
-### 使用示例
+**使用示例**：
 
 ```javascript
-import { dom, getIn, getAllIn } from './utils/dom.js';
+import { dom } from './utils/dom.js';
 
 // 获取全局元素
 const editor = dom.editor.element;
@@ -1260,13 +1930,19 @@ if (dom.sidebar.left.exists()) {
     dom.sidebar.left.toggle();
 }
 
+// 链式调用
+dom.editor.element
+    .addClass('active')
+    .focus()
+    .on('input', handleInput);
+
 // 批量操作
 dom.buttons.all.forEach(btn => btn.classList.add('active'));
 
 // 在组件内查询
 class MyComponent extends BaseComponent {
     render() {
-        const items = getAllIn(this.container, '.item');
+        const items = dom.getAllIn(this.container, '.item');
         items.forEach(item => {
             // 处理每个项
         });
@@ -1635,11 +2311,16 @@ async renderMermaidCharts() {
 ### 技术亮点
 
 - **纯前端实现**：无后端依赖，可离线使用
-- **本地存储**：基于 localStorage 的数据持久化
+- **自动持久化**：集成 PersistenceManager，状态自动保存
+- **DOM 统一管理**：dom.js 提供集中式 DOM 访问
 - **实时预览**：Markdown 到 HTML 的实时转换
 - **扩展功能**：数学公式、流程图、代码高亮
+- **搜索替换**：类似 VSCode 的搜索替换界面
+- **设置管理**：完整的编辑器和界面设置系统
+- **错误处理**：组件级错误捕获和用户友好提示
 - **响应式设计**：支持多种布局模式
 - **PWA 支持**：可安装为桌面应用
+- **测试覆盖**：Vitest 单元测试框架
 
 ### 未来优化方向
 
@@ -1668,6 +2349,25 @@ async renderMermaidCharts() {
 
 ---
 
-**文档版本**：1.0.0  
-**最后更新**：2026-01-24  
+**文档版本**：2.0.0  
+**最后更新**：2026-01-27  
 **维护者**：Markdown Editor Team
+
+### 更新日志
+
+**v2.0.0** (2026-01-27)
+- 新增 SearchReplace 组件（搜索替换功能）
+- 新增 Settings 组件（设置管理）
+- 新增 PersistenceManager（持久化管理器）
+- StoreManager 增加异步存储队列
+- dom.js 提供 DOM 统一管理接口
+- BaseComponent 增加错误处理功能
+- 状态结构重构：editor、interface、export 分离
+- 集成 Vitest 测试框架
+- 更新架构文档
+
+**v1.0.0** (2026-01-24)
+- 初始版本
+- 核心编辑器功能
+- 文档管理
+- 实时预览
