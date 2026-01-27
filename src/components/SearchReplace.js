@@ -32,7 +32,7 @@ export class SearchReplace extends BaseComponent {
 
     /**
      * 获取搜索替换面板的元素
-     * 使用 dom.getById()，它已经内置了缓存机制
+     * dom.getById() 已内置缓存机制，无需额外缓存
      */
     getElements() {
         return {
@@ -80,7 +80,8 @@ export class SearchReplace extends BaseComponent {
         // 监听内容变化，使用防抖避免频繁搜索
         this.unsubscribe = this.state.subscribeTo('content', () => {
             if (this.isVisible()) {
-                this.debounce('content-search', () => this.performSearch(), 300);
+                // 内容变化必须强制重新搜索，以保证匹配位置与文档一致
+                this.debounce('content-search', () => this.performSearch(true), 300);
             }
         });
     }
@@ -151,27 +152,21 @@ export class SearchReplace extends BaseComponent {
      * 检查搜索配置是否变化
      */
     hasSearchConfigChanged() {
-        const currentConfig = {
+        const currentConfig = JSON.stringify({
             term: this.searchTerm,
             caseSensitive: this.caseSensitive,
             regexMode: this.regexMode,
             wholeWord: this.wholeWord
-        };
+        });
 
-        const changed = !this.lastSearchConfig ||
-            currentConfig.term !== this.lastSearchConfig.term ||
-            currentConfig.caseSensitive !== this.lastSearchConfig.caseSensitive ||
-            currentConfig.regexMode !== this.lastSearchConfig.regexMode ||
-            currentConfig.wholeWord !== this.lastSearchConfig.wholeWord;
-
+        const changed = currentConfig !== this.lastSearchConfig;
         if (changed) {
             this.lastSearchConfig = currentConfig;
         }
-
         return changed;
     }
 
-    performSearch() {
+    performSearch(force = false) {
         const editor = dom.editor.element?.element;
         if (!editor) return;
 
@@ -186,8 +181,8 @@ export class SearchReplace extends BaseComponent {
             return;
         }
 
-        // 检查配置是否变化，如果没变化且已有结果，则跳过搜索
-        if (!this.hasSearchConfigChanged() && this.matches.length > 0) {
+        // 检查配置是否变化，如果没变化且已有结果且未被强制刷新，则跳过搜索
+        if (!force && !this.hasSearchConfigChanged() && this.matches.length > 0) {
             // 只更新当前匹配索引（光标位置可能变化）
             const cursorPos = editor.selectionStart;
             this.currentMatchIndex = this.matches.findIndex(m => m.index >= cursorPos);
@@ -286,29 +281,20 @@ export class SearchReplace extends BaseComponent {
         editor.scrollTop = Math.max(0, scrollTop);
     }
 
-    clearHighlights() {
-        // 清除高亮（如果实现了高亮显示）
-    }
-
     /**
-     * 优化的防抖方法
+     * 防抖方法
      * @param {string} key - 防抖键
      * @param {Function} fn - 要执行的函数
      * @param {number} delay - 延迟时间（毫秒）
      */
     debounce(key, fn, delay) {
-        // 清除之前的定时器
         if (this.debounceTimers.has(key)) {
             clearTimeout(this.debounceTimers.get(key));
         }
-
-        // 设置新的定时器
-        const timer = setTimeout(() => {
+        this.debounceTimers.set(key, setTimeout(() => {
             fn();
             this.debounceTimers.delete(key);
-        }, delay);
-
-        this.debounceTimers.set(key, timer);
+        }, delay));
     }
 
     /**
@@ -336,7 +322,6 @@ export class SearchReplace extends BaseComponent {
         const match = this.matches[this.currentMatchIndex];
         if (!match) return;
 
-        // 获取当前替换文本
         const { replaceInput } = this.getElements();
         const replacement = replaceInput ? (replaceInput.value || '') : '';
 
@@ -346,16 +331,13 @@ export class SearchReplace extends BaseComponent {
 
         let finalReplacement = replacement;
 
-        // 如果是正则表达式模式，支持替换组
+        // 正则模式：支持替换组引用（$1, $2 等）
         if (this.regexMode) {
             try {
-                const searchRegex = new RegExp(
-                    this.wholeWord ? `\\b${this.searchTerm}\\b` : this.searchTerm,
-                    this.caseSensitive ? '' : 'i'
-                );
+                const searchRegex = this.buildSearchRegex();
                 finalReplacement = match.text.replace(searchRegex, replacement);
             } catch (e) {
-                // 如果正则替换失败，使用普通替换
+                // 正则替换失败，使用普通替换
             }
         }
 
@@ -368,9 +350,9 @@ export class SearchReplace extends BaseComponent {
         // 触发 input 事件以更新状态
         editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // 优化：增量更新匹配位置，而不是重新搜索整个文档
+        // 增量更新匹配位置，避免重新搜索整个文档
         const lengthDiff = finalReplacement.length - match.length;
-        this.updateMatchesAfterReplace(match.index, lengthDiff);
+        this.updateMatchesAfterReplace(lengthDiff);
 
         // 移动到下一个匹配
         if (this.matches.length > 0) {
@@ -385,11 +367,10 @@ export class SearchReplace extends BaseComponent {
 
     /**
      * 增量更新匹配位置，避免重新搜索整个文档
-     * @param {number} replaceIndex - 替换位置的索引
      * @param {number} lengthDiff - 替换后的长度差
      */
-    updateMatchesAfterReplace(replaceIndex, lengthDiff) {
-        // 移除被替换的匹配项
+    updateMatchesAfterReplace(lengthDiff) {
+        // 移除被替换的匹配项（使用当前索引）
         this.matches.splice(this.currentMatchIndex, 1);
 
         // 更新后续所有匹配项的位置

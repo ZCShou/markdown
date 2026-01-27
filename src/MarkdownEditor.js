@@ -9,17 +9,16 @@
  * editor.init();
  * ```
  */
-import { EditorState } from './state.js';
-import { DocumentList } from '../components/DocumentList.js';
-import { Preview } from '../components/Preview.js';
-import { Editor } from '../components/Editor.js';
-import { Sidebar } from '../components/Sidebar.js';
-import { TOC } from '../components/TOC.js';
-import { Dialog } from '../components/Dialog.js';
-import { SearchReplace } from '../components/SearchReplace.js';
-import { Settings } from '../components/Settings.js';
-import { StoreManager } from './store.js';
-import { dom } from '../utils/dom.js';
+import { EditorState } from './EditorState.js';
+import { DocumentList } from './components/DocumentList.js';
+import { Preview } from './components/Preview.js';
+import { Editor } from './components/Editor.js';
+import { Sidebar } from './components/Sidebar.js';
+import { TOC } from './components/TOC.js';
+import { Dialog } from './components/Dialog.js';
+import { SearchReplace } from './components/SearchReplace.js';
+import { Settings } from './components/Settings.js';
+import { dom } from './utils/dom.js';
 
 // 导入 Prism 语言包
 import 'prismjs/components/prism-java';
@@ -193,32 +192,26 @@ export class MarkdownEditor {
         const editor = dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
         const syncScrollButton = dom.getById('md-sync-scroll')?.element;
-        // 使用 dom.js 统一查询
         const syncScrollIcon = syncScrollButton ? dom.getIn(syncScrollButton, '.codicon') : null;
 
         if (!editor || !previewWrapper || !syncScrollButton || !syncScrollIcon) return;
 
         // 更新同步滚动图标
         const updateSyncScrollIcon = enabled => {
-            if (enabled) {
-                syncScrollIcon.classList.remove('codicon-sync-ignored');
-                syncScrollIcon.classList.add('codicon-sync');
-            } else {
-                syncScrollIcon.classList.remove('codicon-sync');
-                syncScrollIcon.classList.add('codicon-sync-ignored');
-            }
+            syncScrollIcon.classList.toggle('codicon-sync', enabled);
+            syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
         };
 
         // 从状态管理器获取同步滚动状态
-        this.syncScrollEnabled = this.state.get('syncScrollEnabled');
+        const interfaceState = this.state.get('interface');
+        this.syncScrollEnabled = interfaceState?.syncScrollEnabled ?? true;
         updateSyncScrollIcon(this.syncScrollEnabled);
 
         // 缓存可滚动高度，避免频繁查询 DOM
         let editorScrollableHeight = 0;
         let previewScrollableHeight = 0;
-        let scrollSyncRafId = null;
-        let heightUpdateRafId = null;
         let lastSyncTime = 0;
+        const SYNC_DELAY = 50;
 
         // 更新缓存的滚动高度
         const updateScrollHeights = () => {
@@ -229,125 +222,59 @@ export class MarkdownEditor {
             );
         };
 
-        // 在下一帧更新滚动高度，保证渲染完成后获取到最新尺寸
-        const scheduleHeightUpdate = () => {
-            if (heightUpdateRafId) {
-                cancelAnimationFrame(heightUpdateRafId);
-            }
-            heightUpdateRafId = requestAnimationFrame(() => {
-                updateScrollHeights();
-                heightUpdateRafId = null;
-            });
-        };
-
         // 初始化缓存
         updateScrollHeights();
 
         // 监听内容变化，更新缓存
-        const resizeObserver = new ResizeObserver(() => {
-            updateScrollHeights();
-        });
+        const resizeObserver = new ResizeObserver(updateScrollHeights);
         resizeObserver.observe(editor);
         resizeObserver.observe(previewWrapper);
 
-        // 内容或文档切换后刷新滚动高度，避免初次文档无滚动条导致缓存为 0
+        // 内容或文档切换后刷新滚动高度
         this._syncScrollStateUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
             () => {
-                scheduleHeightUpdate();
-                // 再补一轮延迟刷新，确保预览渲染完成
+                requestAnimationFrame(updateScrollHeights);
                 setTimeout(updateScrollHeights, 120);
             }
         );
 
         // 监听按钮点击
         syncScrollButton.addEventListener('click', () => {
-            const newEnabled = !this.syncScrollEnabled;
-            this.syncScrollEnabled = newEnabled;
-            // 通过状态管理器更新（会自动持久化）
-            this.state.setState({ syncScrollEnabled: newEnabled });
-            updateSyncScrollIcon(newEnabled);
+            this.syncScrollEnabled = !this.syncScrollEnabled;
+            this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
+            updateSyncScrollIcon(this.syncScrollEnabled);
         });
 
-        // 优化的同步函数：使用更激进的节流
-        const syncScroll = (source, target, sourceHeight, targetHeight) => {
+        // 统一的滚动处理函数（消除重复代码）
+        const handleScroll = (source, target, sourceHeight, targetHeight) => {
+            if (!this.syncScrollEnabled || this.isSyncing) return;
+            
+            updateScrollHeights();
+            if (sourceHeight <= 0 || targetHeight <= 0) return;
+
             const now = performance.now();
-            const SYNC_DELAY = 50; // 增加到 50ms，减少滚轮抖动
+            if (now - lastSyncTime < SYNC_DELAY) return;
 
-            // 距离上次同步太近，跳过
-            if (now - lastSyncTime < SYNC_DELAY) {
-                return false;
-            }
-
-            // 取消之前的待处理同步
-            if (scrollSyncRafId) {
-                cancelAnimationFrame(scrollSyncRafId);
-                scrollSyncRafId = null;
-            }
-
-            // 立即同步，不等待 rAF
+            this.isSyncing = true;
             const scrollRatio = source.scrollTop / sourceHeight;
             target.scrollTop = scrollRatio * targetHeight;
             lastSyncTime = now;
 
-            return true;
+            requestAnimationFrame(() => {
+                this.isSyncing = false;
+            });
         };
 
         // 编辑器滚动时同步预览
-        editor.addEventListener(
-            'scroll',
-            () => {
-                if (!this.syncScrollEnabled || this.isSyncing) return;
-                updateScrollHeights();
-                if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
-
-                this.isSyncing = true;
-                const synced = syncScroll(
-                    editor,
-                    previewWrapper,
-                    editorScrollableHeight,
-                    previewScrollableHeight
-                );
-
-                if (synced) {
-                    // 使用 requestAnimationFrame 确保在下一帧重置
-                    requestAnimationFrame(() => {
-                        this.isSyncing = false;
-                    });
-                } else {
-                    this.isSyncing = false;
-                }
-            },
-            { passive: true }
-        );
+        editor.addEventListener('scroll', () => {
+            handleScroll(editor, previewWrapper, editorScrollableHeight, previewScrollableHeight);
+        }, { passive: true });
 
         // 预览滚动时同步编辑器
-        previewWrapper.addEventListener(
-            'scroll',
-            () => {
-                if (!this.syncScrollEnabled || this.isSyncing) return;
-                updateScrollHeights();
-                if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
-
-                this.isSyncing = true;
-                const synced = syncScroll(
-                    previewWrapper,
-                    editor,
-                    previewScrollableHeight,
-                    editorScrollableHeight
-                );
-
-                if (synced) {
-                    // 使用 requestAnimationFrame 确保在下一帧重置
-                    requestAnimationFrame(() => {
-                        this.isSyncing = false;
-                    });
-                } else {
-                    this.isSyncing = false;
-                }
-            },
-            { passive: true }
-        );
+        previewWrapper.addEventListener('scroll', () => {
+            handleScroll(previewWrapper, editor, previewScrollableHeight, editorScrollableHeight);
+        }, { passive: true });
 
         // 保存 observer 引用，用于清理
         this._syncScrollResizeObserver = resizeObserver;
@@ -364,139 +291,173 @@ export class MarkdownEditor {
 
         if (!divider || !container) return;
 
-        const MIN_WIDTH = 100; // 最小面板宽度
-        let frameCount = 0; // 帧计数器，用于降低更新频率
-        let lastUpdateTime = 0; // 上次更新时间
+        const MIN_WIDTH = MarkdownEditor.DRAG_CONFIG.MIN_WIDTH ?? 100;
 
-        // 更新分割比例（只更新 CSS 变量，让 CSS 自动处理布局）
+        // Cache frequently used elements to minimize DOM queries in hot path
+        const editorPane = container.querySelector('.markdown-editor-pane');
+        const previewPane = container.querySelector('.markdown-preview-pane');
+
         const updateSplitRatio = ratio => {
-            container.style.setProperty('--split-ratio', ratio);
+            const clamped = Math.max(0, Math.min(1, Number(ratio)));
+            // Avoid unnecessary updates when ratio hasn't changed much
+            if (Math.abs(clamped - this.lastLeftRatio) < 1e-6) return;
+
+            container.style.setProperty('--split-ratio', String(clamped));
             container.classList.add('has-split-ratio');
-            this.lastLeftRatio = ratio;
+            this.lastLeftRatio = clamped;
+
+            if (editorPane && previewPane) {
+                const leftPct = (clamped * 100).toFixed(4) + '%';
+                const rightPct = ((1 - clamped) * 100).toFixed(4) + '%';
+                editorPane.style.flex = `0 0 ${leftPct}`;
+                previewPane.style.flex = `0 0 ${rightPct}`;
+                editorPane.style.maxWidth = `calc(${leftPct} - 4px)`;
+                previewPane.style.maxWidth = `calc(${rightPct})`;
+            }
         };
 
-        // 清除分割比例（恢复自适应布局）
         const clearSplitRatio = () => {
             container.classList.remove('has-split-ratio');
         };
 
-        // 重新计算分割比例（响应侧边栏变化）
         const recalculateSplitRatio = () => {
             const currentLayout = this.state.get('interface').layout;
             if (currentLayout !== 'layout-both') {
                 clearSplitRatio();
                 return;
             }
-
-            // 延迟一帧，确保侧边栏动画完成后再应用比例
+            // Defer to next frame
             requestAnimationFrame(() => {
                 updateSplitRatio(this.lastLeftRatio);
             });
         };
 
-        // 初始化宽度（只在双面板模式下设置固定比例）
+        // 初始化（依赖 CSS 处理布局）
         const currentLayout = this.state.get('interface').layout;
         if (currentLayout === 'layout-both') {
             updateSplitRatio(this.lastLeftRatio);
         }
 
-        // 监听侧边栏状态变化，重新计算分割比例
-        this.state.subscribeTo('interface', () => {
-            recalculateSplitRatio();
-        });
+        // 监听 layout/sidebars 变化
+        this.state.subscribeTo('interface', () => recalculateSplitRatio());
 
-        // 鼠标悬停效果
+        // 悬停样式（仅视觉）
         divider.addEventListener('mouseenter', () => {
             if (!this.isDragging) divider.classList.add('hover');
         });
-
         divider.addEventListener('mouseleave', () => {
             if (!this.isDragging) divider.classList.remove('hover');
         });
 
-        // 开始拖拽
-        divider.addEventListener('mousedown', e => {
+        // 双击重置比例
+        divider.addEventListener('dblclick', () => updateSplitRatio(0.5));
+
+        // Pointer Events + rAF throttling. Use instance property for RAF id so it can be cancelled.
+        this._dragRafId = null;
+
+        // Cache container rect/width on pointerdown and on resize to avoid repeated layout reads
+        let cachedContainerRect = null;
+        let cachedDividerWidth = divider.offsetWidth;
+
+        const onPointerMove = (e) => {
+            if (!this.isDragging) return;
+            if (this._dragRafId) return;
+            this._dragRafId = requestAnimationFrame(() => {
+                const rect = cachedContainerRect || container.getBoundingClientRect();
+                const containerWidth = rect.width;
+                const dividerWidth = cachedDividerWidth || divider.offsetWidth;
+                const availableWidth = Math.max(0, containerWidth - dividerWidth);
+                if (availableWidth <= 0) {
+                    this._dragRafId = null;
+                    return;
+                }
+
+                const min = MIN_WIDTH;
+                const max = availableWidth - min;
+
+                const rawLeft = e.clientX - rect.left;
+                let left = Math.round(rawLeft);
+                left = Math.max(min, Math.min(left, max));
+
+                const ratio = left / availableWidth;
+                updateSplitRatio(ratio);
+
+                this._dragRafId = null;
+            });
+        };
+
+        const endDrag = (e) => {
+            if (!this.isDragging) return;
+            this.isDragging = false;
+            divider.classList.remove('dragging', 'hover');
+            document.body.classList.remove('is-dragging');
+            container.classList.remove('is-resizing');
+
+            if (this._dragRafId) {
+                cancelAnimationFrame(this._dragRafId);
+                this._dragRafId = null;
+            }
+
+            updateSplitRatio(this.lastLeftRatio);
+
+            try {
+                if (e?.pointerId && divider.releasePointerCapture) divider.releasePointerCapture(e.pointerId);
+            } catch (err) {}
+
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', endDrag);
+            window.removeEventListener('pointercancel', endDrag);
+        };
+
+        const onPointerDown = (e) => {
             this.isDragging = true;
             divider.classList.add('dragging');
             divider.classList.remove('hover');
             document.body.classList.add('is-dragging');
-
-            // 添加拖拽优化类，启用 CSS 优化
             container.classList.add('is-resizing');
+            // Ensure CSS split mode is active when starting drag
+            if (!container.classList.contains('has-split-ratio')) {
+                container.classList.add('has-split-ratio');
+                container.style.setProperty('--split-ratio', this.lastLeftRatio);
+            }
 
-            // 重置计数器
-            frameCount = 0;
-            lastUpdateTime = performance.now();
+            // Cache measurements for the drag session
+            cachedContainerRect = container.getBoundingClientRect();
+            cachedDividerWidth = divider.offsetWidth;
+
+            try {
+                if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
+            } catch (err) {}
+
+            window.addEventListener('pointermove', onPointerMove, { passive: true });
+            window.addEventListener('pointerup', endDrag, { passive: true });
+            window.addEventListener('pointercancel', endDrag, { passive: true });
 
             e.preventDefault();
-        });
+        };
 
-        // 双击重置为50%
-        divider.addEventListener('dblclick', () => {
-            updateSplitRatio(0.5);
-        });
+        divider.addEventListener('pointerdown', onPointerDown);
 
-        // 拖拽过程（性能优化版：降低更新频率）
-        document.addEventListener('mousemove', e => {
-            if (!this.isDragging) return;
-
-            if (this._dragRafId) return;
-
-            this._dragRafId = requestAnimationFrame(() => {
-                const now = performance.now();
-                frameCount++;
-
-                // 性能优化：每 3 帧更新一次，或者距离上次更新超过 16ms
-                const shouldUpdate = frameCount % 3 === 0 || now - lastUpdateTime > 16;
-
-                if (shouldUpdate) {
-                    const containerRect = container.getBoundingClientRect();
-                    const containerWidth = container.offsetWidth;
-                    const dividerWidth = divider.offsetWidth;
-                    const availableWidth = containerWidth - dividerWidth;
-
-                    const minWidth = MIN_WIDTH;
-                    const maxWidth = availableWidth - minWidth;
-                    const leftWidth = Math.max(
-                        minWidth,
-                        Math.min(e.clientX - containerRect.left, maxWidth)
-                    );
-
-                    // 只更新 CSS 变量，CSS 自动处理布局
-                    const ratio = leftWidth / availableWidth;
-                    container.style.setProperty('--split-ratio', ratio);
-                    this.lastLeftRatio = ratio;
-                    lastUpdateTime = now;
-                }
-
-                this._dragRafId = null;
-            });
-        });
-
-        // 结束拖拽
-        document.addEventListener('mouseup', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                divider.classList.remove('dragging', 'hover');
-                document.body.classList.remove('is-dragging');
-
-                // 移除拖拽优化类
-                container.classList.remove('is-resizing');
-
-                // 拖拽结束后，确保最终比例正确应用
-                requestAnimationFrame(() => {
-                    updateSplitRatio(this.lastLeftRatio);
-                });
-            }
-        });
-
-        // 窗口大小变化时重新计算
-        window.addEventListener('resize', () => {
+        const onResize = () => {
             if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
             this._resizeTimeout = setTimeout(() => {
+                // Clear cached rect so next pointermove recalculates
+                cachedContainerRect = null;
+                cachedDividerWidth = divider.offsetWidth;
                 recalculateSplitRatio();
             }, 100);
-        });
+        };
+
+        window.addEventListener('resize', onResize);
+
+        // Save cleanup handles so destroy() can remove listeners
+        this._dividerCleanup = () => {
+            divider.removeEventListener('pointerdown', onPointerDown);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', endDrag);
+            window.removeEventListener('pointercancel', endDrag);
+            window.removeEventListener('resize', onResize);
+        };
     }
 
     // ==================== 主题管理 ====================
@@ -506,7 +467,6 @@ export class MarkdownEditor {
      * @param mode
      */
     applyTheme(mode) {
-        // 通过设置 data-mode 属性，CSS 会自动应用对应的主题样式
         document.documentElement.dataset.mode = mode;
     }
 
@@ -514,16 +474,7 @@ export class MarkdownEditor {
      * 切换主题
      */
     toggleTheme() {
-        const newMode = this.state.toggleTheme();
-        this.applyTheme(newMode);
-    }
-
-    /**
-     * 初始化主题
-     */
-    initTheme() {
-        const mode = this.state.get('interface').theme;
-        this.applyTheme(mode);
+        this.applyTheme(this.state.toggleTheme());
     }
 
     // ==================== 布局管理 ====================
@@ -532,8 +483,7 @@ export class MarkdownEditor {
      * 切换布局模式
      */
     toggleLayout() {
-        const newLayout = this.state.toggleLayout();
-        this.applyLayout(newLayout);
+        this.applyLayout(this.state.toggleLayout());
     }
 
     /**
@@ -544,11 +494,8 @@ export class MarkdownEditor {
         const container = dom.get('.markdown-container');
         if (!container) return;
 
-        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
-
-        // 移除所有布局类
-        layouts.forEach(l => container.classList.remove(l));
-        // 添加新布局类
+        // 移除所有布局类并添加新布局类
+        container.classList.remove('layout-editor-only', 'layout-preview-only', 'layout-both');
         container.classList.add(layout);
 
         // 清除分割比例类，让布局自适应
@@ -563,78 +510,53 @@ export class MarkdownEditor {
         }
     }
 
-    /**
-     * 初始化布局
-     */
-    initLayout() {
-        const interfaceState = this.state.get('interface');
-        const layout = interfaceState?.layout ?? 'layout-both';
-        this.applyLayout(layout);
-    }
-
     // ==================== 事件绑定 ====================
 
     /**
      * 绑定事件
      */
     bindEvents() {
-        // 侧边栏按钮
-        const sidebarButtons = {
-            'md-toggle-left-sidebar': () => this.components.leftSidebar.toggle(),
-            'md-toggle-right-sidebar': () => this.components.rightSidebar.toggle(),
-            'md-close-left-sidebar': () => this.components.leftSidebar.toggle(),
-            'md-close-right-sidebar': () => this.components.rightSidebar.toggle(),
-            'md-sidebar-overlay': () => this.state.closeAllSidebars()
-        };
-
-        Object.entries(sidebarButtons).forEach(([id, handler]) => {
+        // 统一的事件绑定辅助函数
+        const bindButton = (id, handler) => {
             const element = dom.getById(id)?.element;
             if (element) element.onclick = handler;
-        });
-
-        // 文档操作按钮
-        const docButtons = {
-            'md-new-file': () => {
-                const selectedDocIds = this.state.get('selectedDocIds') || [];
-                const documents = this.state.get('documents');
-                // 如果有选中的文件夹，在第一个选中的文件夹中创建；否则在根目录创建
-                const selectedFolder = selectedDocIds.length > 0
-                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                    : null;
-                const parentId = selectedFolder ? selectedFolder.id : null;
-                this.components.documentList.createItem('file', parentId);
-            },
-            'md-new-folder': () => {
-                const selectedDocIds = this.state.get('selectedDocIds') || [];
-                const documents = this.state.get('documents');
-                // 如果有选中的文件夹，在第一个选中的文件夹中创建；否则在根目录创建
-                const selectedFolder = selectedDocIds.length > 0
-                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                    : null;
-                const parentId = selectedFolder ? selectedFolder.id : null;
-                this.components.documentList.createItem('folder', parentId);
-            },
-            'md-import-docs': () => this.importDocuments(),
-            'md-export-docs': () => this.exportDocuments(),
-            'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
-            'md-export-html': () => this.components.preview.exportHTML(),
-            'md-export-md': () => this.components.preview.exportMarkdown(),
-            'md-search-toggle-btn': () => this.components.searchReplace.show(false),
-            'md-export-pdf': () => this.components.preview.exportPDF(),
-            'md-layout-toggle': () => this.toggleLayout(),
-            'theme-toggle': () => this.toggleTheme()
         };
 
-        Object.entries(docButtons).forEach(([id, handler]) => {
-            const element = dom.getById(id)?.element;
-            if (element) element.onclick = handler;
-        });
+        // 获取选中的文件夹（辅助函数）
+        const getSelectedFolder = () => {
+            const selectedDocIds = this.state.get('selectedDocIds') || [];
+            const documents = this.state.get('documents');
+            return selectedDocIds.length > 0
+                ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
+                : null;
+        };
 
-        // 监听消息显示事件
-        window.addEventListener('md:showMessage', e => {
-            const { message, type, duration } = e.detail;
-            this.showMessage(message, type, duration);
+        // 绑定所有按钮事件
+        bindButton('md-toggle-left-sidebar', () => this.components.leftSidebar.toggle());
+        bindButton('md-toggle-right-sidebar', () => this.components.rightSidebar.toggle());
+        bindButton('md-close-left-sidebar', () => this.components.leftSidebar.toggle());
+        bindButton('md-close-right-sidebar', () => this.components.rightSidebar.toggle());
+        bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
+        
+        bindButton('md-new-file', () => {
+            const selectedFolder = getSelectedFolder();
+            this.components.documentList.createItem('file', selectedFolder?.id ?? null);
         });
+        
+        bindButton('md-new-folder', () => {
+            const selectedFolder = getSelectedFolder();
+            this.components.documentList.createItem('folder', selectedFolder?.id ?? null);
+        });
+        
+        bindButton('md-import-docs', () => this.importDocuments());
+        bindButton('md-export-docs', () => this.exportDocuments());
+        bindButton('md-delete-item', () => this.components.documentList.deleteCurrentItem());
+        bindButton('md-export-html', () => this.components.preview.exportHTML());
+        bindButton('md-export-md', () => this.components.preview.exportMarkdown());
+        bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
+        bindButton('md-export-pdf', () => this.components.preview.exportPDF());
+        bindButton('md-layout-toggle', () => this.toggleLayout());
+        bindButton('theme-toggle', () => this.toggleTheme());
 
         // 全局快捷键
         this.setupGlobalShortcuts();
@@ -981,7 +903,7 @@ export class MarkdownEditor {
         if (this.isInitialized) return;
 
         // 从 EditorState 加载初始数据（已包含 localStorage 数据）
-        const { documents, savedDocId, settings, syncScrollEnabled } = this.state.loadInitialState();
+        const { documents, savedDocId, settings } = this.state.loadInitialState();
         const { currentDocId, content } = this.#getInitialDocument(documents, savedDocId);
 
         // 设置初始状态（skipPersist: true 避免重复保存）
@@ -993,26 +915,19 @@ export class MarkdownEditor {
             lastClickedDocId: currentDocId,
             editor: settings.editor,
             interface: settings.interface,
-            export: settings.export,
-            syncScrollEnabled
+            export: settings.export
         }, { skipPersist: true });
 
-        // 初始化组件
+        // 初始化组件和功能
         this.initComponents();
-        this.initTheme();
-        this.initLayout();
+        this.applyTheme(this.state.get('interface').theme);
+        this.applyLayout(this.state.get('interface').layout ?? 'layout-both');
         this.bindEvents();
         this.setupDivider();
         this.setupSyncScroll();
 
-        // 应用侧边栏区块状态
-        this.components.leftSidebar.applySectionStates();
-        this.components.rightSidebar.applySectionStates();
-
-        // 启动自动持久化
+        // 启动自动持久化和 UI 更新
         this.state.startPersistence();
-
-        // 监听 state 变化，应用到 UI
         this.#setupUIUpdates();
 
         this.isInitialized = true;
@@ -1054,63 +969,41 @@ export class MarkdownEditor {
         // 监听界面配置变化，应用到界面
         this.state.subscribeTo('interface', (newInterface, oldInterface) => {
             const els = getElements();
+            const hasOld = !!oldInterface;
             
             // 应用主题（只在主题变化时）
-            if (!oldInterface || newInterface.theme !== oldInterface.theme) {
+            if (!hasOld || newInterface.theme !== oldInterface.theme) {
                 this.applyTheme(newInterface.theme ?? 'light');
+                this.components.preview?.updateMermaidTheme();
             }
 
             // 应用布局（只在布局变化时）
-            if (!oldInterface || newInterface.layout !== oldInterface.layout) {
+            if (!hasOld || newInterface.layout !== oldInterface.layout) {
                 if (els.container) {
                     els.container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
                     els.container.classList.add(newInterface.layout ?? 'layout-both');
                 }
             }
 
-            // 应用侧边栏状态（只在状态变化时）
-            if (!oldInterface || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
-                if (els.leftSidebar) {
-                    els.leftSidebar.classList.toggle('open', newInterface.leftSidebarOpen);
-                }
-            }
-
-            if (!oldInterface || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
-                if (els.rightSidebar) {
-                    els.rightSidebar.classList.toggle('open', newInterface.rightSidebarOpen);
-                }
-            }
-
             // 应用布局比例（只在双栏布局或比例变化时）
             if (newInterface.layout === 'layout-both') {
-                if (els.editorSection && els.previewSection) {
-                    const leftRatio = newInterface.leftRatio ?? 0.5;
-                    els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`;
-                    els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`;
-                }
+                const leftRatio = newInterface.leftRatio ?? 0.5;
+                els.editorSection && (els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`);
+                els.previewSection && (els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`);
             } else {
-                // 非双栏布局时，清除 flex 样式
-                if (els.editorSection) {
-                    els.editorSection.style.flex = '';
-                }
-                if (els.previewSection) {
-                    els.previewSection.style.flex = '';
-                }
+                els.editorSection && (els.editorSection.style.flex = '');
+                els.previewSection && (els.previewSection.style.flex = '');
             }
 
-            // 应用侧边栏区块状态（只在 sections 变化时）
-            if (!oldInterface || newInterface.sections !== oldInterface.sections) {
-                if (els.tocSection) {
-                    els.tocSection.classList.toggle('hidden', !newInterface.sections?.toc);
-                }
-                if (els.exportSection) {
-                    els.exportSection.classList.toggle('hidden', !newInterface.sections?.export);
-                }
-            }
+            // 注意：侧边栏开关状态和区块状态由各组件自行订阅处理
+            // 这里不再重复更新，避免双重订阅导致的性能问题
+        });
 
-            // 更新 Mermaid 主题（只在主题变化时）
-            if (!oldInterface || newInterface.theme !== oldInterface.theme) {
-                this.components.preview?.updateMermaidTheme();
+        // 监听通知状态变化，显示消息
+        this.state.subscribeTo('notification', (notification) => {
+            if (notification) {
+                this.showMessage(notification.message, notification.type);
+                this.state.clearNotification();
             }
         });
     }
@@ -1140,6 +1033,14 @@ export class MarkdownEditor {
         if (this._dragRafId) {
             cancelAnimationFrame(this._dragRafId);
             this._dragRafId = null;
+        }
+
+        // 移除分隔条相关事件监听
+        if (this._dividerCleanup) {
+            try {
+                this._dividerCleanup();
+            } catch (err) {}
+            this._dividerCleanup = null;
         }
     }
 }

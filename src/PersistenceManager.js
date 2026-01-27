@@ -12,7 +12,7 @@
  * persistence.start();
  * ```
  */
-import { StoreManager } from './store.js';
+import { StoreManager } from './StoreManager.js';
 
 export class PersistenceManager {
     /**
@@ -26,8 +26,7 @@ export class PersistenceManager {
         content: { debounce: 1000 },
         editor: { debounce: 300 },
         interface: { debounce: 300 },
-        export: { debounce: 300 },
-        syncScrollEnabled: { immediate: true }
+        export: { debounce: 300 }
     };
 
     /**
@@ -38,7 +37,6 @@ export class PersistenceManager {
     static PERSIST_HANDLERS = {
         documents: (state) => StoreManager.saveDocuments(state.documents),
         currentDocId: (state) => StoreManager.saveCurrentDocId(state.currentDocId),
-        syncScrollEnabled: (state) => StoreManager.saveSyncScrollEnabled(state.syncScrollEnabled),
         content: (state) => {
             // 保存当前文档内容到 documents 数组
             if (state.currentDocId && state.documents) {

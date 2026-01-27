@@ -3,7 +3,7 @@
  * 负责文档列表的渲染和交互，支持文件夹嵌套
  */
 import { BaseComponent } from './BaseComponent.js';
-import { EditorState } from '../modules/state.js';
+import { EditorState } from '../EditorState.js';
 import { dom } from '../utils/dom.js';
 import { Dialog } from './Dialog.js';
 

@@ -27,8 +27,18 @@ export class Sidebar extends BaseComponent {
     subscribe() {
         const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
 
-        this.unsubscribe = this.state.subscribeTo('interface', (interfaceState) => {
-            this.updateVisibility(interfaceState[stateKey]);
+        this.unsubscribe = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
+            const hasOld = !!oldInterface;
+            
+            // 更新侧边栏可见性（只在状态变化时）
+            if (!hasOld || newInterface[stateKey] !== oldInterface[stateKey]) {
+                this.updateVisibility(newInterface[stateKey]);
+            }
+
+            // 更新区块状态（只在 sections 变化时）
+            if (!hasOld || newInterface.sections !== oldInterface.sections) {
+                this.applySectionStates();
+            }
         });
     }
 
@@ -93,11 +103,6 @@ export class Sidebar extends BaseComponent {
 
             if (isMobile) {
                 dom.app.overlay?.addClass('show');
-            }
-
-            // 如果是右侧边栏，生成目录
-            if (this.side === 'right') {
-                window.dispatchEvent(new CustomEvent('md:generateTOC'));
             }
         } else {
             this.container.classList.remove('open');
@@ -168,7 +173,10 @@ export class Sidebar extends BaseComponent {
         const isOpen = interfaceState[stateKey];
         this.updateVisibility(isOpen);
 
-        // 应用区块状态（确保初始状态正确）
-        this.applySectionStates();
+        // 延迟应用区块状态，确保所有组件都已渲染完成
+        // 使用 requestAnimationFrame 确保在下一帧执行，此时所有组件的 DOM 都已准备好
+        requestAnimationFrame(() => {
+            this.applySectionStates();
+        });
     }
 }

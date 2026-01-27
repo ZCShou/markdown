@@ -25,8 +25,15 @@
  * ```
  */
 export class StoreManager {
-    // ==================== 异步存储队列 ====================
+    // ==================== 存储键名常量 ====================
+    /** @type {Object} 存储键名映射 */
+    static #STORAGE_KEYS = {
+        DOCUMENTS: 'markdown_editor_documents',
+        CURRENT_DOC_ID: 'markdown_editor_current_doc_id',
+        SETTINGS: 'markdown-editor-settings'
+    };
 
+    // ==================== 异步存储队列 ====================
     /** @type {Map} 待处理的存储操作队列 */
     static #pendingOperations = new Map();
 
@@ -101,16 +108,6 @@ export class StoreManager {
             setTimeout(() => processNext(), 0);
         }
     }
-
-    // ==================== 存储键名常量 ====================
-
-    /** @type {Object} 存储键名映射 */
-    static #STORAGE_KEYS = {
-        DOCUMENTS: 'markdown_editor_documents',
-        CURRENT_DOC_ID: 'markdown_editor_current_doc_id',
-        SETTINGS: 'markdown-editor-settings',
-        SYNC_SCROLL: 'md-sync-scroll'
-    };
 
     // ==================== 文档管理 ====================
 
@@ -231,38 +228,6 @@ export class StoreManager {
         } catch (e) {
             console.warn('加载设置失败:', e);
             return null;
-        }
-    }
-
-    // ==================== 同步滚动状态 ====================
-
-    /**
-     * 保存同步滚动状态
-     * @param {boolean} enabled - 是否启用
-     * @returns {boolean} 是否成功
-     */
-    static saveSyncScrollEnabled(enabled) {
-        try {
-            localStorage.setItem(StoreManager.#STORAGE_KEYS.SYNC_SCROLL, String(enabled));
-            return true;
-        } catch (e) {
-            console.warn('保存同步滚动状态失败:', e);
-            return false;
-        }
-    }
-
-    /**
-     * 加载同步滚动状态
-     * @param {boolean} defaultValue - 默认值
-     * @returns {boolean} 是否启用
-     */
-    static loadSyncScrollEnabled(defaultValue = true) {
-        try {
-            const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.SYNC_SCROLL);
-            return saved !== null ? saved === 'true' : defaultValue;
-        } catch (e) {
-            console.warn('加载同步滚动状态失败:', e);
-            return defaultValue;
         }
     }
 

@@ -12,8 +12,8 @@
  * state.setState({ content: 'Hello' });
  * ```
  */
-import { StoreManager } from './store.js';
-import { PersistenceManager } from './persistence.js';
+import { StoreManager } from './StoreManager.js';
+import { PersistenceManager } from './PersistenceManager.js';
 
 /**
  *
@@ -40,6 +40,7 @@ export class EditorState {
             leftRatio: 0.5,
             leftSidebarOpen: false,
             rightSidebarOpen: false,
+            syncScrollEnabled: true,
             sections: {
                 toc: true,
                 export: true
@@ -391,8 +392,8 @@ $$
         lastRenderedContent: '',
         headings: [], // 标题数据，用于目录生成
 
-        // UI 状态
-        syncScrollEnabled: true // 同步滚动开关
+        // 通知状态
+        notification: null // { message, type, timestamp }
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -477,7 +478,6 @@ $$
         const documents = StoreManager.loadDocuments();
         const savedDocId = StoreManager.loadCurrentDocId();
         const savedSettings = StoreManager.loadSettings();
-        const syncScrollEnabled = StoreManager.loadSyncScrollEnabled(true);
 
         // 合并保存的设置和默认设置
         const settings = savedSettings ? {
@@ -493,8 +493,7 @@ $$
         return {
             documents,
             savedDocId,
-            settings,
-            syncScrollEnabled
+            settings
         };
     }
 
@@ -1003,6 +1002,30 @@ $$
      */
     updateLastRenderedContent(content) {
         this.setState({ lastRenderedContent: content });
+    }
+
+    // ==================== 通知状态 ====================
+
+    /**
+     * 显示通知
+     * @param {string} message - 通知消息
+     * @param {string} type - 通知类型
+     */
+    showNotification(message, type = 'info') {
+        this.setState({
+            notification: {
+                message,
+                type,
+                timestamp: Date.now()
+            }
+        });
+    }
+
+    /**
+     * 清除通知
+     */
+    clearNotification() {
+        this.setState({ notification: null });
     }
 
     /**
