@@ -891,20 +891,34 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* 分隔条 */
 .markdown-divider {
-  min-width: 4px;
+  position: relative;
   width: 4px;
-  max-width: 4px;
   flex-shrink: 0;
-  background-color: var(--md-divider-bg);
+  background-color: transparent;
   cursor: col-resize;
 }
 
-.markdown-divider:hover {
+/* 使用伪元素显示1px的细线 */
+.markdown-divider::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--md-divider-bg);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.markdown-divider:hover,
+.markdown-divider.dragging {
   background-color: var(--md-divider-hover);
 }
 
-.markdown-divider.dragging {
-  background-color: var(--md-divider-active);
+.markdown-divider:hover::before,
+.markdown-divider.dragging::before {
+  background-color: transparent;
 }
 
 /* 预览区域 */
