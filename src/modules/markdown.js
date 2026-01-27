@@ -193,20 +193,14 @@ export class MarkdownEditor {
         const editor = dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
         const syncScrollButton = dom.getById('md-sync-scroll')?.element;
-        // 使用 dom.js 统一查询
         const syncScrollIcon = syncScrollButton ? dom.getIn(syncScrollButton, '.codicon') : null;
 
         if (!editor || !previewWrapper || !syncScrollButton || !syncScrollIcon) return;
 
         // 更新同步滚动图标
         const updateSyncScrollIcon = enabled => {
-            if (enabled) {
-                syncScrollIcon.classList.remove('codicon-sync-ignored');
-                syncScrollIcon.classList.add('codicon-sync');
-            } else {
-                syncScrollIcon.classList.remove('codicon-sync');
-                syncScrollIcon.classList.add('codicon-sync-ignored');
-            }
+            syncScrollIcon.classList.toggle('codicon-sync', enabled);
+            syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
         };
 
         // 从状态管理器获取同步滚动状态
@@ -217,9 +211,8 @@ export class MarkdownEditor {
         // 缓存可滚动高度，避免频繁查询 DOM
         let editorScrollableHeight = 0;
         let previewScrollableHeight = 0;
-        let scrollSyncRafId = null;
-        let heightUpdateRafId = null;
         let lastSyncTime = 0;
+        const SYNC_DELAY = 50;
 
         // 更新缓存的滚动高度
         const updateScrollHeights = () => {
@@ -230,125 +223,59 @@ export class MarkdownEditor {
             );
         };
 
-        // 在下一帧更新滚动高度，保证渲染完成后获取到最新尺寸
-        const scheduleHeightUpdate = () => {
-            if (heightUpdateRafId) {
-                cancelAnimationFrame(heightUpdateRafId);
-            }
-            heightUpdateRafId = requestAnimationFrame(() => {
-                updateScrollHeights();
-                heightUpdateRafId = null;
-            });
-        };
-
         // 初始化缓存
         updateScrollHeights();
 
         // 监听内容变化，更新缓存
-        const resizeObserver = new ResizeObserver(() => {
-            updateScrollHeights();
-        });
+        const resizeObserver = new ResizeObserver(updateScrollHeights);
         resizeObserver.observe(editor);
         resizeObserver.observe(previewWrapper);
 
-        // 内容或文档切换后刷新滚动高度，避免初次文档无滚动条导致缓存为 0
+        // 内容或文档切换后刷新滚动高度
         this._syncScrollStateUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
             () => {
-                scheduleHeightUpdate();
-                // 再补一轮延迟刷新，确保预览渲染完成
+                requestAnimationFrame(updateScrollHeights);
                 setTimeout(updateScrollHeights, 120);
             }
         );
 
         // 监听按钮点击
         syncScrollButton.addEventListener('click', () => {
-            const newEnabled = !this.syncScrollEnabled;
-            this.syncScrollEnabled = newEnabled;
-            // 通过状态管理器更新（会自动持久化）
-            this.state.updateInterfaceConfig({ syncScrollEnabled: newEnabled });
-            updateSyncScrollIcon(newEnabled);
+            this.syncScrollEnabled = !this.syncScrollEnabled;
+            this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
+            updateSyncScrollIcon(this.syncScrollEnabled);
         });
 
-        // 优化的同步函数：使用更激进的节流
-        const syncScroll = (source, target, sourceHeight, targetHeight) => {
+        // 统一的滚动处理函数（消除重复代码）
+        const handleScroll = (source, target, sourceHeight, targetHeight) => {
+            if (!this.syncScrollEnabled || this.isSyncing) return;
+            
+            updateScrollHeights();
+            if (sourceHeight <= 0 || targetHeight <= 0) return;
+
             const now = performance.now();
-            const SYNC_DELAY = 50; // 增加到 50ms，减少滚轮抖动
+            if (now - lastSyncTime < SYNC_DELAY) return;
 
-            // 距离上次同步太近，跳过
-            if (now - lastSyncTime < SYNC_DELAY) {
-                return false;
-            }
-
-            // 取消之前的待处理同步
-            if (scrollSyncRafId) {
-                cancelAnimationFrame(scrollSyncRafId);
-                scrollSyncRafId = null;
-            }
-
-            // 立即同步，不等待 rAF
+            this.isSyncing = true;
             const scrollRatio = source.scrollTop / sourceHeight;
             target.scrollTop = scrollRatio * targetHeight;
             lastSyncTime = now;
 
-            return true;
+            requestAnimationFrame(() => {
+                this.isSyncing = false;
+            });
         };
 
         // 编辑器滚动时同步预览
-        editor.addEventListener(
-            'scroll',
-            () => {
-                if (!this.syncScrollEnabled || this.isSyncing) return;
-                updateScrollHeights();
-                if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
-
-                this.isSyncing = true;
-                const synced = syncScroll(
-                    editor,
-                    previewWrapper,
-                    editorScrollableHeight,
-                    previewScrollableHeight
-                );
-
-                if (synced) {
-                    // 使用 requestAnimationFrame 确保在下一帧重置
-                    requestAnimationFrame(() => {
-                        this.isSyncing = false;
-                    });
-                } else {
-                    this.isSyncing = false;
-                }
-            },
-            { passive: true }
-        );
+        editor.addEventListener('scroll', () => {
+            handleScroll(editor, previewWrapper, editorScrollableHeight, previewScrollableHeight);
+        }, { passive: true });
 
         // 预览滚动时同步编辑器
-        previewWrapper.addEventListener(
-            'scroll',
-            () => {
-                if (!this.syncScrollEnabled || this.isSyncing) return;
-                updateScrollHeights();
-                if (editorScrollableHeight <= 0 || previewScrollableHeight <= 0) return;
-
-                this.isSyncing = true;
-                const synced = syncScroll(
-                    previewWrapper,
-                    editor,
-                    previewScrollableHeight,
-                    editorScrollableHeight
-                );
-
-                if (synced) {
-                    // 使用 requestAnimationFrame 确保在下一帧重置
-                    requestAnimationFrame(() => {
-                        this.isSyncing = false;
-                    });
-                } else {
-                    this.isSyncing = false;
-                }
-            },
-            { passive: true }
-        );
+        previewWrapper.addEventListener('scroll', () => {
+            handleScroll(previewWrapper, editor, previewScrollableHeight, editorScrollableHeight);
+        }, { passive: true });
 
         // 保存 observer 引用，用于清理
         this._syncScrollResizeObserver = resizeObserver;
@@ -541,7 +468,6 @@ export class MarkdownEditor {
      * @param mode
      */
     applyTheme(mode) {
-        // 通过设置 data-mode 属性，CSS 会自动应用对应的主题样式
         document.documentElement.dataset.mode = mode;
     }
 
@@ -549,16 +475,7 @@ export class MarkdownEditor {
      * 切换主题
      */
     toggleTheme() {
-        const newMode = this.state.toggleTheme();
-        this.applyTheme(newMode);
-    }
-
-    /**
-     * 初始化主题
-     */
-    initTheme() {
-        const mode = this.state.get('interface').theme;
-        this.applyTheme(mode);
+        this.applyTheme(this.state.toggleTheme());
     }
 
     // ==================== 布局管理 ====================
@@ -567,8 +484,7 @@ export class MarkdownEditor {
      * 切换布局模式
      */
     toggleLayout() {
-        const newLayout = this.state.toggleLayout();
-        this.applyLayout(newLayout);
+        this.applyLayout(this.state.toggleLayout());
     }
 
     /**
@@ -579,11 +495,8 @@ export class MarkdownEditor {
         const container = dom.get('.markdown-container');
         if (!container) return;
 
-        const layouts = ['layout-editor-only', 'layout-preview-only', 'layout-both'];
-
-        // 移除所有布局类
-        layouts.forEach(l => container.classList.remove(l));
-        // 添加新布局类
+        // 移除所有布局类并添加新布局类
+        container.classList.remove('layout-editor-only', 'layout-preview-only', 'layout-both');
         container.classList.add(layout);
 
         // 清除分割比例类，让布局自适应
@@ -598,72 +511,53 @@ export class MarkdownEditor {
         }
     }
 
-    /**
-     * 初始化布局
-     */
-    initLayout() {
-        const interfaceState = this.state.get('interface');
-        const layout = interfaceState?.layout ?? 'layout-both';
-        this.applyLayout(layout);
-    }
-
     // ==================== 事件绑定 ====================
 
     /**
      * 绑定事件
      */
     bindEvents() {
-        // 侧边栏按钮
-        const sidebarButtons = {
-            'md-toggle-left-sidebar': () => this.components.leftSidebar.toggle(),
-            'md-toggle-right-sidebar': () => this.components.rightSidebar.toggle(),
-            'md-close-left-sidebar': () => this.components.leftSidebar.toggle(),
-            'md-close-right-sidebar': () => this.components.rightSidebar.toggle(),
-            'md-sidebar-overlay': () => this.state.closeAllSidebars()
-        };
-
-        Object.entries(sidebarButtons).forEach(([id, handler]) => {
+        // 统一的事件绑定辅助函数
+        const bindButton = (id, handler) => {
             const element = dom.getById(id)?.element;
             if (element) element.onclick = handler;
-        });
-
-        // 文档操作按钮
-        const docButtons = {
-            'md-new-file': () => {
-                const selectedDocIds = this.state.get('selectedDocIds') || [];
-                const documents = this.state.get('documents');
-                // 如果有选中的文件夹，在第一个选中的文件夹中创建；否则在根目录创建
-                const selectedFolder = selectedDocIds.length > 0
-                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                    : null;
-                const parentId = selectedFolder ? selectedFolder.id : null;
-                this.components.documentList.createItem('file', parentId);
-            },
-            'md-new-folder': () => {
-                const selectedDocIds = this.state.get('selectedDocIds') || [];
-                const documents = this.state.get('documents');
-                // 如果有选中的文件夹，在第一个选中的文件夹中创建；否则在根目录创建
-                const selectedFolder = selectedDocIds.length > 0
-                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                    : null;
-                const parentId = selectedFolder ? selectedFolder.id : null;
-                this.components.documentList.createItem('folder', parentId);
-            },
-            'md-import-docs': () => this.importDocuments(),
-            'md-export-docs': () => this.exportDocuments(),
-            'md-delete-item': () => this.components.documentList.deleteCurrentItem(),
-            'md-export-html': () => this.components.preview.exportHTML(),
-            'md-export-md': () => this.components.preview.exportMarkdown(),
-            'md-search-toggle-btn': () => this.components.searchReplace.show(false),
-            'md-export-pdf': () => this.components.preview.exportPDF(),
-            'md-layout-toggle': () => this.toggleLayout(),
-            'theme-toggle': () => this.toggleTheme()
         };
 
-        Object.entries(docButtons).forEach(([id, handler]) => {
-            const element = dom.getById(id)?.element;
-            if (element) element.onclick = handler;
+        // 获取选中的文件夹（辅助函数）
+        const getSelectedFolder = () => {
+            const selectedDocIds = this.state.get('selectedDocIds') || [];
+            const documents = this.state.get('documents');
+            return selectedDocIds.length > 0
+                ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
+                : null;
+        };
+
+        // 绑定所有按钮事件
+        bindButton('md-toggle-left-sidebar', () => this.components.leftSidebar.toggle());
+        bindButton('md-toggle-right-sidebar', () => this.components.rightSidebar.toggle());
+        bindButton('md-close-left-sidebar', () => this.components.leftSidebar.toggle());
+        bindButton('md-close-right-sidebar', () => this.components.rightSidebar.toggle());
+        bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
+        
+        bindButton('md-new-file', () => {
+            const selectedFolder = getSelectedFolder();
+            this.components.documentList.createItem('file', selectedFolder?.id ?? null);
         });
+        
+        bindButton('md-new-folder', () => {
+            const selectedFolder = getSelectedFolder();
+            this.components.documentList.createItem('folder', selectedFolder?.id ?? null);
+        });
+        
+        bindButton('md-import-docs', () => this.importDocuments());
+        bindButton('md-export-docs', () => this.exportDocuments());
+        bindButton('md-delete-item', () => this.components.documentList.deleteCurrentItem());
+        bindButton('md-export-html', () => this.components.preview.exportHTML());
+        bindButton('md-export-md', () => this.components.preview.exportMarkdown());
+        bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
+        bindButton('md-export-pdf', () => this.components.preview.exportPDF());
+        bindButton('md-layout-toggle', () => this.toggleLayout());
+        bindButton('theme-toggle', () => this.toggleTheme());
 
         // 全局快捷键
         this.setupGlobalShortcuts();
@@ -1025,10 +919,10 @@ export class MarkdownEditor {
             export: settings.export
         }, { skipPersist: true });
 
-        // 初始化组件
+        // 初始化组件和功能
         this.initComponents();
-        this.initTheme();
-        this.initLayout();
+        this.applyTheme(this.state.get('interface').theme);
+        this.applyLayout(this.state.get('interface').layout ?? 'layout-both');
         this.bindEvents();
         this.setupDivider();
         this.setupSyncScroll();
@@ -1037,10 +931,8 @@ export class MarkdownEditor {
         this.components.leftSidebar.applySectionStates();
         this.components.rightSidebar.applySectionStates();
 
-        // 启动自动持久化
+        // 启动自动持久化和 UI 更新
         this.state.startPersistence();
-
-        // 监听 state 变化，应用到 UI
         this.#setupUIUpdates();
 
         this.isInitialized = true;
@@ -1082,72 +974,52 @@ export class MarkdownEditor {
         // 监听界面配置变化，应用到界面
         this.state.subscribeTo('interface', (newInterface, oldInterface) => {
             const els = getElements();
+            const hasOld = !!oldInterface;
             
             // 应用主题（只在主题变化时）
-            if (!oldInterface || newInterface.theme !== oldInterface.theme) {
+            if (!hasOld || newInterface.theme !== oldInterface.theme) {
                 this.applyTheme(newInterface.theme ?? 'light');
+                this.components.preview?.updateMermaidTheme();
             }
 
             // 应用布局（只在布局变化时）
-            if (!oldInterface || newInterface.layout !== oldInterface.layout) {
+            if (!hasOld || newInterface.layout !== oldInterface.layout) {
                 if (els.container) {
                     els.container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
                     els.container.classList.add(newInterface.layout ?? 'layout-both');
                 }
             }
 
-            // 应用侧边栏状态（只在状态变化时）
-            if (!oldInterface || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
-                if (els.leftSidebar) {
-                    els.leftSidebar.classList.toggle('open', newInterface.leftSidebarOpen);
-                }
+            // 应用侧边栏状态
+            if (!hasOld || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
+                els.leftSidebar?.classList.toggle('open', newInterface.leftSidebarOpen);
             }
 
-            if (!oldInterface || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
-                if (els.rightSidebar) {
-                    els.rightSidebar.classList.toggle('open', newInterface.rightSidebarOpen);
-                }
+            if (!hasOld || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
+                els.rightSidebar?.classList.toggle('open', newInterface.rightSidebarOpen);
             }
 
-            // 应用布局比例（只在双栏布局或比例变化时）
+            // 应用布局比例
             if (newInterface.layout === 'layout-both') {
-                if (els.editorSection && els.previewSection) {
-                    const leftRatio = newInterface.leftRatio ?? 0.5;
-                    els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`;
-                    els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`;
-                }
+                const leftRatio = newInterface.leftRatio ?? 0.5;
+                els.editorSection && (els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`);
+                els.previewSection && (els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`);
             } else {
-                // 非双栏布局时，清除 flex 样式
-                if (els.editorSection) {
-                    els.editorSection.style.flex = '';
-                }
-                if (els.previewSection) {
-                    els.previewSection.style.flex = '';
-                }
+                els.editorSection && (els.editorSection.style.flex = '');
+                els.previewSection && (els.previewSection.style.flex = '');
             }
 
-            // 应用侧边栏区块状态（只在 sections 变化时）
-            if (!oldInterface || newInterface.sections !== oldInterface.sections) {
-                if (els.tocSection) {
-                    els.tocSection.classList.toggle('hidden', !newInterface.sections?.toc);
-                }
-                if (els.exportSection) {
-                    els.exportSection.classList.toggle('hidden', !newInterface.sections?.export);
-                }
-            }
-
-            // 更新 Mermaid 主题（只在主题变化时）
-            if (!oldInterface || newInterface.theme !== oldInterface.theme) {
-                this.components.preview?.updateMermaidTheme();
+            // 应用侧边栏区块状态
+            if (!hasOld || newInterface.sections !== oldInterface.sections) {
+                els.tocSection?.classList.toggle('hidden', !newInterface.sections?.toc);
+                els.exportSection?.classList.toggle('hidden', !newInterface.sections?.export);
             }
         });
 
         // 监听通知状态变化，显示消息
         this.state.subscribeTo('notification', (notification) => {
             if (notification) {
-                const { message, type } = notification;
-                this.showMessage(message, type);
-                // 自动清除通知（避免重复显示）
+                this.showMessage(notification.message, notification.type);
                 this.state.clearNotification();
             }
         });
