@@ -210,11 +210,4 @@ export class TOC extends BaseComponent {
         // 调用父类销毁逻辑
         super.destroy();
     }
-
-    /**
-     * 渲染组件
-     */
-    render() {
-        this.generateTOC();
-    }
 }
