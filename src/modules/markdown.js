@@ -385,7 +385,7 @@ export class MarkdownEditor {
                 editorPane.style.flex = `0 0 ${leftPct}`;
                 previewPane.style.flex = `0 0 ${rightPct}`;
                 editorPane.style.maxWidth = `calc(${leftPct} - 4px)`;
-                previewPane.style.maxWidth = `calc(${rightPct} - 4px)`;
+                previewPane.style.maxWidth = `calc(${rightPct})`;
             }
         };
 
