@@ -833,7 +833,6 @@ html::-webkit-scrollbar-thumb:hover,
 /* 当使用固定分割比例时 */
 .markdown-container.has-split-ratio .markdown-editor-pane {
   flex: var(--split-ratio);
-  max-width: calc(var(--split-ratio) * (100% - 4px));
 }
 
 .markdown-editor-wrapper {
@@ -913,7 +912,6 @@ html::-webkit-scrollbar-thumb:hover,
 /* 当使用固定分割比例时 */
 .markdown-container.has-split-ratio .markdown-preview-pane {
   flex: calc(1 - var(--split-ratio));
-  max-width: calc((1 - var(--split-ratio)) * (100% - 4px));
 }
 
 .markdown-preview-wrapper {

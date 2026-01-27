@@ -311,8 +311,6 @@ export class MarkdownEditor {
                 const rightPct = ((1 - clamped) * 100).toFixed(4) + '%';
                 editorPane.style.flex = `0 0 ${leftPct}`;
                 previewPane.style.flex = `0 0 ${rightPct}`;
-                editorPane.style.maxWidth = `calc(${leftPct} - 4px)`;
-                previewPane.style.maxWidth = `calc(${rightPct})`;
             }
         };
 
@@ -995,7 +993,24 @@ export class MarkdownEditor {
                 els.previewSection && (els.previewSection.style.flex = '');
             }
 
-            // 注意：侧边栏开关状态和区块状态由各组件自行订阅处理
+            // 当侧边栏开关状态变化时，重新应用分割比例以避免空白
+            if (hasOld && 
+                (newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen ||
+                 newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen)) {
+                // 延迟一帧，确保侧边栏动画完成后再重新计算
+                requestAnimationFrame(() => {
+                    if (els.container && els.container.classList.contains('has-split-ratio')) {
+                        const leftRatio = this.lastLeftRatio;
+                        els.container.style.setProperty('--split-ratio', String(leftRatio));
+                        if (newInterface.layout === 'layout-both') {
+                            els.editorSection && (els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`);
+                            els.previewSection && (els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`);
+                        }
+                    }
+                });
+            }
+
+            // 注意：区块状态由各组件自行订阅处理
             // 这里不再重复更新，避免双重订阅导致的性能问题
         });
 
