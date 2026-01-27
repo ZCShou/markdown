@@ -986,16 +986,7 @@ export class MarkdownEditor {
                 }
             }
 
-            // 应用侧边栏状态
-            if (!hasOld || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
-                els.leftSidebar?.classList.toggle('open', newInterface.leftSidebarOpen);
-            }
-
-            if (!hasOld || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
-                els.rightSidebar?.classList.toggle('open', newInterface.rightSidebarOpen);
-            }
-
-            // 应用布局比例
+            // 应用布局比例（只在双栏布局或比例变化时）
             if (newInterface.layout === 'layout-both') {
                 const leftRatio = newInterface.leftRatio ?? 0.5;
                 els.editorSection && (els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`);
@@ -1005,11 +996,8 @@ export class MarkdownEditor {
                 els.previewSection && (els.previewSection.style.flex = '');
             }
 
-            // 应用侧边栏区块状态
-            if (!hasOld || newInterface.sections !== oldInterface.sections) {
-                els.tocSection?.classList.toggle('hidden', !newInterface.sections?.toc);
-                els.exportSection?.classList.toggle('hidden', !newInterface.sections?.export);
-            }
+            // 注意：侧边栏开关状态和区块状态由各组件自行订阅处理
+            // 这里不再重复更新，避免双重订阅导致的性能问题
         });
 
         // 监听通知状态变化，显示消息

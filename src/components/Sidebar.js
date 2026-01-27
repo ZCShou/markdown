@@ -27,8 +27,18 @@ export class Sidebar extends BaseComponent {
     subscribe() {
         const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
 
-        this.unsubscribe = this.state.subscribeTo('interface', (interfaceState) => {
-            this.updateVisibility(interfaceState[stateKey]);
+        this.unsubscribe = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
+            const hasOld = !!oldInterface;
+            
+            // 更新侧边栏可见性（只在状态变化时）
+            if (!hasOld || newInterface[stateKey] !== oldInterface[stateKey]) {
+                this.updateVisibility(newInterface[stateKey]);
+            }
+
+            // 更新区块状态（只在 sections 变化时）
+            if (!hasOld || newInterface.sections !== oldInterface.sections) {
+                this.applySectionStates();
+            }
         });
     }
 
