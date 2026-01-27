@@ -306,12 +306,8 @@ export class MarkdownEditor {
             container.classList.add('has-split-ratio');
             this.lastLeftRatio = clamped;
 
-            if (editorPane && previewPane) {
-                const leftPct = (clamped * 100).toFixed(4) + '%';
-                const rightPct = ((1 - clamped) * 100).toFixed(4) + '%';
-                editorPane.style.flex = `0 0 ${leftPct}`;
-                previewPane.style.flex = `0 0 ${rightPct}`;
-            }
+            // 不再设置内联样式，让 CSS 通过 --split-ratio 变量自动处理
+            // 这样可以避免滚动条出现时的布局问题
         };
 
         const clearSplitRatio = () => {
@@ -984,31 +980,12 @@ export class MarkdownEditor {
             }
 
             // 应用布局比例（只在双栏布局或比例变化时）
-            if (newInterface.layout === 'layout-both') {
-                const leftRatio = newInterface.leftRatio ?? 0.5;
-                els.editorSection && (els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`);
-                els.previewSection && (els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`);
-            } else {
-                els.editorSection && (els.editorSection.style.flex = '');
-                els.previewSection && (els.previewSection.style.flex = '');
-            }
+            // CSS 已经处理了布局，不需要设置内联样式
+            // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
 
             // 当侧边栏开关状态变化时，重新应用分割比例以避免空白
-            if (hasOld && 
-                (newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen ||
-                 newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen)) {
-                // 延迟一帧，确保侧边栏动画完成后再重新计算
-                requestAnimationFrame(() => {
-                    if (els.container && els.container.classList.contains('has-split-ratio')) {
-                        const leftRatio = this.lastLeftRatio;
-                        els.container.style.setProperty('--split-ratio', String(leftRatio));
-                        if (newInterface.layout === 'layout-both') {
-                            els.editorSection && (els.editorSection.style.flex = `0 0 ${leftRatio * 100}%`);
-                            els.previewSection && (els.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`);
-                        }
-                    }
-                });
-            }
+            // CSS 已经处理了布局，不需要设置内联样式
+            // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
 
             // 注意：区块状态由各组件自行订阅处理
             // 这里不再重复更新，避免双重订阅导致的性能问题

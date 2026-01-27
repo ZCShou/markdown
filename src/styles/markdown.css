@@ -745,10 +745,13 @@ html::-webkit-scrollbar-thumb:hover,
 .markdown-container {
   display: flex;
   flex: 1;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 0;
   background-color: var(--md-bg-secondary);
   overflow: hidden;
+  overflow-x: hidden;
   position: relative;
 
   /* 分割比例变量（0-1之间） */
@@ -788,7 +791,6 @@ html::-webkit-scrollbar-thumb:hover,
 
 .markdown-container.layout-editor-only .markdown-editor-pane {
   flex: 1;
-  border-right: none;
 }
 
 /* 仅预览模式 */
@@ -805,15 +807,31 @@ html::-webkit-scrollbar-thumb:hover,
 .markdown-container.layout-both .markdown-editor-pane {
   display: flex;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .markdown-container.layout-both .markdown-preview-pane {
   display: flex;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .markdown-container.layout-both .markdown-divider {
   display: block;
+  flex: 0 0 4px;
+  max-width: 4px;
+}
+
+/* 使用自定义分割比例时 */
+.markdown-container.has-split-ratio.layout-both .markdown-editor-pane {
+  flex: 0 0 calc(var(--split-ratio) * 100%);
+}
+
+.markdown-container.has-split-ratio.layout-both .markdown-preview-pane {
+  flex: 1;
+  min-width: 0;
 }
 
 /* 编辑区域 */
@@ -822,17 +840,10 @@ html::-webkit-scrollbar-thumb:hover,
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
   background-color: var(--md-bg-secondary);
-  border-right: 1px solid var(--md-border-primary);
-
-  /* 性能优化：限制重排范围 */
   contain: layout style paint;
-}
-
-/* 当使用固定分割比例时 */
-.markdown-container.has-split-ratio .markdown-editor-pane {
-  flex: var(--split-ratio);
 }
 
 .markdown-editor-wrapper {
@@ -840,7 +851,6 @@ html::-webkit-scrollbar-thumb:hover,
   min-height: 0;
   position: relative;
   overflow: hidden;
-  /* 优化滚动性能 */
   contain: strict;
 }
 
@@ -883,7 +893,9 @@ html::-webkit-scrollbar-thumb:hover,
 .markdown-divider {
   min-width: 4px;
   width: 4px;
+  max-width: 4px;
   flex-shrink: 0;
+  background-color: var(--md-divider-bg);
   cursor: col-resize;
 }
 
@@ -901,17 +913,11 @@ html::-webkit-scrollbar-thumb:hover,
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
   overflow: hidden;
   background-color: var(--md-bg-secondary);
-
-  /* 性能优化：限制重排范围 */
   contain: layout style paint;
-}
-
-/* 当使用固定分割比例时 */
-.markdown-container.has-split-ratio .markdown-preview-pane {
-  flex: calc(1 - var(--split-ratio));
 }
 
 .markdown-preview-wrapper {

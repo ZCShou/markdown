@@ -419,23 +419,8 @@ export class Settings {
         }
 
         // 应用布局比例
-        if (interfaceState.layout === 'layout-both') {
-            const leftRatio = interfaceState.leftRatio ?? 0.5;
-            if (this.cachedElements.editorSection) {
-                this.cachedElements.editorSection.style.flex = `0 0 ${leftRatio * 100}%`;
-            }
-            if (this.cachedElements.previewSection) {
-                this.cachedElements.previewSection.style.flex = `0 0 ${(1 - leftRatio) * 100}%`;
-            }
-        } else {
-            // 非双栏布局时，清除 flex 样式，让 CSS 自动处理
-            if (this.cachedElements.editorSection) {
-                this.cachedElements.editorSection.style.flex = '';
-            }
-            if (this.cachedElements.previewSection) {
-                this.cachedElements.previewSection.style.flex = '';
-            }
-        }
+        // CSS 已经处理了布局，不需要设置内联样式
+        // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
 
         // 应用侧边栏区块显示状态 - 使用 toggle() 简化
         if (this.cachedElements.tocSection) {
