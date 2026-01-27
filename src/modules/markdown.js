@@ -210,7 +210,8 @@ export class MarkdownEditor {
         };
 
         // 从状态管理器获取同步滚动状态
-        this.syncScrollEnabled = this.state.get('syncScrollEnabled');
+        const interfaceState = this.state.get('interface');
+        this.syncScrollEnabled = interfaceState?.syncScrollEnabled ?? true;
         updateSyncScrollIcon(this.syncScrollEnabled);
 
         // 缓存可滚动高度，避免频繁查询 DOM
@@ -265,7 +266,7 @@ export class MarkdownEditor {
             const newEnabled = !this.syncScrollEnabled;
             this.syncScrollEnabled = newEnabled;
             // 通过状态管理器更新（会自动持久化）
-            this.state.setState({ syncScrollEnabled: newEnabled });
+            this.state.updateInterfaceConfig({ syncScrollEnabled: newEnabled });
             updateSyncScrollIcon(newEnabled);
         });
 
@@ -1015,7 +1016,7 @@ export class MarkdownEditor {
         if (this.isInitialized) return;
 
         // 从 EditorState 加载初始数据（已包含 localStorage 数据）
-        const { documents, savedDocId, settings, syncScrollEnabled } = this.state.loadInitialState();
+        const { documents, savedDocId, settings } = this.state.loadInitialState();
         const { currentDocId, content } = this.#getInitialDocument(documents, savedDocId);
 
         // 设置初始状态（skipPersist: true 避免重复保存）
@@ -1027,8 +1028,7 @@ export class MarkdownEditor {
             lastClickedDocId: currentDocId,
             editor: settings.editor,
             interface: settings.interface,
-            export: settings.export,
-            syncScrollEnabled
+            export: settings.export
         }, { skipPersist: true });
 
         // 初始化组件

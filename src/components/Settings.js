@@ -62,6 +62,7 @@ export class Settings {
             rightSidebarInput: dom.get('#setting-right-sidebar-open'),
             tocSectionInput: dom.get('#setting-section-toc'),
             exportSectionInput: dom.get('#setting-section-export'),
+            syncScrollEnabledInput: dom.get('#setting-sync-scroll-enabled'),
             
             // 导出设置
             exportStyleInput: dom.get('#setting-export-include-style'),
@@ -266,6 +267,9 @@ export class Settings {
         if (this.cachedElements.exportSectionInput) {
             this.cachedElements.exportSectionInput.checked = interfaceState.sections?.export ?? true;
         }
+        if (this.cachedElements.syncScrollEnabledInput) {
+            this.cachedElements.syncScrollEnabledInput.checked = interfaceState.syncScrollEnabled ?? true;
+        }
 
         // 导出配置
         if (this.cachedElements.exportStyleInput) {
@@ -307,6 +311,7 @@ export class Settings {
             leftRatio: (parseInt(this.cachedElements.leftRatioInput?.value) || 50) / 100,
             leftSidebarOpen: this.cachedElements.leftSidebarInput?.checked || false,
             rightSidebarOpen: this.cachedElements.rightSidebarInput?.checked || false,
+            syncScrollEnabled: this.cachedElements.syncScrollEnabledInput?.checked ?? true,
             sections: {
                 toc: this.cachedElements.tocSectionInput?.checked ?? true,
                 export: this.cachedElements.exportSectionInput?.checked ?? true
@@ -344,6 +349,7 @@ export class Settings {
             leftRatio: (parseInt(dom.get('#setting-left-ratio')?.value) || 50) / 100,
             leftSidebarOpen: dom.get('#setting-left-sidebar-open')?.checked || false,
             rightSidebarOpen: dom.get('#setting-right-sidebar-open')?.checked || false,
+            syncScrollEnabled: dom.get('#setting-sync-scroll-enabled')?.checked ?? true,
             sections: {
                 toc: dom.get('#setting-section-toc')?.checked ?? true,
                 export: dom.get('#setting-section-export')?.checked ?? true

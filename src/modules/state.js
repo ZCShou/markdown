@@ -40,6 +40,7 @@ export class EditorState {
             leftRatio: 0.5,
             leftSidebarOpen: false,
             rightSidebarOpen: false,
+            syncScrollEnabled: true,
             sections: {
                 toc: true,
                 export: true
@@ -389,10 +390,7 @@ $$
         // 渲染状态
         isRenderingMermaid: false,
         lastRenderedContent: '',
-        headings: [], // 标题数据，用于目录生成
-
-        // UI 状态
-        syncScrollEnabled: true // 同步滚动开关
+        headings: [] // 标题数据，用于目录生成
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -477,7 +475,6 @@ $$
         const documents = StoreManager.loadDocuments();
         const savedDocId = StoreManager.loadCurrentDocId();
         const savedSettings = StoreManager.loadSettings();
-        const syncScrollEnabled = StoreManager.loadSyncScrollEnabled(true);
 
         // 合并保存的设置和默认设置
         const settings = savedSettings ? {
@@ -493,8 +490,7 @@ $$
         return {
             documents,
             savedDocId,
-            settings,
-            syncScrollEnabled
+            settings
         };
     }
 
