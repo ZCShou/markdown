@@ -49,11 +49,6 @@ export class TOC extends BaseComponent {
                 this.scrollToHeading(headingId);
             }
         });
-
-        // 监听目录生成事件（自动清理）
-        this.addEventListener(window, 'md:generateTOC', () => {
-            this.debouncedGenerateTOC();
-        });
     }
 
     /**

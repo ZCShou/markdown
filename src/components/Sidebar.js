@@ -94,11 +94,6 @@ export class Sidebar extends BaseComponent {
             if (isMobile) {
                 dom.app.overlay?.addClass('show');
             }
-
-            // 如果是右侧边栏，生成目录
-            if (this.side === 'right') {
-                window.dispatchEvent(new CustomEvent('md:generateTOC'));
-            }
         } else {
             this.container.classList.remove('open');
 
