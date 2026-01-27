@@ -162,8 +162,5 @@ export class Sidebar extends BaseComponent {
         const interfaceState = this.state.get('interface');
         const isOpen = interfaceState[stateKey];
         this.updateVisibility(isOpen);
-
-        // 应用区块状态（确保初始状态正确）
-        this.applySectionStates();
     }
 }
