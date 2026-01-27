@@ -12,7 +12,7 @@
  * persistence.start();
  * ```
  */
-import { StoreManager } from './store.js';
+import { StoreManager } from './StoreManager.js';
 
 export class PersistenceManager {
     /**

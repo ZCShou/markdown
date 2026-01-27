@@ -24,7 +24,7 @@
  * @see BaseComponent 持久化组件基类
  */
 import { dom } from '../utils/dom.js';
-import { EditorState } from '../modules/state.js';
+import { EditorState } from '../EditorState.js';
 
 export class Settings {
     /**

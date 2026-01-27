@@ -9,17 +9,16 @@
  * editor.init();
  * ```
  */
-import { EditorState } from './state.js';
-import { DocumentList } from '../components/DocumentList.js';
-import { Preview } from '../components/Preview.js';
-import { Editor } from '../components/Editor.js';
-import { Sidebar } from '../components/Sidebar.js';
-import { TOC } from '../components/TOC.js';
-import { Dialog } from '../components/Dialog.js';
-import { SearchReplace } from '../components/SearchReplace.js';
-import { Settings } from '../components/Settings.js';
-import { StoreManager } from './store.js';
-import { dom } from '../utils/dom.js';
+import { EditorState } from './EditorState.js';
+import { DocumentList } from './components/DocumentList.js';
+import { Preview } from './components/Preview.js';
+import { Editor } from './components/Editor.js';
+import { Sidebar } from './components/Sidebar.js';
+import { TOC } from './components/TOC.js';
+import { Dialog } from './components/Dialog.js';
+import { SearchReplace } from './components/SearchReplace.js';
+import { Settings } from './components/Settings.js';
+import { dom } from './utils/dom.js';
 
 // 导入 Prism 语言包
 import 'prismjs/components/prism-java';

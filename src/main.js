@@ -2,7 +2,7 @@
 import '@vscode/codicons/dist/codicon.css';
 import 'katex/dist/katex.min.css';
 
-import { MarkdownEditor } from './modules/markdown.js';
+import { MarkdownEditor } from './MarkdownEditor.js';
 
 /**
  * 初始化应用并启动 Markdown 编辑器

@@ -12,8 +12,8 @@
  * state.setState({ content: 'Hello' });
  * ```
  */
-import { StoreManager } from './store.js';
-import { PersistenceManager } from './persistence.js';
+import { StoreManager } from './StoreManager.js';
+import { PersistenceManager } from './PersistenceManager.js';
 
 /**
  *
