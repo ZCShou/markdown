@@ -364,139 +364,173 @@ export class MarkdownEditor {
 
         if (!divider || !container) return;
 
-        const MIN_WIDTH = 100; // 最小面板宽度
-        let frameCount = 0; // 帧计数器，用于降低更新频率
-        let lastUpdateTime = 0; // 上次更新时间
+        const MIN_WIDTH = MarkdownEditor.DRAG_CONFIG.MIN_WIDTH ?? 100;
 
-        // 更新分割比例（只更新 CSS 变量，让 CSS 自动处理布局）
+        // Cache frequently used elements to minimize DOM queries in hot path
+        const editorPane = container.querySelector('.markdown-editor-pane');
+        const previewPane = container.querySelector('.markdown-preview-pane');
+
         const updateSplitRatio = ratio => {
-            container.style.setProperty('--split-ratio', ratio);
+            const clamped = Math.max(0, Math.min(1, Number(ratio)));
+            // Avoid unnecessary updates when ratio hasn't changed much
+            if (Math.abs(clamped - this.lastLeftRatio) < 1e-6) return;
+
+            container.style.setProperty('--split-ratio', String(clamped));
             container.classList.add('has-split-ratio');
-            this.lastLeftRatio = ratio;
+            this.lastLeftRatio = clamped;
+
+            if (editorPane && previewPane) {
+                const leftPct = (clamped * 100).toFixed(4) + '%';
+                const rightPct = ((1 - clamped) * 100).toFixed(4) + '%';
+                editorPane.style.flex = `0 0 ${leftPct}`;
+                previewPane.style.flex = `0 0 ${rightPct}`;
+                editorPane.style.maxWidth = `calc(${leftPct} - 4px)`;
+                previewPane.style.maxWidth = `calc(${rightPct} - 4px)`;
+            }
         };
 
-        // 清除分割比例（恢复自适应布局）
         const clearSplitRatio = () => {
             container.classList.remove('has-split-ratio');
         };
 
-        // 重新计算分割比例（响应侧边栏变化）
         const recalculateSplitRatio = () => {
             const currentLayout = this.state.get('interface').layout;
             if (currentLayout !== 'layout-both') {
                 clearSplitRatio();
                 return;
             }
-
-            // 延迟一帧，确保侧边栏动画完成后再应用比例
+            // Defer to next frame
             requestAnimationFrame(() => {
                 updateSplitRatio(this.lastLeftRatio);
             });
         };
 
-        // 初始化宽度（只在双面板模式下设置固定比例）
+        // 初始化（依赖 CSS 处理布局）
         const currentLayout = this.state.get('interface').layout;
         if (currentLayout === 'layout-both') {
             updateSplitRatio(this.lastLeftRatio);
         }
 
-        // 监听侧边栏状态变化，重新计算分割比例
-        this.state.subscribeTo('interface', () => {
-            recalculateSplitRatio();
-        });
+        // 监听 layout/sidebars 变化
+        this.state.subscribeTo('interface', () => recalculateSplitRatio());
 
-        // 鼠标悬停效果
+        // 悬停样式（仅视觉）
         divider.addEventListener('mouseenter', () => {
             if (!this.isDragging) divider.classList.add('hover');
         });
-
         divider.addEventListener('mouseleave', () => {
             if (!this.isDragging) divider.classList.remove('hover');
         });
 
-        // 开始拖拽
-        divider.addEventListener('mousedown', e => {
+        // 双击重置比例
+        divider.addEventListener('dblclick', () => updateSplitRatio(0.5));
+
+        // Pointer Events + rAF throttling. Use instance property for RAF id so it can be cancelled.
+        this._dragRafId = null;
+
+        // Cache container rect/width on pointerdown and on resize to avoid repeated layout reads
+        let cachedContainerRect = null;
+        let cachedDividerWidth = divider.offsetWidth;
+
+        const onPointerMove = (e) => {
+            if (!this.isDragging) return;
+            if (this._dragRafId) return;
+            this._dragRafId = requestAnimationFrame(() => {
+                const rect = cachedContainerRect || container.getBoundingClientRect();
+                const containerWidth = rect.width;
+                const dividerWidth = cachedDividerWidth || divider.offsetWidth;
+                const availableWidth = Math.max(0, containerWidth - dividerWidth);
+                if (availableWidth <= 0) {
+                    this._dragRafId = null;
+                    return;
+                }
+
+                const min = MIN_WIDTH;
+                const max = availableWidth - min;
+
+                const rawLeft = e.clientX - rect.left;
+                let left = Math.round(rawLeft);
+                left = Math.max(min, Math.min(left, max));
+
+                const ratio = left / availableWidth;
+                updateSplitRatio(ratio);
+
+                this._dragRafId = null;
+            });
+        };
+
+        const endDrag = (e) => {
+            if (!this.isDragging) return;
+            this.isDragging = false;
+            divider.classList.remove('dragging', 'hover');
+            document.body.classList.remove('is-dragging');
+            container.classList.remove('is-resizing');
+
+            if (this._dragRafId) {
+                cancelAnimationFrame(this._dragRafId);
+                this._dragRafId = null;
+            }
+
+            updateSplitRatio(this.lastLeftRatio);
+
+            try {
+                if (e?.pointerId && divider.releasePointerCapture) divider.releasePointerCapture(e.pointerId);
+            } catch (err) {}
+
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', endDrag);
+            window.removeEventListener('pointercancel', endDrag);
+        };
+
+        const onPointerDown = (e) => {
             this.isDragging = true;
             divider.classList.add('dragging');
             divider.classList.remove('hover');
             document.body.classList.add('is-dragging');
-
-            // 添加拖拽优化类，启用 CSS 优化
             container.classList.add('is-resizing');
+            // Ensure CSS split mode is active when starting drag
+            if (!container.classList.contains('has-split-ratio')) {
+                container.classList.add('has-split-ratio');
+                container.style.setProperty('--split-ratio', this.lastLeftRatio);
+            }
 
-            // 重置计数器
-            frameCount = 0;
-            lastUpdateTime = performance.now();
+            // Cache measurements for the drag session
+            cachedContainerRect = container.getBoundingClientRect();
+            cachedDividerWidth = divider.offsetWidth;
+
+            try {
+                if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
+            } catch (err) {}
+
+            window.addEventListener('pointermove', onPointerMove, { passive: true });
+            window.addEventListener('pointerup', endDrag, { passive: true });
+            window.addEventListener('pointercancel', endDrag, { passive: true });
 
             e.preventDefault();
-        });
+        };
 
-        // 双击重置为50%
-        divider.addEventListener('dblclick', () => {
-            updateSplitRatio(0.5);
-        });
+        divider.addEventListener('pointerdown', onPointerDown);
 
-        // 拖拽过程（性能优化版：降低更新频率）
-        document.addEventListener('mousemove', e => {
-            if (!this.isDragging) return;
-
-            if (this._dragRafId) return;
-
-            this._dragRafId = requestAnimationFrame(() => {
-                const now = performance.now();
-                frameCount++;
-
-                // 性能优化：每 3 帧更新一次，或者距离上次更新超过 16ms
-                const shouldUpdate = frameCount % 3 === 0 || now - lastUpdateTime > 16;
-
-                if (shouldUpdate) {
-                    const containerRect = container.getBoundingClientRect();
-                    const containerWidth = container.offsetWidth;
-                    const dividerWidth = divider.offsetWidth;
-                    const availableWidth = containerWidth - dividerWidth;
-
-                    const minWidth = MIN_WIDTH;
-                    const maxWidth = availableWidth - minWidth;
-                    const leftWidth = Math.max(
-                        minWidth,
-                        Math.min(e.clientX - containerRect.left, maxWidth)
-                    );
-
-                    // 只更新 CSS 变量，CSS 自动处理布局
-                    const ratio = leftWidth / availableWidth;
-                    container.style.setProperty('--split-ratio', ratio);
-                    this.lastLeftRatio = ratio;
-                    lastUpdateTime = now;
-                }
-
-                this._dragRafId = null;
-            });
-        });
-
-        // 结束拖拽
-        document.addEventListener('mouseup', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                divider.classList.remove('dragging', 'hover');
-                document.body.classList.remove('is-dragging');
-
-                // 移除拖拽优化类
-                container.classList.remove('is-resizing');
-
-                // 拖拽结束后，确保最终比例正确应用
-                requestAnimationFrame(() => {
-                    updateSplitRatio(this.lastLeftRatio);
-                });
-            }
-        });
-
-        // 窗口大小变化时重新计算
-        window.addEventListener('resize', () => {
+        const onResize = () => {
             if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
             this._resizeTimeout = setTimeout(() => {
+                // Clear cached rect so next pointermove recalculates
+                cachedContainerRect = null;
+                cachedDividerWidth = divider.offsetWidth;
                 recalculateSplitRatio();
             }, 100);
-        });
+        };
+
+        window.addEventListener('resize', onResize);
+
+        // Save cleanup handles so destroy() can remove listeners
+        this._dividerCleanup = () => {
+            divider.removeEventListener('pointerdown', onPointerDown);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', endDrag);
+            window.removeEventListener('pointercancel', endDrag);
+            window.removeEventListener('resize', onResize);
+        };
     }
 
     // ==================== 主题管理 ====================
@@ -1140,6 +1174,14 @@ export class MarkdownEditor {
         if (this._dragRafId) {
             cancelAnimationFrame(this._dragRafId);
             this._dragRafId = null;
+        }
+
+        // 移除分隔条相关事件监听
+        if (this._dividerCleanup) {
+            try {
+                this._dividerCleanup();
+            } catch (err) {}
+            this._dividerCleanup = null;
         }
     }
 }
