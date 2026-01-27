@@ -390,7 +390,10 @@ $$
         // 渲染状态
         isRenderingMermaid: false,
         lastRenderedContent: '',
-        headings: [] // 标题数据，用于目录生成
+        headings: [], // 标题数据，用于目录生成
+
+        // 通知状态
+        notification: null // { message, type, timestamp }
     };
 
     /** @type {Map<string, Set<Function>>} 特定键的监听器 */
@@ -999,6 +1002,30 @@ $$
      */
     updateLastRenderedContent(content) {
         this.setState({ lastRenderedContent: content });
+    }
+
+    // ==================== 通知状态 ====================
+
+    /**
+     * 显示通知
+     * @param {string} message - 通知消息
+     * @param {string} type - 通知类型
+     */
+    showNotification(message, type = 'info') {
+        this.setState({
+            notification: {
+                message,
+                type,
+                timestamp: Date.now()
+            }
+        });
+    }
+
+    /**
+     * 清除通知
+     */
+    clearNotification() {
+        this.setState({ notification: null });
     }
 
     /**

@@ -214,19 +214,15 @@ export class BaseComponent {
     }
 
     /**
-     * 显示消息（委托给主编辑器）
+     * 显示消息（使用状态驱动）
      * @param {string} message - 消息内容
      * @param {string} [type='info'] - 消息类型
      * @param {number} [duration=2000] - 持续时间（毫秒）
      * @returns {void}
      */
     showMessage(message, type = 'info', duration = 2000) {
-        // 触发自定义事件，由主编辑器处理
-        window.dispatchEvent(
-            new CustomEvent('md:showMessage', {
-                detail: { message, type, duration }
-            })
-        );
+        // 使用状态驱动的通知系统
+        this.state.showNotification(message, type);
     }
 
     /**

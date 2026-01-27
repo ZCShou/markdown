@@ -223,66 +223,52 @@ export class Settings {
         const interfaceState = this.state.get('interface') || {};
         const exportConfig = this.state.get('export') || {};
 
-        // 编辑器设置 - 使用缓存的元素
-        if (this.cachedElements.fontSizeInput) {
-            this.cachedElements.fontSizeInput.value = editor.fontSize ?? 14;
-        }
-        if (this.cachedElements.lineHeightInput) {
-            this.cachedElements.lineHeightInput.value = editor.lineHeight ?? 1.6;
-        }
-        if (this.cachedElements.autoSaveInput) {
-            this.cachedElements.autoSaveInput.checked = editor.autoSave ?? true;
-        }
-        if (this.cachedElements.insertSpacesInput) {
-            this.cachedElements.insertSpacesInput.checked = editor.insertSpaces ?? true;
-        }
-        if (this.cachedElements.tabSizeInput) {
-            this.cachedElements.tabSizeInput.value = editor.tabSize ?? 4;
-        }
-        if (this.cachedElements.themeSelect) {
-            this.cachedElements.themeSelect.value = interfaceState.theme ?? 'auto';
-        }
+        // 编辑器设置
+        this.#setInputValue(this.cachedElements.fontSizeInput, editor.fontSize, 14);
+        this.#setInputValue(this.cachedElements.lineHeightInput, editor.lineHeight, 1.6);
+        this.#setInputChecked(this.cachedElements.autoSaveInput, editor.autoSave, true);
+        this.#setInputChecked(this.cachedElements.insertSpacesInput, editor.insertSpaces, true);
+        this.#setInputValue(this.cachedElements.tabSizeInput, editor.tabSize, 4);
 
-        // 界面配置 - 避免重复计算
+        // 界面配置
+        this.#setInputValue(this.cachedElements.themeSelect, interfaceState.theme, 'auto');
+
         const leftRatioPercent = Math.round((interfaceState.leftRatio ?? 0.5) * 100);
-        
-        if (this.cachedElements.layoutSelect) {
-            this.cachedElements.layoutSelect.value = interfaceState.layout ?? 'layout-both';
-        }
-        if (this.cachedElements.leftRatioInput) {
-            this.cachedElements.leftRatioInput.value = leftRatioPercent;
-        }
+        this.#setInputValue(this.cachedElements.layoutSelect, interfaceState.layout, 'layout-both');
+        this.#setInputValue(this.cachedElements.leftRatioInput, leftRatioPercent);
         if (this.cachedElements.ratioValue) {
             this.cachedElements.ratioValue.textContent = `${leftRatioPercent}%`;
         }
-        if (this.cachedElements.leftSidebarInput) {
-            this.cachedElements.leftSidebarInput.checked = interfaceState.leftSidebarOpen ?? false;
-        }
-        if (this.cachedElements.rightSidebarInput) {
-            this.cachedElements.rightSidebarInput.checked = interfaceState.rightSidebarOpen ?? false;
-        }
-        if (this.cachedElements.tocSectionInput) {
-            this.cachedElements.tocSectionInput.checked = interfaceState.sections?.toc ?? true;
-        }
-        if (this.cachedElements.exportSectionInput) {
-            this.cachedElements.exportSectionInput.checked = interfaceState.sections?.export ?? true;
-        }
-        if (this.cachedElements.syncScrollEnabledInput) {
-            this.cachedElements.syncScrollEnabledInput.checked = interfaceState.syncScrollEnabled ?? true;
-        }
+        this.#setInputChecked(this.cachedElements.leftSidebarInput, interfaceState.leftSidebarOpen, false);
+        this.#setInputChecked(this.cachedElements.rightSidebarInput, interfaceState.rightSidebarOpen, false);
+        this.#setInputChecked(this.cachedElements.tocSectionInput, interfaceState.sections?.toc, true);
+        this.#setInputChecked(this.cachedElements.exportSectionInput, interfaceState.sections?.export, true);
+        this.#setInputChecked(this.cachedElements.syncScrollEnabledInput, interfaceState.syncScrollEnabled, true);
 
         // 导出配置
-        if (this.cachedElements.exportStyleInput) {
-            this.cachedElements.exportStyleInput.checked = exportConfig.includeStyle ?? true;
+        this.#setInputChecked(this.cachedElements.exportStyleInput, exportConfig.includeStyle, true);
+        this.#setInputChecked(this.cachedElements.exportHighlightInput, exportConfig.codeHighlight, true);
+        this.#setInputValue(this.cachedElements.pdfSizeSelect, exportConfig.pdfSize, 'A4');
+        this.#setInputValue(this.cachedElements.pdfMarginSelect, exportConfig.pdfMargin, 'default');
+    }
+
+    /**
+     * 设置输入框的值（辅助方法）
+     * @private
+     */
+    #setInputValue(element, value, defaultValue) {
+        if (element) {
+            element.value = value ?? defaultValue;
         }
-        if (this.cachedElements.exportHighlightInput) {
-            this.cachedElements.exportHighlightInput.checked = exportConfig.codeHighlight ?? true;
-        }
-        if (this.cachedElements.pdfSizeSelect) {
-            this.cachedElements.pdfSizeSelect.value = exportConfig.pdfSize ?? 'A4';
-        }
-        if (this.cachedElements.pdfMarginSelect) {
-            this.cachedElements.pdfMarginSelect.value = exportConfig.pdfMargin ?? 'default';
+    }
+
+    /**
+     * 设置复选框的状态（辅助方法）
+     * @private
+     */
+    #setInputChecked(element, value, defaultValue) {
+        if (element) {
+            element.checked = value ?? defaultValue;
         }
     }
 
@@ -290,11 +276,6 @@ export class Settings {
      * 从 UI 读取设置并更新到 state
      */
     readSettingsFromUI() {
-        if (!this.cachedElements) {
-            // 如果缓存未初始化，回退到直接查询
-            return this.readSettingsFromUIFallback();
-        }
-
         // 读取编辑器配置 - 使用缓存的元素
         const editorConfig = {
             fontSize: parseInt(this.cachedElements.fontSizeInput?.value) || 14,
@@ -303,7 +284,7 @@ export class Settings {
             insertSpaces: this.cachedElements.insertSpacesInput?.checked ?? true,
             tabSize: parseInt(this.cachedElements.tabSizeInput?.value) || 4
         };
-        
+
         // 读取界面配置
         const interfaceConfig = {
             theme: this.cachedElements.themeSelect?.value || 'auto',
@@ -317,7 +298,7 @@ export class Settings {
                 export: this.cachedElements.exportSectionInput?.checked ?? true
             }
         };
-        
+
         // 读取导出配置
         const exportConfig = {
             includeStyle: this.cachedElements.exportStyleInput?.checked || false,
@@ -330,49 +311,11 @@ export class Settings {
     }
 
     /**
-     * 从 UI 读取设置的回退方法（当缓存未初始化时）
-     */
-    readSettingsFromUIFallback() {
-        // 读取编辑器配置
-        const editorConfig = {
-            fontSize: parseInt(dom.get('#setting-font-size')?.value) || 14,
-            lineHeight: parseFloat(dom.get('#setting-line-height')?.value) || 1.6,
-            autoSave: dom.get('#setting-auto-save')?.checked || false,
-            insertSpaces: dom.get('#setting-insert-spaces')?.checked ?? true,
-            tabSize: parseInt(dom.get('#setting-tab-size')?.value) || 4
-        };
-        
-        // 读取界面配置
-        const interfaceConfig = {
-            theme: dom.get('#setting-theme')?.value || 'auto',
-            layout: dom.get('#setting-layout')?.value || 'layout-both',
-            leftRatio: (parseInt(dom.get('#setting-left-ratio')?.value) || 50) / 100,
-            leftSidebarOpen: dom.get('#setting-left-sidebar-open')?.checked || false,
-            rightSidebarOpen: dom.get('#setting-right-sidebar-open')?.checked || false,
-            syncScrollEnabled: dom.get('#setting-sync-scroll-enabled')?.checked ?? true,
-            sections: {
-                toc: dom.get('#setting-section-toc')?.checked ?? true,
-                export: dom.get('#setting-section-export')?.checked ?? true
-            }
-        };
-        
-        // 读取导出配置
-        const exportConfig = {
-            includeStyle: dom.get('#setting-export-include-style')?.checked || false,
-            codeHighlight: dom.get('#setting-export-code-highlight')?.checked || false,
-            pdfSize: dom.get('#setting-pdf-size')?.value || 'A4',
-            pdfMargin: dom.get('#setting-pdf-margin')?.value || 'default'
-        };
-
-        return { editorConfig, interfaceConfig, exportConfig };
-    }
-
-    /**
      * 保存设置
      */
     saveSettings() {
         const { editorConfig, interfaceConfig, exportConfig } = this.readSettingsFromUI();
-        
+
         // 更新到 state（唯一数据源）
         this.state.updateEditorConfig(editorConfig);
         this.state.updateInterfaceConfig(interfaceConfig);
@@ -381,9 +324,9 @@ export class Settings {
         // 应用设置
         this.applySettings();
 
-        // 显示保存成功提示
-        this.showNotification('设置已保存');
-        
+        // 显示保存成功提示（使用状态驱动）
+        this.state.showNotification('设置已保存', 'success');
+
         // 关闭对话框
         this.close();
     }
@@ -395,18 +338,18 @@ export class Settings {
         if (confirm('确定要重置所有设置为默认值吗？')) {
             // 使用 state.js 中定义的默认设置
             const defaults = EditorState.DEFAULT_SETTINGS;
-            
+
             // 重置编辑器配置
             this.state.updateEditorConfig(defaults.editor);
-            
+
             // 重置界面配置
             this.state.updateInterfaceConfig(defaults.interface);
-            
+
             // 重置导出配置
             this.state.updateExportConfig(defaults.export);
 
             this.loadStateToUI();
-            this.showNotification('设置已重置');
+            this.state.showNotification('设置已重置', 'success');
         }
     }
 
@@ -489,7 +432,7 @@ export class Settings {
      */
     applyTheme(theme) {
         const html = document.documentElement;
-        
+
         if (theme === 'auto') {
             // 跟随系统主题
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -497,16 +440,5 @@ export class Settings {
         } else {
             html.setAttribute('data-mode', theme);
         }
-    }
-
-    /**
-     * 显示通知
-     * @param {string} message - 通知消息
-     */
-    showNotification(message) {
-        // 触发通知事件
-        document.dispatchEvent(new CustomEvent('show-notification', {
-            detail: { message, type: 'success' }
-        }));
     }
 }

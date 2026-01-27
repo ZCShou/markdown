@@ -665,12 +665,6 @@ export class MarkdownEditor {
             if (element) element.onclick = handler;
         });
 
-        // 监听消息显示事件
-        window.addEventListener('md:showMessage', e => {
-            const { message, type, duration } = e.detail;
-            this.showMessage(message, type, duration);
-        });
-
         // 全局快捷键
         this.setupGlobalShortcuts();
     }
@@ -1145,6 +1139,16 @@ export class MarkdownEditor {
             // 更新 Mermaid 主题（只在主题变化时）
             if (!oldInterface || newInterface.theme !== oldInterface.theme) {
                 this.components.preview?.updateMermaidTheme();
+            }
+        });
+
+        // 监听通知状态变化，显示消息
+        this.state.subscribeTo('notification', (notification) => {
+            if (notification) {
+                const { message, type } = notification;
+                this.showMessage(message, type);
+                // 自动清除通知（避免重复显示）
+                this.state.clearNotification();
             }
         });
     }
