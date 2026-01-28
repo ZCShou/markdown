@@ -34,10 +34,6 @@ export class Preview extends BaseComponent {
     #codeHighlightTimer = null;
     /** @private */
     #mathRenderTimer = null;
-    /** @private */
-    #mermaidAbortController = null;  // 🔥 用于取消 mermaid 渲染任务
-    /** @private */
-    #mermaidRenderGeneration = 0;  // 🔥 用于跟踪渲染批次
 
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
@@ -321,12 +317,6 @@ export class Preview extends BaseComponent {
         const doc = documents.find(d => d.id === currentDocId);
         if (!doc || doc.type === 'folder') return;
 
-        // 🔥 切换文档时：取消之前的 mermaid 渲染任务
-        if (this.#mermaidAbortController) {
-            this.#mermaidAbortController.abort();
-            this.#mermaidAbortController = null;
-        }
-
         // 切换文档时立即同步渲染，无延迟
         const content = doc.content || '';
 
@@ -346,8 +336,6 @@ export class Preview extends BaseComponent {
      * @param markdown
      */
     renderContent(markdown) {
-        this.#mermaidAbortController = null;
-
         // 清空待处理集合，避免旧元素干扰
         this.#pendingMermaidBlocks.clear();
         this.#pendingCodeBlocks.clear();
@@ -1203,15 +1191,6 @@ export class Preview extends BaseComponent {
         if (typeof mermaid === 'undefined' || mermaidBlocks.length === 0) return;
         if (this.container.offsetParent === null) return;
 
-        // 🔥 修复：取消之前的渲染任务，避免竞态条件
-        if (this.#mermaidAbortController) {
-            this.#mermaidAbortController.abort();
-        }
-        this.#mermaidAbortController = new AbortController();
-
-        // 🔥 增加渲染批次 ID，用于跟踪当前渲染代
-        this.#mermaidRenderGeneration++;
-
         const blocks = Array.from(mermaidBlocks);
 
         // 先将 code 块转换为 mermaid div
@@ -1229,8 +1208,7 @@ export class Preview extends BaseComponent {
         // 🔥 优化：批量渲染可见图表，而不是逐个渲染
         const visibleToRender = visible.filter(div => !div.classList.contains('mermaid-done'));
         if (visibleToRender.length > 0) {
-            // 🔥 传入当前 generation，以便在异步渲染完成时检查
-            this.#renderMermaidBatch(visibleToRender, this.#mermaidRenderGeneration);
+            this.#renderMermaidBatch(visibleToRender);
         }
 
         // 监听不可见图表
@@ -1246,8 +1224,6 @@ export class Preview extends BaseComponent {
                 clearTimeout(this.#mermaidRenderTimer);
             }
             this.#mermaidRenderTimer = setTimeout(() => {
-                // 🔥 检查是否已经有新的渲染批次
-                const currentGeneration = this.#mermaidRenderGeneration;
                 const pending = Array.from(this.#pendingMermaidBlocks);
                 const validPending = [];
 
@@ -1264,7 +1240,7 @@ export class Preview extends BaseComponent {
                 });
 
                 if (validPending.length > 0) {
-                    this.#renderMermaidBatch(validPending, currentGeneration);
+                    this.#renderMermaidBatch(validPending);
                     validPending.forEach(div => {
                         div.classList.remove('mermaid-pending');
                         this.#pendingMermaidBlocks.delete(div);
@@ -1338,11 +1314,10 @@ export class Preview extends BaseComponent {
     /**
      * 批量渲染 Mermaid 图表
      * @param {Array<Element>} mermaidDivs - mermaid div 元素数组
-     * @param {number} generation - 渲染批次 ID
      * @returns {Promise<void>}
      * @private
      */
-    async #renderMermaidBatch(mermaidDivs, generation = this.#mermaidRenderGeneration) {
+    async #renderMermaidBatch(mermaidDivs) {
         // 🔥 修复：过滤掉已渲染、正在渲染或已断开连接的元素
         const containers = mermaidDivs.filter(div => {
             // 检查元素是否连接到 DOM
@@ -1357,18 +1332,6 @@ export class Preview extends BaseComponent {
 
         if (containers.length === 0) return;
 
-        // 🔥 修复：检查是否已取消或有新的渲染批次
-        if (this.#mermaidAbortController?.signal.aborted) {
-            console.debug('Mermaid 渲染已取消');
-            return;
-        }
-
-        // 🔥 检查渲染批次是否过期
-        if (generation !== this.#mermaidRenderGeneration) {
-            console.debug('Mermaid 渲染批次已过期，跳过');
-            return;
-        }
-
         // 清除旧状态
         containers.forEach(div => {
             div.classList.remove('mermaid-pending', 'render-error');
@@ -1378,15 +1341,6 @@ export class Preview extends BaseComponent {
         try {
             // 🔥 优化：单次批量调用，而不是逐个调用
             await mermaid.run({ nodes: containers });
-
-            // 🔥 修复：再次检查渲染批次是否过期
-            if (generation !== this.#mermaidRenderGeneration) {
-                console.debug('Mermaid 渲染完成时批次已过期');
-                containers.forEach(div => {
-                    div.classList.remove('mermaid-rendering');
-                });
-                return;
-            }
 
             // 🔥 修复：再次检查元素是否还在 DOM 中且在我们的容器内
             containers.forEach(div => {
@@ -1399,18 +1353,6 @@ export class Preview extends BaseComponent {
                 }
             });
         } catch (err) {
-            // 🔥 修复：如果是因为取消导致的错误，不显示错误信息
-            if (this.#mermaidAbortController?.signal.aborted) {
-                console.debug('Mermaid 渲染已取消');
-                return;
-            }
-
-            // 🔥 检查渲染批次是否过期
-            if (generation !== this.#mermaidRenderGeneration) {
-                console.debug('Mermaid 渲染失败时批次已过期');
-                return;
-            }
-
             console.warn('Mermaid 批量渲染失败:', err);
             containers.forEach(div => {
                 // 只为仍然存在的元素显示错误
@@ -1813,12 +1755,6 @@ ${html}
         if (this.#mermaidRenderTimer) {
             clearTimeout(this.#mermaidRenderTimer);
             this.#mermaidRenderTimer = null;
-        }
-
-        // 🔥 清理 AbortController
-        if (this.#mermaidAbortController) {
-            this.#mermaidAbortController.abort();
-            this.#mermaidAbortController = null;
         }
 
         // 清理代码高亮定时器
