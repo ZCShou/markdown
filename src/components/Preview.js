@@ -113,10 +113,13 @@ export class Preview extends BaseComponent {
                         const element = entry.target;
 
                         // 处理代码高亮
-                        if (element.tagName === 'CODE' && this.#pendingCodeBlocks.has(element)) {
-                            this.#highlightSingleBlock(element);
+                        // 🔥 优化：先检查是否已在处理中，避免重复
+                        if (element.tagName === 'CODE' &&
+                            this.#pendingCodeBlocks.has(element) &&
+                            !element.classList.contains('prism-highlighted')) {
                             this.#pendingCodeBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
+                            this.#highlightSingleBlock(element);
                         }
 
                         // 处理 Mermaid 渲染
@@ -1076,12 +1079,17 @@ export class Preview extends BaseComponent {
      * @private
      */
     #highlightSingleBlock(block) {
+        // 🔥 优化：提前标记为已高亮，防止并发重复渲染
+        if (block.classList.contains('prism-highlighted')) {
+            return;
+        }
+        block.classList.add('prism-highlighted');
+
         try {
             Prism.highlightElement(block);
-            block.classList.add('prism-highlighted');
         } catch (err) {
             console.warn('代码高亮失败:', err);
-            block.classList.add('prism-highlighted'); // 标记为已处理
+            // 类已在开始时添加，这里无需重复添加
         }
     }
 
