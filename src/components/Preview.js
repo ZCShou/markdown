@@ -1141,16 +1141,39 @@ export class Preview extends BaseComponent {
      * @returns {void}
      * @private
      */
-    #renderMermaidDivs(containers) {
+    /**
+     * 渲染 Mermaid div 列表
+     * @param {Array<Element>} containers - 容器元素数组
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #renderMermaidDivs(containers) {
         if (containers.length === 0) return;
 
         const timeoutId = this.#setupMermaidTimeout(containers);
         this.#mermaidTimeoutIds.push(timeoutId);
 
-        mermaid
-            .run({ nodes: containers })
-            .then(() => this.#handleMermaidSuccess(containers, timeoutId))
-            .catch(err => this.#handleMermaidError(containers, timeoutId, err));
+        // 使用 Promise.allSettled 批量渲染，确保单个失败不影响其他
+        const results = await Promise.allSettled(
+            containers.map(container =>
+                mermaid.run({ nodes: [container] })
+                    .then(() => ({ container, success: true }))
+                    .catch(err => ({ container, success: false, error: err }))
+            )
+        );
+
+        results.forEach(result => {
+            if (result.status === 'fulfilled') {
+                const { container, success, error } = result.value;
+                if (success) {
+                    this.#handleMermaidSuccess([container], timeoutId);
+                } else {
+                    this.#handleMermaidError([container], timeoutId, error);
+                }
+            }
+        });
+
+        this.#clearMermaidTimeout(timeoutId);
     }
 
     /**
@@ -1203,10 +1226,11 @@ export class Preview extends BaseComponent {
 
     /**
      * 批量渲染 Mermaid（降级方案）
-     * @param blocks
+     * @param {Array} blocks - Mermaid 块数组
+     * @returns {Promise<void>}
      * @private
      */
-    #renderMermaidBatch(blocks) {
+    async #renderMermaidBatch(blocks) {
         if (this.state.get('isRenderingMermaid')) return;
 
         this.state.setRenderingState(true);
@@ -1218,19 +1242,9 @@ export class Preview extends BaseComponent {
             return;
         }
 
-        const timeoutId = this.#setupMermaidTimeout(containers);
-        this.#mermaidTimeoutIds.push(timeoutId);
-
-        mermaid
-            .run({ nodes: containers })
-            .then(() => {
-                this.#handleMermaidSuccess(containers, timeoutId);
-                this.state.setRenderingState(false);
-            })
-            .catch(err => {
-                this.#handleMermaidError(containers, timeoutId, err);
-                this.state.setRenderingState(false);
-            });
+        // 复用 #renderMermaidDivs 的逻辑
+        await this.#renderMermaidDivs(containers);
+        this.state.setRenderingState(false);
     }
 
     /**
