@@ -378,6 +378,11 @@ export class Preview extends BaseComponent {
 
         // 延迟处理元素（避免阻塞主线程）- 优化版：合并查询
         requestAnimationFrame(() => {
+            // 计算具体哪些数学公式发生了变化（延迟到 RAF 内部，减少主线程阻塞）
+            const pendingMathHashes = changes.mathBlocksChanged
+                ? this.#getChangedMathBlocks(this.#lastRenderedData.mathBlocks, changes.newMathBlocks)
+                : null;
+
             // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
             const allElements = dom.getAllIn(
                 this.container,
@@ -385,28 +390,28 @@ export class Preview extends BaseComponent {
             );
 
             // 分类元素
-            const codeBlocks = [];
-            const mermaidBlocks = [];
-            const preElements = [];
-            const images = [];
+            const pendingCodeBlocks = [];
+            const pendingMermaidBlocks = [];
+            const pendingPreElements = [];
+            const pendingImages = [];
 
             allElements.forEach(el => {
                 if (el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE') {
                     if (!el.classList.contains('prism-highlighted')) {
                         if (el.classList.contains('language-mermaid')) {
-                            mermaidBlocks.push(el);
+                            pendingMermaidBlocks.push(el);
                         } else {
-                            codeBlocks.push(el);
+                            pendingCodeBlocks.push(el);
                         }
                     }
                 } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
-                    preElements.push(el);
+                    pendingPreElements.push(el);
                 } else if (el.tagName === 'IMG') {
-                    images.push(el);
+                    pendingImages.push(el);
                 }
             });
 
-            this.processAllElements(codeBlocks, mermaidBlocks, preElements, images, changes);
+            this.processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathHashes, pendingPreElements, pendingImages, changes);
 
             // 更新缓存
             this.#lastRenderedData = {
@@ -443,9 +448,7 @@ export class Preview extends BaseComponent {
             newCodeBlocks: extracted.codeBlocks,
             newMermaidBlocks: extracted.mermaidBlocks,
             newMathBlocks: extracted.mathBlocks,
-            newHeadings: extracted.headings,
-            // 新增：检测具体哪些数学公式发生了变化
-            changedMathBlocks: this.#getChangedMathBlocks(oldData.mathBlocks, extracted.mathBlocks)
+            newHeadings: extracted.headings
         };
     }
 
@@ -633,39 +636,40 @@ export class Preview extends BaseComponent {
 
     /**
      * 批量处理所有 DOM 元素（优化版：简化逻辑 + 增量公式渲染）
-     * @param codeBlocks
-     * @param mermaidBlocks
-     * @param preElements
-     * @param images
-     * @param changes
+     * @param {Array<Element>} pendingCodeBlocks - 等待高亮的代码块元素数组（未高亮的）
+     * @param {Array<Element>} pendingMermaidBlocks - 等待渲染的 Mermaid 元素数组（未渲染的）
+     * @param {Set<string>|null} pendingMathHashes - 等待渲染的数学公式哈希集合（null 表示渲染所有）
+     * @param {Array<Element>} pendingPreElements - 等待添加复制按钮的 PRE 元素数组
+     * @param {Array<HTMLImageElement>} pendingImages - 等待标记处理的图片数组
+     * @param {Object} changes - 变化信息对象（codeBlocksChanged, mermaidBlocksChanged, mathBlocksChanged 等）
      */
-    processAllElements(codeBlocks, mermaidBlocks, preElements, images, changes = null) {
+    processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathHashes, pendingPreElements, pendingImages, changes = null) {
         // 没有变化信息，处理所有元素
         if (!changes) {
-            this.#highlightCode(codeBlocks);
-            this.#renderMermaid(mermaidBlocks);
+            this.#highlightCode(pendingCodeBlocks);
+            this.#renderMermaid(pendingMermaidBlocks);
             this.#renderMath(null); // null 表示渲染所有
-            this.#addCopyButtons(preElements);
-            this.#markImages(images);
+            this.#addCopyButtons(pendingPreElements);
+            this.#markImages(pendingImages);
             return;
         }
 
         // 增量渲染：总是处理未高亮的代码块和未渲染的 Mermaid
         // 这样可以确保新内容被正确处理
-        if (codeBlocks.length > 0) {
-            this.#highlightCode(codeBlocks);
+        if (pendingCodeBlocks.length > 0) {
+            this.#highlightCode(pendingCodeBlocks);
         }
-        if (mermaidBlocks.length > 0) {
-            this.#renderMermaid(mermaidBlocks);
+        if (pendingMermaidBlocks.length > 0) {
+            this.#renderMermaid(pendingMermaidBlocks);
         }
         // 优化：只渲染变化的数学公式
         if (changes.mathBlocksChanged) {
-            this.#renderMath(changes.changedMathBlocks);
+            this.#renderMath(pendingMathHashes);
         }
 
         // 总是处理（因为 innerHTML 替换后会丢失）
-        this.#addCopyButtons(preElements);
-        this.#markImages(images);
+        this.#addCopyButtons(pendingPreElements);
+        this.#markImages(pendingImages);
     }
 
     // ==================== Markdown 渲染 ====================
