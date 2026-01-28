@@ -1297,12 +1297,6 @@ export class Preview extends BaseComponent {
     /**
      * 渲染 Mermaid div 列表
      * @param {Array<Element>} containers - 容器元素数组
-     * @returns {void}
-     * @private
-     */
-    /**
-     * 渲染 Mermaid div 列表
-     * @param {Array<Element>} containers - 容器元素数组
      * @returns {Promise<void>}
      * @private
      */
