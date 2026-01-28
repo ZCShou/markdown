@@ -31,6 +31,9 @@ export class Preview extends BaseComponent {
     /** @private */
     #codeHighlightTimer = null;
 
+    // 可见区域缓冲区大小（像素）
+    static #VISIBILITY_BUFFER = 500;
+
     /**
      * 构造函数
      * @param state
@@ -80,7 +83,8 @@ export class Preview extends BaseComponent {
      */
     #isElementVisible(element) {
         const rect = element.getBoundingClientRect();
-        return rect.top < window.innerHeight + 200 && rect.bottom > -200;
+        const buffer = Preview.#VISIBILITY_BUFFER;
+        return rect.top < window.innerHeight + buffer && rect.bottom > -buffer;
     }
 
     /**
@@ -305,6 +309,8 @@ export class Preview extends BaseComponent {
     #initIntersectionObserver() {
         if (!('IntersectionObserver' in window)) return;
 
+        const buffer = Preview.#VISIBILITY_BUFFER;
+
         this.#intersectionObserver = new IntersectionObserver(
             entries => {
                 entries.forEach(entry => {
@@ -329,7 +335,7 @@ export class Preview extends BaseComponent {
             },
             {
                 root: null,
-                rootMargin: '500px', // 提前 500px 开始渲染
+                rootMargin: `${buffer}px`, // 使用统一的缓冲区大小
                 threshold: 0.01
             }
         );
