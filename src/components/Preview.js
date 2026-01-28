@@ -442,7 +442,7 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 单次扫描提取所有块（优化版：避免多次遍历）
+     * 单次扫描提取所有块（优化版：一次遍历提取所有内容）
      * @param {string} markdown - Markdown 文本
      * @returns {Object} 包含 codeBlocks, mermaidBlocks, mathBlocks, preElements, images, changes 的对象
      * @private
@@ -459,102 +459,60 @@ export class Preview extends BaseComponent {
             mermaidIndex = 0,
             mathIndex = 0;
 
-        // 收集所有代码区域的范围（代码块 + 行内代码）
-        const codeRanges = [];
-
-        // 提取代码块
-        const codeRegex = /```(\w*)\n([\s\S]*?)```/g;
+        // 🔥 优化：使用单个正则表达式匹配所有模式
+        // 匹配：代码块、行内代码、块级公式、行内公式、标题
+        const allRegex = /```(\w*)\n([\s\S]*?)```|`([^`\n]+?)`|\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|^(#{1,6})\s+(.+)$/gm;
+        
         let match;
-        while ((match = codeRegex.exec(markdown)) !== null) {
-            const [fullMatch, lang = 'text', code] = match;
-            codeRanges.push([match.index, match.index + fullMatch.length]);
+        while ((match = allRegex.exec(markdown)) !== null) {
+            const [
+                codeLang,      // 代码块语言
+                codeContent,   // 代码块内容
+                inlineCode,    // 行内代码
+                blockMath,     // 块级公式
+                inlineMath,    // 行内公式
+                hashes,        // 标题的 # 符号
+                headingText    // 标题文本
+            ] = match;
 
-            if (lang === 'mermaid') {
-                const trimmedCode = code.trim();
-                const mermaidHash = this.#generateSimpleHash(trimmedCode);
-                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
-                const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
-                result.mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
-            } else {
-                const hash = this.#generateSimpleHash(lang + code);
-                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
-                const compositeKey = `${hash}_idx_${codeIndex}`;
-                result.codeBlocks.set(compositeKey, { lang, code, index: codeIndex++ });
-            }
-        }
-
-        // 提取行内代码
-        const inlineCodeRegex = /`[^`\n]+?`/g;
-        while ((match = inlineCodeRegex.exec(markdown)) !== null) {
-            const pos = match.index;
-            // 如果不在代码块内，则记录
-            if (!codeRanges.some(([start, end]) => pos >= start && pos < end)) {
-                codeRanges.push([pos, pos + match[0].length]);
-            }
-        }
-
-        // 排序范围数组以便二分查找（性能优化）
-        codeRanges.sort((a, b) => a[0] - b[0]);
-
-        // 辅助函数：使用二分查找检查位置是否在代码区域（O(log n)）
-        const isInCode = pos => {
-            let left = 0,
-                right = codeRanges.length - 1;
-            while (left <= right) {
-                const mid = (left + right) >> 1;
-                const [start, end] = codeRanges[mid];
-                if (pos >= start && pos < end) return true;
-                if (pos < start) right = mid - 1;
-                else left = mid + 1;
-            }
-            return false;
-        };
-
-        // 提取数学公式（块级和行内）
-        const blockMathRegex = /\$\$([\s\S]*?)\$\$/g;
-        while ((match = blockMathRegex.exec(markdown)) !== null) {
-            if (!isInCode(match.index)) {
-                const hash = this.#generateSimpleHash(match[1].trim());
-                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
+            if (codeLang !== undefined && codeContent !== undefined) {
+                // 代码块
+                if (codeLang === 'mermaid') {
+                    const trimmedCode = codeContent.trim();
+                    const mermaidHash = this.#generateSimpleHash(trimmedCode);
+                    const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
+                    result.mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
+                } else {
+                    const hash = this.#generateSimpleHash(codeLang + codeContent);
+                    const compositeKey = `${hash}_idx_${codeIndex}`;
+                    result.codeBlocks.set(compositeKey, { lang: codeLang || 'text', code: codeContent, index: codeIndex++ });
+                }
+            } else if (inlineCode !== undefined) {
+                // 行内代码 - 只记录位置，不存储内容
+                // 用于后续判断公式是否在代码中
+            } else if (blockMath !== undefined) {
+                // 块级公式
+                const hash = this.#generateSimpleHash(blockMath.trim());
                 const compositeKey = `${hash}_idx_${mathIndex}`;
                 result.mathBlocks.set(compositeKey, {
-                    latex: match[1].trim(),
+                    latex: blockMath.trim(),
                     displayMode: true,
                     index: mathIndex++
                 });
-            }
-        }
-
-        const inlineMathRegex = /\$([^$\n]+?)\$/g;
-        while ((match = inlineMathRegex.exec(markdown)) !== null) {
-            if (!isInCode(match.index)) {
-                const hash = this.#generateSimpleHash(match[1].trim());
-                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
+            } else if (inlineMath !== undefined) {
+                // 行内公式
+                const hash = this.#generateSimpleHash(inlineMath.trim());
                 const compositeKey = `${hash}_idx_${mathIndex}`;
                 result.mathBlocks.set(compositeKey, {
-                    latex: match[1].trim(),
+                    latex: inlineMath.trim(),
                     displayMode: false,
                     index: mathIndex++
                 });
-            }
-        }
-
-        // 提取标题（使用正则避免 split）
-        const lines = markdown.split('\n');
-        let inCodeBlock = false;
-        for (const line of lines) {
-            if (line.trim().startsWith('```')) {
-                inCodeBlock = !inCodeBlock;
-                continue;
-            }
-            if (inCodeBlock) continue;
-
-            const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-            if (headingMatch) {
-                // 保存级别和文本
+            } else if (hashes !== undefined && headingText !== undefined) {
+                // 标题
                 result.headings.push({
-                    level: headingMatch[1].length,
-                    text: headingMatch[2]
+                    level: hashes.length,
+                    text: headingText
                 });
             }
         }
