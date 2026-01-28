@@ -130,10 +130,12 @@ export class Preview extends BaseComponent {
                         }
 
                         // 处理数学公式渲染
-                        if (element.classList.contains('math-pending')) {
-                            this.#renderSingleMath(element);
+                        // 🔥 优化：先检查是否已在处理中，避免重复
+                        if (element.classList.contains('math-pending') &&
+                            !element.classList.contains('math-rendered')) {
                             this.#pendingMathBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
+                            this.#renderSingleMath(element);
                         }
                     }
                 });
@@ -1542,6 +1544,12 @@ export class Preview extends BaseComponent {
      * @private
      */
     #renderSingleMath(element) {
+        // 🔥 优化：提前标记为已渲染，防止并发重复渲染
+        if (element.classList.contains('math-rendered')) {
+            return;
+        }
+        element.classList.add('math-rendered');
+
         const latex = element.getAttribute('data-latex');
         if (!latex) return;
 
@@ -1551,13 +1559,12 @@ export class Preview extends BaseComponent {
                 throwOnError: false,
                 errorColor: '#cc0000'
             });
-            element.classList.add('math-rendered');
             element.classList.remove('math-error', 'math-pending'); // 清除可能的错误状态
         } catch (err) {
             console.warn('KaTeX 渲染失败:', err);
             element.textContent = latex;
             element.classList.add('math-error');
-            element.classList.add('math-rendered'); // 标记为已处理，避免重复尝试
+            // 类已在开始时添加，这里无需重复添加
         }
     }
 
