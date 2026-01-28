@@ -123,10 +123,12 @@ export class Preview extends BaseComponent {
                         }
 
                         // 处理 Mermaid 渲染
-                        if (element.classList.contains('mermaid-pending')) {
-                            this.#renderSingleMermaid(element);
+                        // 🔥 优化：先检查是否已在处理中，避免重复
+                        if (element.classList.contains('mermaid-pending') &&
+                            !element.classList.contains('mermaid-done')) {
                             this.#pendingMermaidBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
+                            this.#renderSingleMermaid(element);
                         }
 
                         // 处理数学公式渲染
@@ -1222,7 +1224,8 @@ export class Preview extends BaseComponent {
 
                 // 一次遍历：过滤有效元素并清理无效元素
                 pending.forEach(div => {
-                    if (div.isConnected) {
+                    // 🔥 优化：检查是否已渲染，避免重复渲染
+                    if (div.isConnected && !div.classList.contains('mermaid-done')) {
                         validPending.push(div);
                     } else {
                         this.#pendingMermaidBlocks.delete(div);
@@ -1281,6 +1284,12 @@ export class Preview extends BaseComponent {
      * @private
      */
     #renderSingleMermaid(mermaidDiv) {
+        // 🔥 优化：提前标记为已渲染，防止并发重复渲染
+        if (mermaidDiv.classList.contains('mermaid-done')) {
+            return;
+        }
+        mermaidDiv.classList.add('mermaid-done');
+
         mermaidDiv.classList.remove('mermaid-pending');
         this.#renderMermaidDivs([mermaidDiv]);
     }
