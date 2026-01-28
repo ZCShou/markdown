@@ -450,7 +450,7 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 单次扫描提取所有块（优化版：一次遍历提取所有内容）
+     * 单次扫描提取所有块（优化版：使用与 renderMarkdown 相同的逻辑）
      * @param {string} markdown - Markdown 文本
      * @returns {Object} 包含 codeBlocks, mermaidBlocks, mathBlocks, preElements, images, changes 的对象
      * @private
@@ -467,38 +467,31 @@ export class Preview extends BaseComponent {
             mermaidIndex = 0,
             mathIndex = 0;
 
-        // 🔥 优化：使用单个正则表达式匹配所有模式
-        // 匹配：代码块、行内代码、块级公式、行内公式、标题
-        const allRegex = /```(\w*)\n([\s\S]*?)```|`([^`\n]+?)`|\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|^(#{1,6})\s+(.+)$/gm;
-        
-        let match;
-        while ((match = allRegex.exec(markdown)) !== null) {
-            const [
-                codeLang,      // 代码块语言
-                codeContent,   // 代码块内容
-                inlineCode,    // 行内代码
-                blockMath,     // 块级公式
-                inlineMath,    // 行内公式
-                hashes,        // 标题的 # 符号
-                headingText    // 标题文本
-            ] = match;
+        // 🔥 修复：使用与 renderMarkdown 相同的分步处理逻辑
+        // 而不是使用单个组合正则（会导致匹配冲突）
 
-            if (codeLang !== undefined && codeContent !== undefined) {
-                // 代码块
-                if (codeLang === 'mermaid') {
-                    const trimmedCode = codeContent.trim();
-                    const mermaidHash = this.#generateSimpleHash(trimmedCode);
-                    const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
-                    result.mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
-                } else {
-                    const hash = this.#generateSimpleHash(codeLang + codeContent);
-                    const compositeKey = `${hash}_idx_${codeIndex}`;
-                    result.codeBlocks.set(compositeKey, { lang: codeLang || 'text', code: codeContent, index: codeIndex++ });
-                }
-            } else if (inlineCode !== undefined) {
-                // 行内代码 - 只记录位置，不存储内容
-                // 用于后续判断公式是否在代码中
-            } else if (blockMath !== undefined) {
+        // 第一步：提取代码块（包括 mermaid）
+        const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+        let match;
+        while ((match = codeBlockRegex.exec(markdown)) !== null) {
+            const [, lang, content] = match;
+            if (lang === 'mermaid') {
+                const trimmedCode = content.trim();
+                const mermaidHash = this.#generateSimpleHash(trimmedCode);
+                const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
+                result.mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
+            } else {
+                const hash = this.#generateSimpleHash(lang + content);
+                const compositeKey = `${hash}_idx_${codeIndex}`;
+                result.codeBlocks.set(compositeKey, { lang: lang || 'text', code: content, index: codeIndex++ });
+            }
+        }
+
+        // 第二步：提取数学公式（块级和行内）
+        const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
+        while ((match = mathRegex.exec(markdown)) !== null) {
+            const [, blockMath, inlineMath] = match;
+            if (blockMath !== undefined) {
                 // 块级公式
                 const hash = this.#generateSimpleHash(blockMath.trim());
                 const compositeKey = `${hash}_idx_${mathIndex}`;
@@ -516,13 +509,17 @@ export class Preview extends BaseComponent {
                     displayMode: false,
                     index: mathIndex++
                 });
-            } else if (hashes !== undefined && headingText !== undefined) {
-                // 标题
-                result.headings.push({
-                    level: hashes.length,
-                    text: headingText
-                });
             }
+        }
+
+        // 第三步：提取标题
+        const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+        while ((match = headingRegex.exec(markdown)) !== null) {
+            const [, hashes, headingText] = match;
+            result.headings.push({
+                level: hashes.length,
+                text: headingText
+            });
         }
 
         return result;
@@ -579,9 +576,28 @@ export class Preview extends BaseComponent {
      * @private
      */
     #areMapsEqual(map1, map2) {
-        if (map1.size !== map2.size) return false;
-        for (const key of map1.keys()) {
-            if (!map2.has(key)) return false;
+        if (map1.size !== map2.size) {
+            return false;
+        }
+        for (const [key, value1] of map1.entries()) {
+            if (!map2.has(key)) {
+                return false;
+            }
+            const value2 = map2.get(key);
+            // 深度比较值对象（用于 mathBlocks, codeBlocks, mermaidBlocks）
+            if (value1 && value2 && typeof value1 === 'object' && typeof value2 === 'object') {
+                // 比较对象的属性
+                const keys1 = Object.keys(value1);
+                const keys2 = Object.keys(value2);
+                if (keys1.length !== keys2.length) return false;
+                for (const k of keys1) {
+                    if (value1[k] !== value2[k]) {
+                        return false;
+                    }
+                }
+            } else if (value1 !== value2) {
+                return false;
+            }
         }
         return true;
     }
