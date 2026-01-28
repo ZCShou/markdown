@@ -469,13 +469,17 @@ export class Preview extends BaseComponent {
             const [fullMatch, lang = 'text', code] = match;
             codeRanges.push([match.index, match.index + fullMatch.length]);
 
-            const hash = this.#generateSimpleHash(lang + code);
             if (lang === 'mermaid') {
                 const trimmedCode = code.trim();
                 const mermaidHash = this.#generateSimpleHash(trimmedCode);
-                result.mermaidBlocks.set(mermaidHash, { code: trimmedCode, index: mermaidIndex++ });
+                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
+                const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
+                result.mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
             } else {
-                result.codeBlocks.set(hash, { lang, code, index: codeIndex++ });
+                const hash = this.#generateSimpleHash(lang + code);
+                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
+                const compositeKey = `${hash}_idx_${codeIndex}`;
+                result.codeBlocks.set(compositeKey, { lang, code, index: codeIndex++ });
             }
         }
 
@@ -511,7 +515,9 @@ export class Preview extends BaseComponent {
         while ((match = blockMathRegex.exec(markdown)) !== null) {
             if (!isInCode(match.index)) {
                 const hash = this.#generateSimpleHash(match[1].trim());
-                result.mathBlocks.set(hash, {
+                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
+                const compositeKey = `${hash}_idx_${mathIndex}`;
+                result.mathBlocks.set(compositeKey, {
                     latex: match[1].trim(),
                     displayMode: true,
                     index: mathIndex++
@@ -523,7 +529,9 @@ export class Preview extends BaseComponent {
         while ((match = inlineMathRegex.exec(markdown)) !== null) {
             if (!isInCode(match.index)) {
                 const hash = this.#generateSimpleHash(match[1].trim());
-                result.mathBlocks.set(hash, {
+                // 🔥 修复：使用复合键（哈希 + 索引）避免相同内容的冲突
+                const compositeKey = `${hash}_idx_${mathIndex}`;
+                result.mathBlocks.set(compositeKey, {
                     latex: match[1].trim(),
                     displayMode: false,
                     index: mathIndex++
@@ -586,10 +594,11 @@ export class Preview extends BaseComponent {
         const changed = new Set();
 
         // 检测新增和修改的公式
-        for (const [hash, data] of newMathBlocks) {
-            const oldData = oldMathBlocks.get(hash);
+        for (const [compositeKey, data] of newMathBlocks) {
+            const oldData = oldMathBlocks.get(compositeKey);
+            // 🔥 修复：比较内容而不是复合键
             if (!oldData || oldData.latex !== data.latex || oldData.displayMode !== data.displayMode) {
-                changed.add(hash);
+                changed.add(compositeKey);
             }
         }
 
@@ -856,18 +865,22 @@ export class Preview extends BaseComponent {
             this.container,
             'pre code[class*="language-"]:not(.language-mermaid)'
         );
-        codeBlocks.forEach(el => {
+        codeBlocks.forEach((el, index) => {
             const hash = this.#generateSimpleHash(el.textContent);
-            maps.code.set(hash, el.parentElement);
+            // 🔥 修复：使用复合键（哈希 + 索引）
+            const compositeKey = `${hash}_idx_${index}`;
+            maps.code.set(compositeKey, el.parentElement);
         });
 
         // 收集 Mermaid 图表（存储引用）
         const mermaidBlocks = dom.getAllIn(this.container, 'div.mermaid[data-mermaid]');
-        mermaidBlocks.forEach(el => {
+        mermaidBlocks.forEach((el, index) => {
             const text = el.getAttribute('data-mermaid');
             if (text) {
                 const hash = this.#generateSimpleHash(text);
-                maps.mermaid.set(hash, el);
+                // 🔥 修复：使用复合键（哈希 + 索引）
+                const compositeKey = `${hash}_idx_${index}`;
+                maps.mermaid.set(compositeKey, el);
             }
         });
 
@@ -876,11 +889,13 @@ export class Preview extends BaseComponent {
             this.container,
             '.math-block[data-latex], .math-inline[data-latex]'
         );
-        mathBlocks.forEach(el => {
+        mathBlocks.forEach((el, index) => {
             const latex = el.getAttribute('data-latex');
             if (latex) {
                 const hash = this.#generateSimpleHash(latex);
-                maps.math.set(hash, el);
+                // 🔥 修复：使用复合键（哈希 + 索引）
+                const compositeKey = `${hash}_idx_${index}`;
+                maps.math.set(compositeKey, el);
             }
         });
 
@@ -908,19 +923,23 @@ export class Preview extends BaseComponent {
 
         // 保留未变化的代码块（只有当整体未变时）
         if (!changes.codeBlocksChanged) {
-            newCodeBlocks.forEach(newEl => {
+            newCodeBlocks.forEach((newEl, index) => {
                 const hash = this.#generateSimpleHash(newEl.textContent);
-                const oldPre = oldElements.code.get(hash);
+                // 🔥 修复：使用复合键查找
+                const compositeKey = `${hash}_idx_${index}`;
+                const oldPre = oldElements.code.get(compositeKey);
                 if (oldPre) {
                     newEl.parentElement.replaceWith(oldPre.cloneNode(true));
                 }
             });
         } else {
             // 即使有变化，也保留哈希相同的元素
-            newCodeBlocks.forEach(newEl => {
+            newCodeBlocks.forEach((newEl, index) => {
                 const hash = this.#generateSimpleHash(newEl.textContent);
-                if (changes.newCodeBlocks.has(hash) && oldElements.code.has(hash)) {
-                    const oldPre = oldElements.code.get(hash);
+                // 🔥 修复：使用复合键查找
+                const compositeKey = `${hash}_idx_${index}`;
+                if (changes.newCodeBlocks.has(compositeKey) && oldElements.code.has(compositeKey)) {
+                    const oldPre = oldElements.code.get(compositeKey);
                     newEl.parentElement.replaceWith(oldPre.cloneNode(true));
                 }
             });
@@ -928,10 +947,12 @@ export class Preview extends BaseComponent {
 
         // 保留未变化的 Mermaid 图表
         if (!changes.mermaidBlocksChanged) {
-            newMermaidBlocks.forEach(newEl => {
+            newMermaidBlocks.forEach((newEl, index) => {
                 const text = newEl.textContent.trim();
                 const hash = this.#generateSimpleHash(text);
-                const oldDiv = oldElements.mermaid.get(hash);
+                // 🔥 修复：使用复合键查找
+                const compositeKey = `${hash}_idx_${index}`;
+                const oldDiv = oldElements.mermaid.get(compositeKey);
                 // 只保留已完成渲染的图表
                 if (oldDiv && oldDiv.classList.contains('mermaid-done')) {
                     newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
@@ -939,12 +960,14 @@ export class Preview extends BaseComponent {
             });
         } else {
             // 即使有变化，也保留哈希相同且已渲染的元素
-            newMermaidBlocks.forEach(newEl => {
+            newMermaidBlocks.forEach((newEl, index) => {
                 const text = newEl.textContent.trim();
                 const hash = this.#generateSimpleHash(text);
-                const oldDiv = oldElements.mermaid.get(hash);
+                // 🔥 修复：使用复合键查找
+                const compositeKey = `${hash}_idx_${index}`;
+                const oldDiv = oldElements.mermaid.get(compositeKey);
                 if (
-                    changes.newMermaidBlocks.has(hash) &&
+                    changes.newMermaidBlocks.has(compositeKey) &&
                     oldDiv &&
                     oldDiv.classList.contains('mermaid-done')
                 ) {
@@ -954,12 +977,14 @@ export class Preview extends BaseComponent {
         }
 
         // 保留未变化的数学公式（优化版：只保留真正未变化的公式）
-        newMathBlocks.forEach(newEl => {
+        newMathBlocks.forEach((newEl, index) => {
             const latex = newEl.getAttribute('data-latex');
             if (!latex) return;
 
             const hash = this.#generateSimpleHash(latex);
-            const oldEl = oldElements.math.get(hash);
+            // 🔥 修复：使用复合键查找
+            const compositeKey = `${hash}_idx_${index}`;
+            const oldEl = oldElements.math.get(compositeKey);
 
             // 只有当旧元素存在且未发生变化时才保留
             if (oldEl) {
@@ -968,7 +993,7 @@ export class Preview extends BaseComponent {
                 if (!changes.mathBlocksChanged) {
                     // 没有任何公式变化，保留所有
                     shouldPreserve = true;
-                } else if (changes.changedMathBlocks && !changes.changedMathBlocks.has(hash)) {
+                } else if (changes.changedMathBlocks && !changes.changedMathBlocks.has(compositeKey)) {
                     // 有变化但这个公式未变化，保留它
                     shouldPreserve = true;
                 }
@@ -1450,7 +1475,7 @@ export class Preview extends BaseComponent {
     // ==================== 公式渲染组 ====================
     /**
      * 渲染数学公式（优化版：增量渲染 + 可见性优化）
-     * @param {Set|null} changedHashes - 发生变化的公式哈希集合，null 表示渲染所有
+     * @param {Set|null} changedHashes - 发生变化的公式复合键集合，null 表示渲染所有
      * @private
      */
     #renderMath(changedHashes = null) {
@@ -1464,14 +1489,16 @@ export class Preview extends BaseComponent {
 
         // 过滤出需要渲染的公式
         const elementsToRender = [];
-        mathElements.forEach(el => {
+        mathElements.forEach((el, index) => {
             // 如果已经渲染过，且不在变化集合中，则跳过
             if (el.classList.contains('math-rendered')) {
                 if (changedHashes) {
                     const latex = el.getAttribute('data-latex');
                     if (latex) {
                         const hash = this.#generateSimpleHash(latex);
-                        if (!changedHashes.has(hash)) {
+                        // 🔥 修复：使用复合键查找
+                        const compositeKey = `${hash}_idx_${index}`;
+                        if (!changedHashes.has(compositeKey)) {
                             return; // 跳过未变化的公式
                         }
                     }
