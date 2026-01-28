@@ -64,6 +64,7 @@ export class Preview extends BaseComponent {
         this.#pendingMathBlocks = new Set();
     }
 
+    // ==================== 初始化方法 ====================
     /**
      * 初始化组件
      */
@@ -73,7 +74,6 @@ export class Preview extends BaseComponent {
         this.#initIntersectionObserver();
     }
 
-    // ==================== 初始化方法 ====================
     /**
      * 初始化 Mermaid
      */
@@ -411,7 +411,6 @@ export class Preview extends BaseComponent {
         });
     }
 
-    // ==================== 渲染核心（变化检测、块提取等） ====================
     /**
      * 检测内容变化（优化版：单次扫描 + 增量检测）
      * @param {string} newMarkdown - 新的 Markdown 文本
@@ -639,6 +638,43 @@ export class Preview extends BaseComponent {
         }
 
         return true;
+    }
+
+    /**
+     * 批量处理所有 DOM 元素（优化版：简化逻辑 + 增量公式渲染）
+     * @param codeBlocks
+     * @param mermaidBlocks
+     * @param preElements
+     * @param images
+     * @param changes
+     */
+    processAllElements(codeBlocks, mermaidBlocks, preElements, images, changes = null) {
+        // 没有变化信息，处理所有元素
+        if (!changes) {
+            this.#highlightCode(codeBlocks);
+            this.#renderMermaid(mermaidBlocks);
+            this.#renderMath(null); // null 表示渲染所有
+            this.#addCopyButtons(preElements);
+            this.#markImages(images);
+            return;
+        }
+
+        // 增量渲染：总是处理未高亮的代码块和未渲染的 Mermaid
+        // 这样可以确保新内容被正确处理
+        if (codeBlocks.length > 0) {
+            this.#highlightCode(codeBlocks);
+        }
+        if (mermaidBlocks.length > 0) {
+            this.#renderMermaid(mermaidBlocks);
+        }
+        // 优化：只渲染变化的数学公式
+        if (changes.mathBlocksChanged) {
+            this.#renderMath(changes.changedMathBlocks);
+        }
+
+        // 总是处理（因为 innerHTML 替换后会丢失）
+        this.#addCopyButtons(preElements);
+        this.#markImages(images);
     }
 
     // ==================== Markdown 渲染 ====================
@@ -969,44 +1005,6 @@ export class Preview extends BaseComponent {
                 });
             });
         }
-    }
-
-    // ==================== 元素处理 ====================
-    /**
-     * 批量处理所有 DOM 元素（优化版：简化逻辑 + 增量公式渲染）
-     * @param codeBlocks
-     * @param mermaidBlocks
-     * @param preElements
-     * @param images
-     * @param changes
-     */
-    processAllElements(codeBlocks, mermaidBlocks, preElements, images, changes = null) {
-        // 没有变化信息，处理所有元素
-        if (!changes) {
-            this.#highlightCode(codeBlocks);
-            this.#renderMermaid(mermaidBlocks);
-            this.#renderMath(null); // null 表示渲染所有
-            this.#addCopyButtons(preElements);
-            this.#markImages(images);
-            return;
-        }
-
-        // 增量渲染：总是处理未高亮的代码块和未渲染的 Mermaid
-        // 这样可以确保新内容被正确处理
-        if (codeBlocks.length > 0) {
-            this.#highlightCode(codeBlocks);
-        }
-        if (mermaidBlocks.length > 0) {
-            this.#renderMermaid(mermaidBlocks);
-        }
-        // 优化：只渲染变化的数学公式
-        if (changes.mathBlocksChanged) {
-            this.#renderMath(changes.changedMathBlocks);
-        }
-
-        // 总是处理（因为 innerHTML 替换后会丢失）
-        this.#addCopyButtons(preElements);
-        this.#markImages(images);
     }
 
     // ==================== 代码块渲染组 ====================
