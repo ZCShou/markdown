@@ -27,9 +27,13 @@ export class Preview extends BaseComponent {
     /** @private */
     #pendingMermaidBlocks = new Set();
     /** @private */
+    #pendingMathBlocks = new Set();
+    /** @private */
     #mermaidRenderTimer = null;
     /** @private */
     #codeHighlightTimer = null;
+    /** @private */
+    #mathRenderTimer = null;
 
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
@@ -57,6 +61,7 @@ export class Preview extends BaseComponent {
         this.#intersectionObserver = null;
         this.#pendingCodeBlocks = new Set();
         this.#pendingMermaidBlocks = new Set();
+        this.#pendingMathBlocks = new Set();
     }
 
     /**
@@ -118,6 +123,13 @@ export class Preview extends BaseComponent {
                         if (element.classList.contains('mermaid-pending')) {
                             this.#renderSingleMermaid(element);
                             this.#pendingMermaidBlocks.delete(element);
+                            this.#intersectionObserver.unobserve(element);
+                        }
+
+                        // 处理数学公式渲染
+                        if (element.classList.contains('math-pending')) {
+                            this.#renderSingleMath(element);
+                            this.#pendingMathBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
                         }
                     }
@@ -319,6 +331,7 @@ export class Preview extends BaseComponent {
         // 清空待处理集合，避免旧元素干扰
         this.#pendingMermaidBlocks.clear();
         this.#pendingCodeBlocks.clear();
+        this.#pendingMathBlocks.clear();
 
         // 取消旧定时器，避免重复执行
         if (this.#mermaidRenderTimer) {
@@ -330,6 +343,12 @@ export class Preview extends BaseComponent {
         if (this.#codeHighlightTimer) {
             clearTimeout(this.#codeHighlightTimer);
             this.#codeHighlightTimer = null;
+        }
+
+        // 取消数学公式渲染定时器
+        if (this.#mathRenderTimer) {
+            clearTimeout(this.#mathRenderTimer);
+            this.#mathRenderTimer = null;
         }
 
         // 检测变化
@@ -1432,7 +1451,7 @@ export class Preview extends BaseComponent {
 
     // ==================== 公式渲染组 ====================
     /**
-     * 渲染数学公式（优化版：增量渲染，只渲染变化的公式）
+     * 渲染数学公式（优化版：增量渲染 + 可见性优化）
      * @param {Set|null} changedHashes - 发生变化的公式哈希集合，null 表示渲染所有
      * @private
      */
@@ -1442,9 +1461,11 @@ export class Preview extends BaseComponent {
         // 使用 dom.js 统一查询所有数学公式元素
         const mathElements = dom.getAllIn(
             this.container,
-            '.math-block, .math-inline'
+            '.math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
         );
 
+        // 过滤出需要渲染的公式
+        const elementsToRender = [];
         mathElements.forEach(el => {
             // 如果已经渲染过，且不在变化集合中，则跳过
             if (el.classList.contains('math-rendered')) {
@@ -1464,21 +1485,121 @@ export class Preview extends BaseComponent {
             const latex = el.getAttribute('data-latex');
             if (!latex) return;
 
-            try {
-                katex.render(latex, el, {
-                    displayMode: el.classList.contains('math-block'),
-                    throwOnError: false,
-                    errorColor: '#cc0000'
-                });
-                el.classList.add('math-rendered');
-                el.classList.remove('math-error'); // 清除可能的错误状态
-            } catch (err) {
-                console.warn('KaTeX 渲染失败:', err);
-                el.textContent = latex;
-                el.classList.add('math-error');
-                el.classList.add('math-rendered'); // 标记为已处理，避免重复尝试
-            }
+            elementsToRender.push(el);
         });
+
+        if (elementsToRender.length === 0) return;
+
+        // 如果没有 IntersectionObserver，直接批量渲染
+        if (!this.#intersectionObserver) {
+            this.#renderMathBatch(elementsToRender);
+            return;
+        }
+
+        // 分离可见和不可见元素
+        const { visible, invisible } = this.#partitionByVisibility(elementsToRender);
+
+        // 立即渲染可见公式
+        visible.forEach(el => {
+            this.#renderSingleMath(el);
+        });
+
+        // 监听不可见公式
+        invisible.forEach(el => {
+            el.classList.add('math-pending');
+            this.#pendingMathBlocks.add(el);
+            this.#intersectionObserver.observe(el);
+        });
+
+        // 延迟渲染剩余的公式（类似代码块和 Mermaid 的 1 秒延迟）
+        if (invisible.length > 0) {
+            if (this.#mathRenderTimer) {
+                clearTimeout(this.#mathRenderTimer);
+            }
+            this.#mathRenderTimer = setTimeout(() => {
+                const pending = Array.from(this.#pendingMathBlocks);
+                const validPending = [];
+
+                // 过滤有效元素并清理无效元素
+                pending.forEach(el => {
+                    if (el.isConnected && !el.classList.contains('math-rendered')) {
+                        validPending.push(el);
+                    } else {
+                        this.#pendingMathBlocks.delete(el);
+                    }
+                });
+
+                if (validPending.length > 0) {
+                    this.#renderMathBatch(validPending);
+                    validPending.forEach(el => {
+                        el.classList.remove('math-pending');
+                        this.#pendingMathBlocks.delete(el);
+                        if (this.#intersectionObserver) {
+                            this.#intersectionObserver.unobserve(el);
+                        }
+                    });
+                }
+
+                this.#mathRenderTimer = null;
+            }, 1000);
+        }
+    }
+
+    /**
+     * 渲染单个数学公式
+     * @param {Element} element - 数学公式元素
+     * @private
+     */
+    #renderSingleMath(element) {
+        const latex = element.getAttribute('data-latex');
+        if (!latex) return;
+
+        try {
+            katex.render(latex, element, {
+                displayMode: element.classList.contains('math-block'),
+                throwOnError: false,
+                errorColor: '#cc0000'
+            });
+            element.classList.add('math-rendered');
+            element.classList.remove('math-error', 'math-pending'); // 清除可能的错误状态
+        } catch (err) {
+            console.warn('KaTeX 渲染失败:', err);
+            element.textContent = latex;
+            element.classList.add('math-error');
+            element.classList.add('math-rendered'); // 标记为已处理，避免重复尝试
+        }
+    }
+
+    /**
+     * 批量渲染数学公式（降级方案）
+     * @param {Array<Element>} elements - 数学公式元素数组
+     * @private
+     */
+    #renderMathBatch(elements) {
+        const BATCH_SIZE = 50;
+        let index = 0;
+
+        const processBatch = () => {
+            const end = Math.min(index + BATCH_SIZE, elements.length);
+
+            while (index < end) {
+                const el = elements[index];
+                if (!el.classList.contains('math-rendered')) {
+                    this.#renderSingleMath(el);
+                }
+                index++;
+            }
+
+            if (index < elements.length) {
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(processBatch, { timeout: 100 });
+                } else {
+                    setTimeout(processBatch, 16);
+                }
+            }
+        };
+
+        requestAnimationFrame(processBatch);
     }
 
     // ==================== 图片处理 ====================
@@ -1691,6 +1812,12 @@ ${html}
             this.#codeHighlightTimer = null;
         }
 
+        // 清理数学公式渲染定时器
+        if (this.#mathRenderTimer) {
+            clearTimeout(this.#mathRenderTimer);
+            this.#mathRenderTimer = null;
+        }
+
         // 清理 IntersectionObserver
         if (this.#intersectionObserver) {
             this.#intersectionObserver.disconnect();
@@ -1700,6 +1827,7 @@ ${html}
         // 清理待处理集合
         this.#pendingCodeBlocks.clear();
         this.#pendingMermaidBlocks.clear();
+        this.#pendingMathBlocks.clear();
 
         super.destroy();
     }
