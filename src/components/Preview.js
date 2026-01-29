@@ -527,49 +527,6 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 同步更新标题数据（在 DOM 渲染前）- 优化版：增量更新
-     * @param {Array} headings - 新的标题数组
-     * @param {Set<number>} changedIndexes - 发生变化的标题索引集合
-     * @private
-     */
-    #updateHeadingsSync(headings, changedIndexes) {
-        // 如果没有提供变化索引，或者所有标题都变了，全量更新
-        if (!changedIndexes || changedIndexes.size === headings.length) {
-            const headingsData = headings.map((heading, index) => {
-                const { level, text } = heading;
-                return {
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + index,
-                    level
-                };
-            });
-
-            this.state.setState({ headings: headingsData });
-            return;
-        }
-
-        // 增量更新：只更新发生变化的标题
-        const currentHeadings = this.state.get('headings') || [];
-        const updatedHeadings = [...currentHeadings];
-
-        changedIndexes.forEach(index => {
-            const heading = headings[index];
-            if (heading) {
-                const { level, text } = heading;
-                updatedHeadings[index] = {
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + index,
-                    level
-                };
-            }
-        });
-
-        this.state.setState({ headings: updatedHeadings });
-    }
-
-    /**
      * 比较两个 Map 是否相等
      * @param {Map} map1 - 第一个 Map
      * @param {Map} map2 - 第二个 Map
@@ -630,40 +587,6 @@ export class Preview extends BaseComponent {
         }
 
         return true;
-    }
-
-    /**
-     * 获取发生变化的标题索引（用于增量更新）
-     * @param {Array} oldHeadings - 旧的标题数组
-     * @param {Array} newHeadings - 新的标题数组
-     * @returns {Set<number>} 发生变化的标题索引集合
-     * @private
-     */
-    #getChangedHeadingIndexes(oldHeadings, newHeadings) {
-        const changed = new Set();
-
-        // 如果长度不同，所有标题都算变化
-        if (oldHeadings.length !== newHeadings.length) {
-            for (let i = 0; i < newHeadings.length; i++) {
-                changed.add(i);
-            }
-            return changed;
-        }
-
-        // 逐个比较标题
-        for (let i = 0; i < newHeadings.length; i++) {
-            const oldHeading = oldHeadings[i];
-            const newHeading = newHeadings[i];
-
-            // 如果旧标题不存在，或者 level/text 发生变化
-            if (!oldHeading ||
-                oldHeading.level !== newHeading.level ||
-                oldHeading.text !== newHeading.text) {
-                changed.add(i);
-            }
-        }
-
-        return changed;
     }
 
     /**
@@ -1011,6 +934,41 @@ export class Preview extends BaseComponent {
         });
     }
 
+    // ==================== 标题渲染组 ====================
+    /**
+     * 获取发生变化的标题索引（用于增量更新）
+     * @param {Array} oldHeadings - 旧的标题数组
+     * @param {Array} newHeadings - 新的标题数组
+     * @returns {Set<number>} 发生变化的标题索引集合
+     * @private
+     */
+    #getChangedHeadingIndexes(oldHeadings, newHeadings) {
+        const changed = new Set();
+
+        // 如果长度不同，所有标题都算变化
+        if (oldHeadings.length !== newHeadings.length) {
+            for (let i = 0; i < newHeadings.length; i++) {
+                changed.add(i);
+            }
+            return changed;
+        }
+
+        // 逐个比较标题
+        for (let i = 0; i < newHeadings.length; i++) {
+            const oldHeading = oldHeadings[i];
+            const newHeading = newHeadings[i];
+
+            // 如果旧标题不存在，或者 level/text 发生变化
+            if (!oldHeading ||
+                oldHeading.level !== newHeading.level ||
+                oldHeading.text !== newHeading.text) {
+                changed.add(i);
+            }
+        }
+
+        return changed;
+    }
+
     /**
      * 更新标题 ID（优化版：批量设置减少重排）
      * @private
@@ -1036,6 +994,49 @@ export class Preview extends BaseComponent {
                 });
             });
         }
+    }
+
+    /**
+     * 同步更新标题数据（在 DOM 渲染前）- 优化版：增量更新
+     * @param {Array} headings - 新的标题数组
+     * @param {Set<number>} changedIndexes - 发生变化的标题索引集合
+     * @private
+     */
+    #updateHeadingsSync(headings, changedIndexes) {
+        // 如果没有提供变化索引，或者所有标题都变了，全量更新
+        if (!changedIndexes || changedIndexes.size === headings.length) {
+            const headingsData = headings.map((heading, index) => {
+                const { level, text } = heading;
+                return {
+                    tagName: 'H' + level,
+                    textContent: text,
+                    id: 'heading-' + index,
+                    level
+                };
+            });
+
+            this.state.setState({ headings: headingsData });
+            return;
+        }
+
+        // 增量更新：只更新发生变化的标题
+        const currentHeadings = this.state.get('headings') || [];
+        const updatedHeadings = [...currentHeadings];
+
+        changedIndexes.forEach(index => {
+            const heading = headings[index];
+            if (heading) {
+                const { level, text } = heading;
+                updatedHeadings[index] = {
+                    tagName: 'H' + level,
+                    textContent: text,
+                    id: 'heading-' + index,
+                    level
+                };
+            }
+        });
+
+        this.state.setState({ headings: updatedHeadings });
     }
 
     // ==================== 代码块渲染组 ====================
