@@ -439,80 +439,54 @@ export class Preview extends BaseComponent {
         const oldData = this.#lastRenderedData;
 
         // 单次扫描提取所有数据
-        const extracted = this.#extractAllBlocks(newMarkdown);
+        const codeBlocks = new Map();
+        const mermaidBlocks = new Map();
+        const mathBlocks = new Map();
+        const headings = [];
 
-        // 比较变化
-        return {
-            codeBlocksChanged: !this.#areMapsEqual(oldData.codeBlocks, extracted.codeBlocks),
-            mermaidBlocksChanged: !this.#areMapsEqual(
-                oldData.mermaidBlocks,
-                extracted.mermaidBlocks
-            ),
-            mathBlocksChanged: !this.#areMapsEqual(oldData.mathBlocks, extracted.mathBlocks),
-            headingsChanged: !this.#areArraysEqual(oldData.headings, extracted.headings),
-            newCodeBlocks: extracted.codeBlocks,
-            newMermaidBlocks: extracted.mermaidBlocks,
-            newMathBlocks: extracted.mathBlocks,
-            newHeadings: extracted.headings
-        };
-    }
+        let codeIndex = 0, mermaidIndex = 0, mathIndex = 0;
+        const codeBlockRanges = [];
 
-    /**
-     * 单次扫描提取所有块（优化版：使用与 renderMarkdown 相同的逻辑）
-     * @param {string} markdown - Markdown 文本
-     * @returns {Object} 包含 codeBlocks, mermaidBlocks, mathBlocks, preElements, images, changes 的对象
-     * @private
-     */
-    #extractAllBlocks(markdown) {
-        const result = {
-            codeBlocks: new Map(),
-            mermaidBlocks: new Map(),
-            mathBlocks: new Map(),
-            headings: []
-        };
-
-        let codeIndex = 0,
-            mermaidIndex = 0,
-            mathIndex = 0;
-
-        // 🔥 修复：使用与 renderMarkdown 相同的分步处理逻辑
-        // 而不是使用单个组合正则（会导致匹配冲突）
-
-        // 第一步：提取代码块（包括 mermaid）
+        // 第一步：提取代码块（包括 mermaid），并记录位置
         const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
         let match;
-        while ((match = codeBlockRegex.exec(markdown)) !== null) {
+        while ((match = codeBlockRegex.exec(newMarkdown)) !== null) {
+            const fullMatch = match[0];
+            const startIndex = match.index;
+            const endIndex = startIndex + fullMatch.length;
+
+            // 记录代码块位置范围（用于排除标题提取）
+            codeBlockRanges.push({ start: startIndex, end: endIndex });
+
             const [, lang, content] = match;
             if (lang === 'mermaid') {
                 const trimmedCode = content.trim();
                 const mermaidHash = this.#generateSimpleHash(trimmedCode);
                 const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
-                result.mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
+                mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
             } else {
                 const hash = this.#generateSimpleHash(lang + content);
                 const compositeKey = `${hash}_idx_${codeIndex}`;
-                result.codeBlocks.set(compositeKey, { lang: lang || 'text', code: content, index: codeIndex++ });
+                codeBlocks.set(compositeKey, { lang: lang || 'text', code: content, index: codeIndex++ });
             }
         }
 
         // 第二步：提取数学公式（块级和行内）
         const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
-        while ((match = mathRegex.exec(markdown)) !== null) {
+        while ((match = mathRegex.exec(newMarkdown)) !== null) {
             const [, blockMath, inlineMath] = match;
             if (blockMath !== undefined) {
-                // 块级公式
                 const hash = this.#generateSimpleHash(blockMath.trim());
                 const compositeKey = `${hash}_idx_${mathIndex}`;
-                result.mathBlocks.set(compositeKey, {
+                mathBlocks.set(compositeKey, {
                     latex: blockMath.trim(),
                     displayMode: true,
                     index: mathIndex++
                 });
             } else if (inlineMath !== undefined) {
-                // 行内公式
                 const hash = this.#generateSimpleHash(inlineMath.trim());
                 const compositeKey = `${hash}_idx_${mathIndex}`;
-                result.mathBlocks.set(compositeKey, {
+                mathBlocks.set(compositeKey, {
                     latex: inlineMath.trim(),
                     displayMode: false,
                     index: mathIndex++
@@ -520,17 +494,37 @@ export class Preview extends BaseComponent {
             }
         }
 
-        // 第三步：提取标题
+        // 第三步：提取标题（排除代码块内的）
         const headingRegex = /^(#{1,6})\s+(.+)$/gm;
-        while ((match = headingRegex.exec(markdown)) !== null) {
+        while ((match = headingRegex.exec(newMarkdown)) !== null) {
+            const matchIndex = match.index;
             const [, hashes, headingText] = match;
-            result.headings.push({
-                level: hashes.length,
-                text: headingText
-            });
+
+            // 检查标题是否在代码块内
+            const isInCodeBlock = codeBlockRanges.some(
+                range => matchIndex >= range.start && matchIndex < range.end
+            );
+
+            // 只提取代码块外的标题
+            if (!isInCodeBlock) {
+                headings.push({
+                    level: hashes.length,
+                    text: headingText
+                });
+            }
         }
 
-        return result;
+        // 比较变化
+        return {
+            codeBlocksChanged: !this.#areMapsEqual(oldData.codeBlocks, codeBlocks),
+            mermaidBlocksChanged: !this.#areMapsEqual(oldData.mermaidBlocks, mermaidBlocks),
+            mathBlocksChanged: !this.#areMapsEqual(oldData.mathBlocks, mathBlocks),
+            headingsChanged: !this.#areArraysEqual(oldData.headings, headings),
+            newCodeBlocks: codeBlocks,
+            newMermaidBlocks: mermaidBlocks,
+            newMathBlocks: mathBlocks,
+            newHeadings: headings
+        };
     }
 
     /**
