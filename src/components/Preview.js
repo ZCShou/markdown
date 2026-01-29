@@ -368,8 +368,8 @@ export class Preview extends BaseComponent {
         // 渲染 Markdown 为 HTML
         const html = this.renderMarkdown(markdown);
 
-        // 智能更新 DOM
-        this.#updateDOMSmart(html, changes);
+        // 智能更新 DOM，同时收集需要处理的元素
+        const elementsToProcess = this.#updateDOMSmart(html, changes);
 
         // 延迟处理元素（避免阻塞主线程）
         requestAnimationFrame(() => {
@@ -383,39 +383,17 @@ export class Preview extends BaseComponent {
                 this.#updateHeadingsSync(changes.newHeadings, changedHeadingIndexes);
             }
 
-            // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
-            const allElements = dom.getAllIn(
-                this.container,
-                'pre code, pre:not(.has-copy-btn), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
-            );
-
-            // 分类元素
-            const pendingCodeBlocks = [];
-            const pendingMermaidBlocks = [];
-            const pendingMathElements = [];
-            const pendingCopyBtn = [];
-            const pendingImages = [];
-
-            allElements.forEach(el => {
-                if (el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE') {
-                    if (!el.classList.contains('prism-highlighted')) {
-                        if (el.classList.contains('language-mermaid')) {
-                            pendingMermaidBlocks.push(el);
-                        } else {
-                            pendingCodeBlocks.push(el);
-                        }
-                    }
-                } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
-                    pendingCopyBtn.push(el);
-                } else if (el.tagName === 'IMG') {
-                    pendingImages.push(el);
-                } else if (el.classList.contains('math-block') || el.classList.contains('math-inline')) {
-                    // 数学公式元素（已在查询中过滤掉已渲染的）
-                    pendingMathElements.push(el);
-                }
-            });
-
-            this.processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathElements, pendingCopyBtn, pendingImages, changes);
+            // 直接使用已收集的元素，避免重复 DOM 查询
+            if (elementsToProcess) {
+                this.processAllElements(
+                    elementsToProcess.pendingCodeBlocks,
+                    elementsToProcess.pendingMermaidBlocks,
+                    elementsToProcess.pendingMathElements,
+                    elementsToProcess.pendingCopyBtn,
+                    elementsToProcess.pendingImages,
+                    changes
+                );
+            }
 
             // 更新缓存
             this.#lastRenderedData = {
@@ -726,9 +704,57 @@ export class Preview extends BaseComponent {
 
     // ==================== DOM 更新 ====================
     /**
-     * 智能更新 DOM（优化版：使用 replaceChildren 减少重排）
+     * 收集需要处理的元素（在 DOM 更新后调用）
+     * @returns {Object} 包含各类待处理元素的对象
+     * @private
+     */
+    #collectElementsToProcess() {
+        // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
+        const allElements = dom.getAllIn(
+            this.container,
+            'pre code, pre:not(.has-copy-btn), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
+        );
+
+        // 分类元素
+        const pendingCodeBlocks = [];
+        const pendingMermaidBlocks = [];
+        const pendingMathElements = [];
+        const pendingCopyBtn = [];
+        const pendingImages = [];
+
+        allElements.forEach(el => {
+            if (el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE') {
+                if (!el.classList.contains('prism-highlighted')) {
+                    if (el.classList.contains('language-mermaid')) {
+                        pendingMermaidBlocks.push(el);
+                    } else {
+                        pendingCodeBlocks.push(el);
+                    }
+                }
+            } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
+                pendingCopyBtn.push(el);
+            } else if (el.tagName === 'IMG') {
+                pendingImages.push(el);
+            } else if (el.classList.contains('math-block') || el.classList.contains('math-inline')) {
+                // 数学公式元素（已在查询中过滤掉已渲染的）
+                pendingMathElements.push(el);
+            }
+        });
+
+        return {
+            pendingCodeBlocks,
+            pendingMermaidBlocks,
+            pendingMathElements,
+            pendingCopyBtn,
+            pendingImages
+        };
+    }
+
+    /**
+     * 智能更新 DOM（优化版：使用 replaceChildren 减少重排 + 一次性收集元素）
      * @param newHTML
      * @param changes
+     * @returns {Object|null} 需要处理的元素集合，如果无需处理则返回 null
      * @private
      */
     #updateDOMSmart(newHTML, changes) {
@@ -736,7 +762,8 @@ export class Preview extends BaseComponent {
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
             this.#updateHeadingIds();
-            return;
+            // 返回需要处理的元素
+            return this.#collectElementsToProcess();
         }
 
         // 如果所有内容都变了，直接替换
@@ -745,7 +772,8 @@ export class Preview extends BaseComponent {
         if (allChanged) {
             this.container.innerHTML = newHTML;
             this.#updateHeadingIds();
-            return;
+            // 返回需要处理的元素
+            return this.#collectElementsToProcess();
         }
 
         // 部分内容未变，使用增量更新
@@ -775,6 +803,9 @@ export class Preview extends BaseComponent {
         if (changes.headingsChanged) {
             this.#updateHeadingIds();
         }
+
+        // 返回需要处理的元素
+        return this.#collectElementsToProcess();
     }
 
     /**
