@@ -373,11 +373,6 @@ export class Preview extends BaseComponent {
 
         // 延迟处理元素（避免阻塞主线程）
         requestAnimationFrame(() => {
-            // 计算具体哪些数学公式发生了变化（延迟到 RAF 内部，减少主线程阻塞）
-            const pendingMathHashes = changes.mathBlocksChanged
-                ? this.#getChangedMathBlocks(this.#lastRenderedData.mathBlocks, changes.newMathBlocks)
-                : null;
-
             // 计算具体哪些标题发生了变化
             const changedHeadingIndexes = changes.headingsChanged
                 ? this.#getChangedHeadingIndexes(this.#lastRenderedData.headings, changes.newHeadings)
@@ -391,13 +386,14 @@ export class Preview extends BaseComponent {
             // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
             const allElements = dom.getAllIn(
                 this.container,
-                'pre code, pre:not(.has-copy-btn), img:not([data-error-handled])'
+                'pre code, pre:not(.has-copy-btn), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
             );
 
             // 分类元素
             const pendingCodeBlocks = [];
             const pendingMermaidBlocks = [];
-            const pendingPreElements = [];
+            const pendingMathElements = [];
+            const pendingCopyBtn = [];
             const pendingImages = [];
 
             allElements.forEach(el => {
@@ -410,13 +406,16 @@ export class Preview extends BaseComponent {
                         }
                     }
                 } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
-                    pendingPreElements.push(el);
+                    pendingCopyBtn.push(el);
                 } else if (el.tagName === 'IMG') {
                     pendingImages.push(el);
+                } else if (el.classList.contains('math-block') || el.classList.contains('math-inline')) {
+                    // 数学公式元素（已在查询中过滤掉已渲染的）
+                    pendingMathElements.push(el);
                 }
             });
 
-            this.processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathHashes, pendingPreElements, pendingImages, changes);
+            this.processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathElements, pendingCopyBtn, pendingImages, changes);
 
             // 更新缓存
             this.#lastRenderedData = {
@@ -571,28 +570,6 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 获取发生变化的数学公式（用于增量渲染）
-     * @param {Map} oldMathBlocks - 旧的数学公式 Map
-     * @param {Map} newMathBlocks - 新的数学公式 Map
-     * @returns {Set} 发生变化的公式的哈希集合
-     * @private
-     */
-    #getChangedMathBlocks(oldMathBlocks, newMathBlocks) {
-        const changed = new Set();
-
-        // 检测新增和修改的公式
-        for (const [compositeKey, data] of newMathBlocks) {
-            const oldData = oldMathBlocks.get(compositeKey);
-            // 🔥 修复：比较内容而不是复合键
-            if (!oldData || oldData.latex !== data.latex || oldData.displayMode !== data.displayMode) {
-                changed.add(compositeKey);
-            }
-        }
-
-        return changed;
-    }
-
-    /**
      * 比较两个 Map 是否相等
      * @param {Map} map1 - 第一个 Map
      * @param {Map} map2 - 第二个 Map
@@ -693,18 +670,18 @@ export class Preview extends BaseComponent {
      * 批量处理所有 DOM 元素（优化版：简化逻辑 + 增量公式渲染）
      * @param {Array<Element>} pendingCodeBlocks - 等待高亮的代码块元素数组（未高亮的）
      * @param {Array<Element>} pendingMermaidBlocks - 等待渲染的 Mermaid 元素数组（未渲染的）
-     * @param {Set<string>|null} pendingMathHashes - 等待渲染的数学公式哈希集合（null 表示渲染所有）
-     * @param {Array<Element>} pendingPreElements - 等待添加复制按钮的 PRE 元素数组
+     * @param {Array<Element>} pendingMathElements - 等待渲染的数学公式元素数组
+     * @param {Array<Element>} pendingCopyBtn - 需要添加复制按钮的 PRE 元素数组
      * @param {Array<HTMLImageElement>} pendingImages - 等待标记处理的图片数组
      * @param {Object} changes - 变化信息对象（codeBlocksChanged, mermaidBlocksChanged, mathBlocksChanged 等）
      */
-    processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathHashes, pendingPreElements, pendingImages, changes = null) {
+    processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathElements, pendingCopyBtn, pendingImages, changes = null) {
         // 没有变化信息，处理所有元素
         if (!changes) {
             this.#highlightCode(pendingCodeBlocks);
             this.#renderMermaid(pendingMermaidBlocks);
-            this.#renderMath(null); // null 表示渲染所有
-            this.#addCopyButtons(pendingPreElements);
+            this.#renderMath(pendingMathElements);
+            this.#addCopyButtons(pendingCopyBtn);
             this.#markImages(pendingImages);
             return;
         }
@@ -717,13 +694,13 @@ export class Preview extends BaseComponent {
         if (pendingMermaidBlocks.length > 0) {
             this.#renderMermaid(pendingMermaidBlocks);
         }
-        // 优化：只渲染变化的数学公式
-        if (changes.mathBlocksChanged) {
-            this.#renderMath(pendingMathHashes);
+        // 总是处理数学公式（已在查询时过滤）
+        if (pendingMathElements.length > 0) {
+            this.#renderMath(pendingMathElements);
         }
 
         // 总是处理（因为 innerHTML 替换后会丢失）
-        this.#addCopyButtons(pendingPreElements);
+        this.#addCopyButtons(pendingCopyBtn);
         this.#markImages(pendingImages);
     }
 
@@ -1195,7 +1172,7 @@ export class Preview extends BaseComponent {
 
     /**
      * 添加复制按钮（优化版：简化逻辑）
-     * @param preElements
+     * @param {Array<HTMLPreElement>} preElements - 需要添加复制按钮的 PRE 元素数组
      * @private
      */
     #addCopyButtons(preElements) {
@@ -1459,42 +1436,16 @@ export class Preview extends BaseComponent {
     // ==================== 公式渲染组 ====================
     /**
      * 渲染数学公式（优化版：增量渲染 + 可见性优化）
-     * @param {Set|null} changedHashes - 发生变化的公式复合键集合，null 表示渲染所有
+     * @param {Array<Element>} mathElements - 数学公式元素数组（已过滤未渲染的）
      * @private
      */
-    #renderMath(changedHashes = null) {
-        if (typeof katex === 'undefined') return;
+    #renderMath(mathElements) {
+        if (typeof katex === 'undefined' || mathElements.length === 0) return;
 
-        // 使用 dom.js 统一查询所有数学公式元素
-        const mathElements = dom.getAllIn(
-            this.container,
-            '.math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
-        );
-
-        // 过滤出需要渲染的公式
-        const elementsToRender = [];
-        mathElements.forEach((el, index) => {
-            // 如果已经渲染过，且不在变化集合中，则跳过
-            if (el.classList.contains('math-rendered')) {
-                if (changedHashes) {
-                    const latex = el.getAttribute('data-latex');
-                    if (latex) {
-                        const hash = this.#generateSimpleHash(latex);
-                        // 🔥 修复：使用复合键查找
-                        const compositeKey = `${hash}_idx_${index}`;
-                        if (!changedHashes.has(compositeKey)) {
-                            return; // 跳过未变化的公式
-                        }
-                    }
-                } else {
-                    return; // 没有变化信息，跳过已渲染的
-                }
-            }
-
+        // 过滤出需要渲染的公式（排除无效元素）
+        const elementsToRender = mathElements.filter(el => {
             const latex = el.getAttribute('data-latex');
-            if (!latex) return;
-
-            elementsToRender.push(el);
+            return latex !== null;
         });
 
         if (elementsToRender.length === 0) return;
@@ -1561,9 +1512,6 @@ export class Preview extends BaseComponent {
      */
     #renderSingleMath(element) {
         // 🔥 优化：提前标记为已渲染，防止并发重复渲染
-        if (element.classList.contains('math-rendered')) {
-            return;
-        }
         element.classList.add('math-rendered');
 
         const latex = element.getAttribute('data-latex');
@@ -1580,7 +1528,6 @@ export class Preview extends BaseComponent {
             console.warn('KaTeX 渲染失败:', err);
             element.textContent = latex;
             element.classList.add('math-error');
-            // 类已在开始时添加，这里无需重复添加
         }
     }
 
@@ -1598,9 +1545,7 @@ export class Preview extends BaseComponent {
 
             while (index < end) {
                 const el = elements[index];
-                if (!el.classList.contains('math-rendered')) {
-                    this.#renderSingleMath(el);
-                }
+                this.#renderSingleMath(el);
                 index++;
             }
 
