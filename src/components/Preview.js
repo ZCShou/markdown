@@ -368,31 +368,24 @@ export class Preview extends BaseComponent {
         // 渲染 Markdown 为 HTML
         const html = this.renderMarkdown(markdown);
 
+        // 如果标题有变化，更新 state（让 TOC 能获取到最新数据）
+        if (changes.changedHeadingsData) {
+            this.#updateHeadingsSync(changes.newHeadings, changes.changedHeadingsData);
+        }
+
         // 智能更新 DOM，同时收集需要处理的元素
         const elementsToProcess = this.#updateDOM(html, changes);
 
         // 延迟处理元素（避免阻塞主线程）
         requestAnimationFrame(() => {
-            // 计算具体哪些标题发生了变化
-            const changedHeadingIndexes = changes.headingsChanged
-                ? this.#getChangedHeadingIndexes(this.#lastRenderedData.headings, changes.newHeadings)
-                : null;
-
-            // 如果标题有变化，更新 state（让 TOC 能获取到最新数据）
-            if (changes.headingsChanged && changedHeadingIndexes) {
-                this.#updateHeadingsSync(changes.newHeadings, changedHeadingIndexes);
-            }
-
             // 直接使用已收集的元素，避免重复 DOM 查询
             if (elementsToProcess) {
-                // 这样可以确保新内容被正确处理
                 if (elementsToProcess.pendingCodeBlocks.length > 0) {
                     this.#highlightCode(elementsToProcess.pendingCodeBlocks);
                 }
                 if (elementsToProcess.pendingMermaidBlocks.length > 0) {
                     this.#renderMermaid(elementsToProcess.pendingMermaidBlocks);
                 }
-                // 总是处理数学公式（已在查询时过滤）
                 if (elementsToProcess.pendingMathElements.length > 0) {
                     this.#renderMath(elementsToProcess.pendingMathElements);
                 }
@@ -498,80 +491,81 @@ export class Preview extends BaseComponent {
             }
         }
 
-        // 比较变化
+        // 比较变化，并记录具体哪些元素发生了变化
+        const changedCodeBlocks = this.#findChangedMapEntries(oldData.codeBlocks, codeBlocks);
+        const changedMermaidBlocks = this.#findChangedMapEntries(oldData.mermaidBlocks, mermaidBlocks);
+        const changedMathBlocks = this.#findChangedMapEntries(oldData.mathBlocks, mathBlocks);
+        const changedHeadingsData = this.#getChangedHeadingsData(oldData.headings, headings);
+
         return {
-            codeBlocksChanged: !this.#areMapsEqual(oldData.codeBlocks, codeBlocks),
-            mermaidBlocksChanged: !this.#areMapsEqual(oldData.mermaidBlocks, mermaidBlocks),
-            mathBlocksChanged: !this.#areMapsEqual(oldData.mathBlocks, mathBlocks),
-            headingsChanged: !this.#areArraysEqual(oldData.headings, headings),
             newCodeBlocks: codeBlocks,
             newMermaidBlocks: mermaidBlocks,
             newMathBlocks: mathBlocks,
-            newHeadings: headings
+            newHeadings: headings,
+            // 🔥 记录具体发生变化的键（外部可通过 size 判断是否有变化）
+            changedCodeBlocks,
+            changedMermaidBlocks,
+            changedMathBlocks,
+            changedHeadingsData
         };
     }
 
     /**
-     * 比较两个 Map 是否相等
-     * @param {Map} map1 - 第一个 Map
-     * @param {Map} map2 - 第二个 Map
-     * @returns {boolean} 是否相等
+     * 找出两个 Map 之间发生变化的键
+     * @param {Map} oldMap - 旧的 Map
+     * @param {Map} newMap - 新的 Map
+     * @returns {Set<string>} 发生变化的键集合
      * @private
      */
-    #areMapsEqual(map1, map2) {
-        if (map1.size !== map2.size) {
-            return false;
-        }
-        for (const [key, value1] of map1.entries()) {
-            if (!map2.has(key)) {
-                return false;
-            }
-            const value2 = map2.get(key);
-            // 深度比较值对象（用于 mathBlocks, codeBlocks, mermaidBlocks）
-            if (value1 && value2 && typeof value1 === 'object' && typeof value2 === 'object') {
-                // 比较对象的属性
-                const keys1 = Object.keys(value1);
-                const keys2 = Object.keys(value2);
-                if (keys1.length !== keys2.length) return false;
-                for (const k of keys1) {
-                    if (value1[k] !== value2[k]) {
-                        return false;
-                    }
+    #findChangedMapEntries(oldMap, newMap) {
+        const changed = new Set();
+
+        // 检查旧 Map 中的每个键
+        for (const [key, oldValue] of oldMap.entries()) {
+            if (!newMap.has(key)) {
+                // 键不存在于新 Map 中，说明被删除了
+                changed.add(key);
+            } else {
+                const newValue = newMap.get(key);
+                // 深度比较值
+                if (!this.#areValuesEqual(oldValue, newValue)) {
+                    changed.add(key);
                 }
-            } else if (value1 !== value2) {
-                return false;
             }
         }
-        return true;
+
+        // 检查新 Map 中新增的键
+        for (const key of newMap.keys()) {
+            if (!oldMap.has(key)) {
+                changed.add(key);
+            }
+        }
+
+        return changed;
     }
 
     /**
-     * 比较两个数组是否相等
-     * @param {Array} arr1 - 第一个数组
-     * @param {Array} arr2 - 第二个数组
+     * 深度比较两个值是否相等
+     * @param {*} value1 - 第一个值
+     * @param {*} value2 - 第二个值
      * @returns {boolean} 是否相等
      * @private
      */
-    #areArraysEqual(arr1, arr2) {
-        if (arr1.length !== arr2.length) return false;
-
-        // 标题数组元素是对象，需要深度比较
-        for (let i = 0; i < arr1.length; i++) {
-            const item1 = arr1[i];
-            const item2 = arr2[i];
-
-            // 如果都是对象（标题），比较 level 和 text
-            if (item1 && item2 && typeof item1 === 'object' && typeof item2 === 'object') {
-                if (item1.level !== item2.level || item1.text !== item2.text) {
+    #areValuesEqual(value1, value2) {
+        // 如果都是对象，深度比较
+        if (value1 && value2 && typeof value1 === 'object' && typeof value2 === 'object') {
+            const keys1 = Object.keys(value1);
+            const keys2 = Object.keys(value2);
+            if (keys1.length !== keys2.length) return false;
+            for (const k of keys1) {
+                if (value1[k] !== value2[k]) {
                     return false;
                 }
-            } else {
-                // 否则直接比较（简单类型或一个为 null）
-                if (item1 !== item2) return false;
             }
+            return true;
         }
-
-        return true;
+        // 否则直接比较
+        return value1 === value2;
     }
 
     // ==================== Markdown 渲染 ====================
@@ -679,9 +673,10 @@ export class Preview extends BaseComponent {
      */
     #collectElementsToProcess() {
         // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
+        // 🔥 优化：在选择器中直接排除已处理的元素，避免后续过滤
         const allElements = dom.getAllIn(
             this.container,
-            'pre code, pre:not(.has-copy-btn), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
+            'pre code:not(.prism-highlighted), pre:not(.has-copy-btn), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
         );
 
         // 分类元素
@@ -693,12 +688,11 @@ export class Preview extends BaseComponent {
 
         allElements.forEach(el => {
             if (el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE') {
-                if (!el.classList.contains('prism-highlighted')) {
-                    if (el.classList.contains('language-mermaid')) {
-                        pendingMermaidBlocks.push(el);
-                    } else {
-                        pendingCodeBlocks.push(el);
-                    }
+                // 已通过选择器过滤，这里只需分类
+                if (el.classList.contains('language-mermaid')) {
+                    pendingMermaidBlocks.push(el);
+                } else {
+                    pendingCodeBlocks.push(el);
                 }
             } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
                 pendingCopyBtn.push(el);
@@ -737,7 +731,9 @@ export class Preview extends BaseComponent {
 
         // 如果所有内容都变了，直接替换
         const allChanged =
-            changes.codeBlocksChanged && changes.mermaidBlocksChanged && changes.mathBlocksChanged;
+            changes.changedCodeBlocks.size &&
+            changes.changedMermaidBlocks.size &&
+            changes.changedMathBlocks.size;
         if (allChanged) {
             this.container.innerHTML = newHTML;
             this.#updateHeadingIds();
@@ -769,7 +765,7 @@ export class Preview extends BaseComponent {
         }
 
         // 更新标题 ID
-        if (changes.headingsChanged) {
+        if (changes.changedHeadingsData) {
             this.#updateHeadingIds();
         }
 
@@ -850,105 +846,73 @@ export class Preview extends BaseComponent {
             '.math-block[data-latex], .math-inline[data-latex]'
         );
 
-        // 保留未变化的代码块（只有当整体未变时）
-        if (!changes.codeBlocksChanged) {
-            newCodeBlocks.forEach((newEl, index) => {
-                const hash = this.#generateSimpleHash(newEl.textContent);
-                // 🔥 修复：使用复合键查找
-                const compositeKey = `${hash}_idx_${index}`;
-                const oldPre = oldElements.code.get(compositeKey);
-                if (oldPre) {
-                    newEl.parentElement.replaceWith(oldPre.cloneNode(true));
-                }
-            });
-        } else {
-            // 即使有变化，也保留哈希相同的元素
-            newCodeBlocks.forEach((newEl, index) => {
-                const hash = this.#generateSimpleHash(newEl.textContent);
-                // 🔥 修复：使用复合键查找
-                const compositeKey = `${hash}_idx_${index}`;
-                if (changes.newCodeBlocks.has(compositeKey) && oldElements.code.has(compositeKey)) {
-                    const oldPre = oldElements.code.get(compositeKey);
-                    newEl.parentElement.replaceWith(oldPre.cloneNode(true));
-                }
-            });
-        }
+        // 保留未变化的代码块
+        // 🔥 优化：使用 changedCodeBlocks 集合精确判断哪些代码块发生了变化
+        newCodeBlocks.forEach((newEl, index) => {
+            const hash = this.#generateSimpleHash(newEl.textContent);
+            const compositeKey = `${hash}_idx_${index}`;
+            const oldPre = oldElements.code.get(compositeKey);
+
+            // 只有当旧元素存在且未发生变化时才保留
+            if (oldPre && !changes.changedCodeBlocks.has(compositeKey)) {
+                newEl.parentElement.replaceWith(oldPre.cloneNode(true));
+            }
+        });
 
         // 保留未变化的 Mermaid 图表
-        if (!changes.mermaidBlocksChanged) {
-            newMermaidBlocks.forEach((newEl, index) => {
-                const text = newEl.textContent.trim();
-                const hash = this.#generateSimpleHash(text);
-                // 🔥 修复：使用复合键查找
-                const compositeKey = `${hash}_idx_${index}`;
-                const oldDiv = oldElements.mermaid.get(compositeKey);
-                // 只保留已完成渲染的图表
-                if (oldDiv && oldDiv.classList.contains('mermaid-done')) {
-                    newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
-                }
-            });
-        } else {
-            // 即使有变化，也保留哈希相同且已渲染的元素
-            newMermaidBlocks.forEach((newEl, index) => {
-                const text = newEl.textContent.trim();
-                const hash = this.#generateSimpleHash(text);
-                // 🔥 修复：使用复合键查找
-                const compositeKey = `${hash}_idx_${index}`;
-                const oldDiv = oldElements.mermaid.get(compositeKey);
-                if (
-                    changes.newMermaidBlocks.has(compositeKey) &&
-                    oldDiv &&
-                    oldDiv.classList.contains('mermaid-done')
-                ) {
-                    newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
-                }
-            });
-        }
+        // 🔥 优化：使用 changedMermaidBlocks 集合精确判断哪些图表发生了变化
+        newMermaidBlocks.forEach((newEl, index) => {
+            const text = newEl.textContent.trim();
+            const hash = this.#generateSimpleHash(text);
+            const compositeKey = `${hash}_idx_${index}`;
+            const oldDiv = oldElements.mermaid.get(compositeKey);
 
-        // 保留未变化的数学公式（优化版：只保留真正未变化的公式）
+            // 只有当旧元素存在、未发生变化且已完成渲染时才保留
+            if (oldDiv &&
+                !changes.changedMermaidBlocks.has(compositeKey) &&
+                oldDiv.classList.contains('mermaid-done')) {
+                newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
+            }
+        });
+
+        // 保留未变化的数学公式
+        // 🔥 优化：使用 changedMathBlocks 集合精确判断哪些公式发生了变化
         newMathBlocks.forEach((newEl, index) => {
             const latex = newEl.getAttribute('data-latex');
             if (!latex) return;
 
             const hash = this.#generateSimpleHash(latex);
-            // 🔥 修复：使用复合键查找
             const compositeKey = `${hash}_idx_${index}`;
             const oldEl = oldElements.math.get(compositeKey);
 
             // 只有当旧元素存在且未发生变化时才保留
-            if (oldEl) {
-                let shouldPreserve = false;
-
-                if (!changes.mathBlocksChanged) {
-                    // 没有任何公式变化，保留所有
-                    shouldPreserve = true;
-                } else if (changes.changedMathBlocks && !changes.changedMathBlocks.has(compositeKey)) {
-                    // 有变化但这个公式未变化，保留它
-                    shouldPreserve = true;
-                }
-
-                if (shouldPreserve) {
-                    newEl.replaceWith(oldEl.cloneNode(true));
-                }
+            if (oldEl && !changes.changedMathBlocks.has(compositeKey)) {
+                newEl.replaceWith(oldEl.cloneNode(true));
             }
         });
     }
 
     // ==================== 标题渲染组 ====================
     /**
-     * 获取发生变化的标题索引（用于增量更新）
+     * 获取发生变化的标题数据（用于增量更新）
      * @param {Array} oldHeadings - 旧的标题数组
      * @param {Array} newHeadings - 新的标题数组
-     * @returns {Set<number>} 发生变化的标题索引集合
+     * @returns {Map<number, Object>} 发生变化的标题数据映射（索引 -> 标题数据）
      * @private
      */
-    #getChangedHeadingIndexes(oldHeadings, newHeadings) {
-        const changed = new Set();
+    #getChangedHeadingsData(oldHeadings, newHeadings) {
+        const changed = new Map();
 
         // 如果长度不同，所有标题都算变化
         if (oldHeadings.length !== newHeadings.length) {
             for (let i = 0; i < newHeadings.length; i++) {
-                changed.add(i);
+                const { level, text } = newHeadings[i];
+                changed.set(i, {
+                    tagName: 'H' + level,
+                    textContent: text,
+                    id: 'heading-' + i,
+                    level
+                });
             }
             return changed;
         }
@@ -962,7 +926,13 @@ export class Preview extends BaseComponent {
             if (!oldHeading ||
                 oldHeading.level !== newHeading.level ||
                 oldHeading.text !== newHeading.text) {
-                changed.add(i);
+                const { level, text } = newHeading;
+                changed.set(i, {
+                    tagName: 'H' + level,
+                    textContent: text,
+                    id: 'heading-' + i,
+                    level
+                });
             }
         }
 
@@ -999,12 +969,22 @@ export class Preview extends BaseComponent {
     /**
      * 同步更新标题数据（在 DOM 渲染前）- 优化版：增量更新
      * @param {Array} headings - 新的标题数组
-     * @param {Set<number>} changedIndexes - 发生变化的标题索引集合
+     * @param {Map<number, Object>} changedHeadingsData - 发生变化的标题数据映射
      * @private
      */
-    #updateHeadingsSync(headings, changedIndexes) {
-        // 如果没有提供变化索引，或者所有标题都变了，全量更新
-        if (!changedIndexes || changedIndexes.size === headings.length) {
+    #updateHeadingsSync(headings, changedHeadingsData) {
+        // 如果没有变化数据，或者所有标题都变了，全量更新
+        if (!changedHeadingsData || changedHeadingsData.size === headings.length) {
+            // changedHeadingsData 已经包含了所有标题数据，直接使用
+            if (changedHeadingsData && changedHeadingsData.size === headings.length) {
+                const headingsArray = Array.from({ length: headings.length }, (_, i) =>
+                    changedHeadingsData.get(i)
+                );
+                this.state.setState({ headings: headingsArray });
+                return;
+            }
+
+            // 降级方案：重新构建所有标题数据
             const headingsData = headings.map((heading, index) => {
                 const { level, text } = heading;
                 return {
@@ -1023,17 +1003,9 @@ export class Preview extends BaseComponent {
         const currentHeadings = this.state.get('headings') || [];
         const updatedHeadings = [...currentHeadings];
 
-        changedIndexes.forEach(index => {
-            const heading = headings[index];
-            if (heading) {
-                const { level, text } = heading;
-                updatedHeadings[index] = {
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + index,
-                    level
-                };
-            }
+        // 直接使用 changedHeadingsData 中的数据，无需再次遍历
+        changedHeadingsData.forEach((headingData, index) => {
+            updatedHeadings[index] = headingData;
         });
 
         this.state.setState({ headings: updatedHeadings });
