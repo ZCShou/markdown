@@ -369,7 +369,7 @@ export class Preview extends BaseComponent {
         const html = this.renderMarkdown(markdown);
 
         // 智能更新 DOM，同时收集需要处理的元素
-        const elementsToProcess = this.#updateDOMSmart(html, changes);
+        const elementsToProcess = this.#updateDOM(html, changes);
 
         // 延迟处理元素（避免阻塞主线程）
         requestAnimationFrame(() => {
@@ -726,7 +726,7 @@ export class Preview extends BaseComponent {
      * @returns {Object|null} 需要处理的元素集合，如果无需处理则返回 null
      * @private
      */
-    #updateDOMSmart(newHTML, changes) {
+    #updateDOM(newHTML, changes) {
         // 首次渲染，使用 innerHTML（性能更好）
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
