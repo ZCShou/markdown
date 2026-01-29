@@ -389,9 +389,10 @@ export class Preview extends BaseComponent {
                 if (elementsToProcess.pendingMathElements.length > 0) {
                     this.#renderMath(elementsToProcess.pendingMathElements);
                 }
+                if (elementsToProcess.pendingCopyBtn.length > 0) {
+                    this.#addCopyButtons(elementsToProcess.pendingCopyBtn);
+                }
 
-                // 总是处理（因为 innerHTML 替换后会丢失）
-                this.#addCopyButtons(elementsToProcess.pendingCopyBtn);
                 this.#markImages(elementsToProcess.pendingImages);
             }
 
@@ -502,7 +503,6 @@ export class Preview extends BaseComponent {
             newMermaidBlocks: mermaidBlocks,
             newMathBlocks: mathBlocks,
             newHeadings: headings,
-            // 🔥 记录具体发生变化的键（外部可通过 size 判断是否有变化）
             changedCodeBlocks,
             changedMermaidBlocks,
             changedMathBlocks,
@@ -672,11 +672,9 @@ export class Preview extends BaseComponent {
      * @private
      */
     #collectElementsToProcess() {
-        // 使用 dom.js 统一查询，合并查询减少 DOM 遍历
-        // 🔥 优化：在选择器中直接排除已处理的元素，避免后续过滤
         const allElements = dom.getAllIn(
             this.container,
-            'pre code:not(.prism-highlighted), pre:not(.has-copy-btn), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
+            'pre code:not(.prism-highlighted), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
         );
 
         // 分类元素
@@ -687,19 +685,21 @@ export class Preview extends BaseComponent {
         const pendingImages = [];
 
         allElements.forEach(el => {
-            if (el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE') {
-                // 已通过选择器过滤，这里只需分类
-                if (el.classList.contains('language-mermaid')) {
-                    pendingMermaidBlocks.push(el);
-                } else {
-                    pendingCodeBlocks.push(el);
+            if (el.tagName === 'CODE') {
+                const preElement = el.parentElement;
+                if (preElement?.tagName === 'PRE') {
+                    if (el.classList.contains('language-mermaid')) {
+                        pendingMermaidBlocks.push(el);
+                    } else {
+                        pendingCodeBlocks.push(el);
+                        if (!preElement.classList.contains('has-copy-btn')) {
+                            pendingCopyBtn.push(preElement);
+                        }
+                    }
                 }
-            } else if (el.tagName === 'PRE' && !el.classList.contains('has-copy-btn')) {
-                pendingCopyBtn.push(el);
             } else if (el.tagName === 'IMG') {
                 pendingImages.push(el);
             } else if (el.classList.contains('math-block') || el.classList.contains('math-inline')) {
-                // 数学公式元素（已在查询中过滤掉已渲染的）
                 pendingMathElements.push(el);
             }
         });
@@ -786,6 +786,7 @@ export class Preview extends BaseComponent {
         };
 
         // 使用 dom.js 统一查询，收集代码块（存储引用）
+        // 🔥 修复：存储 code-block-wrapper 而不是 pre，以保留复制按钮
         const codeBlocks = dom.getAllIn(
             this.container,
             'pre code[class*="language-"]:not(.language-mermaid)'
@@ -794,7 +795,12 @@ export class Preview extends BaseComponent {
             const hash = this.#generateSimpleHash(el.textContent);
             // 🔥 修复：使用复合键（哈希 + 索引）
             const compositeKey = `${hash}_idx_${index}`;
-            maps.code.set(compositeKey, el.parentElement);
+            // 🔥 修复：存储 code-block-wrapper（pre 的父元素），以保留复制按钮
+            const preElement = el.parentElement;
+            const wrapper = preElement?.parentElement?.classList.contains('code-block-wrapper')
+                ? preElement.parentElement
+                : preElement;
+            maps.code.set(compositeKey, wrapper);
         });
 
         // 收集 Mermaid 图表（存储引用）
@@ -851,11 +857,25 @@ export class Preview extends BaseComponent {
         newCodeBlocks.forEach((newEl, index) => {
             const hash = this.#generateSimpleHash(newEl.textContent);
             const compositeKey = `${hash}_idx_${index}`;
-            const oldPre = oldElements.code.get(compositeKey);
+            const oldWrapper = oldElements.code.get(compositeKey);
 
             // 只有当旧元素存在且未发生变化时才保留
-            if (oldPre && !changes.changedCodeBlocks.has(compositeKey)) {
-                newEl.parentElement.replaceWith(oldPre.cloneNode(true));
+            if (oldWrapper && !changes.changedCodeBlocks.has(compositeKey)) {
+                // 🔥 修复：确定要替换的元素（可能是 code-block-wrapper 或 pre）
+                const newPre = newEl.parentElement;
+                const newWrapper = newPre?.parentElement?.classList.contains('code-block-wrapper')
+                    ? newPre.parentElement
+                    : newPre;
+                
+                // 克隆整个 code-block-wrapper（包含复制按钮）
+                const clonedWrapper = oldWrapper.cloneNode(true);
+                newWrapper.replaceWith(clonedWrapper);
+                
+                // 🔥 重要：为克隆的复制按钮重新添加事件监听器
+                const clonedBtn = clonedWrapper.querySelector('.code-copy-btn');
+                if (clonedBtn) {
+                    this.#attachCopyButtonHandler(clonedBtn, clonedWrapper.querySelector('pre code'));
+                }
             }
         });
 
@@ -1152,8 +1172,13 @@ export class Preview extends BaseComponent {
         if (preElements.length === 0) return;
 
         preElements.forEach(pre => {
-            // 跳过已处理的
-            if (!pre.parentNode || pre.parentElement?.classList.contains('code-block-wrapper')) {
+            // 🔥 优化：跳过已处理的（通过 .has-copy-btn 类判断）
+            if (pre.classList.contains('has-copy-btn')) {
+                return;
+            }
+
+            // 🔥 修复：检查元素是否仍在 DOM 中
+            if (!pre.isConnected || !pre.parentNode) {
                 return;
             }
 
@@ -1163,6 +1188,9 @@ export class Preview extends BaseComponent {
             pre.parentNode.insertBefore(wrapper, pre);
             wrapper.appendChild(pre);
 
+            // 🔥 重要：标记为已添加复制按钮，避免重复添加
+            pre.classList.add('has-copy-btn');
+
             // 添加复制按钮
             const btn = this.createElement('button', {
                 className: 'md-btn md-btn-sm code-copy-btn',
@@ -1171,26 +1199,40 @@ export class Preview extends BaseComponent {
                 parent: wrapper
             });
 
-            this.addEventListener(btn, 'click', e => {
-                e.preventDefault();
-                e.stopPropagation();
+            // 获取 code 元素
+            const code = dom.getIn(pre, 'code');
+            
+            // 🔥 优化：提取事件处理逻辑，以便在克隆后重新绑定
+            this.#attachCopyButtonHandler(btn, code);
+        });
+    }
 
-                // 使用 dom.js 统一查询
-                const code = dom.getIn(pre, 'code');
-                if (!code || btn.classList.contains('copied')) return;
+    /**
+     * 为复制按钮添加事件处理（用于克隆后重新绑定）
+     * @param {HTMLButtonElement} btn - 复制按钮元素
+     * @param {HTMLElement} code - 代码元素
+     * @private
+     */
+    #attachCopyButtonHandler(btn, code) {
+        if (!btn || !code) return;
 
-                navigator.clipboard
-                    .writeText(code.textContent)
-                    .then(() => {
-                        btn.innerHTML = '✓';
-                        btn.classList.add('copied');
-                        setTimeout(() => {
-                            btn.innerHTML = '📋';
-                            btn.classList.remove('copied');
-                        }, 2000);
-                    })
-                    .catch(err => console.error('复制失败:', err));
-            });
+        this.addEventListener(btn, 'click', e => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (!code || btn.classList.contains('copied')) return;
+
+            navigator.clipboard
+                .writeText(code.textContent)
+                .then(() => {
+                    btn.innerHTML = '✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = '📋';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                })
+                .catch(err => console.error('复制失败:', err));
         });
     }
 
