@@ -385,14 +385,21 @@ export class Preview extends BaseComponent {
 
             // 直接使用已收集的元素，避免重复 DOM 查询
             if (elementsToProcess) {
-                this.processAllElements(
-                    elementsToProcess.pendingCodeBlocks,
-                    elementsToProcess.pendingMermaidBlocks,
-                    elementsToProcess.pendingMathElements,
-                    elementsToProcess.pendingCopyBtn,
-                    elementsToProcess.pendingImages,
-                    changes
-                );
+                // 这样可以确保新内容被正确处理
+                if (elementsToProcess.pendingCodeBlocks.length > 0) {
+                    this.#highlightCode(elementsToProcess.pendingCodeBlocks);
+                }
+                if (elementsToProcess.pendingMermaidBlocks.length > 0) {
+                    this.#renderMermaid(elementsToProcess.pendingMermaidBlocks);
+                }
+                // 总是处理数学公式（已在查询时过滤）
+                if (elementsToProcess.pendingMathElements.length > 0) {
+                    this.#renderMath(elementsToProcess.pendingMathElements);
+                }
+
+                // 总是处理（因为 innerHTML 替换后会丢失）
+                this.#addCopyButtons(elementsToProcess.pendingCopyBtn);
+                this.#markImages(elementsToProcess.pendingImages);
             }
 
             // 更新缓存
@@ -565,44 +572,6 @@ export class Preview extends BaseComponent {
         }
 
         return true;
-    }
-
-    /**
-     * 批量处理所有 DOM 元素（优化版：简化逻辑 + 增量公式渲染）
-     * @param {Array<Element>} pendingCodeBlocks - 等待高亮的代码块元素数组（未高亮的）
-     * @param {Array<Element>} pendingMermaidBlocks - 等待渲染的 Mermaid 元素数组（未渲染的）
-     * @param {Array<Element>} pendingMathElements - 等待渲染的数学公式元素数组
-     * @param {Array<Element>} pendingCopyBtn - 需要添加复制按钮的 PRE 元素数组
-     * @param {Array<HTMLImageElement>} pendingImages - 等待标记处理的图片数组
-     * @param {Object} changes - 变化信息对象（codeBlocksChanged, mermaidBlocksChanged, mathBlocksChanged 等）
-     */
-    processAllElements(pendingCodeBlocks, pendingMermaidBlocks, pendingMathElements, pendingCopyBtn, pendingImages, changes = null) {
-        // 没有变化信息，处理所有元素
-        if (!changes) {
-            this.#highlightCode(pendingCodeBlocks);
-            this.#renderMermaid(pendingMermaidBlocks);
-            this.#renderMath(pendingMathElements);
-            this.#addCopyButtons(pendingCopyBtn);
-            this.#markImages(pendingImages);
-            return;
-        }
-
-        // 增量渲染：总是处理未高亮的代码块和未渲染的 Mermaid
-        // 这样可以确保新内容被正确处理
-        if (pendingCodeBlocks.length > 0) {
-            this.#highlightCode(pendingCodeBlocks);
-        }
-        if (pendingMermaidBlocks.length > 0) {
-            this.#renderMermaid(pendingMermaidBlocks);
-        }
-        // 总是处理数学公式（已在查询时过滤）
-        if (pendingMathElements.length > 0) {
-            this.#renderMath(pendingMathElements);
-        }
-
-        // 总是处理（因为 innerHTML 替换后会丢失）
-        this.#addCopyButtons(pendingCopyBtn);
-        this.#markImages(pendingImages);
     }
 
     // ==================== Markdown 渲染 ====================
