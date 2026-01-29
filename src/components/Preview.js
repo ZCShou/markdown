@@ -93,7 +93,19 @@ export class Preview extends BaseComponent {
             startOnLoad: false,
             theme: theme === 'dark' ? 'dark' : 'default',
             securityLevel: 'loose',
-            logLevel: 'error'
+            logLevel: 'error',
+            // 🔥 性能优化配置
+            maxTextSize: 99999, // 限制文本大小，避免超大文本导致性能问题
+            maxEdges: 999, // 限制边数量，避免复杂图导致渲染缓慢
+            flowchart: {
+                curve: 'basis' // 使用更平滑的曲线，提升渲染性能
+            },
+            sequence: {
+                useMaxWidth: true // 启用最大宽度限制，避免图表过宽
+            },
+            gantt: {
+                useMaxWidth: true // 启用最大宽度限制
+            }
         });
     }
 
