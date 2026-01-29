@@ -682,45 +682,33 @@ export class Preview extends BaseComponent {
         try {
             const mathBlocks = [];
             const supSubBlocks = [];
-            const codeBlocks = [];
             const strikeBlocks = [];
 
             // 性能优化：按优先级处理，避免符号冲突
             let processedMarkdown = markdown
-                // 第一步：保护代码块（避免内部符号被处理）
-                .replace(/```[\s\S]*?```|`[^`\n]+?`/g, match => {
-                    codeBlocks.push(match);
-                    return `\x00CODE${codeBlocks.length - 1}\x00`;
-                })
-                // 第二步：保护数学公式（公式中可能包含 ^ 和 ~）
+                // 第一步：保护数学公式（公式中可能包含 ^ 和 ~）
                 .replace(/\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g, (match, block, inline) => {
                     const latex = block !== undefined ? block : inline;
                     const displayMode = block !== undefined;
                     mathBlocks.push({ latex, displayMode });
                     return `\x02MATH${mathBlocks.length - 1}\x02`;
                 })
-                // 第三步：保护删除线 ~~text~~（避免被下标误匹配）
+                // 第二步：保护删除线 ~~text~~（避免被下标误匹配）
                 .replace(/~~([^~\n]{1,200})~~/g, (match, content) => {
                     strikeBlocks.push(content);
                     return `\x03STRIKE${strikeBlocks.length - 1}\x03`;
                 })
-                // 第四步：提取上标 ^text^（限制长度，避免跨行）
+                // 第三步：提取上标 ^text^（限制长度，避免跨行）
                 .replace(/\^([^\n^]{1,50})\^/g, (match, content) => {
                     supSubBlocks.push({ type: 'sup', content });
                     return `\x01SUP${supSubBlocks.length - 1}\x01`;
                 })
-                // 第五步：提取下标 ~text~（限制长度，避免跨行）
+                // 第四步：提取下标 ~text~（限制长度，避免跨行）
                 // 此时删除线和数学公式已被保护，不会误匹配
                 .replace(/~([^~\n]{1,50})~/g, (match, content) => {
                     supSubBlocks.push({ type: 'sub', content });
                     return `\x01SUB${supSubBlocks.length - 1}\x01`;
                 });
-
-            // 恢复代码块（在 marked 解析前）
-            processedMarkdown = processedMarkdown.replace(
-                /\x00CODE(\d+)\x00/g,
-                (_, i) => codeBlocks[+i] // 使用 + 运算符代替 parseInt
-            );
 
             // 使用 marked 解析
             let html;
