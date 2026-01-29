@@ -193,7 +193,9 @@ export class Preview extends BaseComponent {
             'error',
             e => {
                 if (e.target.tagName === 'IMG') {
-                    this.handleImageError(e.target);
+                    const img = e.target;
+                    img.alt = `图片加载失败: ${img.src}`;
+                    img.dataset.loadStatus = 'error';
                 }
             },
             true
@@ -1593,18 +1595,6 @@ export class Preview extends BaseComponent {
         };
 
         requestAnimationFrame(processBatch);
-    }
-
-    // ==================== 图片处理 ====================
-
-    /**
-     * 处理图片加载错误
-     * @param {HTMLImageElement} img - 图片元素
-     * @returns {void}
-     */
-    handleImageError(img) {
-        img.alt = `图片加载失败: ${img.src}`;
-        img.dataset.loadStatus = 'error';
     }
 
     // ==================== 工具函数 ====================
