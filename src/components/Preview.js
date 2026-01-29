@@ -175,6 +175,18 @@ export class Preview extends BaseComponent {
      * 绑定事件
      */
     bindEvents() {
+        // 图片加载成功处理
+        this.addEventListener(
+            this.container,
+            'load',
+            e => {
+                if (e.target.tagName === 'IMG') {
+                    e.target.dataset.loadStatus = 'success';
+                }
+            },
+            true
+        );
+
         // 图片加载错误处理
         this.addEventListener(
             this.container,
@@ -392,8 +404,6 @@ export class Preview extends BaseComponent {
                 if (elementsToProcess.pendingCopyBtn.length > 0) {
                     this.#addCopyButtons(elementsToProcess.pendingCopyBtn);
                 }
-
-                this.#markImages(elementsToProcess.pendingImages);
             }
 
             // 更新缓存
@@ -652,11 +662,21 @@ export class Preview extends BaseComponent {
                     ALLOWED_ATTR: [
                         'href', 'src', 'alt', 'title', 'class', 'id', 'type',
                         'checked', 'width', 'height', 'loading', 'colspan',
-                        'rowspan', 'start', 'align', 'style'
+                        'rowspan', 'start', 'align', 'style', 'data-load-status'
                     ],
                     ALLOW_DATA_ATTR: true
                 });
             }
+
+            // 为新生成的图片添加初始状态
+            html = html.replace(/<img([^>]*?)>/g, (match, attrs) => {
+                // 如果已经有 data-load-status 属性，跳过
+                if (attrs.includes('data-load-status')) {
+                    return match;
+                }
+                // 在标签中添加 data-load-status="pending"
+                return `<img${attrs} data-load-status="pending">`;
+            });
 
             return html;
         } catch (e) {
@@ -674,7 +694,7 @@ export class Preview extends BaseComponent {
     #collectElementsToProcess() {
         const allElements = dom.getAllIn(
             this.container,
-            'pre code:not(.prism-highlighted), img:not([data-error-handled]), .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
+            'pre code:not(.prism-highlighted), img[data-load-status="pending"], .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
         );
 
         // 分类元素
@@ -682,7 +702,6 @@ export class Preview extends BaseComponent {
         const pendingMermaidBlocks = [];
         const pendingMathElements = [];
         const pendingCopyBtn = [];
-        const pendingImages = [];
 
         allElements.forEach(el => {
             if (el.tagName === 'CODE') {
@@ -698,7 +717,8 @@ export class Preview extends BaseComponent {
                     }
                 }
             } else if (el.tagName === 'IMG') {
-                pendingImages.push(el);
+                // 设置图片为加载中状态（通过事件监听器异步处理）
+                el.dataset.loadStatus = 'loading';
             } else if (el.classList.contains('math-block') || el.classList.contains('math-inline')) {
                 pendingMathElements.push(el);
             }
@@ -708,8 +728,7 @@ export class Preview extends BaseComponent {
             pendingCodeBlocks,
             pendingMermaidBlocks,
             pendingMathElements,
-            pendingCopyBtn,
-            pendingImages
+            pendingCopyBtn
         };
     }
 
@@ -1579,23 +1598,13 @@ export class Preview extends BaseComponent {
     // ==================== 图片处理 ====================
 
     /**
-     * 标记图片已处理
-     * @param {Array<HTMLImageElement>} images - 图片元素数组
-     * @returns {void}
-     * @private
-     */
-    #markImages(images) {
-        images.forEach(img => (img.dataset.errorHandled = 'true'));
-    }
-
-    /**
      * 处理图片加载错误
      * @param {HTMLImageElement} img - 图片元素
      * @returns {void}
      */
     handleImageError(img) {
         img.alt = `图片加载失败: ${img.src}`;
-        img.classList.add('markdown-image-error');
+        img.dataset.loadStatus = 'error';
     }
 
     // ==================== 工具函数 ====================
@@ -1641,7 +1650,7 @@ export class Preview extends BaseComponent {
         html = html
             .replace(/ class="prism-highlighted"/g, '')
             .replace(/ class="mermaid-done"/g, '')
-            .replace(/ data-error-handled="true"/g, '')
+            .replace(/ data-load-status="[^"]*"/g, '')
             .replace(/ class="math-rendered"/g, '');
 
         const fullHtml = `<!DOCTYPE html>

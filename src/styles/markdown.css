@@ -1151,7 +1151,8 @@ html::-webkit-scrollbar-thumb:hover,
   box-sizing: border-box;
 }
 
-.markdown-body img.markdown-image-error {
+/* 图片加载失败样式 */
+.markdown-body img[data-load-status='error'] {
   border: 2px dashed var(--md-color-danger);
   padding: 10px;
 }
