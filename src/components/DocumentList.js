@@ -12,9 +12,6 @@ import { Dialog } from './Dialog.js';
  */
 export class DocumentList extends BaseComponent {
     /** @private */
-    #lastDocCount = 0; // 用于增量更新
-
-    /** @private */
     #domCache = new Map(); // DOM 元素缓存
 
     /** @private */
@@ -42,6 +39,8 @@ export class DocumentList extends BaseComponent {
         this.domCacheVersion = 0; // DOM 缓存版本号，用于失效检测
     }
 
+    // ==================== 生命周期管理 ====================
+
     /**
      * 订阅状态变化
      * @returns {void}
@@ -64,6 +63,8 @@ export class DocumentList extends BaseComponent {
             }
         );
     }
+
+    // ==================== 状态检测 ====================
 
     /**
      * 检查文档结构是否发生变化（优化版：单次遍历）
@@ -103,6 +104,8 @@ export class DocumentList extends BaseComponent {
         return oldMap.size > 0;
     }
 
+    // ==================== DOM 缓存管理 ====================
+
     /**
      * 获取缓存的文档项元素
      * @private
@@ -131,6 +134,8 @@ export class DocumentList extends BaseComponent {
         this.#domCache.clear();
         this.domCacheVersion++;
     }
+
+    // ==================== 选择状态管理 ====================
 
     /**
      * 更新多选状态（局部更新）
@@ -168,6 +173,8 @@ export class DocumentList extends BaseComponent {
             });
         }
     }
+
+    // ==================== 文件夹展开/折叠 ====================
 
     /**
      * 设置文件夹展开状态（优化版：减少 DOM 查询）
@@ -258,6 +265,86 @@ export class DocumentList extends BaseComponent {
     collapseFolder(folderId) {
         this.setFolderExpanded(folderId, false);
     }
+
+    /**
+     * 查找包含指定节点的展开文件夹
+     * @private
+     * @param {Element} node - 节点元素
+     * @returns {Element|null} 展开的文件夹节点
+     */
+    #findExpandedFolder(node) {
+        let current = node.parentElement;
+
+        while (current && current !== this.container) {
+            // 检查是否在未折叠的子容器内
+            if (
+                current.classList.contains('md-tree-children') &&
+                !current.classList.contains('collapsed')
+            ) {
+                // 获取父节点（文件夹节点）
+                const folderNode = current.parentElement;
+                // 使用 dom.js 统一查询，验证是有效的文件夹节点
+                if (
+                    folderNode?.classList.contains('md-tree-node') &&
+                    folderNode !== node &&
+                    dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder'
+                ) {
+                    return folderNode;
+                }
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    /**
+     * 展开所有祖先文件夹（优化版：批量更新，减少 RAF 调用）
+     * @private
+     * @param {string|null} folderId - 文件夹 ID
+     */
+    #expandAncestorFolders(folderId) {
+        // 根目录创建：不需要展开任何文件夹
+        if (!folderId) return;
+
+        const documents = this.state.get('documents');
+        const folderSet = new Set();
+        const docMap = new Map(documents.map(d => [d.id, d]));
+
+        // 收集目标文件夹及其所有祖先
+        folderSet.add(folderId);
+        let currentId = folderId;
+
+        while (currentId) {
+            const doc = docMap.get(currentId);
+            if (!doc || !doc.parentId) break;
+            folderSet.add(doc.parentId);
+            currentId = doc.parentId;
+        }
+
+        if (folderSet.size === 0) return;
+
+        // 批量添加到展开状态（避免多次 RAF）
+        const foldersToExpand = Array.from(folderSet);
+        let hasChanges = false;
+
+        for (const fid of foldersToExpand) {
+            if (!this.expandedFolders.has(fid)) {
+                this.expandedFolders.add(fid);
+                hasChanges = true;
+            }
+        }
+
+        // 如果有变化，使用单次 RAF 批量更新 UI
+        if (hasChanges) {
+            requestAnimationFrame(() => {
+                for (const fid of foldersToExpand) {
+                    this.#updateFolderUI(fid, true);
+                }
+            });
+        }
+    }
+
+    // ==================== 事件处理 ====================
 
     /**
      * 绑定事件
@@ -461,36 +548,7 @@ export class DocumentList extends BaseComponent {
         this.#setDropTarget(isRootLevel ? this.treeContainer : null, 'root');
     }
 
-    /**
-     * 查找包含指定节点的展开文件夹
-     * @private
-     * @param {Element} node - 节点元素
-     * @returns {Element|null} 展开的文件夹节点
-     */
-    #findExpandedFolder(node) {
-        let current = node.parentElement;
-
-        while (current && current !== this.container) {
-            // 检查是否在未折叠的子容器内
-            if (
-                current.classList.contains('md-tree-children') &&
-                !current.classList.contains('collapsed')
-            ) {
-                // 获取父节点（文件夹节点）
-                const folderNode = current.parentElement;
-                // 使用 dom.js 统一查询，验证是有效的文件夹节点
-                if (
-                    folderNode?.classList.contains('md-tree-node') &&
-                    folderNode !== node &&
-                    dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder'
-                ) {
-                    return folderNode;
-                }
-            }
-            current = current.parentElement;
-        }
-        return null;
-    }
+    // ==================== 拖拽 ====================
 
     /**
      * 设置拖拽目标高亮
@@ -638,6 +696,8 @@ export class DocumentList extends BaseComponent {
         this.treeContainer = null;
     }
 
+    // ==================== 文档操作 ====================
+
     /**
      * 打开文档
      * @param {string} docId - 文档 ID
@@ -742,53 +802,6 @@ export class DocumentList extends BaseComponent {
 
         // 手动触发增量渲染（只渲染新增的节点）
         this.#renderNewItem(doc);
-    }
-
-    /**
-     * 展开所有祖先文件夹（优化版：批量更新，减少 RAF 调用）
-     * @private
-     * @param {string|null} folderId - 文件夹 ID
-     */
-    #expandAncestorFolders(folderId) {
-        // 根目录创建：不需要展开任何文件夹
-        if (!folderId) return;
-
-        const documents = this.state.get('documents');
-        const folderSet = new Set();
-        const docMap = new Map(documents.map(d => [d.id, d]));
-
-        // 收集目标文件夹及其所有祖先
-        folderSet.add(folderId);
-        let currentId = folderId;
-
-        while (currentId) {
-            const doc = docMap.get(currentId);
-            if (!doc || !doc.parentId) break;
-            folderSet.add(doc.parentId);
-            currentId = doc.parentId;
-        }
-
-        if (folderSet.size === 0) return;
-
-        // 批量添加到展开状态（避免多次 RAF）
-        const foldersToExpand = Array.from(folderSet);
-        let hasChanges = false;
-
-        for (const fid of foldersToExpand) {
-            if (!this.expandedFolders.has(fid)) {
-                this.expandedFolders.add(fid);
-                hasChanges = true;
-            }
-        }
-
-        // 如果有变化，使用单次 RAF 批量更新 UI
-        if (hasChanges) {
-            requestAnimationFrame(() => {
-                for (const fid of foldersToExpand) {
-                    this.#updateFolderUI(fid, true);
-                }
-            });
-        }
     }
 
     /**
@@ -980,6 +993,8 @@ export class DocumentList extends BaseComponent {
         );
     }
 
+    // ==================== 渲染相关 ====================
+
     /**
      * 渲染组件（优化版：改进增量更新策略）
      * @param {boolean} forceFullRender - 是否强制完全重新渲染
@@ -1011,8 +1026,6 @@ export class DocumentList extends BaseComponent {
         }
 
         // 完全重建
-        this.#lastDocCount = documents.length;
-
         const tree = this.state.buildTree();
         const fragment = this.createFragment();
 
@@ -1061,9 +1074,6 @@ export class DocumentList extends BaseComponent {
             this.render(true);
             return;
         }
-
-        // 更新计数器（只在成功增量渲染后更新）
-        this.#lastDocCount = docCount;
 
         // 获取或创建目标容器
         const targetContainer = doc.parentId
@@ -1293,6 +1303,8 @@ export class DocumentList extends BaseComponent {
 
         return nodeContainer;
     }
+
+    // ==================== 资源清理 ====================
 
     /**
      * 清理组件资源
