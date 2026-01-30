@@ -82,33 +82,6 @@ export class Editor extends BaseComponent {
     }
 
     /**
-     * 保存内容到本地存储（同步）
-     * @param {boolean} showMessage - 是否显示保存消息
-     * @returns {boolean} 是否保存成功
-     */
-    save(showMessage = false) {
-        if (!this.container) return false;
-
-        // 状态管理器已自动处理持久化，这里只显示消息
-        if (showMessage) this.showMessage('内容已保存', 'success');
-        return true;
-    }
-
-    /**
-     * 异步保存（显示保存消息）
-     * 注意：实际持久化由状态管理器自动处理
-     * @param {boolean} showMessage - 是否显示保存消息
-     * @returns {Promise<boolean>} 是否保存成功
-     */
-    async saveAsync(showMessage = false) {
-        if (!this.container) return false;
-
-        // 状态管理器已自动处理持久化，这里只显示消息
-        if (showMessage) this.showMessage('内容已保存', 'success');
-        return true;
-    }
-
-    /**
      * 处理键盘事件
      * @param {KeyboardEvent} e - 键盘事件
      * @returns {void}
@@ -118,13 +91,6 @@ export class Editor extends BaseComponent {
         if (e.key === 'Tab') {
             e.preventDefault();
             this.handleIndent(e.shiftKey);
-            return;
-        }
-
-        // Ctrl/Cmd + S 保存
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            this.save(true);
         }
     }
 
@@ -137,109 +103,82 @@ export class Editor extends BaseComponent {
         if (!this.container) return;
 
         const { selectionStart: start, selectionEnd: end, value } = this.container;
-        const selectedText = value.substring(start, end);
-        
-        // 根据设置获取缩进字符串
-        const editorConfig = this.state.get('editor') || {};
-        const insertSpaces = editorConfig.insertSpaces ?? true;
-        const tabSize = editorConfig.tabSize ?? 4;
+        const { insertSpaces = true, tabSize = 4 } = this.state.get('editor') || {};
         const INDENT = insertSpaces ? ' '.repeat(tabSize) : '\t';
 
-        // 获取行边界
-        const getLineBoundaries = pos => {
-            const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
-            const lineEnd = value.indexOf('\n', pos);
-            return {
-                start: lineStart,
-                end: lineEnd === -1 ? value.length : lineEnd
-            };
+        // 辅助函数：获取行开始位置
+        const getLineStart = pos => value.lastIndexOf('\n', pos - 1) + 1;
+
+        // 辅助函数：更新编辑器（使用数组拼接优化性能）
+        const updateEditor = (parts, newStart, newEnd = newStart) => {
+            this.container.value = parts.join('');
+            this.container.selectionStart = newStart;
+            this.container.selectionEnd = newEnd;
+            this.container.dispatchEvent(new Event('input', { bubbles: true }));
         };
 
-        // 获取缩进大小（根据 tabSize 配置）
-        const getIndentSize = indentStr => {
-            if (indentStr.startsWith('\t')) return 1;
-            // 返回不超过 tabSize 的空格数
-            return Math.min(tabSize, indentStr.length);
-        };
+        // 优化：检查是否有换行符，避免 substring + includes
+        const hasNewLine = start !== end && value.indexOf('\n', start) < end;
+        const lineStart = getLineStart(start);
 
-        // 移除行缩进（根据 tabSize 配置）
-        const removeLineIndent = line => {
-            if (line.startsWith('\t')) return line.substring(1);
-            // 根据 tabSize 移除相应数量的空格
-            const leadingSpaces = line.match(/^\s*/)[0];
-            if (leadingSpaces.length > 0) {
-                const spacesToRemove = Math.min(tabSize, leadingSpaces.length);
-                return line.substring(spacesToRemove);
-            }
-            return line;
-        };
-
-        // 没有选中文本
-        if (selectedText.length === 0) {
+        // 处理多行或完整行的缩进
+        if (start !== end && (start <= lineStart || hasNewLine)) {
+            const selected = value.substring(start, end);
+            const lines = selected.split('\n');
+            const lineCount = lines.length;
+            
             if (isRemove) {
-                // 移除缩进
-                const { start: lineStart } = getLineBoundaries(start);
-                const lineText = value.substring(lineStart, start);
-                const indentMatch = lineText.match(/^(\s*)/);
-                const indent = indentMatch ? indentMatch[1] : '';
-
-                if (indent.length > 0) {
-                    const indentSize = getIndentSize(indent);
-                    this.container.value =
-                        value.substring(0, lineStart) +
-                        value.substring(lineStart, start).substring(indentSize) +
-                        value.substring(start);
-                    this.container.selectionStart = this.container.selectionEnd =
-                        start - indentSize;
-                }
-            } else {
-                // 插入缩进
-                this.container.value = value.substring(0, start) + INDENT + value.substring(end);
-                this.container.selectionStart = this.container.selectionEnd = start + INDENT.length;
-            }
-        } else {
-            // 有选中文本
-            const lines = selectedText.split('\n');
-            const { start: lineStart } = getLineBoundaries(start);
-            const shouldProcessMultipleLines = start <= lineStart || selectedText.includes('\n');
-
-            if (shouldProcessMultipleLines) {
-                // 处理多行缩进
-                const newSelectedText = isRemove
-                    ? lines.map(removeLineIndent).join('\n')
-                    : lines.map(line => INDENT + line).join('\n');
-
-                this.container.value =
-                    value.substring(0, start) + newSelectedText + value.substring(end);
-                this.container.selectionStart = start;
-                this.container.selectionEnd = start + newSelectedText.length;
-            } else {
-                // 只选中了行的一部分
-                if (isRemove) {
-                    const { start: currentLineStart } = getLineBoundaries(start);
-                    const lineText = value.substring(currentLineStart, start);
-                    const indentMatch = lineText.match(/^(\s*)/);
-                    const indent = indentMatch ? indentMatch[1] : '';
-
-                    if (indent.length > 0) {
-                        const indentSize = getIndentSize(indent);
-                        this.container.value =
-                            value.substring(0, currentLineStart) +
-                            value.substring(currentLineStart, start).substring(indentSize) +
-                            value.substring(start);
-                        this.container.selectionStart = this.container.selectionEnd =
-                            end - indentSize;
+                // 移除缩进：优化正则匹配
+                for (let i = 0; i < lineCount; i++) {
+                    const line = lines[i];
+                    if (line[0] === '\t') {
+                        lines[i] = line.slice(1);
+                    } else if (line[0] === ' ') {
+                        let spaces = 0;
+                        while (spaces < tabSize && line[spaces] === ' ') spaces++;
+                        if (spaces > 0) lines[i] = line.slice(spaces);
                     }
-                } else {
-                    this.container.value =
-                        value.substring(0, start) + INDENT + value.substring(end);
-                    this.container.selectionStart = this.container.selectionEnd =
-                        start + INDENT.length;
+                }
+            } else {
+                // 添加缩进
+                for (let i = 0; i < lineCount; i++) {
+                    lines[i] = INDENT + lines[i];
                 }
             }
+            
+            const processed = lines.join('\n');
+            updateEditor(
+                [value.substring(0, start), processed, value.substring(end)],
+                start,
+                start + processed.length
+            );
+            return;
         }
 
-        // 触发 input 事件以更新预览
-        this.container.dispatchEvent(new Event('input', { bubbles: true }));
+        // 处理单行缩进
+        if (isRemove) {
+            // 移除缩进：优化字符检查
+            const beforeCursor = value.substring(lineStart, start);
+            let removeSize = 0;
+            
+            if (beforeCursor[0] === '\t') {
+                removeSize = 1;
+            } else if (beforeCursor[0] === ' ') {
+                while (removeSize < tabSize && beforeCursor[removeSize] === ' ') removeSize++;
+            }
+            
+            if (removeSize > 0) {
+                updateEditor(
+                    [value.substring(0, lineStart), beforeCursor.slice(removeSize), value.substring(start)],
+                    start - removeSize
+                );
+            }
+        } else {
+            // 添加缩进
+            updateEditor(
+                [value.substring(0, start), INDENT, value.substring(end)],
+                start + INDENT.length
+            );
+        }
     }
 }
