@@ -1,7 +1,6 @@
 /**
  * 本地存储管理器
  * 负责管理所有与 localStorage 相关的数据存储和读取
- * 支持异步操作以避免阻塞主线程
  *
  * @example
  * ```js
@@ -33,105 +32,10 @@ export class StoreManager {
         SETTINGS: 'markdown-editor-settings'
     };
 
-    // ==================== 异步存储队列 ====================
-    /** @type {Map} 待处理的存储操作队列 */
-    static #pendingOperations = new Map();
-
-    /** @type {boolean} 是否正在处理队列 */
-    static #isProcessing = false;
-
-    /**
-     * 调度存储操作（异步）- 使用 async/await 重构
-     * @private
-     * @param {Function} operation - 存储操作（可以是同步或异步函数）
-     * @returns {Promise} 操作结果
-     */
-    static #scheduleAsync(operation) {
-        const id = Date.now() + Math.random();
-
-        return new Promise((resolve, reject) => {
-            StoreManager.#pendingOperations.set(id, { operation, resolve, reject });
-
-            if (!StoreManager.#isProcessing) {
-                StoreManager.#processQueue();
-            }
-        });
-    }
-
-    /**
-     * 处理操作队列 - 使用 async/await 重构
-     * @private
-     */
-    static #processQueue() {
-        if (StoreManager.#pendingOperations.size === 0) {
-            StoreManager.#isProcessing = false;
-            return;
-        }
-
-        StoreManager.#isProcessing = true;
-
-        const processNext = async () => {
-            const entry = StoreManager.#pendingOperations.entries().next().value;
-            if (!entry) {
-                StoreManager.#isProcessing = false;
-                return;
-            }
-
-            const [id, { operation, resolve, reject }] = entry;
-            StoreManager.#pendingOperations.delete(id);
-
-            try {
-                // 支持同步和异步操作
-                const result = await operation();
-                resolve(result);
-            } catch (error) {
-                console.error('[StoreManager] Operation failed:', error);
-                reject(error);
-            }
-
-            // 继续处理下一个操作
-            if (StoreManager.#pendingOperations.size > 0) {
-                if (typeof requestIdleCallback !== 'undefined') {
-                    requestIdleCallback(() => processNext(), { timeout: 50 });
-                } else {
-                    setTimeout(() => processNext(), 0);
-                }
-            } else {
-                StoreManager.#isProcessing = false;
-            }
-        };
-
-        // 开始处理
-        if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => processNext(), { timeout: 50 });
-        } else {
-            setTimeout(() => processNext(), 0);
-        }
-    }
-
     // ==================== 文档管理 ====================
 
     /**
-     * 保存文档列表（异步）
-     * @param {Array} documents - 文档列表
-     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
-     */
-    static async saveDocumentsAsync(documents) {
-        try {
-            const serialized = JSON.stringify(documents);
-            await StoreManager.#scheduleAsync(() => {
-                localStorage.setItem(StoreManager.#STORAGE_KEYS.DOCUMENTS, serialized);
-            });
-            return { success: true };
-        } catch (e) {
-            const errorMsg = StoreManager.#handleStorageError(e, '保存文档列表失败');
-            console.warn(`${errorMsg}:`, e);
-            return { success: false, error: errorMsg };
-        }
-    }
-
-    /**
-     * 保存文档列表（同步，兼容旧代码）
+     * 保存文档列表
      * @param {Array} documents - 文档列表
      * @returns {{success: boolean, error?: string}} 保存结果
      */
@@ -228,22 +132,6 @@ export class StoreManager {
         } catch (e) {
             console.warn('加载设置失败:', e);
             return null;
-        }
-    }
-
-    /**
-     * 清除所有数据
-     * @returns {boolean} 是否成功
-     */
-    static clearAll() {
-        try {
-            Object.values(StoreManager.#STORAGE_KEYS).forEach(key => {
-                localStorage.removeItem(key);
-            });
-            return true;
-        } catch (e) {
-            console.warn('清除所有数据失败:', e);
-            return false;
         }
     }
 
