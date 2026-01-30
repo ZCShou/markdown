@@ -109,15 +109,15 @@ export class Editor extends BaseComponent {
         // 辅助函数：获取行开始位置
         const getLineStart = pos => value.lastIndexOf('\n', pos - 1) + 1;
 
-        // 辅助函数：更新编辑器（使用数组拼接优化性能）
-        const updateEditor = (parts, newStart, newEnd = newStart) => {
-            this.container.value = parts.join('');
+        // 辅助函数：统一的 DOM 更新
+        const updateDOM = (newValue, newStart, newEnd = newStart) => {
+            this.container.value = newValue;
             this.container.selectionStart = newStart;
             this.container.selectionEnd = newEnd;
-            this.container.dispatchEvent(new Event('input', { bubbles: true }));
+            this.state.updateContent(newValue);
         };
 
-        // 优化：检查是否有换行符，避免 substring + includes
+        // 优化：检查是否有换行符
         const hasNewLine = start !== end && value.indexOf('\n', start) < end;
         const lineStart = getLineStart(start);
 
@@ -126,59 +126,63 @@ export class Editor extends BaseComponent {
             const selected = value.substring(start, end);
             const lines = selected.split('\n');
             const lineCount = lines.length;
+            let hasChanges = false;
             
             if (isRemove) {
-                // 移除缩进：优化正则匹配
+                // 移除缩进
                 for (let i = 0; i < lineCount; i++) {
                     const line = lines[i];
+                    if (!line) continue; // 跳过空行
+                    
                     if (line[0] === '\t') {
                         lines[i] = line.slice(1);
+                        hasChanges = true;
                     } else if (line[0] === ' ') {
                         let spaces = 0;
                         while (spaces < tabSize && line[spaces] === ' ') spaces++;
-                        if (spaces > 0) lines[i] = line.slice(spaces);
+                        if (spaces > 0) {
+                            lines[i] = line.slice(spaces);
+                            hasChanges = true;
+                        }
                     }
                 }
+                
+                // 如果没有任何变化，直接返回
+                if (!hasChanges) return;
             } else {
-                // 添加缩进
+                // 添加缩进（总是会有变化）
                 for (let i = 0; i < lineCount; i++) {
                     lines[i] = INDENT + lines[i];
                 }
             }
             
-            const processed = lines.join('\n');
-            updateEditor(
-                [value.substring(0, start), processed, value.substring(end)],
-                start,
-                start + processed.length
-            );
+            const newSelected = lines.join('\n');
+            const newValue = [value.substring(0, start), newSelected, value.substring(end)].join('');
+            updateDOM(newValue, start, start + newSelected.length);
             return;
         }
 
         // 处理单行缩进
         if (isRemove) {
-            // 移除缩进：优化字符检查
+            // 移除缩进
             const beforeCursor = value.substring(lineStart, start);
-            let removeSize = 0;
+            if (!beforeCursor) return; // 光标在行首且前面没有内容
             
+            let removeSize = 0;
             if (beforeCursor[0] === '\t') {
                 removeSize = 1;
             } else if (beforeCursor[0] === ' ') {
                 while (removeSize < tabSize && beforeCursor[removeSize] === ' ') removeSize++;
             }
             
-            if (removeSize > 0) {
-                updateEditor(
-                    [value.substring(0, lineStart), beforeCursor.slice(removeSize), value.substring(start)],
-                    start - removeSize
-                );
-            }
+            if (removeSize === 0) return; // 没有缩进可移除
+            
+            const newValue = [value.substring(0, lineStart), beforeCursor.slice(removeSize), value.substring(start)].join('');
+            updateDOM(newValue, start - removeSize);
         } else {
             // 添加缩进
-            updateEditor(
-                [value.substring(0, start), INDENT, value.substring(end)],
-                start + INDENT.length
-            );
+            const newValue = [value.substring(0, start), INDENT, value.substring(end)].join('');
+            updateDOM(newValue, start + INDENT.length);
         }
     }
 }
