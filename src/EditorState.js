@@ -471,10 +471,10 @@ $$
     // ==================== 持久化方法 ====================
 
     /**
-     * 从 localStorage 加载初始状态
-     * @returns {Object} 加载的状态
+     * 初始化状态（从 localStorage 加载，不触发监听器和持久化）
+     * 在内部处理所有初始化逻辑，包括选择当前文档
      */
-    loadInitialState() {
+    init() {
         const documents = StoreManager.loadDocuments();
         const savedDocId = StoreManager.loadCurrentDocId();
         const savedSettings = StoreManager.loadSettings();
@@ -490,11 +490,39 @@ $$
             export: { ...EditorState.DEFAULT_SETTINGS.export }
         };
 
-        return {
+        // 确定当前文档和内容
+        let currentDocId = null;
+        let content = EditorState.DEFAULT_CONTENT;
+
+        // 尝试使用保存的文档 ID
+        if (savedDocId) {
+            const doc = documents.find(d => d.id === savedDocId && d.type !== 'folder');
+            if (doc) {
+                currentDocId = doc.id;
+                content = doc.content || '';
+            }
+        }
+
+        // 如果没有找到保存的文档，选择第一个非文件夹文档
+        if (!currentDocId) {
+            const firstDoc = documents.find(d => d.type !== 'folder');
+            if (firstDoc) {
+                currentDocId = firstDoc.id;
+                content = firstDoc.content || '';
+            }
+        }
+
+        // 直接初始化状态（不触发监听器和持久化）
+        Object.assign(this.#state, {
             documents,
-            savedDocId,
-            settings
-        };
+            content,
+            currentDocId,
+            selectedDocIds: currentDocId ? [currentDocId] : [],
+            lastClickedDocId: currentDocId,
+            editor: settings.editor,
+            interface: settings.interface,
+            export: settings.export
+        });
     }
 
     /**

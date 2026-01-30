@@ -863,56 +863,13 @@ export class MarkdownEditor {
     // ==================== 初始化 ====================
 
     /**
-     * 获取初始文档和内容
-     * @param documents
-     * @param savedDocId
-     * @returns {{currentDocId: string|null, content: string}}
-     */
-    #getInitialDocument(documents, savedDocId) {
-        // 尝试使用保存的文档 ID
-        if (savedDocId) {
-            const doc = documents.find(d => d.id === savedDocId && d.type !== 'folder');
-            if (doc) {
-                return { currentDocId: doc.id, content: doc.content || '' };
-            }
-        }
-
-        // 选择第一个非文件夹文档
-        const firstDoc = documents.find(d => d.type !== 'folder');
-        if (firstDoc) {
-            return { currentDocId: firstDoc.id, content: firstDoc.content || '' };
-        }
-
-        // 没有文档，使用默认内容
-        return {
-            currentDocId: null,
-            content: EditorState.DEFAULT_CONTENT
-        };
-    }
-
-    /**
      * 初始化
      */
     init() {
         if (this.isInitialized) return;
 
-        // 从 EditorState 加载初始数据（已包含 localStorage 数据）
-        const { documents, savedDocId, settings } = this.state.loadInitialState();
-        const { currentDocId, content } = this.#getInitialDocument(documents, savedDocId);
+        this.state.init();
 
-        // 设置初始状态（skipPersist: true 避免重复保存）
-        this.state.setState({
-            documents,
-            content,
-            currentDocId,
-            selectedDocIds: currentDocId ? [currentDocId] : [],
-            lastClickedDocId: currentDocId,
-            editor: settings.editor,
-            interface: settings.interface,
-            export: settings.export
-        }, { skipPersist: true });
-
-        // 初始化组件和功能
         this.initComponents();
         this.applyTheme(this.state.get('interface').theme);
         this.applyLayout(this.state.get('interface').layout ?? 'layout-both');
@@ -920,18 +877,17 @@ export class MarkdownEditor {
         this.setupDivider();
         this.setupSyncScroll();
 
-        // 启动自动持久化和 UI 更新
         this.state.startPersistence();
-        this.#setupUIUpdates();
+        this.#subscribe();
 
         this.isInitialized = true;
     }
 
     /**
-     * 设置 UI 更新（状态变化时应用到界面）
+     * 订阅状态变化（应用到界面）
      * @private
      */
-    #setupUIUpdates() {
+    #subscribe() {
         // 缓存 DOM 元素，避免重复查询
         let cachedElements = null;
         
@@ -978,17 +934,6 @@ export class MarkdownEditor {
                     els.container.classList.add(newInterface.layout ?? 'layout-both');
                 }
             }
-
-            // 应用布局比例（只在双栏布局或比例变化时）
-            // CSS 已经处理了布局，不需要设置内联样式
-            // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
-
-            // 当侧边栏开关状态变化时，重新应用分割比例以避免空白
-            // CSS 已经处理了布局，不需要设置内联样式
-            // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
-
-            // 注意：区块状态由各组件自行订阅处理
-            // 这里不再重复更新，避免双重订阅导致的性能问题
         });
 
         // 监听通知状态变化，显示消息
