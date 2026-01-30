@@ -406,15 +406,6 @@ $$
     #persistence = new PersistenceManager(() => this.#state);
 
     /**
-     * 获取状态快照（只读）
-     * @returns {Object} 状态的浅拷贝
-     */
-    getState() {
-        // 返回冻结的浅拷贝，防止外部修改
-        return Object.freeze({ ...this.#state });
-    }
-
-    /**
      * 获取单个状态值
      * @template T
      * @param {string} key - 状态键
@@ -530,13 +521,6 @@ $$
      */
     startPersistence() {
         this.#persistence.start();
-    }
-
-    /**
-     * 停止自动持久化
-     */
-    stopPersistence() {
-        this.#persistence.stop();
     }
 
     /**
@@ -1015,14 +999,6 @@ $$
     }
 
     // ==================== 渲染状态 ====================
-
-    /**
-     * 设置渲染状态
-     * @param {boolean} isRendering - 是否正在渲染
-     */
-    setRenderingState(isRendering) {
-        this.setState({ isRenderingMermaid: isRendering });
-    }
 
     /**
      * 更新最后渲染的内容
