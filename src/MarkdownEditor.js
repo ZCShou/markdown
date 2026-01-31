@@ -506,12 +506,8 @@ export class MarkdownEditor {
             if (element) element.onclick = handler;
         };
 
-        // 绑定所有按钮事件
-        bindButton('md-toggle-left-sidebar', () => this.components.leftSidebar.toggle());
-        bindButton('md-toggle-right-sidebar', () => this.components.rightSidebar.toggle());
-        bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
-        
         // 其他全局按钮
+        bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());    
         bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
         bindButton('md-layout-toggle', () => this.toggleLayout());
         bindButton('theme-toggle', () => this.toggleTheme());
