@@ -423,14 +423,19 @@ export class LeftSidebar extends BaseComponent {
         const folderSet = new Set();
         const docMap = new Map(documents.map(d => [d.id, d]));
 
-        // 收集目标文件夹及其所有祖先
-        folderSet.add(folderId);
+        // 从当前文档开始，向上遍历所有祖先
         let currentId = folderId;
 
         while (currentId) {
             const doc = docMap.get(currentId);
-            if (!doc || !doc.parentId) break;
-            folderSet.add(doc.parentId);
+            if (!doc) break;
+            
+            // 只添加文件夹类型的节点到集合中
+            if (doc.type === 'folder') {
+                folderSet.add(currentId);
+            }
+            
+            if (!doc.parentId) break;
             currentId = doc.parentId;
         }
 
