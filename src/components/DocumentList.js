@@ -168,11 +168,18 @@ export class DocumentList extends BaseComponent {
     // ==================== 文件夹展开/折叠 ====================
 
     /**
-     * 设置文件夹展开状态（优化版：减少 DOM 查询）
-     * @param folderId
-     * @param expanded
+     * 管理文件夹展开状态（统一的公共接口）
+     * @param {string} folderId - 文件夹 ID
+     * @param {boolean|string} [expanded='toggle'] - 展开状态：true=展开, false=折叠, 'toggle'=切换
+     * @param {boolean} [skipUI=false] - 是否跳过 UI 更新（用于批量操作）
      */
-    setFolderExpanded(folderId, expanded) {
+    manageFolderState(folderId, expanded = 'toggle', skipUI = false) {
+        // 处理 'toggle' 模式
+        if (expanded === 'toggle') {
+            expanded = !this.expandedFolders.has(folderId);
+        }
+
+        // 检查状态是否改变
         const currentlyExpanded = this.expandedFolders.has(folderId);
         if (expanded && !currentlyExpanded) {
             this.expandedFolders.add(folderId);
@@ -182,20 +189,16 @@ export class DocumentList extends BaseComponent {
             return; // 状态未改变
         }
 
-        // 使用 requestAnimationFrame 批量更新，避免阻塞主线程
-        if (!this.#pendingUpdates.has(folderId)) {
-            this.#pendingUpdates.set(folderId, expanded);
-            requestAnimationFrame(() => {
-                this.#updateFolderUI(folderId, this.#pendingUpdates.get(folderId));
-                this.#pendingUpdates.delete(folderId);
-            });
+        // 更新 UI（除非跳过）
+        if (!skipUI) {
+            this.#updateFolderUI(folderId, expanded);
         }
     }
 
     /**
      * 更新文件夹 UI（内部方法，一次性完成所有 DOM 操作）
-     * @param folderId
-     * @param expanded
+     * @param {string} folderId - 文件夹 ID
+     * @param {boolean} expanded - 是否展开
      * @private
      */
     #updateFolderUI(folderId, expanded) {
@@ -234,18 +237,6 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 管理文件夹展开状态
-     * @param {string} folderId - 文件夹 ID
-     * @param {boolean|string} [expanded='toggle'] - 展开状态：true=展开, false=折叠, 'toggle'=切换
-     */
-    manageFolderState(folderId, expanded = 'toggle') {
-        if (expanded === 'toggle') {
-            expanded = !this.expandedFolders.has(folderId);
-        }
-        this.setFolderExpanded(folderId, expanded);
-    }
-
-    /**
      * 查找包含指定节点的展开文件夹
      * @private
      * @param {Element} node - 节点元素
@@ -277,7 +268,7 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 展开所有祖先文件夹（优化版：批量更新，减少 RAF 调用）
+     * 展开所有祖先文件夹（优化版：批量更新，减少 DOM 操作）
      * @private
      * @param {string|null} folderId - 文件夹 ID
      */
@@ -302,25 +293,12 @@ export class DocumentList extends BaseComponent {
 
         if (folderSet.size === 0) return;
 
-        // 批量添加到展开状态（避免多次 RAF）
-        const foldersToExpand = Array.from(folderSet);
-        let hasChanges = false;
-
-        for (const fid of foldersToExpand) {
-            if (!this.expandedFolders.has(fid)) {
-                this.expandedFolders.add(fid);
-                hasChanges = true;
+        // 使用单次 RAF 批量更新所有文件夹
+        requestAnimationFrame(() => {
+            for (const fid of folderSet) {
+                this.manageFolderState(fid, true, false);
             }
-        }
-
-        // 如果有变化，使用单次 RAF 批量更新 UI
-        if (hasChanges) {
-            requestAnimationFrame(() => {
-                for (const fid of foldersToExpand) {
-                    this.#updateFolderUI(fid, true);
-                }
-            });
-        }
+        });
     }
 
     // ==================== 事件处理 ====================
