@@ -534,17 +534,17 @@ export class MarkdownEditor {
         
         bindButton('md-new-file', () => {
             const selectedFolder = getSelectedFolder();
-            this.components.documentList.createItem('file', selectedFolder?.id ?? null);
+            this.components.documentList.createDocument('file', selectedFolder?.id ?? null);
         });
         
         bindButton('md-new-folder', () => {
             const selectedFolder = getSelectedFolder();
-            this.components.documentList.createItem('folder', selectedFolder?.id ?? null);
+            this.components.documentList.createDocument('folder', selectedFolder?.id ?? null);
         });
         
         bindButton('md-import-docs', () => this.importDocuments());
         bindButton('md-export-docs', () => this.exportDocuments());
-        bindButton('md-delete-item', () => this.components.documentList.deleteCurrentItem());
+        bindButton('md-delete-item', () => this.components.documentList.deleteSelectedItems());
         bindButton('md-export-html', () => this.components.preview.exportHTML());
         bindButton('md-export-md', () => this.components.preview.exportMarkdown());
         bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));

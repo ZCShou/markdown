@@ -243,27 +243,15 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 切换文件夹展开状态
-     * @param folderId
+     * 管理文件夹展开状态
+     * @param {string} folderId - 文件夹 ID
+     * @param {boolean|string} [expanded='toggle'] - 展开状态：true=展开, false=折叠, 'toggle'=切换
      */
-    toggleFolder(folderId) {
-        this.setFolderExpanded(folderId, !this.expandedFolders.has(folderId));
-    }
-
-    /**
-     * 展开文件夹
-     * @param folderId
-     */
-    expandFolder(folderId) {
-        this.setFolderExpanded(folderId, true);
-    }
-
-    /**
-     * 折叠文件夹
-     * @param folderId
-     */
-    collapseFolder(folderId) {
-        this.setFolderExpanded(folderId, false);
+    manageFolderState(folderId, expanded = 'toggle') {
+        if (expanded === 'toggle') {
+            expanded = !this.expandedFolders.has(folderId);
+        }
+        this.setFolderExpanded(folderId, expanded);
     }
 
     /**
@@ -369,28 +357,28 @@ export class DocumentList extends BaseComponent {
         const toggle = e.target.closest('.md-tree-toggle');
         if (toggle) {
             e.stopPropagation();
-            this.toggleFolder(toggle.dataset.folderId);
+            this.manageFolderState(toggle.dataset.folderId, 'toggle');
             return;
         }
 
         const deleteBtn = e.target.closest('.md-doc-item-delete');
         if (deleteBtn) {
             e.stopPropagation();
-            this.handleDelete(deleteBtn.dataset.docId);
+            this.deleteDocument(deleteBtn.dataset.docId);
             return;
         }
 
         const newFileBtn = e.target.closest('.md-new-file-btn');
         if (newFileBtn) {
             e.stopPropagation();
-            this.createItem('file', newFileBtn.dataset.folderId || null);
+            this.createDocument('file', newFileBtn.dataset.folderId || null);
             return;
         }
 
         const newFolderBtn = e.target.closest('.md-new-folder-btn');
         if (newFolderBtn) {
             e.stopPropagation();
-            this.createItem('folder', newFolderBtn.dataset.folderId || null);
+            this.createDocument('folder', newFolderBtn.dataset.folderId || null);
             return;
         }
 
@@ -417,7 +405,7 @@ export class DocumentList extends BaseComponent {
 
             // 普通点击：延迟处理以避免与双击冲突
             this.clickTimeout = setTimeout(() => {
-                this.handleOpen(docId);
+                this.openDocument(docId);
             }, 120);
         } else if (!item && !this.editingDocId) {
             // 点击空闲位置：清空选中状态（性能优化：避免不必要的状态更新）
@@ -438,7 +426,7 @@ export class DocumentList extends BaseComponent {
 
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
-            this.editItemName(item.dataset.docId, false, false);
+            this.editDocumentName(item.dataset.docId, false, false);
         }
     }
 
@@ -494,7 +482,7 @@ export class DocumentList extends BaseComponent {
 
         // 快速检查：是否在有效的拖拽区域
         if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
-            this.#clearDropTarget();
+            this.#manageDropTarget(null, null);
             return;
         }
 
@@ -502,20 +490,20 @@ export class DocumentList extends BaseComponent {
 
         // 没有文档项 → 根目录区域
         if (!targetItem) {
-            this.#setDropTarget(this.treeContainer, 'root');
+            this.#manageDropTarget(this.treeContainer, 'root');
             return;
         }
 
         // 检查是否拖到被选中的项上（禁止）
         if (this.draggedItems && this.draggedItems.includes(targetItem.dataset.docId)) {
-            this.#clearDropTarget();
+            this.#manageDropTarget(null, null);
             return;
         }
 
         // 有文档项，检查是否在展开的文件夹内
         const targetNode = targetItem.closest('.md-tree-node');
         if (!targetNode) {
-            this.#clearDropTarget();
+            this.#manageDropTarget(null, null);
             return;
         }
 
@@ -525,46 +513,56 @@ export class DocumentList extends BaseComponent {
             this.expandedFolders.has(targetItem.dataset.docId)
         ) {
             // 展开的文件夹 → 高亮整个展开区域
-            this.#setDropTarget(targetNode, 'expanded');
+            this.#manageDropTarget(targetNode, 'expanded');
             return;
         }
 
         // 检查目标项是否是折叠的文件夹（必须在检查展开的父文件夹之前）
         if (targetItem.dataset.docType === 'folder') {
             // 折叠的文件夹 → 高亮文件夹本身
-            this.#setDropTarget(targetItem, 'item');
+            this.#manageDropTarget(targetItem, 'item');
             return;
         }
 
         // 检查是否在展开的文件夹内（只对文件项检查）
         const expandedFolder = this.#findExpandedFolder(targetNode);
         if (expandedFolder) {
-            this.#setDropTarget(expandedFolder, 'expanded');
+            this.#manageDropTarget(expandedFolder, 'expanded');
             return;
         }
 
         // 文件项 → 检查是否在根目录层级
         const isRootLevel = targetNode.parentElement === this.treeContainer;
-        this.#setDropTarget(isRootLevel ? this.treeContainer : null, 'root');
+        this.#manageDropTarget(isRootLevel ? this.treeContainer : null, 'root');
     }
 
     // ==================== 拖拽 ====================
 
     /**
-     * 设置拖拽目标高亮
-     * @param element
-     * @param type
+     * 管理拖拽目标高亮
+     * @param {Element|null} element - 目标元素，null 表示清除高亮
+     * @param {string|null} type - 目标类型：'expanded' | 'root' | 'item'
      * @private
      */
-    #setDropTarget(element, type) {
+    #manageDropTarget(element, type) {
         // 如果目标未改变，不做任何操作
-        if (this.dragTarget === element) return;
+        if (this.dragTarget === element && element !== null) return;
 
         // 清除旧的高亮
-        this.#clearDropTarget();
+        if (this.dragTarget) {
+            this.dragTarget.classList.remove(
+                'md-drop-target',
+                'md-drop-target-expanded',
+                'md-drop-target-root'
+            );
+        }
 
         // 无效元素，直接返回
-        if (!element) return;
+        if (!element) {
+            this.dragTarget = null;
+            this.dragTargetType = null;
+            return;
+        }
 
         // 设置新的高亮
         this.dragTarget = element;
@@ -578,23 +576,6 @@ export class DocumentList extends BaseComponent {
         };
 
         element.classList.add(classNameMap[type]);
-    }
-
-    /**
-     * 清除拖拽目标高亮
-     * @private
-     */
-    #clearDropTarget() {
-        if (!this.dragTarget) return;
-
-        // 移除所有可能的拖拽目标类名
-        this.dragTarget.classList.remove(
-            'md-drop-target',
-            'md-drop-target-expanded',
-            'md-drop-target-root'
-        );
-        this.dragTarget = null;
-        this.dragTargetType = null;
     }
 
     /**
@@ -621,7 +602,7 @@ export class DocumentList extends BaseComponent {
 
         // 验证目标有效性
         if (this.dragTargetType !== 'root' && !targetId) {
-            this.#clearDropTarget();
+            this.#manageDropTarget(null, null);
             return;
         }
 
@@ -646,10 +627,10 @@ export class DocumentList extends BaseComponent {
         
         if (anyMoved) {
             // 状态已通过 moveDocument 自动更新和持久化
-            if (targetId) this.expandFolder(targetId);
+            if (targetId) this.manageFolderState(targetId, true);
         }
 
-        this.#clearDropTarget();
+        this.#manageDropTarget(null, null);
     }
 
     /**
@@ -688,7 +669,7 @@ export class DocumentList extends BaseComponent {
         }
 
         // 清除状态
-        this.#clearDropTarget();
+        this.#manageDropTarget(null, null);
         document.body.classList.remove('is-dragging-tree');
         
         // 重置变量
@@ -703,7 +684,7 @@ export class DocumentList extends BaseComponent {
      * @param {string} docId - 文档 ID
      * @returns {void}
      */
-    handleOpen(docId) {
+    openDocument(docId) {
         const documents = this.state.get('documents');
         const doc = documents.find(d => d.id === docId);
 
@@ -714,16 +695,16 @@ export class DocumentList extends BaseComponent {
 
         // 如果是文件夹，同时切换展开状态
         if (doc.type === 'folder') {
-            this.toggleFolder(docId);
+            this.manageFolderState(docId, 'toggle');
         }
     }
 
     /**
-     * 删除文档
+     * 删除单个文档
      * @param {string} docId - 文档 ID
      * @returns {Promise<void>}
      */
-    async handleDelete(docId) {
+    async deleteDocument(docId) {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
@@ -759,12 +740,12 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 创建新项目
+     * 创建新文档或文件夹
      * @param {string} [type='file'] - 项目类型 'file' | 'folder'
      * @param {string|null} [parentId=null] - 父级 ID
      * @returns {void}
      */
-    createItem(type = 'file', parentId = null) {
+    createDocument(type = 'file', parentId = null) {
         // 如果已经有待处理的编辑，先完成它（避免多个文件同时进入重命名）
         if (this.#pendingEdit && this.editingDocId) {
             // 取消之前的编辑，不保存
@@ -805,12 +786,12 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 编辑项目名称
+     * 编辑文档名称
      * @param {string} docId - 文档 ID
      * @param {boolean} isNewItem - 是否为新建的项目（新建时默认保存，重命名时默认取消）
      * @param {boolean} shouldSetCurrent - 是否设置为当前文档（仅对文件有效）
      */
-    editItemName(docId, isNewItem = false, shouldSetCurrent = false) {
+    editDocumentName(docId, isNewItem = false, shouldSetCurrent = false) {
         this.editingDocId = docId;
 
         const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
@@ -907,15 +888,17 @@ export class DocumentList extends BaseComponent {
     }
 
     /**
-     * 重命名当前项目
+     * 重命名选中的项目
      * @returns {void}
      */
-    renameCurrentItem() {
-        const currentDocId = this.state.get('currentDocId');
-        if (!currentDocId) {
+    renameSelectedItem() {
+        const selectedDocIds = this.state.get('selectedDocIds') || [];
+        const docId = selectedDocIds.length === 1 ? selectedDocIds[0] : this.state.get('currentDocId');
+        
+        if (!docId) {
             this.showMessage('请先选择一个项目', 'warning');
         } else {
-            this.editItemName(currentDocId, false, false);
+            this.editDocumentName(docId, false, false);
         }
     }
 
@@ -924,7 +907,7 @@ export class DocumentList extends BaseComponent {
      * 如果有选中的文件，则删除选中的文件；否则清空所有文件
      * @returns {Promise<void>}
      */
-    async deleteCurrentItem() {
+    async deleteSelectedItems() {
         const documents = this.state.get('documents');
         const selectedDocIds = this.state.get('selectedDocIds') || [];
 
@@ -1014,8 +997,8 @@ export class DocumentList extends BaseComponent {
             const emptyState = this.container.querySelector('.md-empty-state');
             emptyState?.addEventListener('click', e => {
                 const action = e.target.dataset.action;
-                if (action === 'create-file') this.createItem('file');
-                else if (action === 'create-folder') this.createItem('folder');
+                if (action === 'create-file') this.createDocument('file');
+                else if (action === 'create-folder') this.createDocument('folder');
             });
 
             this.#clearDomCache();
@@ -1049,7 +1032,7 @@ export class DocumentList extends BaseComponent {
             this.#pendingEdit = null;
 
             requestAnimationFrame(() => {
-                this.editItemName(
+                this.editDocumentName(
                     pendingEdit.docId,
                     pendingEdit.isNewItem,
                     pendingEdit.shouldSetCurrent
@@ -1102,7 +1085,7 @@ export class DocumentList extends BaseComponent {
             const pendingEdit = this.#pendingEdit;
             this.#pendingEdit = null;
             requestAnimationFrame(() => {
-                this.editItemName(
+                this.editDocumentName(
                     pendingEdit.docId,
                     pendingEdit.isNewItem,
                     pendingEdit.shouldSetCurrent
