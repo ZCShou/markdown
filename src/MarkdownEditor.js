@@ -575,31 +575,8 @@ export class MarkdownEditor {
      * @private
      */
     #subscribe() {
-        // 缓存 DOM 元素，避免重复查询
-        let cachedElements = null;
-        
-        const getElements = () => {
-            if (!cachedElements) {
-                cachedElements = {
-                    editor: dom.getById('markdown-editor')?.element,
-                    container: dom.get('.markdown-container')
-                };
-            }
-            return cachedElements;
-        };
-
-        // 监听编辑器配置变化，应用到编辑器
-        this.state.subscribeTo('editor', (newEditor) => {
-            const editor = getElements().editor;
-            if (editor) {
-                editor.style.fontSize = `${newEditor.fontSize ?? 14}px`;
-                editor.style.lineHeight = String(newEditor.lineHeight ?? 1.6);
-            }
-        });
-
         // 监听界面配置变化，应用到界面
         this.state.subscribeTo('interface', (newInterface, oldInterface) => {
-            const els = getElements();
             const hasOld = !!oldInterface;
             
             // 应用主题（只在主题变化时）
@@ -610,9 +587,10 @@ export class MarkdownEditor {
 
             // 应用布局（只在布局变化时）
             if (!hasOld || newInterface.layout !== oldInterface.layout) {
-                if (els.container) {
-                    els.container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
-                    els.container.classList.add(newInterface.layout ?? 'layout-both');
+                const container = dom.get('.markdown-container');
+                if (container) {
+                    container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
+                    container.classList.add(newInterface.layout ?? 'layout-both');
                 }
             }
         });

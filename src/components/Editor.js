@@ -25,10 +25,24 @@ export class Editor extends BaseComponent {
      * @returns {void}
      */
     subscribe() {
-        // 只订阅当前文档变化，不需要订阅 content（Editor 是输入源）
-        this.unsubscribe = this.state.subscribeTo('currentDocId', () => {
+        // 订阅当前文档变化
+        const unsubscribeDocId = this.state.subscribeTo('currentDocId', () => {
             this.loadContent();
         });
+
+        // 订阅编辑器配置变化（字体大小、行高等）
+        const unsubscribeEditor = this.state.subscribeTo('editor', (newEditor) => {
+            if (this.container) {
+                this.container.style.fontSize = `${newEditor.fontSize ?? 14}px`;
+                this.container.style.lineHeight = String(newEditor.lineHeight ?? 1.6);
+            }
+        });
+
+        // 合并取消订阅函数
+        this.unsubscribe = () => {
+            unsubscribeDocId();
+            unsubscribeEditor();
+        };
     }
 
     /**
