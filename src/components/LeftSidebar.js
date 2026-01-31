@@ -1,6 +1,6 @@
 /**
- * 文档树组件 - 树型结构
- * 负责文档树的渲染和交互，支持文件夹嵌套
+ * 左侧边栏组件
+ * 负责文档树的渲染、交互和侧边栏控制
  */
 import { BaseComponent } from './BaseComponent.js';
 import { EditorState } from '../EditorState.js';
@@ -10,12 +10,9 @@ import { Dialog } from './Dialog.js';
 /**
  *
  */
-export class DocumentTree extends BaseComponent {
+export class LeftSidebar extends BaseComponent {
     /** @private */
     #domCache = new Map(); // DOM 元素缓存
-
-    /** @private */
-    #pendingUpdates = new Map(); // 待处理的更新（用于 RAF 批量更新）
 
     /** @private */
     #pendingEdit = null; // 待处理的编辑操作 { docId, isNewItem, shouldSetCurrent }
@@ -27,12 +24,12 @@ export class DocumentTree extends BaseComponent {
      */
     constructor(state, containerId) {
         super(state, containerId);
+        this.side = 'left';
         this.editingDocId = null;
         this.draggedItems = null; // 被拖动的所有项目ID数组（支持多选拖放）
         this.dragTarget = null; // 缓存当前拖拽目标
         this.dragTargetType = null; // 缓存当前拖拽目标类型
         this.clickTimeout = null;
-        this.dragOverThrottle = null; // dragover 节流定时器
         this.lastDragOverTime = 0; // 上次 dragover 处理时间
         this.expandedFolders = new Set(); // 本地文件夹展开状态
         this.treeContainer = null; // 缓存树容器
@@ -46,25 +43,89 @@ export class DocumentTree extends BaseComponent {
      * @returns {void}
      */
     subscribe() {
-        this.unsubscribe = this.state.subscribeTo(
+        // 订阅侧边栏状态
+        const unsubscribeSidebar = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
+            const hasOld = !!oldInterface;
+            
+            // 更新侧边栏可见性（只在状态变化时）
+            if (!hasOld || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
+                this.updateVisibility(newInterface.leftSidebarOpen);
+            }
+        });
+
+        // 订阅文档树状态
+        const unsubscribeTree = this.state.subscribeTo(
             ['documents', 'selectedDocIds'],
             (newValue, oldValue, key) => {
                 if (key === 'selectedDocIds') {
                     this.updateSelectionState(newValue, oldValue);
                 } else if (key === 'documents') {
-                    // 优化：使用 Map 代替 find，时间复杂度从 O(n²) 降到 O(n)
                     const needsFullRender = this.#hasStructuralChanges(newValue, oldValue);
-
                     if (needsFullRender) {
-                        // 强制完全重新渲染
-                        this.render();
+                        this.renderTree();
                     }
                 }
             }
         );
+
+        // 合并取消订阅函数
+        this.unsubscribe = () => {
+            unsubscribeSidebar();
+            unsubscribeTree();
+        };
     }
 
-    // ==================== 状态检测 ====================
+    /**
+     * 绑定事件
+     * @returns {void}
+     */
+    bindEvents() {
+        // 文档树事件
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (treeContainer) {
+            treeContainer.addEventListener('click', e => this.handleClick(e));
+            treeContainer.addEventListener('dblclick', e => this.handleDoubleClick(e));
+            treeContainer.addEventListener('dragstart', e => this.handleDragStart(e));
+            treeContainer.addEventListener('dragover', e => this.handleDragOver(e));
+            treeContainer.addEventListener('drop', e => this.handleDrop(e));
+            treeContainer.addEventListener('dragend', e => this.handleDragEnd(e));
+        }
+    }
+
+    // ==================== 侧边栏控制 ====================
+
+    /**
+     * 切换侧边栏
+     * @returns {boolean} 切换后的状态
+     */
+    toggle() {
+        return this.state.toggleSidebar(this.side);
+    }
+
+    /**
+     * 更新可见性
+     * @param {boolean} isOpen - 是否打开
+     * @returns {void}
+     */
+    updateVisibility(isOpen) {
+        const isMobile = window.innerWidth <= 768;
+
+        if (isOpen) {
+            this.container.classList.add('open');
+
+            if (isMobile) {
+                dom.app.overlay?.addClass('show');
+            }
+        } else {
+            this.container.classList.remove('open');
+
+            if (isMobile) {
+                dom.app.overlay?.removeClass('show');
+            }
+        }
+    }
+
+    // ==================== 文档树状态检测 ====================
 
     /**
      * 检查文档结构是否发生变化（优化版：单次遍历）
@@ -143,7 +204,8 @@ export class DocumentTree extends BaseComponent {
      * @param {Array} oldSelectedIds - 旧选中的文档ID列表
      */
     updateSelectionState(newSelectedIds = [], oldSelectedIds = []) {
-        if (!this.container) return;
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return;
 
         // 快速路径：完全相同
         if (newSelectedIds.length === oldSelectedIds.length &&
@@ -233,7 +295,8 @@ export class DocumentTree extends BaseComponent {
      * @private
      */
     #updateFolderUI(folderId, expanded) {
-        if (!this.container) return;
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return;
 
         // 使用缓存获取元素
         const item = this.#getCachedDocItem(folderId);
@@ -274,9 +337,12 @@ export class DocumentTree extends BaseComponent {
      * @returns {Element|null} 展开的文件夹节点
      */
     #findExpandedFolder(node) {
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return null;
+
         let current = node.parentElement;
 
-        while (current && current !== this.container) {
+        while (current && current !== treeContainer) {
             // 检查是否在未折叠的子容器内
             if (
                 current.classList.contains('md-tree-children') &&
@@ -332,21 +398,7 @@ export class DocumentTree extends BaseComponent {
         });
     }
 
-    // ==================== 事件处理 ====================
-
-    /**
-     * 绑定事件
-     * @returns {void}
-     */
-    bindEvents() {
-        // 使用事件委托处理列表项点击
-        this.addEventListener(this.container, 'click', e => this.handleClick(e));
-        this.addEventListener(this.container, 'dblclick', e => this.handleDoubleClick(e));
-        this.addEventListener(this.container, 'dragstart', e => this.handleDragStart(e));
-        this.addEventListener(this.container, 'dragover', e => this.handleDragOver(e));
-        this.addEventListener(this.container, 'drop', e => this.handleDrop(e));
-        this.addEventListener(this.container, 'dragend', e => this.handleDragEnd(e));
-    }
+    // ==================== 文档树事件处理 ====================
 
     /**
      * 处理点击事件
@@ -461,7 +513,7 @@ export class DocumentTree extends BaseComponent {
         document.body.classList.add('is-dragging-tree');
 
         // 缓存文档树容器，避免重复查询
-        this.treeContainer = this.container;
+        this.treeContainer = dom.getById('md-doc-tree')?.element;
     }
 
     /**
@@ -480,6 +532,9 @@ export class DocumentTree extends BaseComponent {
         }
         this.lastDragOverTime = now;
 
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return;
+
         // 快速检查：是否在有效的拖拽区域
         if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
             this.#manageDropTarget(null, null);
@@ -490,7 +545,7 @@ export class DocumentTree extends BaseComponent {
 
         // 没有文档项 → 根目录区域
         if (!targetItem) {
-            this.#manageDropTarget(this.treeContainer, 'root');
+            this.#manageDropTarget(treeContainer, 'root');
             return;
         }
 
@@ -532,8 +587,8 @@ export class DocumentTree extends BaseComponent {
         }
 
         // 文件项 → 检查是否在根目录层级
-        const isRootLevel = targetNode.parentElement === this.treeContainer;
-        this.#manageDropTarget(isRootLevel ? this.treeContainer : null, 'root');
+        const isRootLevel = targetNode.parentElement === treeContainer;
+        this.#manageDropTarget(isRootLevel ? treeContainer : null, 'root');
     }
 
     // ==================== 拖拽 ====================
@@ -749,11 +804,14 @@ export class DocumentTree extends BaseComponent {
         // 如果已经有待处理的编辑，先完成它（避免多个文件同时进入重命名）
         if (this.#pendingEdit && this.editingDocId) {
             // 取消之前的编辑，不保存
-            const editingItem = dom.getIn(this.container, `[data-doc-id="${this.editingDocId}"]`);
-            if (editingItem?.classList.contains('editing')) {
-                // 触发 blur 来完成编辑（会取消）
-                const input = dom.getIn(editingItem, '.md-doc-item-input');
-                if (input) input.blur();
+            const treeContainer = dom.getById('md-doc-tree')?.element;
+            if (treeContainer) {
+                const editingItem = dom.getIn(treeContainer, `[data-doc-id="${this.editingDocId}"]`);
+                if (editingItem?.classList.contains('editing')) {
+                    // 触发 blur 来完成编辑（会取消）
+                    const input = dom.getIn(editingItem, '.md-doc-item-input');
+                    if (input) input.blur();
+                }
             }
             // 清空待编辑状态
             this.#pendingEdit = null;
@@ -794,7 +852,13 @@ export class DocumentTree extends BaseComponent {
     editDocumentName(docId, isNewItem = false, shouldSetCurrent = false) {
         this.editingDocId = docId;
 
-        const item = dom.getIn(this.container, `[data-doc-id="${docId}"]`);
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) {
+            this.editingDocId = null;
+            return;
+        }
+
+        const item = dom.getIn(treeContainer, `[data-doc-id="${docId}"]`);
         const nameSpan = dom.getIn(item, '.md-doc-item-name');
         if (!item || !nameSpan) {
             // DOM 未就绪，退出编辑模式
@@ -888,21 +952,6 @@ export class DocumentTree extends BaseComponent {
     }
 
     /**
-     * 重命名选中的项目
-     * @returns {void}
-     */
-    renameSelectedItem() {
-        const selectedDocIds = this.state.get('selectedDocIds') || [];
-        const docId = selectedDocIds.length === 1 ? selectedDocIds[0] : this.state.get('currentDocId');
-        
-        if (!docId) {
-            this.showMessage('请先选择一个项目', 'warning');
-        } else {
-            this.editDocumentName(docId, false, false);
-        }
-    }
-
-    /**
      * 删除选中的文件或清空所有文件
      * 如果有选中的文件，则删除选中的文件；否则清空所有文件
      * @returns {Promise<void>}
@@ -963,7 +1012,7 @@ export class DocumentTree extends BaseComponent {
         }
 
         // 重新渲染
-        this.render();
+        this.renderTree();
 
         this.showMessage(
             selectedDocIds.length > 0
@@ -980,12 +1029,29 @@ export class DocumentTree extends BaseComponent {
      * @returns {void}
      */
     render() {
+        // 渲染侧边栏状态
+        const interfaceState = this.state.get('interface');
+        const isOpen = interfaceState.leftSidebarOpen;
+        this.updateVisibility(isOpen);
+
+        // 渲染文档树
+        this.renderTree();
+    }
+
+    /**
+     * 渲染文档树
+     * @returns {void}
+     */
+    renderTree() {
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return;
+
         const documents = this.state.get('documents');
         const currentDocId = this.state.get('currentDocId');
         const selectedDocIds = this.state.get('selectedDocIds') || [];
 
         if (documents.length === 0) {
-            this.container.innerHTML = `
+            treeContainer.innerHTML = `
                 <div class="md-empty-state">
                     <p>暂无文档</p>
                     <button class="md-btn md-btn-primary" data-action="create-file">新建文档</button>
@@ -994,7 +1060,7 @@ export class DocumentTree extends BaseComponent {
             `;
             
             // 使用事件委托而不是单独绑定
-            const emptyState = this.container.querySelector('.md-empty-state');
+            const emptyState = treeContainer.querySelector('.md-empty-state');
             emptyState?.addEventListener('click', e => {
                 const action = e.target.dataset.action;
                 if (action === 'create-file') this.createDocument('file');
@@ -1013,14 +1079,14 @@ export class DocumentTree extends BaseComponent {
             fragment.appendChild(this.renderTreeNode(node, currentDocId, 0, selectedDocIds));
         });
 
-        this.container.innerHTML = '';
-        this.container.appendChild(fragment);
+        treeContainer.innerHTML = '';
+        treeContainer.appendChild(fragment);
 
         // 清空缓存并增加版本号
         this.#clearDomCache();
 
         // 立即重建DOM缓存（批量查询，避免后续多次查询）
-        const items = this.container.querySelectorAll('.md-doc-item[data-doc-id]');
+        const items = treeContainer.querySelectorAll('.md-doc-item[data-doc-id]');
         items.forEach(item => {
             const docId = item.dataset.docId;
             this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
@@ -1055,21 +1121,24 @@ export class DocumentTree extends BaseComponent {
      * @param {Object} doc - 新文档对象
      */
     #renderNewItem(doc) {
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return;
+
         const docCount = this.state.get('documents').length;
 
         // 第一个文档需要完全渲染（移除空状态）
         if (docCount === 1) {
-            this.render();
+            this.renderTree();
             return;
         }
 
         // 获取或创建目标容器
         const targetContainer = doc.parentId
             ? this.#getOrCreateChildrenContainer(doc.parentId)
-            : this.container;
+            : treeContainer;
 
         if (!targetContainer) {
-            this.render();
+            this.renderTree();
             return;
         }
 
@@ -1109,8 +1178,11 @@ export class DocumentTree extends BaseComponent {
      * @private
      */
     #getOrCreateChildrenContainer(parentId) {
+        const treeContainer = dom.getById('md-doc-tree')?.element;
+        if (!treeContainer) return null;
+
         const parentNode = dom
-            .getIn(this.container, `[data-doc-id="${parentId}"]`)
+            .getIn(treeContainer, `[data-doc-id="${parentId}"]`)
             ?.closest('.md-tree-node');
         if (!parentNode) return null;
 
@@ -1301,11 +1373,9 @@ export class DocumentTree extends BaseComponent {
     destroy() {
         // 清理定时器
         clearTimeout(this.clickTimeout);
-        clearTimeout(this.dragOverThrottle);
 
         // 清空缓存和状态
         this.#clearDomCache();
-        this.#pendingUpdates.clear();
         
         // 重置拖拽相关状态
         this.dragTarget = null;

@@ -40,11 +40,10 @@ markdown-editor/
 │   ├── main.js                 # 应用入口
 │   ├── components/             # UI 组件
 │   │   ├── BaseComponent.js   # 组件基类
-│   │   ├── DocumentTree.js    # 文档树
+│   │   ├── LeftSidebar.js     # 左侧边栏（文档树）
+│   │   ├── RightSidebar.js    # 右侧边栏（目录）
 │   │   ├── Editor.js          # 编辑器
 │   │   ├── Preview.js         # 预览
-│   │   ├── Sidebar.js         # 侧边栏
-│   │   ├── TOC.js             # 目录
 │   │   ├── Dialog.js          # 对话框
 │   │   ├── SearchReplace.js   # 搜索替换
 │   │   └── Settings.js        # 设置管理
@@ -119,14 +118,13 @@ graph TB
     end
     
     subgraph "组件层"
-        C[DocumentTree<br/>文档树]
+        C[LeftSidebar<br/>左侧边栏]
         D[Editor<br/>编辑器]
         E[Preview<br/>预览]
-        F[Sidebar<br/>侧边栏]
-        G[TOC<br/>目录]
-        H[Dialog<br/>对话框]
-        I[SearchReplace<br/>搜索替换]
-        J[Settings<br/>设置管理]
+        F[RightSidebar<br/>右侧边栏]
+        G[Dialog<br/>对话框]
+        H[SearchReplace<br/>搜索替换]
+        I[Settings<br/>设置管理]
     end
     
     subgraph "状态管理层"
@@ -212,17 +210,16 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    A[BaseComponent<br/>基类] --> B[DocumentTree]
+    A[BaseComponent<br/>基类] --> B[LeftSidebar]
     A --> C[Editor]
     A --> D[Preview]
-    A --> E[Sidebar]
-    A --> F[TOC]
-    A --> G[Dialog]
+    A --> E[RightSidebar]
+    A --> F[Dialog]
     
-    A -.提供.-> H[状态订阅]
-    A -.提供.-> I[事件管理]
-    A -.提供.-> J[DOM 操作]
-    A -.提供.-> K[错误处理]
+    A -.提供.-> G[状态订阅]
+    A -.提供.-> H[事件管理]
+    A -.提供.-> I[DOM 操作]
+    A -.提供.-> J[错误处理]
     
     style A fill:#e1f5ff
 ```
@@ -1113,19 +1110,18 @@ export class BaseComponent {
 
 ```mermaid
 graph TD
-    A[BaseComponent] --> B[DocumentTree]
+    A[BaseComponent] --> B[LeftSidebar]
     A --> C[Editor]
     A --> D[Preview]
-    A --> E[Sidebar]
-    A --> F[TOC]
-    A --> G[Dialog]
-    A --> H[SearchReplace]
+    A --> E[RightSidebar]
+    A --> F[Dialog]
+    A --> G[SearchReplace]
     
-    I[Settings] -.独立组件.-> J[UI 交互<br/>状态同步]
+    H[Settings] -.独立组件.-> I[UI 交互<br/>状态同步]
     
-    B --> K[文档管理<br/>树型渲染<br/>拖拽排序]
-    C --> L[文本编辑<br/>语法高亮<br/>快捷键]
-    D --> M[Markdown 渲染<br/>代码高亮<br/>图表渲染]
+    B --> J[文档管理<br/>树型渲染<br/>拖拽排序]
+    C --> K[文本编辑<br/>语法高亮<br/>快捷键]
+    D --> L[Markdown 渲染<br/>代码高亮<br/>图表渲染]
     E --> N[侧边栏<br/>区块管理<br/>折叠展开]
     F --> O[目录生成<br/>滚动同步<br/>导航]
     G --> P[对话框<br/>确认操作<br/>表单输入]
@@ -1409,7 +1405,7 @@ unsubscribe();
 **3. 组件内订阅**
 
 ```javascript
-class DocumentTree extends BaseComponent {
+class LeftSidebar extends BaseComponent {
     subscribe() {
         this.unsubscribe = this.state.subscribeTo(
             ['documents', 'currentDocId'], 
@@ -1655,7 +1651,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as 用户
-    participant D as DocumentTree
+    participant D as LeftSidebar
     participant S as State
     participant ST as Store
     participant E as Editor
@@ -1955,7 +1951,7 @@ class MyComponent extends BaseComponent {
 **组件级缓存**：
 
 ```javascript
-class DocumentTree extends BaseComponent {
+class LeftSidebar extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.#domCache = new Map();  // docId -> Element
@@ -2066,7 +2062,7 @@ class Preview extends BaseComponent {
 **结构变化检测**：
 
 ```javascript
-class DocumentTree extends BaseComponent {
+class LeftSidebar extends BaseComponent {
     #hasStructuralChanges(newValue, oldValue) {
         if (newValue.length !== oldValue.length) return true;
 
@@ -2105,7 +2101,7 @@ class DocumentTree extends BaseComponent {
 **缓存机制**：
 
 ```javascript
-class DocumentTree extends BaseComponent {
+class LeftSidebar extends BaseComponent {
     #domCache = new Map();
 
     #getCachedDocItem(docId) {
@@ -2139,7 +2135,7 @@ class DocumentTree extends BaseComponent {
 **批量更新**：
 
 ```javascript
-class DocumentTree extends BaseComponent {
+class LeftSidebar extends BaseComponent {
     #pendingUpdates = new Map();
 
     setFolderExpanded(folderId, expanded) {

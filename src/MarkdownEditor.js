@@ -10,11 +10,10 @@
  * ```
  */
 import { EditorState } from './EditorState.js';
-import { DocumentTree } from './components/DocumentTree.js';
 import { Preview } from './components/Preview.js';
 import { Editor } from './components/Editor.js';
-import { Sidebar } from './components/Sidebar.js';
-import { TOC } from './components/TOC.js';
+import { LeftSidebar } from './components/LeftSidebar.js';
+import { RightSidebar } from './components/RightSidebar.js';
 import { Dialog } from './components/Dialog.js';
 import { SearchReplace } from './components/SearchReplace.js';
 import { Settings } from './components/Settings.js';
@@ -159,17 +158,11 @@ export class MarkdownEditor {
         // 预览组件
         this.components.preview = new Preview(this.state, 'markdown-preview');
 
-        // 文档树组件
-        this.components.documentTree = new DocumentTree(this.state, 'md-doc-tree');
+        // 左侧边栏组件（包含文档树功能）
+        this.components.leftSidebar = new LeftSidebar(this.state, 'md-sidebar-left');
 
-        // 左侧边栏组件
-        this.components.leftSidebar = new Sidebar(this.state, 'md-sidebar-left', 'left');
-
-        // 右侧边栏组件
-        this.components.rightSidebar = new Sidebar(this.state, 'md-sidebar-right', 'right');
-
-        // 目录组件
-        this.components.toc = new TOC(this.state, 'md-toc');
+        // 右侧边栏组件（包含目录功能）
+        this.components.rightSidebar = new RightSidebar(this.state, 'md-sidebar-right');
 
         // 搜索替换组件
         this.components.searchReplace = new SearchReplace(this.state, 'md-search-replace-panel');
@@ -534,17 +527,17 @@ export class MarkdownEditor {
         
         bindButton('md-new-file', () => {
             const selectedFolder = getSelectedFolder();
-            this.components.documentTree.createDocument('file', selectedFolder?.id ?? null);
+            this.components.leftSidebar.createDocument('file', selectedFolder?.id ?? null);
         });
         
         bindButton('md-new-folder', () => {
             const selectedFolder = getSelectedFolder();
-            this.components.documentTree.createDocument('folder', selectedFolder?.id ?? null);
+            this.components.leftSidebar.createDocument('folder', selectedFolder?.id ?? null);
         });
         
         bindButton('md-import-docs', () => this.importDocuments());
         bindButton('md-export-docs', () => this.exportDocuments());
-        bindButton('md-delete-item', () => this.components.documentTree.deleteSelectedItems());
+        bindButton('md-delete-item', () => this.components.leftSidebar.deleteSelectedItems());
         bindButton('md-export-html', () => this.components.preview.exportHTML());
         bindButton('md-export-md', () => this.components.preview.exportMarkdown());
         bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
