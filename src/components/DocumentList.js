@@ -138,30 +138,61 @@ export class DocumentList extends BaseComponent {
     // ==================== 选择状态管理 ====================
 
     /**
-     * 更新多选状态（局部更新）
+     * 更新多选状态（局部更新，优化版：单次遍历，直接更新）
      * @param {Array} newSelectedIds - 新选中的文档ID列表
      * @param {Array} oldSelectedIds - 旧选中的文档ID列表
      */
     updateSelectionState(newSelectedIds = [], oldSelectedIds = []) {
         if (!this.container) return;
 
+        // 快速路径：完全相同
+        if (newSelectedIds.length === oldSelectedIds.length &&
+            newSelectedIds.length === 0) {
+            return;
+        }
+
         const newSet = new Set(newSelectedIds);
         const oldSet = new Set(oldSelectedIds);
 
-        // 使用requestAnimationFrame批量更新DOM
+        // 单次遍历：同时计算差集并收集 DOM 元素
+        const toRemove = [];
+        const toAdd = [];
+        const removeElements = [];
+        const addElements = [];
+
+        // 遍历旧集合，找出需要移除的（同时获取 DOM 元素）
+        for (const docId of oldSet) {
+            if (!newSet.has(docId)) {
+                toRemove.push(docId);
+                const item = this.#getCachedDocItem(docId);
+                if (item) removeElements.push(item);
+            }
+        }
+
+        // 遍历新集合，找出需要添加的（同时获取 DOM 元素）
+        for (const docId of newSet) {
+            if (!oldSet.has(docId)) {
+                toAdd.push(docId);
+                const item = this.#getCachedDocItem(docId);
+                if (item) addElements.push(item);
+            }
+        }
+
+        // 如果没有变化，直接返回
+        if (removeElements.length === 0 && addElements.length === 0) {
+            return;
+        }
+
+        // 使用requestAnimationFrame批量更新DOM（直接操作元素，无需再次查询）
         requestAnimationFrame(() => {
             // 移除旧选中
-            oldSet.forEach(docId => {
-                if (!newSet.has(docId)) {
-                    this.#getCachedDocItem(docId)?.classList.remove('active');
-                }
-            });
+            for (const item of removeElements) {
+                item.classList.remove('active');
+            }
             // 添加新选中
-            newSet.forEach(docId => {
-                if (!oldSet.has(docId)) {
-                    this.#getCachedDocItem(docId)?.classList.add('active');
-                }
-            });
+            for (const item of addElements) {
+                item.classList.add('active');
+            }
         });
     }
 
