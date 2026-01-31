@@ -57,7 +57,7 @@ export class DocumentList extends BaseComponent {
 
                     if (needsFullRender) {
                         // 强制完全重新渲染
-                        this.render(true);
+                        this.render();
                     }
                 }
             }
@@ -976,10 +976,10 @@ export class DocumentList extends BaseComponent {
     // ==================== 渲染相关 ====================
 
     /**
-     * 渲染组件（优化版：改进增量更新策略）
-     * @param {boolean} forceFullRender - 是否强制完全重新渲染
+     * 渲染组件
+     * @returns {void}
      */
-    render(forceFullRender = false) {
+    render() {
         const documents = this.state.get('documents');
         const currentDocId = this.state.get('currentDocId');
         const selectedDocIds = this.state.get('selectedDocIds') || [];
@@ -1004,6 +1004,9 @@ export class DocumentList extends BaseComponent {
             this.#clearDomCache();
             return;
         }
+
+        // 展开包含选中文档的所有祖先文件夹
+        this.#expandFoldersContainingSelected(currentDocId, selectedDocIds);
 
         // 完全重建
         const tree = this.state.getDocumentTree();
@@ -1051,7 +1054,7 @@ export class DocumentList extends BaseComponent {
 
         // 第一个文档需要完全渲染（移除空状态）
         if (docCount === 1) {
-            this.render(true);
+            this.render();
             return;
         }
 
@@ -1061,7 +1064,7 @@ export class DocumentList extends BaseComponent {
             : this.container;
 
         if (!targetContainer) {
-            this.render(true);
+            this.render();
             return;
         }
 
@@ -1124,6 +1127,46 @@ export class DocumentList extends BaseComponent {
         if (!parentId) return 0;
         const parent = this.state.get('documents').find(d => d.id === parentId);
         return parent ? 1 + this.#calculateLevel(parent.parentId) : 0;
+    }
+
+    /**
+     * 展开包含选中文档的所有祖先文件夹
+     * @param {string|null} currentDocId - 当前文档 ID
+     * @param {Array} selectedDocIds - 选中的文档ID列表
+     * @private
+     */
+    #expandFoldersContainingSelected(currentDocId, selectedDocIds) {
+        const documents = this.state.get('documents');
+        const docMap = new Map(documents.map(d => [d.id, d]));
+        
+        // 收集需要展开的文件夹ID
+        const foldersToExpand = new Set();
+        
+        // 辅助函数：向上收集所有祖先文件夹
+        const collectAncestors = (docId) => {
+            let currentId = docId;
+            while (currentId) {
+                const doc = docMap.get(currentId);
+                if (!doc || !doc.parentId) break;
+                foldersToExpand.add(doc.parentId);
+                currentId = doc.parentId;
+            }
+        };
+        
+        // 处理当前文档
+        if (currentDocId) {
+            collectAncestors(currentDocId);
+        }
+        
+        // 处理所有选中的文档
+        for (const docId of selectedDocIds) {
+            collectAncestors(docId);
+        }
+        
+        // 批量展开文件夹
+        for (const folderId of foldersToExpand) {
+            this.expandedFolders.add(folderId);
+        }
     }
 
     /**
