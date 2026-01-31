@@ -81,22 +81,24 @@ export class TOC extends BaseComponent {
 
         // 使用 dom.js 统一查询，检查是否需要完全重建
         const currentItems = dom.getAllIn(this.container, '.md-toc-item');
-        const needsFullRebuild = currentItems.length !== headingCount;
+        const itemCount = currentItems.length;
 
-        if (needsFullRebuild) {
-            // 完全重建时使用RAF避免阻塞
+        // 数量不同，直接重建
+        if (itemCount !== headingCount) {
+            // 使用 RAF 避免阻塞
             if (this.animationFrameId) {
                 cancelAnimationFrame(this.animationFrameId);
             }
 
             this.animationFrameId = requestAnimationFrame(() => {
                 this.animationFrameId = null;
-                this._rebuildTOC(headings);
+                this.#rebuildTOC(headings);
             });
-        } else {
-            // 增量更新直接同步执行，不使用RAF，减少延迟
-            this._updateTOC(headings, currentItems);
+            return;
         }
+
+        // 数量相同，增量更新
+        this.#updateTOC(headings, currentItems);
     }
 
     /**
@@ -104,7 +106,7 @@ export class TOC extends BaseComponent {
      * @param headings
      * @private
      */
-    _rebuildTOC(headings) {
+    #rebuildTOC(headings) {
         const headingCount = headings.length;
 
         // 使用 DocumentFragment 提升性能
@@ -137,9 +139,7 @@ export class TOC extends BaseComponent {
      * @param currentItems
      * @private
      */
-    _updateTOC(headings, currentItems) {
-        const itemsToUpdate = [];
-
+    #updateTOC(headings, currentItems) {
         for (let i = 0; i < headings.length; i++) {
             const heading = headings[i];
             const currentItem = currentItems[i];
@@ -155,27 +155,12 @@ export class TOC extends BaseComponent {
             const currentLevel = +dataset.level; // 直接从 data-level 读取，避免正则匹配
             const currentText = currentItem.textContent;
 
-            // 检查是否需要更新
+            // 检查是否需要更新，直接更新 DOM
             if (currentId !== headingId || currentText !== text || currentLevel !== level) {
-                itemsToUpdate.push({
-                    element: currentItem,
-                    headingId,
-                    text,
-                    level
-                });
-            }
-        }
-
-        // 只在有变化时批量更新 DOM
-        if (itemsToUpdate.length > 0) {
-            for (let i = 0; i < itemsToUpdate.length; i++) {
-                const item = itemsToUpdate[i];
-                const { element } = item;
-                const { dataset } = element;
-                dataset.headingId = item.headingId;
-                dataset.level = item.level;
-                element.textContent = item.text;
-                element.className = `md-toc-item level-${item.level}`;
+                dataset.headingId = headingId;
+                dataset.level = level;
+                currentItem.textContent = text;
+                currentItem.className = `md-toc-item level-${level}`;
             }
         }
     }
