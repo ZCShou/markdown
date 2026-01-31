@@ -512,7 +512,7 @@ html::-webkit-scrollbar-thumb:hover,
   background-color: var(--md-bg-secondary);
 }
 
-.md-doc-list {
+.md-doc-tree {
   margin: 0 8px 0 0;
   flex: 1;
   min-height: 200px;
@@ -521,7 +521,7 @@ html::-webkit-scrollbar-thumb:hover,
   gap: 0;
 }
 
-.md-doc-list:empty::before {
+.md-doc-tree:empty::before {
   content: '';
   display: block;
   flex: 1;

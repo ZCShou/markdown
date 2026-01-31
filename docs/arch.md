@@ -40,7 +40,7 @@ markdown-editor/
 │   ├── main.js                 # 应用入口
 │   ├── components/             # UI 组件
 │   │   ├── BaseComponent.js   # 组件基类
-│   │   ├── DocumentList.js    # 文档列表
+│   │   ├── DocumentTree.js    # 文档树
 │   │   ├── Editor.js          # 编辑器
 │   │   ├── Preview.js         # 预览
 │   │   ├── Sidebar.js         # 侧边栏
@@ -119,7 +119,7 @@ graph TB
     end
     
     subgraph "组件层"
-        C[DocumentList<br/>文档列表]
+        C[DocumentTree<br/>文档树]
         D[Editor<br/>编辑器]
         E[Preview<br/>预览]
         F[Sidebar<br/>侧边栏]
@@ -212,7 +212,7 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    A[BaseComponent<br/>基类] --> B[DocumentList]
+    A[BaseComponent<br/>基类] --> B[DocumentTree]
     A --> C[Editor]
     A --> D[Preview]
     A --> E[Sidebar]
@@ -1113,7 +1113,7 @@ export class BaseComponent {
 
 ```mermaid
 graph TD
-    A[BaseComponent] --> B[DocumentList]
+    A[BaseComponent] --> B[DocumentTree]
     A --> C[Editor]
     A --> D[Preview]
     A --> E[Sidebar]
@@ -1409,7 +1409,7 @@ unsubscribe();
 **3. 组件内订阅**
 
 ```javascript
-class DocumentList extends BaseComponent {
+class DocumentTree extends BaseComponent {
     subscribe() {
         this.unsubscribe = this.state.subscribeTo(
             ['documents', 'currentDocId'], 
@@ -1655,7 +1655,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant U as 用户
-    participant D as DocumentList
+    participant D as DocumentTree
     participant S as State
     participant ST as Store
     participant E as Editor
@@ -1955,7 +1955,7 @@ class MyComponent extends BaseComponent {
 **组件级缓存**：
 
 ```javascript
-class DocumentList extends BaseComponent {
+class DocumentTree extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.#domCache = new Map();  // docId -> Element
@@ -2066,7 +2066,7 @@ class Preview extends BaseComponent {
 **结构变化检测**：
 
 ```javascript
-class DocumentList extends BaseComponent {
+class DocumentTree extends BaseComponent {
     #hasStructuralChanges(newValue, oldValue) {
         if (newValue.length !== oldValue.length) return true;
 
@@ -2105,7 +2105,7 @@ class DocumentList extends BaseComponent {
 **缓存机制**：
 
 ```javascript
-class DocumentList extends BaseComponent {
+class DocumentTree extends BaseComponent {
     #domCache = new Map();
 
     #getCachedDocItem(docId) {
@@ -2139,7 +2139,7 @@ class DocumentList extends BaseComponent {
 **批量更新**：
 
 ```javascript
-class DocumentList extends BaseComponent {
+class DocumentTree extends BaseComponent {
     #pendingUpdates = new Map();
 
     setFolderExpanded(folderId, expanded) {

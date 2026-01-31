@@ -1,6 +1,6 @@
 /**
- * 文档列表组件 - 树型结构
- * 负责文档列表的渲染和交互，支持文件夹嵌套
+ * 文档树组件 - 树型结构
+ * 负责文档树的渲染和交互，支持文件夹嵌套
  */
 import { BaseComponent } from './BaseComponent.js';
 import { EditorState } from '../EditorState.js';
@@ -10,7 +10,7 @@ import { Dialog } from './Dialog.js';
 /**
  *
  */
-export class DocumentList extends BaseComponent {
+export class DocumentTree extends BaseComponent {
     /** @private */
     #domCache = new Map(); // DOM 元素缓存
 
@@ -460,7 +460,7 @@ export class DocumentList extends BaseComponent {
         e.dataTransfer.setData('text/plain', this.draggedItems.join(','));
         document.body.classList.add('is-dragging-tree');
 
-        // 缓存文档列表容器，避免重复查询
+        // 缓存文档树容器，避免重复查询
         this.treeContainer = this.container;
     }
 

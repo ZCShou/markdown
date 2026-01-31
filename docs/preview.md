@@ -190,29 +190,29 @@ _scheduleRender(content, delay = 100) {
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant DocList as DocumentList
+    participant DocTree as DocumentTree
     participant State as EditorState
     participant Preview as Preview
     participant Browser as 浏览器
 
-    User->>DocList: 点击文档
-    DocList->>DocList: handleOpen(docId)
+    User->>DocTree: 点击文档
+    DocTree->>DocTree: handleOpen(docId)
     
-    DocList->>State: state.get('documents')
-    State-->>DocList: 返回文档列表
+    DocTree->>State: state.get('documents')
+    State-->>DocTree: 返回文档列表
     
-    DocList->>DocList: 查找目标文档
+    DocTree->>DocTree: 查找目标文档
     
     alt 文档存在且不是文件夹
-        DocList->>State: state.setCurrentDocument(doc)
+        DocTree->>State: state.setCurrentDocument(doc)
         Note over State: 1. 更新 #state.currentDocId<br/>2. 更新 #state.content<br/>3. 调用 #notify()
         
         State->>State: #notify(oldState, newState, changedKeys)
         Note over State: changedKeys = ['currentDocId', 'content']
         
         par 通知 currentDocId 监听器
-            State->>DocList: listener(newValue, oldValue, 'currentDocId')
-            Note over DocList: 更新选中状态
+            State->>DocTree: listener(newValue, oldValue, 'currentDocId')
+            Note over DocTree: 更新选中状态
         and 通知 content 监听器
             State->>Preview: listener(newValue, oldValue, 'content')
             Note over Preview: content 键的监听器被触发
@@ -264,9 +264,9 @@ sequenceDiagram
 
 **代码实现**：
 
-**DocumentList 组件**：
+**DocumentTree 组件**：
 ```javascript
-// DocumentList.js
+// DocumentTree.js
 handleOpen(docId) {
     const documents = this.state.get('documents');
     const doc = documents.find(d => d.id === docId);

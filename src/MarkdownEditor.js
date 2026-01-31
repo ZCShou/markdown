@@ -10,7 +10,7 @@
  * ```
  */
 import { EditorState } from './EditorState.js';
-import { DocumentList } from './components/DocumentList.js';
+import { DocumentTree } from './components/DocumentTree.js';
 import { Preview } from './components/Preview.js';
 import { Editor } from './components/Editor.js';
 import { Sidebar } from './components/Sidebar.js';
@@ -159,8 +159,8 @@ export class MarkdownEditor {
         // 预览组件
         this.components.preview = new Preview(this.state, 'markdown-preview');
 
-        // 文档列表组件
-        this.components.documentList = new DocumentList(this.state, 'md-doc-list');
+        // 文档树组件
+        this.components.documentTree = new DocumentTree(this.state, 'md-doc-tree');
 
         // 左侧边栏组件
         this.components.leftSidebar = new Sidebar(this.state, 'md-sidebar-left', 'left');
@@ -534,17 +534,17 @@ export class MarkdownEditor {
         
         bindButton('md-new-file', () => {
             const selectedFolder = getSelectedFolder();
-            this.components.documentList.createDocument('file', selectedFolder?.id ?? null);
+            this.components.documentTree.createDocument('file', selectedFolder?.id ?? null);
         });
         
         bindButton('md-new-folder', () => {
             const selectedFolder = getSelectedFolder();
-            this.components.documentList.createDocument('folder', selectedFolder?.id ?? null);
+            this.components.documentTree.createDocument('folder', selectedFolder?.id ?? null);
         });
         
         bindButton('md-import-docs', () => this.importDocuments());
         bindButton('md-export-docs', () => this.exportDocuments());
-        bindButton('md-delete-item', () => this.components.documentList.deleteSelectedItems());
+        bindButton('md-delete-item', () => this.components.documentTree.deleteSelectedItems());
         bindButton('md-export-html', () => this.components.preview.exportHTML());
         bindButton('md-export-md', () => this.components.preview.exportMarkdown());
         bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));

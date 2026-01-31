@@ -1,11 +1,11 @@
-# DocumentList 组件文档管理详解
+# DocumentTree 组件文档管理详解
 
 ## 📋 目录
 
 - [概述](#概述)
 - [文档树型结构](#文档树型结构)
 - [核心功能实现](#核心功能实现)
-  - [1. 文档列表渲染](#1-文档列表渲染)
+  - [1. 文档树渲染](#1-文档树渲染)
   - [2. 文档创建](#2-文档创建)
   - [3. 多选功能](#3-多选功能)
   - [4. 文档删除](#4-文档删除)
@@ -19,11 +19,11 @@
 
 ## 概述
 
-DocumentList 组件是 Markdown 编辑器的文档管理核心，负责文档列表的渲染、交互和管理。它采用树型结构组织文档，支持文件夹嵌套、拖拽移动、批量操作等高级功能。
+DocumentTree 组件是 Markdown 编辑器的文档管理核心，负责文档树的渲染、交互和管理。它采用树型结构组织文档，支持文件夹嵌套、拖拽移动、批量操作等高级功能。
 
 ### 核心职责
 
-1. **文档列表渲染**：将扁平的文档数组转换为树型结构并渲染
+1. **文档树渲染**：将扁平的文档数组转换为树型结构并渲染
 2. **文档操作**：创建、删除、重命名、移动文档
 3. **多选功能**：支持 Ctrl/Cmd + 点击多选和 Shift + 点击范围选择
 4. **批量操作**：支持批量删除、批量移动等高效操作
@@ -34,7 +34,7 @@ DocumentList 组件是 Markdown 编辑器的文档管理核心，负责文档列
 
 ### 架构说明
 
-DocumentList 继承自 BaseComponent 基类，遵循状态驱动 UI 的设计模式。详细的组件架构和继承关系请参考 [**架构设计文档**](arch.md#组件体系)。
+DocumentTree 继承自 BaseComponent 基类，遵循状态驱动 UI 的设计模式。详细的组件架构和继承关系请参考 [**架构设计文档**](arch.md#组件体系)。
 
 ### 依赖模块
 
@@ -153,7 +153,7 @@ graph TD
 
 ## 状态管理机制
 
-DocumentList 组件完全遵循**状态驱动 UI** 的设计模式。详细的状态管理机制请参考 [**架构设计文档**](arch.md#状态管理)。
+DocumentTree 组件完全遵循**状态驱动 UI** 的设计模式。详细的状态管理机制请参考 [**架构设计文档**](arch.md#状态管理)。
 
 ### 关键状态键
 
@@ -166,7 +166,7 @@ DocumentList 组件完全遵循**状态驱动 UI** 的设计模式。详细的�
 
 ### 状态订阅
 
-DocumentList 订阅 `documents` 和 `currentDocId` 两个状态键：
+DocumentTree 订阅 `documents` 和 `currentDocId` 两个状态键：
 
 - **documents 变化**：检测结构变化，决定是否完全重新渲染
 - **currentDocId 变化**：更新文档激活状态
@@ -177,9 +177,9 @@ DocumentList 订阅 `documents` 和 `currentDocId` 两个状态键：
 
 ## 核心功能实现
 
-### 1. 文档列表渲染
+### 1. 文档树渲染
 
-文档列表渲染是 DocumentList 组件的核心功能，负责将扁平的文档数组转换为可视化的树型结构。
+文档树渲染是 DocumentTree 组件的核心功能，负责将扁平的文档数组转换为可视化的树型结构。
 
 #### 1.1 增量渲染机制
 
@@ -339,14 +339,14 @@ updateActiveState(newDocId, oldDocId) {
 
 ### 2. 文档创建
 
-文档创建是 DocumentList 组件的基础功能，支持创建文件和文件夹，并自动进入编辑模式。
+文档创建是 DocumentTree 组件的基础功能，支持创建文件和文件夹，并自动进入编辑模式。
 
 #### 2.1 创建流程
 
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant DocList as DocumentList
+    participant DocList as DocumentTree
     participant State as EditorState
     participant Store as StoreManager
     participant UI as UI 更新
@@ -704,7 +704,7 @@ handleDrop(e) {
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant DocList as DocumentList
+    participant DocList as DocumentTree
     participant Dialog as Dialog
     participant State as EditorState
     participant Store as StoreManager
@@ -741,7 +741,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant DocList as DocumentList
+    participant DocList as DocumentTree
     participant Dialog as Dialog
     participant State as EditorState
     participant Store as StoreManager
@@ -988,7 +988,7 @@ async deleteCurrentItem() {
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant DocList as DocumentList
+    participant DocList as DocumentTree
     participant State as EditorState
     participant Store as StoreManager
 
@@ -1082,7 +1082,7 @@ handleDoubleClick(e) {
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant DocList as DocumentList
+    participant DocList as DocumentTree
     participant State as EditorState
     participant Store as StoreManager
 
@@ -1431,7 +1431,7 @@ handleDragEnd(e) {
 
 ## 性能优化策略
 
-DocumentList 组件采用了多种性能优化策略，以确保在大规模文档管理场景下的流畅体验。通用的性能优化策略（如防抖节流、代码分割等）请参考 [**架构设计文档**](arch.md#性能优化)。
+DocumentTree 组件采用了多种性能优化策略，以确保在大规模文档管理场景下的流畅体验。通用的性能优化策略（如防抖节流、代码分割等）请参考 [**架构设计文档**](arch.md#性能优化)。
 
 ### 1. 增量渲染
 
@@ -1711,7 +1711,7 @@ destroy() {
 
 ## 总结
 
-DocumentList 组件是 Markdown 编辑器的文档管理核心，它通过以下策略实现高效的文档管理：
+DocumentTree 组件是 Markdown 编辑器的文档管理核心，它通过以下策略实现高效的文档管理：
 
 ### 核心设计原则
 
@@ -1744,4 +1744,4 @@ DocumentList 组件是 Markdown 编辑器的文档管理核心，它通过以下
 | 内存占用 | <5MB | DOM 缓存优化 |
 | 缓存命中率 | >80% | DOM 查询优化 |
 
-这些优化策略使得 DocumentList 组件能够高效地管理大规模文档，同时保持良好的用户体验。树型结构、增量渲染和状态驱动 UI 是核心，它们通过智能变化检测、DOM 缓存和批量更新，实现了显著的性能提升。
+这些优化策略使得 DocumentTree 组件能够高效地管理大规模文档，同时保持良好的用户体验。树型结构、增量渲染和状态驱动 UI 是核心，它们通过智能变化检测、DOM 缓存和批量更新，实现了显著的性能提升。

@@ -399,13 +399,13 @@ export const dom = {
         }
     },
 
-    // ==================== 文档列表 ====================
+    // ==================== 文档树 ====================
 
     /**
-     * 文档列表元素
+     * 文档树元素
      */
-    documentList: {
-        container: new DOMElement('#md-doc-list'),
+    documentTree: {
+        container: new DOMElement('#md-doc-tree'),
         items: new DOMElementList('.md-doc-item')
     },
 
@@ -752,7 +752,7 @@ export const dom = {
  * dom.sidebar.right.hide();
  *
  * // 批量操作
- * dom.documentList.items.forEach(item => {
+ * dom.documentTree.items.forEach(item => {
  *     item.classList.add('active');
  * });
  *

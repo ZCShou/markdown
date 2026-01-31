@@ -5,7 +5,7 @@
  * @description 提供持久化组件的通用功能：状态订阅、事件管理、生命周期管理
  * 
  * 适用范围：
- * - ✅ 持久化组件：Editor, Preview, DocumentList, Sidebar, TOC, SearchReplace
+ * - ✅ 持久化组件：Editor, Preview, DocumentTree, Sidebar, TOC, SearchReplace
  * - ❌ 对话框组件：Settings（独立类，不需要状态订阅）
  * - ❌ 工具类：Dialog（纯静态方法，不需要实例）
  * 
