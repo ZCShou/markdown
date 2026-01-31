@@ -184,12 +184,8 @@ export class MarkdownEditor {
     setupSyncScroll() {
         const editor = dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
-        const syncScrollButton = dom.getById('md-sync-scroll')?.element;
 
-        if (!editor || !previewWrapper || !syncScrollButton) return;
-
-        // 保存同步滚动图标引用
-        this._syncScrollIcon = dom.getIn(syncScrollButton, '.codicon');
+        if (!editor || !previewWrapper) return;
 
         // 从状态管理器获取同步滚动状态
         const interfaceState = this.state.get('interface');
@@ -513,11 +509,17 @@ export class MarkdownEditor {
         bindButton('theme-toggle', () => this.toggleTheme());
 
         // 同步滚动按钮
-        bindButton('md-sync-scroll', () => {
-            this.syncScrollEnabled = !this.syncScrollEnabled;
-            this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
-            this.updateSyncScrollIcon(this.syncScrollEnabled);
-        });
+        const syncScrollButton = dom.getById('md-sync-scroll')?.element;
+        if (syncScrollButton) {
+            // 保存同步滚动图标引用
+            this._syncScrollIcon = dom.getIn(syncScrollButton, '.codicon');
+            
+            syncScrollButton.onclick = () => {
+                this.syncScrollEnabled = !this.syncScrollEnabled;
+                this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
+                this.updateSyncScrollIcon(this.syncScrollEnabled);
+            };
+        }
 
         // 侧边栏遮罩
         bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
