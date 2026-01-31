@@ -509,39 +509,22 @@ export class MarkdownEditor {
             if (element) element.onclick = handler;
         };
 
-        // 获取选中的文件夹（辅助函数）
-        const getSelectedFolder = () => {
-            const selectedDocIds = this.state.get('selectedDocIds') || [];
-            const documents = this.state.get('documents');
-            return selectedDocIds.length > 0
-                ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                : null;
-        };
-
         // 绑定所有按钮事件
         bindButton('md-toggle-left-sidebar', () => this.components.leftSidebar.toggle());
         bindButton('md-toggle-right-sidebar', () => this.components.rightSidebar.toggle());
-        bindButton('md-close-left-sidebar', () => this.components.leftSidebar.toggle());
-        bindButton('md-close-right-sidebar', () => this.components.rightSidebar.toggle());
         bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
         
-        bindButton('md-new-file', () => {
-            const selectedFolder = getSelectedFolder();
-            this.components.leftSidebar.createDocument('file', selectedFolder?.id ?? null);
-        });
-        
-        bindButton('md-new-folder', () => {
-            const selectedFolder = getSelectedFolder();
-            this.components.leftSidebar.createDocument('folder', selectedFolder?.id ?? null);
-        });
-        
+        // 文档导入导出按钮（保留在 MarkdownEditor 中，因为这些是全局功能）
         bindButton('md-import-docs', () => this.importDocuments());
         bindButton('md-export-docs', () => this.exportDocuments());
-        bindButton('md-delete-item', () => this.components.leftSidebar.deleteSelectedItems());
+        
+        // 预览导出按钮
         bindButton('md-export-html', () => this.components.preview.exportHTML());
         bindButton('md-export-md', () => this.components.preview.exportMarkdown());
-        bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
         bindButton('md-export-pdf', () => this.components.preview.exportPDF());
+        
+        // 其他全局按钮
+        bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
         bindButton('md-layout-toggle', () => this.toggleLayout());
         bindButton('theme-toggle', () => this.toggleTheme());
 

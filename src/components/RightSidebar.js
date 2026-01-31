@@ -90,6 +90,12 @@ export class RightSidebar extends BaseComponent {
                 }
             });
         }
+
+        // 关闭按钮
+        const closeBtn = dom.getById('md-close-right-sidebar')?.element;
+        if (closeBtn) {
+            closeBtn.onclick = () => this.toggle();
+        }
     }
 
     // ==================== 侧边栏控制 ====================

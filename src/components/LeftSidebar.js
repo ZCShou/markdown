@@ -90,6 +90,41 @@ export class LeftSidebar extends BaseComponent {
             treeContainer.addEventListener('drop', e => this.handleDrop(e));
             treeContainer.addEventListener('dragend', e => this.handleDragEnd(e));
         }
+
+        // 工具栏按钮事件
+        const newFileBtn = dom.getById('md-new-file')?.element;
+        if (newFileBtn) {
+            newFileBtn.onclick = () => {
+                const selectedDocIds = this.state.get('selectedDocIds') || [];
+                const documents = this.state.get('documents');
+                const selectedFolder = selectedDocIds.length > 0
+                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
+                    : null;
+                this.createDocument('file', selectedFolder?.id ?? null);
+            };
+        }
+
+        const newFolderBtn = dom.getById('md-new-folder')?.element;
+        if (newFolderBtn) {
+            newFolderBtn.onclick = () => {
+                const selectedDocIds = this.state.get('selectedDocIds') || [];
+                const documents = this.state.get('documents');
+                const selectedFolder = selectedDocIds.length > 0
+                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
+                    : null;
+                this.createDocument('folder', selectedFolder?.id ?? null);
+            };
+        }
+
+        const deleteBtn = dom.getById('md-delete-item')?.element;
+        if (deleteBtn) {
+            deleteBtn.onclick = () => this.deleteSelectedItems();
+        }
+
+        const closeBtn = dom.getById('md-close-left-sidebar')?.element;
+        if (closeBtn) {
+            closeBtn.onclick = () => this.toggle();
+        }
     }
 
     // ==================== 侧边栏控制 ====================
