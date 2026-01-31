@@ -9,6 +9,9 @@ import { dom } from '../utils/dom.js';
  *
  */
 export class TOC extends BaseComponent {
+    // 防抖延迟（毫秒）
+    static #DEBOUNCE_DELAY = 150;
+
     /**
      * 构造函数
      * @param state
@@ -18,7 +21,6 @@ export class TOC extends BaseComponent {
         super(state, containerId);
         this.animationFrameId = null;
         this.debounceTimer = null;
-        this.debounceDelay = 150; // 防抖延迟 150ms
     }
 
     /**
@@ -28,7 +30,14 @@ export class TOC extends BaseComponent {
     subscribe() {
         // 订阅标题数据变化，生成目录（使用防抖）
         this.unsubscribe = this.state.subscribeTo('headings', () => {
-            this.debouncedGenerateTOC();
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+            }
+
+            this.debounceTimer = setTimeout(() => {
+                this.debounceTimer = null;
+                this.generateTOC();
+            }, TOC.#DEBOUNCE_DELAY);
         });
     }
 
@@ -49,21 +58,6 @@ export class TOC extends BaseComponent {
                 this.scrollToHeading(headingId);
             }
         });
-    }
-
-    /**
-     * 防抖版本的生成目录
-     * @returns {void}
-     */
-    debouncedGenerateTOC() {
-        if (this.debounceTimer) {
-            clearTimeout(this.debounceTimer);
-        }
-
-        this.debounceTimer = setTimeout(() => {
-            this.debounceTimer = null;
-            this.generateTOC();
-        }, this.debounceDelay);
     }
 
     /**
