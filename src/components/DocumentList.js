@@ -145,33 +145,24 @@ export class DocumentList extends BaseComponent {
     updateSelectionState(newSelectedIds = [], oldSelectedIds = []) {
         if (!this.container) return;
 
-        // 使用Set优化查找性能
         const newSet = new Set(newSelectedIds);
         const oldSet = new Set(oldSelectedIds);
 
-        // 批量处理DOM更新
-        const toRemove = [];
-        const toAdd = [];
-
-        for (const docId of oldSet) {
-            if (!newSet.has(docId)) toRemove.push(docId);
-        }
-
-        for (const docId of newSet) {
-            if (!oldSet.has(docId)) toAdd.push(docId);
-        }
-
         // 使用requestAnimationFrame批量更新DOM
-        if (toRemove.length > 0 || toAdd.length > 0) {
-            requestAnimationFrame(() => {
-                toRemove.forEach(docId => {
+        requestAnimationFrame(() => {
+            // 移除旧选中
+            oldSet.forEach(docId => {
+                if (!newSet.has(docId)) {
                     this.#getCachedDocItem(docId)?.classList.remove('active');
-                });
-                toAdd.forEach(docId => {
-                    this.#getCachedDocItem(docId)?.classList.add('active');
-                });
+                }
             });
-        }
+            // 添加新选中
+            newSet.forEach(docId => {
+                if (!oldSet.has(docId)) {
+                    this.#getCachedDocItem(docId)?.classList.add('active');
+                }
+            });
+        });
     }
 
     // ==================== 文件夹展开/折叠 ====================
@@ -1005,9 +996,6 @@ export class DocumentList extends BaseComponent {
             return;
         }
 
-        // 展开包含选中文档的所有祖先文件夹
-        this.#expandFoldersContainingSelected(currentDocId, selectedDocIds);
-
         // 完全重建
         const tree = this.state.getDocumentTree();
         const fragment = this.createFragment();
@@ -1028,6 +1016,14 @@ export class DocumentList extends BaseComponent {
             const docId = item.dataset.docId;
             this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
         });
+
+        // 展开当前文档和选中文档的祖先文件夹
+        if (currentDocId) {
+            this.#expandAncestorFolders(currentDocId);
+        }
+        for (const docId of selectedDocIds) {
+            this.#expandAncestorFolders(docId);
+        }
 
         // 如果有待处理的编辑操作，延迟执行确保 DOM 就绪
         if (this.#pendingEdit) {
@@ -1127,46 +1123,6 @@ export class DocumentList extends BaseComponent {
         if (!parentId) return 0;
         const parent = this.state.get('documents').find(d => d.id === parentId);
         return parent ? 1 + this.#calculateLevel(parent.parentId) : 0;
-    }
-
-    /**
-     * 展开包含选中文档的所有祖先文件夹
-     * @param {string|null} currentDocId - 当前文档 ID
-     * @param {Array} selectedDocIds - 选中的文档ID列表
-     * @private
-     */
-    #expandFoldersContainingSelected(currentDocId, selectedDocIds) {
-        const documents = this.state.get('documents');
-        const docMap = new Map(documents.map(d => [d.id, d]));
-        
-        // 收集需要展开的文件夹ID
-        const foldersToExpand = new Set();
-        
-        // 辅助函数：向上收集所有祖先文件夹
-        const collectAncestors = (docId) => {
-            let currentId = docId;
-            while (currentId) {
-                const doc = docMap.get(currentId);
-                if (!doc || !doc.parentId) break;
-                foldersToExpand.add(doc.parentId);
-                currentId = doc.parentId;
-            }
-        };
-        
-        // 处理当前文档
-        if (currentDocId) {
-            collectAncestors(currentDocId);
-        }
-        
-        // 处理所有选中的文档
-        for (const docId of selectedDocIds) {
-            collectAncestors(docId);
-        }
-        
-        // 批量展开文件夹
-        for (const folderId of foldersToExpand) {
-            this.expandedFolders.add(folderId);
-        }
     }
 
     /**
