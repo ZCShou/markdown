@@ -2691,18 +2691,49 @@ pre[class*='language-'] {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .md-search-replace-panel {
-    max-width: 100%;
-    border-radius: 0;
+    position: fixed;
+    top: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 95%;
+    max-width: 95%;
+    border-radius: 6px;
+    z-index: 9998;
   }
-  
-  .md-search-input-options {
-    position: static;
-    transform: none;
-    margin-top: 4px;
+
+  .md-search-input-wrapper {
+    width: 100%;
+    min-width: 0;
   }
-  
+
   .md-search-input {
-    padding-right: 8px;
+    width: 100%;
+    padding: 6px 90px 6px 8px;
+    font-size: 16px;
+  }
+
+  .md-search-input-options {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .md-search-option-btn {
+    min-height: 28px !important;
+    height: 28px;
+    min-width: 28px !important;
+    width: 28px;
+  }
+
+  .md-search-match-info {
+    width: 50px;
+    font-size: 12px;
+  }
+
+  .md-search-row .md-btn {
+    min-height: 36px;
+    min-width: 36px;
   }
 }
 
