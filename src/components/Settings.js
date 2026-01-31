@@ -106,12 +106,6 @@ export class Settings {
      * 绑定事件监听器
      */
     bindEvents() {
-        // 打开设置按钮
-        const settingsBtn = dom.get('#md-settings-btn');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => this.open());
-        }
-
         // 关闭按钮
         const closeBtn = dom.get('#md-settings-close');
         if (closeBtn) {

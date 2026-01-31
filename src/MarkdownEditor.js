@@ -507,40 +507,14 @@ export class MarkdownEditor {
         };
 
         // 其他全局按钮
-        bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());    
-        bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
+        bindButton('md-toggle-left-sidebar', () => this.state.toggleSidebar('left'));
+        bindButton('md-toggle-right-sidebar', () => this.state.toggleSidebar('right'));
+        bindButton('md-search-toggle-btn', () => this.state.showSearchReplace(false));
+        bindButton('md-settings-btn', () => this.components.settings.open());
         bindButton('md-layout-toggle', () => this.toggleLayout());
         bindButton('theme-toggle', () => this.toggleTheme());
 
-        // 全局快捷键
-        this.setupGlobalShortcuts();
-    }
-
-    /**
-     * 设置全局快捷键
-     */
-    setupGlobalShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            // Ctrl/Cmd + F - 搜索
-            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-                e.preventDefault();
-                this.components.searchReplace.show(false);
-                return;
-            }
-
-            // Ctrl/Cmd + H - 替换
-            if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
-                e.preventDefault();
-                this.components.searchReplace.show(true);
-                return;
-            }
-
-            // Escape - 关闭搜索面板
-            if (e.key === 'Escape' && this.components.searchReplace.isVisible()) {
-                this.components.searchReplace.hide();
-                return;
-            }
-        });
+        bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
     }
 
     // ==================== 初始化 ====================

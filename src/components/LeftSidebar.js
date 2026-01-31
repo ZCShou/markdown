@@ -126,12 +126,6 @@ export class LeftSidebar extends BaseComponent {
             closeBtn.onclick = () => this.toggle();
         }
 
-        // 切换侧边栏按钮（工具栏）
-        const toggleBtn = dom.getById('md-toggle-left-sidebar')?.element;
-        if (toggleBtn) {
-            toggleBtn.onclick = () => this.toggle();
-        }
-
         // 文档导入导出按钮
         const importBtn = dom.getById('md-import-docs')?.element;
         if (importBtn) {

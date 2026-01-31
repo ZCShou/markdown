@@ -52,7 +52,7 @@ export class Editor extends BaseComponent {
     bindEvents() {
         // 输入事件
         this.addEventListener(this.container, 'input', () => this.handleInput());
-        // 键盘事件
+        // 键盘事件（统一处理所有编辑器相关的键盘快捷键）
         this.addEventListener(this.container, 'keydown', e => this.handleKeydown(e));
     }
 
@@ -101,6 +101,29 @@ export class Editor extends BaseComponent {
      * @returns {void}
      */
     handleKeydown(e) {
+        // Ctrl/Cmd + F - 搜索
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            this.state.showSearchReplace(false);
+            return;
+        }
+
+        // Ctrl/Cmd + H - 替换
+        if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+            e.preventDefault();
+            this.state.showSearchReplace(true);
+            return;
+        }
+
+        // Escape - 关闭搜索面板
+        if (e.key === 'Escape') {
+            const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
+            if (searchReplaceVisible) {
+                this.state.hideSearchReplace();
+                return;
+            }
+        }
+
         // Tab 缩进
         if (e.key === 'Tab') {
             e.preventDefault();

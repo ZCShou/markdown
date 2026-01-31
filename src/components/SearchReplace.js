@@ -71,19 +71,37 @@ export class SearchReplace extends BaseComponent {
         if (searchNextBtn) this.addEventListener(searchNextBtn, 'click', () => this.findNext());
         if (replaceBtn) this.addEventListener(replaceBtn, 'click', () => this.replaceOne());
         if (replaceAllBtn) this.addEventListener(replaceAllBtn, 'click', () => this.replaceAll());
-        if (closeBtn) this.addEventListener(closeBtn, 'click', () => this.hide());
+        if (closeBtn) this.addEventListener(closeBtn, 'click', () => this.state.hideSearchReplace());
         if (toggleBtn) this.addEventListener(toggleBtn, 'click', () => this.toggleMode());
         if (caseSensitiveBtn) this.addEventListener(caseSensitiveBtn, 'click', () => this.toggleOption('caseSensitive'));
         if (regexBtn) this.addEventListener(regexBtn, 'click', () => this.toggleOption('regexMode'));
         if (wholeWordBtn) this.addEventListener(wholeWordBtn, 'click', () => this.toggleOption('wholeWord'));
 
         // 监听内容变化，使用防抖避免频繁搜索
-        this.unsubscribe = this.state.subscribeTo('content', () => {
+        const unsubscribeContent = this.state.subscribeTo('content', () => {
             if (this.isVisible()) {
                 // 内容变化必须强制重新搜索，以保证匹配位置与文档一致
                 this.debounce('content-search', () => this.performSearch(true), 300);
             }
         });
+
+        // 监听搜索面板状态变化
+        const unsubscribeSearchReplace = this.state.subscribeTo('interface', (newInterface) => {
+            const searchReplace = newInterface.searchReplace;
+            if (!searchReplace) return;
+
+            if (searchReplace.visible) {
+                this.show(searchReplace.isReplaceMode ?? false);
+            } else {
+                this.hide();
+            }
+        });
+
+        // 合并取消订阅函数
+        this.unsubscribe = () => {
+            unsubscribeContent();
+            unsubscribeSearchReplace();
+        };
     }
 
     handleSearchInput() {
@@ -115,7 +133,7 @@ export class SearchReplace extends BaseComponent {
                 this.findNext();
             }
         } else if (e.key === 'Escape') {
-            this.hide();
+            this.state.hideSearchReplace();
         }
     }
 
@@ -124,7 +142,7 @@ export class SearchReplace extends BaseComponent {
             e.preventDefault();
             this.replaceOne();
         } else if (e.key === 'Escape') {
-            this.hide();
+            this.state.hideSearchReplace();
         }
     }
 
@@ -548,13 +566,5 @@ export class SearchReplace extends BaseComponent {
     isVisible() {
         const { container } = this.getElements();
         return container?.classList.contains('show') || false;
-    }
-
-    toggle() {
-        if (this.isVisible()) {
-            this.hide();
-        } else {
-            this.show(false);
-        }
     }
 }

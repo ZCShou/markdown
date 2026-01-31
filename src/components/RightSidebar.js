@@ -97,12 +97,6 @@ export class RightSidebar extends BaseComponent {
             closeBtn.onclick = () => this.toggle();
         }
 
-        // 切换侧边栏按钮（工具栏）
-        const toggleBtn = dom.getById('md-toggle-right-sidebar')?.element;
-        if (toggleBtn) {
-            toggleBtn.onclick = () => this.toggle();
-        }
-
         // 导出按钮（通过状态管理器触发导出事件）
         const exportHTMLBtn = dom.getById('md-export-html')?.element;
         if (exportHTMLBtn) {
