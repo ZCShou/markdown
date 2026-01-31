@@ -404,14 +404,14 @@ export class DocumentList extends BaseComponent {
             // 检查是否按下Ctrl或Cmd键（多选）
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
-                this.state.toggleDocumentSelection(docId);
+                this.state.selectDocuments(docId, { mode: 'toggle' });
                 return;
             }
 
             // 检查是否按下Shift键（范围选择）
             if (e.shiftKey) {
                 e.preventDefault();
-                this.state.selectDocumentRange(docId);
+                this.state.selectDocuments(docId, { mode: 'range' });
                 return;
             }
 
@@ -423,7 +423,7 @@ export class DocumentList extends BaseComponent {
             // 点击空闲位置：清空选中状态（性能优化：避免不必要的状态更新）
             const selectedDocIds = this.state.get('selectedDocIds');
             if (selectedDocIds && selectedDocIds.length > 0) {
-                this.state.clearSelection();
+                this.state.clearDocuments({ selection: true });
             }
         }
     }
@@ -729,7 +729,7 @@ export class DocumentList extends BaseComponent {
 
         // 使用递归函数快速计算子项数量
         const countChildren = parentId => {
-            const children = this.state.getChildren(parentId);
+            const children = this.state.getDocumentTree(parentId);
             let count = children.length;
             for (const child of children) {
                 if (child.type === 'folder') {
@@ -754,8 +754,8 @@ export class DocumentList extends BaseComponent {
         });
         if (!confirmed) return;
 
-        // deleteDocument 会自动触发状态更新和持久化
-        this.state.deleteDocument(docId);
+        // deleteDocuments 会自动触发状态更新和持久化
+        this.state.deleteDocuments(docId);
     }
 
     /**
@@ -789,7 +789,7 @@ export class DocumentList extends BaseComponent {
         };
 
         // 清空选中状态，避免创建新文件时多个文件同时被选中
-        this.state.clearSelection();
+        this.state.clearDocuments({ selection: true });
 
         // 先标记需要进入编辑模式
         this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
@@ -967,12 +967,12 @@ export class DocumentList extends BaseComponent {
         // 如果删除了当前文档，清空内容
         const currentDocId = this.state.get('currentDocId');
         if (currentDocId && !this.state.get('documents').find(d => d.id === currentDocId)) {
-            this.state.clearCurrentDocument();
+            this.state.clearDocuments({ current: true });
             // content 状态会自动持久化
         }
 
         // 清空选中状态
-        this.state.clearSelection();
+        this.state.clearDocuments({ selection: true });
 
         // 清空展开状态（如果是清空所有文件）
         if (selectedDocIds.length === 0) {
@@ -1023,7 +1023,7 @@ export class DocumentList extends BaseComponent {
         }
 
         // 完全重建
-        const tree = this.state.buildTree();
+        const tree = this.state.getDocumentTree();
         const fragment = this.createFragment();
 
         tree.forEach(node => {

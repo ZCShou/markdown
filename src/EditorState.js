@@ -657,33 +657,20 @@ $$
     }
 
     /**
-     * 删除文档（及其所有子项）
-     * @param {string} docId - 文档ID
-     * @param {Object} options - 选项
-     * @param {boolean} [options.silent=false] - 是否静默更新
-     */
-    deleteDocument(docId, options = {}) {
-        const toDelete = new Set([docId]);
-        this.#collectDescendants(docId, toDelete);
-
-        const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
-        const currentDocId = this.#state.currentDocId === docId ? null : this.#state.currentDocId;
-        this.#setState({ documents, currentDocId }, options);
-    }
-
-    /**
-     * 批量删除文档
-     * @param {string[]} docIds - 文档ID数组
+     * 删除文档（支持单个或批量，自动删除子项）
+     * @param {string|string[]} docIds - 文档ID或ID数组
      * @param {Object} options - 选项
      * @param {boolean} [options.silent=false] - 是否静默更新
      */
     deleteDocuments(docIds, options = {}) {
-        if (!docIds || docIds.length === 0) return;
+        // 统一转换为数组处理
+        const ids = Array.isArray(docIds) ? docIds : [docIds];
+        if (ids.length === 0) return;
 
-        const toDelete = new Set(docIds);
+        const toDelete = new Set(ids);
 
         // 收集所有子项
-        for (const docId of docIds) {
+        for (const docId of ids) {
             this.#collectDescendants(docId, toDelete);
         }
 
@@ -731,88 +718,100 @@ $$
     }
 
     /**
-     * 切换文档选中状态（用于Ctrl+点击）
-     * @param {string} docId - 文档ID
+     * 选择文档（支持多种选择模式）
+     * @param {string|string[]} docIds - 文档ID或ID数组
+     * @param {Object} options - 选项
+     * @param {string} [options.mode='set'] - 选择模式：'set'(设置), 'toggle'(切换), 'range'(范围)
+     * @param {boolean} [options.clearCurrent=true] - 是否清空当前文档
      */
-    toggleDocumentSelection(docId) {
-        const selectedDocIds = [...this.#state.selectedDocIds];
-        const index = selectedDocIds.indexOf(docId);
+    selectDocuments(docIds, options = {}) {
+        const { mode = 'set', clearCurrent = true } = options;
 
-        if (index > -1) {
-            // 如果已选中，取消选中
-            selectedDocIds.splice(index, 1);
-            // 如果当前文档被取消选中，更新currentDocId为最后一个选中的文档
-            if (this.#state.currentDocId === docId && selectedDocIds.length > 0) {
+        if (mode === 'toggle') {
+            // 切换选中状态（用于Ctrl+点击）
+            const docId = typeof docIds === 'string' ? docIds : docIds[0];
+            const selectedDocIds = [...this.#state.selectedDocIds];
+            const index = selectedDocIds.indexOf(docId);
+
+            if (index > -1) {
+                selectedDocIds.splice(index, 1);
+                if (this.#state.currentDocId === docId && selectedDocIds.length > 0) {
+                    this.#setState({
+                        currentDocId: selectedDocIds[selectedDocIds.length - 1],
+                        selectedDocIds,
+                        lastClickedDocId: docId
+                    });
+                } else {
+                    this.#setState({ selectedDocIds, lastClickedDocId: docId });
+                }
+            } else {
+                selectedDocIds.push(docId);
                 this.#setState({
-                    currentDocId: selectedDocIds[selectedDocIds.length - 1],
+                    currentDocId: docId,
                     selectedDocIds,
                     lastClickedDocId: docId
                 });
-            } else {
-                this.#setState({ selectedDocIds, lastClickedDocId: docId });
             }
-        } else {
-            // 如果未选中，添加到选中列表
-            selectedDocIds.push(docId);
+        } else if (mode === 'range') {
+            // 范围选择（用于Shift+点击）
+            const endDocId = typeof docIds === 'string' ? docIds : docIds[0];
+            const startDocId = this.#state.lastClickedDocId || this.#state.currentDocId;
+
+            if (!startDocId) {
+                this.setCurrentDocument(endDocId);
+                return;
+            }
+
+            const flatDocs = this.#getFlatDocumentList();
+            const startIndex = flatDocs.findIndex(d => d.id === startDocId);
+            const endIndex = flatDocs.findIndex(d => d.id === endDocId);
+
+            if (startIndex === -1 || endIndex === -1) return;
+
+            const minIndex = Math.min(startIndex, endIndex);
+            const maxIndex = Math.max(startIndex, endIndex);
+
+            const selectedDocIds = flatDocs
+                .slice(minIndex, maxIndex + 1)
+                .map(doc => doc.id);
+
             this.#setState({
-                currentDocId: docId,
                 selectedDocIds,
-                lastClickedDocId: docId
+                currentDocId: endDocId,
+                lastClickedDocId: endDocId
+            });
+        } else {
+            // 设置选中（默认）
+            const ids = Array.isArray(docIds) ? docIds : [docIds];
+            this.#setState({
+                selectedDocIds: ids,
+                currentDocId: ids[0] || null,
+                lastClickedDocId: ids[0] || null
             });
         }
     }
 
     /**
-     * 范围选择文档（用于Shift+点击）
-     * @param {string} endDocId - 结束文档ID
+     * 清空文档状态
+     * @param {Object} options - 选项
+     * @param {boolean} [options.selection=true] - 是否清空选中状态
+     * @param {boolean} [options.current=false] - 是否清空当前文档
      */
-    selectDocumentRange(endDocId) {
-        const startDocId = this.#state.lastClickedDocId || this.#state.currentDocId;
+    clearDocuments(options = {}) {
+        const { selection = true, current = false } = options;
+        const updates = {};
 
-        if (!startDocId) {
-            // 如果没有起始点，直接选中当前文档
-            this.setCurrentDocument(endDocId);
-            return;
+        if (selection) {
+            updates.selectedDocIds = [];
+        }
+        if (current) {
+            updates.currentDocId = null;
+            updates.content = '';
         }
 
-        // 获取扁平的文档列表（按显示顺序）
-        const flatDocs = this.#getFlatDocumentList();
-        const startIndex = flatDocs.findIndex(d => d.id === startDocId);
-        const endIndex = flatDocs.findIndex(d => d.id === endDocId);
-
-        if (startIndex === -1 || endIndex === -1) return;
-
-        // 确定范围
-        const minIndex = Math.min(startIndex, endIndex);
-        const maxIndex = Math.max(startIndex, endIndex);
-
-        // 选中范围内的所有文档
-        const selectedDocIds = flatDocs
-            .slice(minIndex, maxIndex + 1)
-            .map(doc => doc.id);
-
-        this.#setState({
-            selectedDocIds,
-            currentDocId: endDocId,
-            lastClickedDocId: endDocId
-        });
-    }
-
-    /**
-     * 清空文档选中状态
-     */
-    clearSelection() {
-        this.#setState({ selectedDocIds: [] });
-    }
-
-    /**
-     * 清空当前文档（用于删除当前文档后）
-     */
-    clearCurrentDocument() {
-        this.#setState({
-            currentDocId: null,
-            content: ''
-        });
+        if (Object.keys(updates).length > 0) {
+            this.#setState(updates);
+        }
     }
 
     /**
@@ -822,7 +821,7 @@ $$
      */
     #getFlatDocumentList() {
         const result = [];
-        const tree = this.buildTree();
+        const tree = this.getDocumentTree();
 
         const traverse = (nodes) => {
             for (const node of nodes) {
@@ -876,19 +875,24 @@ $$
     }
 
     /**
-     * 构建树型结构
+     * 获取文档树（支持获取完整树或子树）
+     * @param {string} [folderId] - 文件夹ID（不传则返回完整树）
      * @returns {Array} 树型结构的文档数组
      */
-    buildTree() {
+    getDocumentTree(folderId) {
         const docs = this.#state.documents;
-        const docMap = new Map();
 
-        // 创建所有节点的映射
+        // 如果指定了文件夹ID，只返回该文件夹的子项
+        if (folderId) {
+            return docs.filter(doc => doc.parentId === folderId);
+        }
+
+        // 构建完整树型结构
+        const docMap = new Map();
         docs.forEach(doc => {
             docMap.set(doc.id, { ...doc, children: [] });
         });
 
-        // 构建树型结构
         const roots = [];
         docMap.forEach(doc => {
             if (doc.parentId && docMap.has(doc.parentId)) {
@@ -899,15 +903,6 @@ $$
         });
 
         return roots;
-    }
-
-    /**
-     * 获取文档的所有子项
-     * @param {string} folderId - 文件夹ID
-     * @returns {Array} 子项数组
-     */
-    getChildren(folderId) {
-        return this.#state.documents.filter(doc => doc.parentId === folderId);
     }
 
     /**
