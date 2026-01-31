@@ -19,6 +19,8 @@ export class Preview extends BaseComponent {
     /** @private */
     #lastRenderedData;
     /** @private */
+    #lastRenderedContent = '';
+    /** @private */
     #mermaidTimeoutIds = [];
     /** @private */
     #intersectionObserver = null;
@@ -56,6 +58,9 @@ export class Preview extends BaseComponent {
             mathBlocks: new Map(), // hash -> math content
             headings: [] // heading texts
         };
+
+        // 上次渲染的完整内容（用于避免重复渲染）
+        this.#lastRenderedContent = '';
 
         // IntersectionObserver 用于可见性检测
         this.#intersectionObserver = null;
@@ -305,10 +310,9 @@ export class Preview extends BaseComponent {
      */
     updatePreview() {
         const content = this.state.get('content');
-        const lastRendered = this.state.get('lastRenderedContent');
 
         // 避免重复渲染（但允许初始渲染）
-        if (content === lastRendered && lastRendered !== '') return;
+        if (content === this.#lastRenderedContent && this.#lastRenderedContent !== '') return;
 
         this.#scheduleRender(content, 100);
     }
@@ -327,7 +331,7 @@ export class Preview extends BaseComponent {
 
         this.renderTimeout = setTimeout(() => {
             this.renderContent(content);
-            this.state.updateLastRenderedContent(content);
+            this.#lastRenderedContent = content;
             this.renderTimeout = null;
         }, delay);
     }
@@ -354,7 +358,7 @@ export class Preview extends BaseComponent {
 
         // 立即渲染
         this.renderContent(content);
-        this.state.updateLastRenderedContent(content);
+        this.#lastRenderedContent = content;
     }
 
     /**
@@ -1031,7 +1035,7 @@ export class Preview extends BaseComponent {
             const headingsArray = Array.from({ length: headings.length }, (_, i) =>
                 changedHeadingsData.get(i)
             );
-            this.state.setState({ headings: headingsArray });
+            this.state.updateHeadings(headingsArray);
             return;
         }
 
@@ -1043,7 +1047,7 @@ export class Preview extends BaseComponent {
             updatedHeadings[index] = headingData;
         });
 
-        this.state.setState({ headings: updatedHeadings });
+        this.state.updateHeadings(updatedHeadings);
     }
 
     // ==================== 代码块渲染组 ====================

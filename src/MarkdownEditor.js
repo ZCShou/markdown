@@ -808,7 +808,7 @@ export class MarkdownEditor {
             : this.#mergeDocuments(currentDocs, docs);
 
         // 更新状态（会自动持久化）
-        this.state.setState({ documents: newDocuments }, { silent: !notify });
+        this.state.importDocuments(newDocuments, 'replace', notify);
     }
 
     /**

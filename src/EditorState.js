@@ -9,7 +9,9 @@
  * state.subscribe((newState, oldState) => {
  *   console.log('State changed:', newState);
  * });
- * state.setState({ content: 'Hello' });
+ * // 使用公共 API 更新状态
+ * state.updateContent('Hello');
+ * state.updateEditorConfig({ fontSize: 16 });
  * ```
  */
 import { StoreManager } from './StoreManager.js';
@@ -389,7 +391,6 @@ $$
 
         // 渲染状态
         isRenderingMermaid: false,
-        lastRenderedContent: '',
         headings: [], // 标题数据，用于目录生成
 
         // 通知状态
@@ -416,14 +417,15 @@ $$
     }
 
     /**
-     * 批量更新状态
+     * 批量更新状态（私有方法，仅供内部使用）
+     * @private
      * @param {Object} updates - 要更新的状态对象
      * @param {Object} options - 选项
      * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
      * @param {boolean} [options.force=false] - 是否强制更新（即使值相同也触发通知）
      * @param {boolean} [options.skipPersist=false] - 是否跳过持久化
      */
-    setState(updates, options = {}) {
+    #setState(updates, options = {}) {
         let hasChanges = false;
         const changedKeys = [];
 
@@ -611,7 +613,7 @@ $$
     addDocument(doc, parentId = null, options = {}) {
         const newDoc = { ...doc, parentId };
         const documents = [...this.#state.documents, newDoc];
-        this.setState({ documents }, options);
+        this.#setState({ documents }, options);
     }
 
     /**
@@ -625,7 +627,7 @@ $$
         const documents = this.#state.documents.map(doc =>
             doc.id === docId ? { ...doc, ...updates } : doc
         );
-        this.setState({ documents }, options);
+        this.#setState({ documents }, options);
     }
 
     /**
@@ -664,7 +666,7 @@ $$
 
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
         const currentDocId = this.#state.currentDocId === docId ? null : this.#state.currentDocId;
-        this.setState({ documents, currentDocId }, options);
+        this.#setState({ documents, currentDocId }, options);
     }
 
     /**
@@ -686,11 +688,11 @@ $$
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
         
         // 检查当前文档是否被删除
-        const currentDocId = toDelete.has(this.#state.currentDocId) 
-            ? null 
+        const currentDocId = toDelete.has(this.#state.currentDocId)
+            ? null
             : this.#state.currentDocId;
-        
-        this.setState({ documents, currentDocId }, options);
+
+        this.#setState({ documents, currentDocId }, options);
     }
 
     /**
@@ -722,7 +724,7 @@ $$
             }
 
             // 更新状态（会自动持久化 currentDocId）
-            this.setState(updates);
+            this.#setState(updates);
         }
     }
 
@@ -739,18 +741,18 @@ $$
             selectedDocIds.splice(index, 1);
             // 如果当前文档被取消选中，更新currentDocId为最后一个选中的文档
             if (this.#state.currentDocId === docId && selectedDocIds.length > 0) {
-                this.setState({ 
+                this.#setState({
                     currentDocId: selectedDocIds[selectedDocIds.length - 1],
                     selectedDocIds,
                     lastClickedDocId: docId
                 });
             } else {
-                this.setState({ selectedDocIds, lastClickedDocId: docId });
+                this.#setState({ selectedDocIds, lastClickedDocId: docId });
             }
         } else {
             // 如果未选中，添加到选中列表
             selectedDocIds.push(docId);
-            this.setState({ 
+            this.#setState({
                 currentDocId: docId,
                 selectedDocIds,
                 lastClickedDocId: docId
@@ -786,7 +788,7 @@ $$
             .slice(minIndex, maxIndex + 1)
             .map(doc => doc.id);
 
-        this.setState({
+        this.#setState({
             selectedDocIds,
             currentDocId: endDocId,
             lastClickedDocId: endDocId
@@ -822,7 +824,7 @@ $$
     updateContent(content) {
         // 只更新 content 状态，不触发 documents 更新
         // documents 的更新通过防抖保存机制处理，避免每次输入都重新渲染文档列表
-        this.setState({ content });
+        this.#setState({ content });
 
         // 静默更新 documents 数组（不触发订阅者通知）
         if (this.#state.currentDocId) {
@@ -842,6 +844,71 @@ $$
                 }, 2000);
             }
         }
+    }
+
+    /**
+     * 清空文档选中状态
+     */
+    clearSelection() {
+        this.#setState({ selectedDocIds: [] });
+    }
+
+    /**
+     * 清空当前文档（用于删除当前文档后）
+     */
+    clearCurrentDocument() {
+        this.#setState({
+            currentDocId: null,
+            content: ''
+        });
+    }
+
+    /**
+     * 合并文档列表（私有方法）
+     * @private
+     * @param {Array} currentDocs - 当前文档
+     * @param {Array} importDocs - 导入文档
+     * @returns {Array} 合并后的文档
+     */
+    #mergeDocuments(currentDocs, importDocs) {
+        const docMap = new Map(currentDocs.map(doc => [doc.id, doc]));
+
+        importDocs.forEach(doc => {
+            if (docMap.has(doc.id)) {
+                // 更新现有文档
+                docMap.set(doc.id, { ...docMap.get(doc.id), ...doc });
+            } else {
+                // 添加新文档
+                docMap.set(doc.id, doc);
+            }
+        });
+
+        return Array.from(docMap.values());
+    }
+
+    /**
+     * 导入文档
+     * @param {Array} docs - 要导入的文档数组
+     * @param {string} mode - 导入模式：'replace' 或 'merge'
+     * @param {boolean} [notify=true] - 是否触发通知
+     */
+    importDocuments(docs, mode = 'replace', notify = true) {
+        const currentDocs = this.#state.documents;
+        const newDocuments = mode === 'replace'
+            ? docs
+            : this.#mergeDocuments(currentDocs, docs);
+
+        this.#setState({ documents: newDocuments }, { silent: !notify });
+    }
+
+    // ==================== 标题 ====================
+
+    /**
+     * 更新标题数据
+     * @param {Array} headings - 标题数组
+     */
+    updateHeadings(headings) {
+        this.#setState({ headings });
     }
 
     // ==================== 树型结构操作 ====================
@@ -916,11 +983,11 @@ $$
      * @param {Object} config - 编辑器配置
      */
     updateEditorConfig(config) {
-        this.setState({ 
-            editor: { 
-                ...this.#state.editor, 
-                ...config 
-            } 
+        this.#setState({
+            editor: {
+                ...this.#state.editor,
+                ...config
+            }
         });
     }
 
@@ -931,11 +998,11 @@ $$
      * @param {Object} config - 界面配置
      */
     updateInterfaceConfig(config) {
-        this.setState({ 
-            interface: { 
-                ...this.#state.interface, 
-                ...config 
-            } 
+        this.#setState({
+            interface: {
+                ...this.#state.interface,
+                ...config
+            }
         });
     }
 
@@ -974,6 +1041,7 @@ $$
     /**
      * 切换区块状态
      * @param {string} sectionName - 区块名称
+     * @returns {boolean} 新的状态值
      */
     toggleSection(sectionName) {
         const sections = {
@@ -981,6 +1049,26 @@ $$
             [sectionName]: !this.#state.interface.sections[sectionName]
         };
         this.updateInterfaceConfig({ sections });
+        return sections[sectionName];
+    }
+
+    /**
+     * 切换侧边栏状态
+     * @param {string} side - 'left' 或 'right'
+     * @returns {boolean} 新的状态值
+     */
+    toggleSidebar(side) {
+        const stateKey = side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
+        const newValue = !this.#state.interface[stateKey];
+
+        this.#setState({
+            interface: {
+                ...this.#state.interface,
+                [stateKey]: newValue
+            }
+        });
+
+        return newValue;
     }
 
     // ==================== 导出配置操作 ====================
@@ -990,22 +1078,12 @@ $$
      * @param {Object} config - 导出配置
      */
     updateExportConfig(config) {
-        this.setState({ 
-            export: { 
-                ...this.#state.export, 
-                ...config 
-            } 
+        this.#setState({
+            export: {
+                ...this.#state.export,
+                ...config
+            }
         });
-    }
-
-    // ==================== 渲染状态 ====================
-
-    /**
-     * 更新最后渲染的内容
-     * @param {string} content - 渲染的内容
-     */
-    updateLastRenderedContent(content) {
-        this.setState({ lastRenderedContent: content });
     }
 
     // ==================== 通知状态 ====================
@@ -1016,7 +1094,7 @@ $$
      * @param {string} type - 通知类型
      */
     showNotification(message, type = 'info') {
-        this.setState({
+        this.#setState({
             notification: {
                 message,
                 type,
@@ -1029,7 +1107,7 @@ $$
      * 清除通知
      */
     clearNotification() {
-        this.setState({ notification: null });
+        this.#setState({ notification: null });
     }
 
     /**

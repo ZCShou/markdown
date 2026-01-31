@@ -423,7 +423,7 @@ export class DocumentList extends BaseComponent {
             // 点击空闲位置：清空选中状态（性能优化：避免不必要的状态更新）
             const selectedDocIds = this.state.get('selectedDocIds');
             if (selectedDocIds && selectedDocIds.length > 0) {
-                this.state.setState({ selectedDocIds: [] });
+                this.state.clearSelection();
             }
         }
     }
@@ -789,7 +789,7 @@ export class DocumentList extends BaseComponent {
         };
 
         // 清空选中状态，避免创建新文件时多个文件同时被选中
-        this.state.setState({ selectedDocIds: [] });
+        this.state.clearSelection();
 
         // 先标记需要进入编辑模式
         this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
@@ -967,15 +967,12 @@ export class DocumentList extends BaseComponent {
         // 如果删除了当前文档，清空内容
         const currentDocId = this.state.get('currentDocId');
         if (currentDocId && !this.state.get('documents').find(d => d.id === currentDocId)) {
-            this.state.setState({
-                currentDocId: null,
-                content: ''
-            });
+            this.state.clearCurrentDocument();
             // content 状态会自动持久化
         }
 
         // 清空选中状态
-        this.state.setState({ selectedDocIds: [] });
+        this.state.clearSelection();
 
         // 清空展开状态（如果是清空所有文件）
         if (selectedDocIds.length === 0) {

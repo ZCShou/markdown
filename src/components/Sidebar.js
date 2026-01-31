@@ -76,18 +76,8 @@ export class Sidebar extends BaseComponent {
      * @returns {boolean} 切换后的状态
      */
     toggle() {
-        const stateKey = this.side === 'left' ? 'leftSidebarOpen' : 'rightSidebarOpen';
-        const interfaceState = this.state.get('interface');
-        const newValue = !interfaceState[stateKey];
-        
-        this.state.setState({ 
-            interface: { 
-                ...interfaceState, 
-                [stateKey]: newValue 
-            } 
-        });
-
-        return newValue;
+        // 使用 state 的公共 API 方法
+        return this.state.toggleSidebar(this.side);
     }
 
     /**
@@ -119,18 +109,9 @@ export class Sidebar extends BaseComponent {
      * @returns {void}
      */
     toggleSection(sectionName) {
-        const interfaceState = this.state.get('interface');
-        const sections = { ...interfaceState.sections };
-        const isExpanded = !sections[sectionName];
-        sections[sectionName] = isExpanded;
+        // 使用 state 的公共 API 方法
+        const isExpanded = this.state.toggleSection(sectionName);
 
-        this.state.setState({ 
-            interface: { 
-                ...interfaceState, 
-                sections 
-            } 
-        });
-        
         // 更新 UI（注意：isExpanded 是展开状态，updateSectionState 需要折叠状态）
         this.updateSectionState(sectionName, !isExpanded);
     }
