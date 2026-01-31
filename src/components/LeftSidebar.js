@@ -125,6 +125,17 @@ export class LeftSidebar extends BaseComponent {
         if (closeBtn) {
             closeBtn.onclick = () => this.toggle();
         }
+
+        // 文档导入导出按钮
+        const importBtn = dom.getById('md-import-docs')?.element;
+        if (importBtn) {
+            importBtn.onclick = () => this.importDocuments();
+        }
+
+        const exportBtn = dom.getById('md-export-docs')?.element;
+        if (exportBtn) {
+            exportBtn.onclick = () => this.exportDocuments();
+        }
     }
 
     // ==================== 侧边栏控制 ====================
@@ -1397,6 +1408,152 @@ export class LeftSidebar extends BaseComponent {
         }
 
         return nodeContainer;
+    }
+
+    // ==================== 文档导入导出 ====================
+
+    /**
+     * 导出所有文档
+     */
+    exportDocuments() {
+        const documents = this.state.get('documents');
+        if (!documents?.length) {
+            this.showMessage('没有可导出的文档', 'warning');
+            return;
+        }
+
+        try {
+            const blob = new Blob(
+                [JSON.stringify({
+                    version: '1.0',
+                    exportDate: new Date().toISOString(),
+                    documents
+                }, null, 2)],
+                { type: 'application/json' }
+            );
+
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `markdown-docs-${new Date().toLocaleDateString()}.json`;
+            a.click();
+
+            setTimeout(() => URL.revokeObjectURL(a.href), 100);
+
+            this.showMessage(`成功导出 ${documents.length} 个文档`, 'success');
+        } catch (error) {
+            this.showMessage('导出文档失败', 'error');
+        }
+    }
+
+    /**
+     * 导入文档
+     */
+    importDocuments() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+
+        input.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const MAX_FILE_SIZE = 50 * 1024 * 1024;
+            if (file.size > MAX_FILE_SIZE) {
+                this.showMessage('文件过大（超过 50MB），无法导入', 'error');
+                input.remove();
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                try {
+                    const text = e.target?.result;
+                    if (!text || typeof text !== 'string') {
+                        throw new Error('文件读取失败');
+                    }
+
+                    const data = JSON.parse(text);
+
+                    if (!Array.isArray(data?.documents)) {
+                        throw new Error('文件格式无效：缺少文档列表');
+                    }
+
+                    const MAX_DOCS = 10000;
+                    if (data.documents.length > MAX_DOCS) {
+                        throw new Error(`文档数量过多（超过 ${MAX_DOCS} 个），无法导入`);
+                    }
+
+                    // 询问导入方式
+                    const importMode = await Dialog.show({
+                        title: '导入文档',
+                        message: `检测到 <strong>${data.documents.length}</strong> 个文档，请选择导入方式：`,
+                        type: 'info',
+                        buttons: [
+                            { text: '合并', value: 'merge', type: 'primary' },
+                            { text: '替换', value: 'replace', type: 'danger' }
+                        ],
+                        closeOnOverlay: true,
+                        closeOnEscape: true
+                    });
+
+                    if (!importMode) {
+                        this.showMessage('导入已取消', 'info');
+                        input.remove();
+                        return;
+                    }
+
+                    // 执行导入
+                    const currentDocs = this.state.get('documents');
+                    const newDocuments = importMode === 'replace'
+                        ? data.documents
+                        : this.#mergeDocuments(currentDocs, data.documents);
+
+                    this.state.importDocuments(newDocuments, 'replace', true);
+
+                    const modeText = importMode === 'replace' ? '替换' : '合并';
+                    this.showMessage(`成功${modeText}导入 ${data.documents.length} 个文档`, 'success');
+                } catch (error) {
+                    this.showMessage(`导入失败：${error.message}`, 'error');
+                } finally {
+                    input.remove();
+                }
+            };
+
+            reader.onerror = () => {
+                this.showMessage('文件读取失败', 'error');
+                input.remove();
+            };
+
+            reader.readAsText(file);
+        };
+
+        input.click();
+    }
+
+    /**
+     * 合并文档列表
+     * @private
+     * @param {Array} currentDocs - 当前文档
+     * @param {Array} importDocs - 导入文档
+     * @returns {Array} 合并后的文档
+     */
+    #mergeDocuments(currentDocs, importDocs) {
+        const docMap = new Map(currentDocs.map(doc => [doc.id, doc]));
+        let addedCount = 0;
+
+        for (const doc of importDocs) {
+            if (!docMap.has(doc.id)) {
+                docMap.set(doc.id, doc);
+                addedCount++;
+            }
+        }
+
+        if (addedCount === 0) {
+            this.showMessage('所有文档已存在，无需导入', 'info');
+        }
+
+        return Array.from(docMap.values());
     }
 
     // ==================== 资源清理 ====================
