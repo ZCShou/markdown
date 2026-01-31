@@ -114,6 +114,9 @@ export class MarkdownEditor {
 
         /** @type {number|null} 拖拽 rAF ID */
         this._dragRafId = null;
+
+        /** @type {Element|null} 同步滚动图标元素 */
+        this._syncScrollIcon = null;
     }
 
     // ==================== 工具函数 ====================
@@ -182,20 +185,16 @@ export class MarkdownEditor {
         const editor = dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
         const syncScrollButton = dom.getById('md-sync-scroll')?.element;
-        const syncScrollIcon = syncScrollButton ? dom.getIn(syncScrollButton, '.codicon') : null;
 
-        if (!editor || !previewWrapper || !syncScrollButton || !syncScrollIcon) return;
+        if (!editor || !previewWrapper || !syncScrollButton) return;
 
-        // 更新同步滚动图标
-        const updateSyncScrollIcon = enabled => {
-            syncScrollIcon.classList.toggle('codicon-sync', enabled);
-            syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
-        };
+        // 保存同步滚动图标引用
+        this._syncScrollIcon = dom.getIn(syncScrollButton, '.codicon');
 
         // 从状态管理器获取同步滚动状态
         const interfaceState = this.state.get('interface');
         this.syncScrollEnabled = interfaceState?.syncScrollEnabled ?? true;
-        updateSyncScrollIcon(this.syncScrollEnabled);
+        this.updateSyncScrollIcon(this.syncScrollEnabled);
 
         // 缓存可滚动高度，避免频繁查询 DOM
         let editorScrollableHeight = 0;
@@ -228,13 +227,6 @@ export class MarkdownEditor {
                 setTimeout(updateScrollHeights, 120);
             }
         );
-
-        // 监听按钮点击
-        syncScrollButton.addEventListener('click', () => {
-            this.syncScrollEnabled = !this.syncScrollEnabled;
-            this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
-            updateSyncScrollIcon(this.syncScrollEnabled);
-        });
 
         // 统一的滚动处理函数（消除重复代码）
         const handleScroll = (source, target, sourceHeight, targetHeight) => {
@@ -506,15 +498,40 @@ export class MarkdownEditor {
             if (element) element.onclick = handler;
         };
 
-        // 其他全局按钮
+        // 侧边栏切换按钮
         bindButton('md-toggle-left-sidebar', () => this.state.toggleSidebar('left'));
         bindButton('md-toggle-right-sidebar', () => this.state.toggleSidebar('right'));
+
+        // 搜索按钮
         bindButton('md-search-toggle-btn', () => this.state.showSearchReplace(false));
+
+        // 设置按钮
         bindButton('md-settings-btn', () => this.components.settings.open());
+
+        // 布局和主题按钮
         bindButton('md-layout-toggle', () => this.toggleLayout());
         bindButton('theme-toggle', () => this.toggleTheme());
 
+        // 同步滚动按钮
+        bindButton('md-sync-scroll', () => {
+            this.syncScrollEnabled = !this.syncScrollEnabled;
+            this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
+            this.updateSyncScrollIcon(this.syncScrollEnabled);
+        });
+
+        // 侧边栏遮罩
         bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
+    }
+
+    /**
+     * 更新同步滚动图标
+     * @param {boolean} enabled - 是否启用同步滚动
+     */
+    updateSyncScrollIcon(enabled) {
+        if (this._syncScrollIcon) {
+            this._syncScrollIcon.classList.toggle('codicon-sync', enabled);
+            this._syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
+        }
     }
 
     // ==================== 初始化 ====================
