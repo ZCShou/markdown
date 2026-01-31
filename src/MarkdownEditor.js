@@ -582,13 +582,7 @@ export class MarkdownEditor {
             if (!cachedElements) {
                 cachedElements = {
                     editor: dom.getById('markdown-editor')?.element,
-                    container: dom.get('.markdown-container'),
-                    leftSidebar: dom.get('.md-sidebar-left'),
-                    rightSidebar: dom.get('.md-sidebar-right'),
-                    editorSection: dom.get('.markdown-editor-pane'),
-                    previewSection: dom.get('.markdown-preview-pane'),
-                    tocSection: dom.get('.md-sidebar-section-toc'),
-                    exportSection: dom.get('.md-sidebar-section-export')
+                    container: dom.get('.markdown-container')
                 };
             }
             return cachedElements;
