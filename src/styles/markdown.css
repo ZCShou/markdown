@@ -3004,8 +3004,8 @@ pre[class*='language-'] {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .md-settings-dialog {
-    width: 100vw;
-    height: 100vh;
+    width: 95vw;
+    height: 90vh;
     max-width: 100vw;
     max-height: 100vh;
     border-radius: 0;
