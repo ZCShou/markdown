@@ -12,6 +12,8 @@
  * // 使用公共 API 更新状态
  * state.updateContent('Hello');
  * state.updateEditorConfig({ fontSize: 16 });
+ * state.addDocument(doc);
+ * state.setCurrentDocument(docId);
  * ```
  */
 import { StoreManager } from './StoreManager.js';
@@ -461,7 +463,7 @@ $$
         }
     }
 
-    // ==================== 持久化方法 ====================
+    // ==================== 初始化和生命周期 ====================
 
     /**
      * 初始化状态（从 localStorage 加载，不触发监听器和持久化）
@@ -524,6 +526,8 @@ $$
     startPersistence() {
         this.#persistence.start();
     }
+
+    // ==================== 观察者模式 ====================
 
     /**
      * 订阅状态变化
@@ -608,7 +612,7 @@ $$
      * @param {Object} doc - 文档对象
      * @param {string} [parentId] - 父文件夹ID
      * @param {Object} options - 选项
-     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
+     * @param {boolean} [options.silent=false] - 是否静默更新
      */
     addDocument(doc, parentId = null, options = {}) {
         const newDoc = { ...doc, parentId };
@@ -621,7 +625,7 @@ $$
      * @param {string} docId - 文档ID
      * @param {Object} updates - 更新内容
      * @param {Object} options - 选项
-     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
+     * @param {boolean} [options.silent=false] - 是否静默更新
      */
     updateDocument(docId, updates, options = {}) {
         const documents = this.#state.documents.map(doc =>
@@ -631,19 +635,17 @@ $$
     }
 
     /**
-     * 收集文档及其所有子项（优化版：单次遍历 + 递归）
+     * 收集文档及其所有子项
      * @private
      * @param {string} docId - 文档ID
      * @param {Set} toDelete - 要删除的文档ID集合
      */
     #collectDescendants(docId, toDelete) {
-        // 使用 Map 优化查找性能
-        const docMap = new Map(this.#state.documents.map(d => [d.id, d]));
         const stack = [docId];
 
         while (stack.length > 0) {
             const currentId = stack.pop();
-            
+
             // 查找所有子项
             for (const doc of this.#state.documents) {
                 if (doc.parentId === currentId && !toDelete.has(doc.id)) {
@@ -658,7 +660,7 @@ $$
      * 删除文档（及其所有子项）
      * @param {string} docId - 文档ID
      * @param {Object} options - 选项
-     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
+     * @param {boolean} [options.silent=false] - 是否静默更新
      */
     deleteDocument(docId, options = {}) {
         const toDelete = new Set([docId]);
@@ -670,23 +672,23 @@ $$
     }
 
     /**
-     * 批量删除文档（优化版：一次性处理所有删除）
+     * 批量删除文档
      * @param {string[]} docIds - 文档ID数组
      * @param {Object} options - 选项
-     * @param {boolean} [options.silent=false] - 是否静默更新（不触发通知）
+     * @param {boolean} [options.silent=false] - 是否静默更新
      */
     deleteDocuments(docIds, options = {}) {
         if (!docIds || docIds.length === 0) return;
 
         const toDelete = new Set(docIds);
-        
+
         // 收集所有子项
         for (const docId of docIds) {
             this.#collectDescendants(docId, toDelete);
         }
 
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
-        
+
         // 检查当前文档是否被删除
         const currentDocId = toDelete.has(this.#state.currentDocId)
             ? null
@@ -696,14 +698,14 @@ $$
     }
 
     /**
-     * 设置当前文档（优化版：异步保存）
+     * 设置当前文档
      * @param {string} docId - 文档ID
      * @param {Object} options - 选项
      * @param {boolean} [options.clearSelection=true] - 是否清空多选状态
      */
     setCurrentDocument(docId, options = {}) {
         const { clearSelection = true } = options;
-        
+
         // 如果文档 ID 没有变化，直接返回
         if (this.#state.currentDocId === docId && !clearSelection) {
             return;
@@ -723,7 +725,7 @@ $$
                 updates.content = doc.content || '';
             }
 
-            // 更新状态（会自动持久化 currentDocId）
+            // 更新状态
             this.#setState(updates);
         }
     }
@@ -735,7 +737,7 @@ $$
     toggleDocumentSelection(docId) {
         const selectedDocIds = [...this.#state.selectedDocIds];
         const index = selectedDocIds.indexOf(docId);
-        
+
         if (index > -1) {
             // 如果已选中，取消选中
             selectedDocIds.splice(index, 1);
@@ -766,6 +768,7 @@ $$
      */
     selectDocumentRange(endDocId) {
         const startDocId = this.#state.lastClickedDocId || this.#state.currentDocId;
+
         if (!startDocId) {
             // 如果没有起始点，直接选中当前文档
             this.setCurrentDocument(endDocId);
@@ -796,6 +799,23 @@ $$
     }
 
     /**
+     * 清空文档选中状态
+     */
+    clearSelection() {
+        this.#setState({ selectedDocIds: [] });
+    }
+
+    /**
+     * 清空当前文档（用于删除当前文档后）
+     */
+    clearCurrentDocument() {
+        this.#setState({
+            currentDocId: null,
+            content: ''
+        });
+    }
+
+    /**
      * 获取扁平的文档列表（按树型结构的显示顺序）
      * @private
      * @returns {Array} 扁平文档列表
@@ -815,52 +835,6 @@ $$
 
         traverse(tree);
         return result;
-    }
-
-    /**
-     * 更新当前文档内容
-     * @param {string} content - 文档内容
-     */
-    updateContent(content) {
-        // 只更新 content 状态，不触发 documents 更新
-        // documents 的更新通过防抖保存机制处理，避免每次输入都重新渲染文档列表
-        this.#setState({ content });
-
-        // 静默更新 documents 数组（不触发订阅者通知）
-        if (this.#state.currentDocId) {
-            const docIndex = this.#state.documents.findIndex(
-                d => d.id === this.#state.currentDocId
-            );
-            if (docIndex !== -1) {
-                this.#state.documents[docIndex].content = content;
-
-                // 延迟更新 updatedAt（2秒），避免每次输入都创建新的 Date 对象
-                if (this.#updateTimestampTimeout) {
-                    clearTimeout(this.#updateTimestampTimeout);
-                }
-                this.#updateTimestampTimeout = setTimeout(() => {
-                    this.#state.documents[docIndex].updatedAt = new Date().toISOString();
-                    this.#updateTimestampTimeout = null;
-                }, 2000);
-            }
-        }
-    }
-
-    /**
-     * 清空文档选中状态
-     */
-    clearSelection() {
-        this.#setState({ selectedDocIds: [] });
-    }
-
-    /**
-     * 清空当前文档（用于删除当前文档后）
-     */
-    clearCurrentDocument() {
-        this.#setState({
-            currentDocId: null,
-            content: ''
-        });
     }
 
     /**
@@ -900,18 +874,6 @@ $$
 
         this.#setState({ documents: newDocuments }, { silent: !notify });
     }
-
-    // ==================== 标题 ====================
-
-    /**
-     * 更新标题数据
-     * @param {Array} headings - 标题数组
-     */
-    updateHeadings(headings) {
-        this.#setState({ headings });
-    }
-
-    // ==================== 树型结构操作 ====================
 
     /**
      * 构建树型结构
@@ -974,6 +936,47 @@ $$
         });
 
         return true;
+    }
+
+    // ==================== 内容更新 ====================
+
+    /**
+     * 更新当前文档内容
+     * @param {string} content - 文档内容
+     */
+    updateContent(content) {
+        // 只更新 content 状态，不触发 documents 更新
+        // documents 的更新通过防抖保存机制处理，避免每次输入都重新渲染文档列表
+        this.#setState({ content });
+
+        // 静默更新 documents 数组（不触发订阅者通知）
+        if (this.#state.currentDocId) {
+            const docIndex = this.#state.documents.findIndex(
+                d => d.id === this.#state.currentDocId
+            );
+            if (docIndex !== -1) {
+                this.#state.documents[docIndex].content = content;
+
+                // 延迟更新 updatedAt（2秒），避免每次输入都创建新的 Date 对象
+                if (this.#updateTimestampTimeout) {
+                    clearTimeout(this.#updateTimestampTimeout);
+                }
+                this.#updateTimestampTimeout = setTimeout(() => {
+                    this.#state.documents[docIndex].updatedAt = new Date().toISOString();
+                    this.#updateTimestampTimeout = null;
+                }, 2000);
+            }
+        }
+    }
+
+    // ==================== 标题 ====================
+
+    /**
+     * 更新标题数据
+     * @param {Array} headings - 标题数组
+     */
+    updateHeadings(headings) {
+        this.#setState({ headings });
     }
 
     // ==================== 编辑器配置操作 ====================
