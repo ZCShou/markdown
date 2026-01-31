@@ -1020,35 +1020,18 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 同步更新标题数据（在 DOM 渲染前）- 优化版：增量更新
+     * 同步更新标题数据（在 DOM 渲染前）
      * @param {Array} headings - 新的标题数组
      * @param {Map<number, Object>} changedHeadingsData - 发生变化的标题数据映射
      * @private
      */
     #updateHeadingsSync(headings, changedHeadingsData) {
-        // 如果没有变化数据，或者所有标题都变了，全量更新
-        if (!changedHeadingsData || changedHeadingsData.size === headings.length) {
-            // changedHeadingsData 已经包含了所有标题数据，直接使用
-            if (changedHeadingsData && changedHeadingsData.size === headings.length) {
-                const headingsArray = Array.from({ length: headings.length }, (_, i) =>
-                    changedHeadingsData.get(i)
-                );
-                this.state.setState({ headings: headingsArray });
-                return;
-            }
-
-            // 降级方案：重新构建所有标题数据
-            const headingsData = headings.map((heading, index) => {
-                const { level, text } = heading;
-                return {
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + index,
-                    level
-                };
-            });
-
-            this.state.setState({ headings: headingsData });
+        // 全量更新：所有标题都变了
+        if (changedHeadingsData.size === headings.length) {
+            const headingsArray = Array.from({ length: headings.length }, (_, i) =>
+                changedHeadingsData.get(i)
+            );
+            this.state.setState({ headings: headingsArray });
             return;
         }
 
@@ -1056,7 +1039,6 @@ export class Preview extends BaseComponent {
         const currentHeadings = this.state.get('headings') || [];
         const updatedHeadings = [...currentHeadings];
 
-        // 直接使用 changedHeadingsData 中的数据，无需再次遍历
         changedHeadingsData.forEach((headingData, index) => {
             updatedHeadings[index] = headingData;
         });
