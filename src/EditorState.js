@@ -1084,6 +1084,24 @@ $$
         });
     }
 
+    /**
+     * 触发导出操作（事件驱动）
+     * @param {string} type - 导出类型：'html' | 'md' | 'pdf'
+     */
+    triggerExport(type) {
+        // 通知所有订阅了 export 事件的监听器
+        const listeners = this.#listeners.get('export');
+        if (listeners) {
+            listeners.forEach(listener => {
+                try {
+                    listener(type);
+                } catch (error) {
+                    console.error('Export listener error:', error);
+                }
+            });
+        }
+    }
+
     // ==================== 通知状态 ====================
 
     /**

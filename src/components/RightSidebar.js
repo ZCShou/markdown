@@ -96,6 +96,22 @@ export class RightSidebar extends BaseComponent {
         if (closeBtn) {
             closeBtn.onclick = () => this.toggle();
         }
+
+        // 导出按钮（通过状态管理器触发导出事件）
+        const exportHTMLBtn = dom.getById('md-export-html')?.element;
+        if (exportHTMLBtn) {
+            exportHTMLBtn.onclick = () => this.state.triggerExport('html');
+        }
+
+        const exportMDBtn = dom.getById('md-export-md')?.element;
+        if (exportMDBtn) {
+            exportMDBtn.onclick = () => this.state.triggerExport('md');
+        }
+
+        const exportPDFBtn = dom.getById('md-export-pdf')?.element;
+        if (exportPDFBtn) {
+            exportPDFBtn.onclick = () => this.state.triggerExport('pdf');
+        }
     }
 
     // ==================== 侧边栏控制 ====================

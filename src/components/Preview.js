@@ -174,7 +174,7 @@ export class Preview extends BaseComponent {
      */
     subscribe() {
         // 订阅内容、当前文档和主题变化
-        this.unsubscribe = this.state.subscribeTo(
+        const unsubscribeContent = this.state.subscribeTo(
             ['content', 'currentDocId', 'theme'],
             (newValue, oldValue, key) => {
                 if (key === 'content') {
@@ -186,6 +186,29 @@ export class Preview extends BaseComponent {
                 }
             }
         );
+
+        // 订阅导出事件
+        const unsubscribeExport = this.state.subscribeTo('export', (type) => {
+            switch (type) {
+                case 'html':
+                    this.exportHTML();
+                    break;
+                case 'md':
+                    this.exportMarkdown();
+                    break;
+                case 'pdf':
+                    this.exportPDF();
+                    break;
+                default:
+                    console.warn('Unknown export type:', type);
+            }
+        });
+
+        // 合并取消订阅函数
+        this.unsubscribe = () => {
+            unsubscribeContent();
+            unsubscribeExport();
+        };
     }
 
     /**
@@ -1719,18 +1742,22 @@ ${html}
         // 添加打印专用类，用于优化打印样式
         document.body.classList.add('printing-pdf');
 
+        // 监听打印完成事件
+        const handleAfterPrint = () => {
+            document.body.classList.remove('printing-pdf');
+            window.removeEventListener('afterprint', handleAfterPrint);
+        };
+
+        window.addEventListener('afterprint', handleAfterPrint);
+
         // 触发浏览器打印对话框
-        window
-            .print()
-            .then(() => {
-                // 打印完成后移除打印类
-                document.body.classList.remove('printing-pdf');
-            })
-            .catch(error => {
-                console.error('打印失败:', error);
-                document.body.classList.remove('printing-pdf');
-                this.showMessage('打印失败: ' + error.message, 'error');
-            });
+        window.print();
+
+        // 备用：如果浏览器不支持 afterprint 事件，2秒后自动移除类
+        setTimeout(() => {
+            document.body.classList.remove('printing-pdf');
+            window.removeEventListener('afterprint', handleAfterPrint);
+        }, 2000);
 
         this.showMessage('请在打印对话框中选择"另存为 PDF"', 'info');
     }

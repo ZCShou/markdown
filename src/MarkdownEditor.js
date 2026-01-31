@@ -511,11 +511,6 @@ export class MarkdownEditor {
         bindButton('md-toggle-right-sidebar', () => this.components.rightSidebar.toggle());
         bindButton('md-sidebar-overlay', () => this.state.closeAllSidebars());
         
-        // 预览导出按钮（全局功能，由顶层管理器协调）
-        bindButton('md-export-html', () => this.components.preview.exportHTML());
-        bindButton('md-export-md', () => this.components.preview.exportMarkdown());
-        bindButton('md-export-pdf', () => this.components.preview.exportPDF());
-        
         // 其他全局按钮
         bindButton('md-search-toggle-btn', () => this.components.searchReplace.show(false));
         bindButton('md-layout-toggle', () => this.toggleLayout());
