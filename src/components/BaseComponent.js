@@ -247,7 +247,7 @@ export class BaseComponent {
      * @param {number} [duration=2000] - 持续时间（毫秒）
      * @returns {void}
      */
-    showMessage(message, type = 'info', duration = 2000) {
+    showMessage(message, type = 'info', _duration = 2000) {
         // 使用状态驱动的通知系统
         this.state.showNotification(message, type);
     }

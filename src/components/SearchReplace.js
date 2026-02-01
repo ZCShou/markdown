@@ -87,7 +87,7 @@ export class SearchReplace extends BaseComponent {
 
         // 监听搜索面板状态变化
         const unsubscribeSearchReplace = this.state.subscribeTo('interface', (newInterface) => {
-            const searchReplace = newInterface.searchReplace;
+            const { searchReplace } = newInterface;
             if (!searchReplace) return;
 
             if (searchReplace.visible) {
@@ -354,7 +354,7 @@ export class SearchReplace extends BaseComponent {
             try {
                 const searchRegex = this.buildSearchRegex();
                 finalReplacement = match.text.replace(searchRegex, replacement);
-            } catch (e) {
+            } catch (_e) {
                 // 正则替换失败，使用普通替换
             }
         }

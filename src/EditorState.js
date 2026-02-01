@@ -737,7 +737,7 @@ $$
      * @param {boolean} [options.clearCurrent=true] - 是否清空当前文档
      */
     selectDocuments(docIds, options = {}) {
-        const { mode = 'set', clearCurrent = true } = options;
+        const { mode = 'set', clearCurrent: _clearCurrent = true } = options;
 
         if (mode === 'toggle') {
             // 切换选中状态（用于Ctrl+点击）

@@ -205,7 +205,7 @@ export class PersistenceManager {
         }
 
         // 执行持久化
-        for (const [handlerKey, keys] of handlerGroups) {
+        for (const [handlerKey, _keys] of handlerGroups) {
             try {
                 const handler = PersistenceManager.PERSIST_HANDLERS[handlerKey];
                 if (handler) {

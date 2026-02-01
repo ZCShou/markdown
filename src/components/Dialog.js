@@ -130,17 +130,6 @@ export class Dialog {
                 dialog.style.setProperty('--dialog-width', width);
             }
 
-            // 图标映射
-            const iconMap = {
-                info: 'info',
-                success: 'check',
-                warning: 'warning',
-                error: 'error',
-                danger: 'error'
-            };
-
-            const iconName = iconMap[type] || 'info';
-
             // 构建对话框 HTML
             dialog.innerHTML = `
                 <div class="md-dialog-header">

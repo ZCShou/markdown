@@ -184,7 +184,7 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     applySectionStates() {
-        const sections = this.state.get('interface').sections;
+        const { sections } = this.state.get('interface');
         const sectionNames = Object.keys(sections);
 
         for (let i = 0; i < sectionNames.length; i++) {

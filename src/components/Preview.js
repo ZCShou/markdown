@@ -265,7 +265,6 @@ export class Preview extends BaseComponent {
                 if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
                     e.preventDefault();
                     window.open(href, '_blank', 'noopener,noreferrer');
-                    return;
                 }
 
                 // 处理相对路径链接（如 ./file.md, ../other.md）
@@ -480,7 +479,7 @@ export class Preview extends BaseComponent {
         const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
         let match;
         while ((match = codeBlockRegex.exec(newMarkdown)) !== null) {
-            const fullMatch = match[0];
+            const [fullMatch] = match;
             const startIndex = match.index;
             const endIndex = startIndex + fullMatch.length;
 
@@ -632,7 +631,7 @@ export class Preview extends BaseComponent {
             const strikeBlocks = [];
 
             // 性能优化：按优先级处理，避免符号冲突
-            let processedMarkdown = markdown
+            const processedMarkdown = markdown
                 // 第一步：保护数学公式（公式中可能包含 ^ 和 ~）
                 .replace(/\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g, (match, block, inline) => {
                     const latex = block !== undefined ? block : inline;
@@ -672,6 +671,7 @@ export class Preview extends BaseComponent {
             }
 
             // 替换数学公式占位符
+            // eslint-disable-next-line no-control-regex
             html = html.replace(/\x02MATH(\d+)\x02/g, (_, index) => {
                 const math = mathBlocks[+index]; // 使用 + 运算符代替 parseInt
                 const tag = math.displayMode ? 'div' : 'span';
@@ -680,6 +680,7 @@ export class Preview extends BaseComponent {
             });
 
             // 替换上标和下标占位符
+            // eslint-disable-next-line no-control-regex
             html = html.replace(/\x01(SUP|SUB)(\d+)\x01/g, (_, type, index) => {
                 const item = supSubBlocks[+index]; // 使用 + 运算符代替 parseInt
                 const tag = item.type === 'sup' ? 'sup' : 'sub';
@@ -687,6 +688,7 @@ export class Preview extends BaseComponent {
             });
 
             // 恢复删除线占位符
+            // eslint-disable-next-line no-control-regex
             html = html.replace(/\x03STRIKE(\d+)\x03/g, (_, index) => {
                 return `<s>${strikeBlocks[+index]}</s>`; // 使用 + 运算符代替 parseInt
             });

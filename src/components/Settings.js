@@ -1,13 +1,13 @@
 /**
  * 设置对话框组件
- * 
+ *
  * @component Dialog
  * @description 临时性对话框组件，用于编辑器设置
- * 
+ *
  * 与持久化组件的区别：
  * - 持久化组件（Editor, Preview 等）：继承 BaseComponent，长期存在，订阅状态变化
  * - 对话框组件（Settings）：独立类，临时显示，按需打开/关闭，不订阅状态变化
- * 
+ *
  * @example
  * ```js
  * const settings = new Settings(state);
@@ -15,16 +15,17 @@
  * settings.open();  // 打开对话框
  * settings.close(); // 关闭对话框
  * ```
- * 
+ *
  * @architecture
  * - 不继承 BaseComponent（对话框不需要状态订阅和生命周期管理）
  * - 直接使用 state 对象进行状态读写
  * - 使用 DOM 缓存优化性能
- * 
+ *
  * @see BaseComponent 持久化组件基类
  */
 import { dom } from '../utils/dom.js';
 import { EditorState } from '../EditorState.js';
+import { Dialog } from './Dialog.js';
 
 export class Settings {
     /**
@@ -139,7 +140,7 @@ export class Settings {
         const navItems = dom.getAll('.md-settings-nav-item');
         navItems.forEach(item => {
             item.addEventListener('click', () => {
-                const section = item.dataset.section;
+                const { section } = item.dataset;
                 this.switchSection(section);
             });
         });
@@ -367,8 +368,13 @@ export class Settings {
     /**
      * 重置设置为默认值
      */
-    resetSettings() {
-        if (confirm('确定要重置所有设置为默认值吗？')) {
+    async resetSettings() {
+        const confirmed = await Dialog.confirm('确定要重置所有设置为默认值吗？', {
+            title: '重置设置',
+            type: 'warning'
+        });
+
+        if (confirmed) {
             // 使用 state.js 中定义的默认设置
             const defaults = EditorState.DEFAULT_SETTINGS;
 
@@ -416,7 +422,7 @@ export class Settings {
 
         // 应用布局模式 - 使用缓存的元素
         if (this.cachedElements.container) {
-            const container = this.cachedElements.container;
+            const { container } = this.cachedElements;
             // 移除所有布局类
             container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
             // 添加当前布局类

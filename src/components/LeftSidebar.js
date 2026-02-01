@@ -314,15 +314,16 @@ export class LeftSidebar extends BaseComponent {
      */
     manageFolderState(folderId, expanded = 'toggle', skipUI = false) {
         // 处理 'toggle' 模式
+        let finalExpanded = expanded;
         if (expanded === 'toggle') {
-            expanded = !this.expandedFolders.has(folderId);
+            finalExpanded = !this.expandedFolders.has(folderId);
         }
 
         // 检查状态是否改变
         const currentlyExpanded = this.expandedFolders.has(folderId);
-        if (expanded && !currentlyExpanded) {
+        if (finalExpanded && !currentlyExpanded) {
             this.expandedFolders.add(folderId);
-        } else if (!expanded && currentlyExpanded) {
+        } else if (!finalExpanded && currentlyExpanded) {
             this.expandedFolders.delete(folderId);
         } else {
             return; // 状态未改变
@@ -330,7 +331,7 @@ export class LeftSidebar extends BaseComponent {
 
         // 更新 UI（除非跳过）
         if (!skipUI) {
-            this.#updateFolderUI(folderId, expanded);
+            this.#updateFolderUI(folderId, finalExpanded);
         }
     }
 
@@ -487,7 +488,7 @@ export class LeftSidebar extends BaseComponent {
 
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
-            const { docId, docType } = item.dataset;
+            const { docId, docType: _docType } = item.dataset;
 
             // 清除之前的延迟
             clearTimeout(this.clickTimeout);
@@ -545,7 +546,7 @@ export class LeftSidebar extends BaseComponent {
             return;
         }
 
-        const docId = item.dataset.docId;
+        const { docId } = item.dataset;
         const selectedDocIds = this.state.get('selectedDocIds') || [];
         
         // 如果拖动的项在选中列表中，拖动所有选中项；否则只拖动当前项
@@ -1111,7 +1112,7 @@ export class LeftSidebar extends BaseComponent {
             // 使用事件委托而不是单独绑定
             const emptyState = treeContainer.querySelector('.md-empty-state');
             emptyState?.addEventListener('click', e => {
-                const action = e.target.dataset.action;
+                const { action } = e.target.dataset;
                 if (action === 'create-file') this.createDocument('file');
                 else if (action === 'create-folder') this.createDocument('folder');
             });
@@ -1137,7 +1138,7 @@ export class LeftSidebar extends BaseComponent {
         // 立即重建DOM缓存（批量查询，避免后续多次查询）
         const items = treeContainer.querySelectorAll('.md-doc-item[data-doc-id]');
         items.forEach(item => {
-            const docId = item.dataset.docId;
+            const { docId } = item.dataset;
             this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
         });
 
@@ -1443,7 +1444,7 @@ export class LeftSidebar extends BaseComponent {
             setTimeout(() => URL.revokeObjectURL(a.href), 100);
 
             this.showMessage(`成功导出 ${documents.length} 个文档`, 'success');
-        } catch (error) {
+        } catch (_error) {
             this.showMessage('导出文档失败', 'error');
         }
     }
@@ -1469,9 +1470,9 @@ export class LeftSidebar extends BaseComponent {
 
             const reader = new FileReader();
 
-            reader.onload = async (e) => {
+            reader.onload = async (event) => {
                 try {
-                    const text = e.target?.result;
+                    const text = event.target?.result;
                     if (!text || typeof text !== 'string') {
                         throw new Error('文件读取失败');
                     }
