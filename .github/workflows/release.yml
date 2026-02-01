@@ -1,0 +1,78 @@
+name: Create Release
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Run tests
+              run: npm run test:run
+
+            - name: Build project
+              run: npm run build
+
+            - name: Create release archive
+              run: |
+                  cd dist
+                  zip -r ../markdown-editor-${{ github.ref_name }}.zip .
+                  cd ..
+
+            - name: Generate release notes
+              id: release_notes
+              run: |
+                  # 获取自上一个 tag 之后的 commits
+                  PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+                  if [ -z "$PREV_TAG" ]; then
+                      echo "notes=Initial release" >> $GITHUB_OUTPUT
+                  else
+                      NOTES=$(git log --pretty=format:"- %s" ${PREV_TAG}..HEAD | head -20)
+                      echo "notes<<EOF" >> $GITHUB_OUTPUT
+                      echo "$NOTES" >> $GITHUB_OUTPUT
+                      echo "EOF" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  name: Release ${{ github.ref_name }}
+                  body: |
+                      ## Markdown Editor ${{ github.ref_name }}
+
+                      ### 📦 变更内容
+                      ${{ steps.release_notes.outputs.notes }}
+
+                      ### 📥 下载
+                      - 下载下方附件中的 `markdown-editor-${{ github.ref_name }}.zip` 文件
+                      - 解压到任意目录
+                      - 在浏览器中打开 `index.html` 即可使用
+
+                      ### ✨ 功能特性
+                      - 实时 Markdown 预览
+                      - 语法高亮
+                      - 数学公式支持 (KaTeX)
+                      - 流程图支持 (Mermaid)
+                      - 搜索与替换
+                      - 本地存储
+                  files: markdown-editor-${{ github.ref_name }}.zip
+                  draft: false
+                  prerelease: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
