@@ -439,7 +439,14 @@ export class MarkdownEditor {
      * @param mode
      */
     applyTheme(mode) {
-        document.documentElement.dataset.mode = mode;
+        const html = document.documentElement;
+        html.dataset.mode = mode;
+
+        // 更新主题颜色
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeColorMeta) {
+            themeColorMeta.content = mode === 'dark' ? '#1e1e1e' : '#ffffff';
+        }
     }
 
     /**
