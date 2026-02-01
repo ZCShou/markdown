@@ -2553,7 +2553,7 @@ pre[class*='language-'] {
   border: 1px solid var(--md-border-primary);
   border-radius: 6px;
   box-shadow: var(--md-search-panel-shadow);
-  padding: 8px;
+  padding: 8px 4px 8px 0;
   display: none;
 }
 
@@ -2563,7 +2563,6 @@ pre[class*='language-'] {
 
 .md-search-replace-content {
   display: flex;
-  gap: 6px;
 }
 
 .md-search-form {
@@ -2576,7 +2575,6 @@ pre[class*='language-'] {
 .md-search-row {
   display: flex;
   align-items: center;
-  gap: 4px;
 }
 
 .md-replace-row {
@@ -2586,7 +2584,6 @@ pre[class*='language-'] {
 .md-search-replace-panel.replace-mode .md-replace-row {
   display: flex;
   align-items: center;
-  gap: 6px;
 }
 
 .md-search-toggle {
