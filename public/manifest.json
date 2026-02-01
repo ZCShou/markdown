@@ -1,6 +1,6 @@
 {
-  "name": "Markdown Editor",
-  "short_name": "MD Editor",
+  "name": "Markdown",
+  "short_name": "MD",
   "description": "功能强大的在线 Markdown 编辑器",
   "start_url": "/markdown/",
   "display": "standalone",
