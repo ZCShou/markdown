@@ -188,7 +188,7 @@ export class Preview extends BaseComponent {
         );
 
         // 订阅导出事件
-        const unsubscribeExport = this.state.subscribeTo('export', (type) => {
+        const unsubscribeExport = this.state.subscribeTo('export:trigger', (type) => {
             switch (type) {
                 case 'html':
                     this.exportHTML();

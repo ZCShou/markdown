@@ -1147,8 +1147,8 @@ $$
      * @param {string} type - 导出类型：'html' | 'md' | 'pdf'
      */
     triggerExport(type) {
-        // 通知所有订阅了 export 事件的监听器
-        const listeners = this.#listeners.get('export');
+        // 通知所有订阅了 export:trigger 事件的监听器
+        const listeners = this.#listeners.get('export:trigger');
         if (listeners) {
             listeners.forEach(listener => {
                 try {
