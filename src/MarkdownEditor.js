@@ -445,7 +445,7 @@ export class MarkdownEditor {
         // 更新主题颜色
         const themeColorMeta = document.querySelector('meta[name="theme-color"]');
         if (themeColorMeta) {
-            themeColorMeta.content = mode === 'dark' ? '#1e1e1e' : '#ffffff';
+            themeColorMeta.content = mode === 'dark' ? '#1e1e1e' : '#f0f0f0';
         }
     }
 

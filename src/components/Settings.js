@@ -474,7 +474,7 @@ export class Settings {
         // 更新主题颜色
         const themeColorMeta = document.querySelector('meta[name="theme-color"]');
         if (themeColorMeta) {
-            themeColorMeta.content = isDark ? '#1e1e1e' : '#ffffff';
+            themeColorMeta.content = isDark ? '#1e1e1e' : '#f0f0f0';
         }
     }
 }
