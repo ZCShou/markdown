@@ -1421,12 +1421,11 @@ pre.has-copy-btn {
 .md-empty-state {
   color: var(--md-text-tertiary);
   text-align: center;
-  padding: 20px;
-}
-
-.md-empty-state button {
-  margin-top: 12px;
-  margin-right: 8px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ==================== 树型结构样式 ==================== */

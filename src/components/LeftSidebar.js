@@ -1105,8 +1105,6 @@ export class LeftSidebar extends BaseComponent {
             treeContainer.innerHTML = `
                 <div class="md-empty-state">
                     <p>暂无文档</p>
-                    <button class="md-btn md-btn-primary" data-action="create-file">新建文档</button>
-                    <button class="md-btn md-btn-secondary" data-action="create-folder">新建文件夹</button>
                 </div>
             `;
             
