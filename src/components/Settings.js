@@ -35,12 +35,15 @@ export class Settings {
         this.overlay = null;
         this.dialog = null;
         this.currentSection = 'basic';
-        
+
         // DOM 元素缓存
         this.cachedElements = null;
-        
+
         // ESC 键监听器缓存（用于清理）
         this.escapeHandler = null;
+
+        // 系统主题变化监听器（用于清理）
+        this.colorSchemeMatcher = null;
     }
 
     /**
@@ -56,6 +59,9 @@ export class Settings {
 
         // 绑定事件
         this.bindEvents();
+
+        // 监听系统主题变化
+        this.watchSystemTheme();
 
         // 应用已保存的设置
         this.applySettings();
@@ -158,6 +164,13 @@ export class Settings {
                 }
             });
         }
+
+        // 主题选择器实时预览
+        if (this.cachedElements?.themeSelect) {
+            this.cachedElements.themeSelect.addEventListener('change', (e) => {
+                this.applyTheme(e.target.value);
+            });
+        }
     }
 
     /**
@@ -169,7 +182,13 @@ export class Settings {
             document.removeEventListener('keydown', this.escapeHandler);
             this.escapeHandler = null;
         }
-        
+
+        // 移除系统主题监听器
+        if (this.colorSchemeMatcher) {
+            this.colorSchemeMatcher.onchange = null;
+            this.colorSchemeMatcher = null;
+        }
+
         // 取消状态订阅
         if (this.stateUnsubscribe) {
             this.stateUnsubscribe();
@@ -426,18 +445,36 @@ export class Settings {
     }
 
     /**
-     * 应用主题
+     * 监听系统主题变化
+     */
+    watchSystemTheme() {
+        this.colorSchemeMatcher = window.matchMedia('(prefers-color-scheme: dark)');
+        this.colorSchemeMatcher.addEventListener('change', () => {
+            const interfaceState = this.state.get('interface');
+            if (interfaceState?.theme === 'auto') {
+                this.applyTheme('auto');
+            }
+        });
+    }
+
+    /**
+     * 应用主题设置
      * @param {string} theme - 主题模式
      */
     applyTheme(theme) {
         const html = document.documentElement;
 
-        if (theme === 'auto') {
-            // 跟随系统主题
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            html.setAttribute('data-mode', prefersDark ? 'dark' : 'light');
-        } else {
-            html.setAttribute('data-mode', theme);
+        // 确定实际主题模式
+        const isDark = theme === 'dark' ||
+            (theme === 'auto' && this.colorSchemeMatcher?.matches);
+
+        // 应用主题到 HTML
+        html.setAttribute('data-mode', isDark ? 'dark' : 'light');
+
+        // 更新主题颜色
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeColorMeta) {
+            themeColorMeta.content = isDark ? '#1e1e1e' : '#ffffff';
         }
     }
 }
