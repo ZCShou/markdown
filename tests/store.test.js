@@ -2,7 +2,7 @@
  * StoreManager 单元测试
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { StoreManager } from '../src/modules/store.js';
+import { StoreManager } from '../src/StoreManager.js';
 
 describe('StoreManager - 存储管理器测试', () => {
     beforeEach(() => {
@@ -12,45 +12,6 @@ describe('StoreManager - 存储管理器测试', () => {
 
     afterEach(() => {
         localStorage.clear();
-    });
-
-    describe('内容存储和加载', () => {
-        it('应该成功保存内容', () => {
-            const result = StoreManager.saveContent('Hello World');
-
-            expect(result.success).toBe(true);
-            expect(localStorage.getItem('markdown_editor_content')).toBe('Hello World');
-        });
-
-        it('应该成功加载内容', () => {
-            localStorage.setItem('markdown_editor_content', 'Test Content');
-
-            const content = StoreManager.loadContent('default');
-
-            expect(content).toBe('Test Content');
-        });
-
-        it('应该在没有保存内容时返回默认值', () => {
-            const content = StoreManager.loadContent('default content');
-
-            expect(content).toBe('default content');
-        });
-
-        it('应该处理保存时的错误', () => {
-            // 模拟 localStorage.setItem 抛出错误
-            const originalSetItem = localStorage.setItem;
-            localStorage.setItem = () => {
-                throw new Error('Storage quota exceeded');
-            };
-
-            const result = StoreManager.saveContent('test');
-
-            expect(result.success).toBe(false);
-            expect(result.error).toBeTruthy();
-
-            // 恢复原始方法
-            localStorage.setItem = originalSetItem;
-        });
     });
 
     describe('文档管理', () => {
@@ -93,6 +54,24 @@ describe('StoreManager - 存储管理器测试', () => {
             expect(documents).toEqual([]);
         });
 
+        it('应该处理保存文档时的错误', () => {
+            // 模拟 localStorage.setItem 抛出错误
+            const originalSetItem = localStorage.setItem;
+            localStorage.setItem = () => {
+                throw new Error('Storage quota exceeded');
+            };
+
+            const result = StoreManager.saveDocuments(mockDocuments);
+
+            expect(result.success).toBe(false);
+            expect(result.error).toBeTruthy();
+
+            // 恢复原始方法
+            localStorage.setItem = originalSetItem;
+        });
+    });
+
+    describe('当前文档ID', () => {
         it('应该成功保存当前文档ID', () => {
             const result = StoreManager.saveCurrentDocId('doc-123');
 
@@ -107,110 +86,77 @@ describe('StoreManager - 存储管理器测试', () => {
 
             expect(docId).toBe('doc-456');
         });
-    });
 
-    describe('主题和布局设置', () => {
-        it('应该成功保存主题设置', () => {
-            StoreManager.saveTheme('dark');
+        it('应该在没有保存文档ID时返回null', () => {
+            const docId = StoreManager.loadCurrentDocId();
 
-            expect(localStorage.getItem('markdown_editor_theme')).toBe('dark');
+            expect(docId).toBeNull();
         });
 
-        it('应该成功加载主题设置', () => {
-            localStorage.setItem('markdown_editor_theme', 'light');
+        it('应该处理保存文档ID时的错误', () => {
+            const originalSetItem = localStorage.setItem;
+            localStorage.setItem = () => {
+                throw new Error('Storage quota exceeded');
+            };
 
-            const theme = StoreManager.loadTheme();
+            const result = StoreManager.saveCurrentDocId('doc-123');
 
-            expect(theme).toBe('light');
-        });
+            expect(result.success).toBe(false);
 
-        it('应该在没有主题设置时返回默认值', () => {
-            const theme = StoreManager.loadTheme();
-
-            expect(theme).toBe('light');
-        });
-
-        it('应该成功保存布局设置', () => {
-            StoreManager.saveLayout('layout-editor');
-
-            expect(localStorage.getItem('markdown_editor_layout')).toBe('layout-editor');
-        });
-
-        it('应该成功加载布局设置', () => {
-            localStorage.setItem('markdown_editor_layout', 'layout-preview');
-
-            const layout = StoreManager.loadLayout();
-
-            expect(layout).toBe('layout-preview');
+            localStorage.setItem = originalSetItem;
         });
     });
 
-    describe('侧边栏状态', () => {
-        it('应该成功保存左侧侧边栏状态', () => {
-            StoreManager.saveSidebarState('left', true);
+    describe('设置管理', () => {
+        const mockSettings = {
+            editor: {
+                fontSize: 16,
+                lineHeight: 1.6,
+                tabSize: 4
+            },
+            interface: {
+                theme: 'dark',
+                layout: 'layout-both'
+            },
+            export: {
+                includeStyle: true,
+                codeHighlight: true
+            }
+        };
 
-            expect(localStorage.getItem('markdown_editor_sidebar_left')).toBe('true');
+        it('应该成功保存设置', () => {
+            const result = StoreManager.saveSettings(mockSettings);
+
+            expect(result).toBe(true);
+            const saved = JSON.parse(localStorage.getItem('markdown-editor-settings'));
+            expect(saved).toEqual(mockSettings);
         });
 
-        it('应该成功加载左侧侧边栏状态', () => {
-            localStorage.setItem('markdown_editor_sidebar_left', 'false');
+        it('应该成功加载设置', () => {
+            localStorage.setItem('markdown-editor-settings', JSON.stringify(mockSettings));
 
-            const isOpen = StoreManager.loadSidebarState('left');
+            const settings = StoreManager.loadSettings();
 
-            expect(isOpen).toBe(false);
+            expect(settings).toEqual(mockSettings);
         });
 
-        it('应该成功保存右侧侧边栏状态', () => {
-            StoreManager.saveSidebarState('right', true);
+        it('应该在没有保存设置时返回null', () => {
+            const settings = StoreManager.loadSettings();
 
-            expect(localStorage.getItem('markdown_editor_sidebar_right')).toBe('true');
+            expect(settings).toBeNull();
         });
 
-        it('应该成功加载右侧侧边栏状态', () => {
-            localStorage.setItem('markdown_editor_sidebar_right', 'true');
+        it('应该处理保存设置时的错误', () => {
+            const originalSetItem = localStorage.setItem;
+            localStorage.setItem = () => {
+                throw new Error('Storage quota exceeded');
+            };
 
-            const isOpen = StoreManager.loadSidebarState('right');
+            const result = StoreManager.saveSettings(mockSettings);
 
-            expect(isOpen).toBe(true);
-        });
-    });
+            expect(result).toBe(false);
 
-    describe('区块状态', () => {
-        it('应该成功保存区块状态', () => {
-            StoreManager.saveSectionState('toc', false);
-
-            const saved = localStorage.getItem('markdown_editor_section_toc');
-            expect(saved).toBe('false');
-        });
-
-        it('应该成功加载区块状态', () => {
-            localStorage.setItem('markdown_editor_section_toc', 'false');
-            localStorage.setItem('markdown_editor_section_export', 'true');
-
-            const tocState = StoreManager.loadSectionState('toc');
-            const exportState = StoreManager.loadSectionState('export');
-
-            expect(tocState).toBe(false);
-            expect(exportState).toBe(true);
-        });
-
-        it('应该在没有区块状态时返回默认值', () => {
-            const tocState = StoreManager.loadSectionState('toc');
-
-            expect(tocState).toBe(false);
-        });
-    });
-
-    describe('清除数据', () => {
-        it('应该成功清除所有数据', () => {
-            // 设置一些数据
-            localStorage.setItem('markdown_editor_content', 'test');
-            localStorage.setItem('markdown_editor_theme', 'dark');
-
-            StoreManager.clearAll();
-
-            expect(localStorage.getItem('markdown_editor_content')).toBeNull();
-            expect(localStorage.getItem('markdown_editor_theme')).toBeNull();
+            localStorage.setItem = originalSetItem;
         });
     });
 });
