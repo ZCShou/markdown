@@ -2595,10 +2595,6 @@ pre[class*='language-'] {
   justify-content: center;
 }
 
-.md-search-toggle:hover {
-  background: transparent !important;
-}
-
 .md-search-replace-panel.replace-mode .md-search-replace-content {
   align-items: center;
 }
@@ -2611,7 +2607,7 @@ pre[class*='language-'] {
   position: relative;
   display: flex;
   align-items: center;
-  width: 300px;
+  width: 60%;
 }
 
 .md-search-icon {
@@ -2624,7 +2620,7 @@ pre[class*='language-'] {
 
 .md-search-input {
   width: 100%;
-  padding: 6px 80px 6px 8px;
+  padding: 6px 80px 6px 6px;
   border: 1px solid var(--md-border-primary);
   border-radius: 4px;
   background: var(--md-bg-secondary);
@@ -2661,12 +2657,6 @@ pre[class*='language-'] {
   justify-content: center;
 }
 
-.md-search-option-btn:hover,
-.md-search-option-btn.active,
-.md-search-option-btn[aria-pressed="true"] {
-  opacity: 1;
-}
-
 .md-search-option-btn.active,
 .md-search-option-btn[aria-pressed="true"] {
   background: var(--md-search-option-active-bg);
@@ -2681,8 +2671,29 @@ pre[class*='language-'] {
   flex-shrink: 0;
 }
 
-.md-search-close {
-  flex-shrink: 0;
+.md-replace-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 60%;
+  margin-right: 4px;
+}
+
+.md-replace-input {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid var(--md-border-primary);
+  border-radius: 4px;
+  background: var(--md-bg-secondary);
+  color: var(--md-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.md-replace-input:focus {
+  border-color: var(--md-color-primary);
+  box-shadow: var(--md-search-focus-shadow);
 }
 
 /* 响应式设计 */
@@ -2699,38 +2710,23 @@ pre[class*='language-'] {
   }
 
   .md-search-input-wrapper {
-    width: 100%;
+    width: 60%;
     min-width: 0;
   }
 
   .md-search-input {
     width: 100%;
-    padding: 6px 90px 6px 8px;
     font-size: 16px;
   }
 
-  .md-search-input-options {
-    position: absolute;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
+  .md-replace-input-wrapper {
+    width: 60%;
+    min-width: 0;
   }
 
-  .md-search-option-btn {
-    min-height: 28px !important;
-    height: 28px;
-    min-width: 28px !important;
-    width: 28px;
-  }
-
-  .md-search-match-info {
-    width: 50px;
-    font-size: 12px;
-  }
-
-  .md-search-row .md-btn {
-    min-height: 36px;
-    min-width: 36px;
+  .md-replace-input {
+    width: 100%;
+    font-size: 16px;
   }
 }
 
