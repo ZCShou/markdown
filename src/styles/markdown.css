@@ -40,9 +40,10 @@
   --md-markdown-hr: #e1e4e8;
 
   /* 工具栏颜色 */
-  --md-toolbar-bg: #444;
-  --md-toolbar-text: #fff;
-  --md-toolbar-border: #333;
+  --md-toolbar-bg: #f0f0f0;
+  --md-toolbar-text: #333;
+  --md-toolbar-border: #e0e0e0;
+  --md-toolbar-btn-hover: rgba(0, 0, 0, 0.08);
 
   /* 分隔条颜色 */
   --md-divider-bg: #ddd;
@@ -149,9 +150,10 @@
   --md-markdown-hr: #3e3e3e;
 
   /* 工具栏颜色 */
-  --md-toolbar-bg: #2d2d2d;
+  --md-toolbar-bg: #1e1e1e;
   --md-toolbar-text: #e0e0e0;
   --md-toolbar-border: #3e3e3e;
+  --md-toolbar-btn-hover: rgba(255, 255, 255, 0.1);
 
   /* 分隔条颜色 */
   --md-divider-bg: #3e3e3e;
@@ -348,7 +350,7 @@ html::-webkit-scrollbar-thumb:hover,
 .markdown-toolbar .md-btn:hover,
 .md-dialog-header .md-btn:hover,
 .md-settings-header .md-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--md-toolbar-btn-hover);
 }
 
 .md-btn:active {
