@@ -930,6 +930,20 @@ html::-webkit-scrollbar-thumb:hover,
   opacity: 1;
 }
 
+/* CodeMirror 折叠占位符 */
+#markdown-editor .cm-foldPlaceholder {
+  color: var(--md-text-secondary);
+  background-color: var(--md-bg-tertiary);
+  border-radius: 2px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: center;
+  transform: translateY(-0.15em);
+  white-space: nowrap;
+  border: 1px solid var(--md-border-primary);
+}
+
 /* 激活行的行号栏 */
 #markdown-editor .cm-activeLineGutter {
   background-color: transparent;
