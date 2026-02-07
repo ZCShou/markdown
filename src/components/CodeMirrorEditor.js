@@ -1,3 +1,21 @@
+/**
+ * CodeMirror Editor 组件
+ *
+ * 基于 CodeMirror 6 的 Markdown 编辑器封装，提供以下功能：
+ * - Markdown 语法高亮
+ * - 行号显示（支持点击和拖动选择）
+ * - 代码折叠
+ * - 括号匹配
+ * - 自动换行
+ * - 搜索替换集成
+ * - 主题切换支持
+ * - 可配置的编辑器选项
+ *
+ * @module CodeMirrorEditor
+ * @author Markdown Editor Team
+ * @since 1.0.0
+ */
+
 import { EditorState, Compartment, Annotation } from '@codemirror/state';
 import {
     EditorView,
@@ -22,7 +40,11 @@ import { tags } from '@lezer/highlight';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 
-// 自定义语法高亮样式，使用 CSS 变量
+/**
+ * 自定义语法高亮样式，使用 CSS 变量
+ * 为 Markdown 语法元素定义样式类名
+ * @type {import('@codemirror/language').HighlightStyle}
+ */
 const customHighlightStyle = HighlightStyle.define([
     { tag: tags.link, class: 'md-link' },
     { tag: tags.url, class: 'md-url' },
@@ -42,12 +64,52 @@ const customHighlightStyle = HighlightStyle.define([
     { tag: tags.contentSeparator, class: 'md-separator' }
 ]);
 
-
+/**
+ * 外部更新注解
+ * 用于标记由外部 API 触发的编辑器更新，避免触发 onChange 回调
+ */
 const externalUpdate = Annotation.define();
 
+/**
+ * CodeMirror 编辑器包装类
+ * 提供基于 CodeMirror 6 的 Markdown 编辑器功能
+ *
+ * @class CodeMirrorEditor
+ * @example
+ * ```javascript
+ * const editor = new CodeMirrorEditor(container, {
+ *   initialValue: '# Hello World',
+ *   onChange: (content) => console.log(content),
+ *   editorConfig: {
+ *     lineNumbers: true,
+ *     lineWrapping: true,
+ *     fontSize: 16
+ *   }
+ * });
+ * editor.init();
+ * ```
+ */
 export class CodeMirrorEditor {
+    /**
+     * 当前活动的编辑器实例
+     * @type {CodeMirrorEditor|null}
+     * @static
+     */
     static active = null;
 
+    /**
+     * 创建编辑器实例
+     * @param {HTMLElement} container - 编辑器容器元素
+     * @param {Object} options - 配置选项
+     * @param {string} [options.initialValue=''] - 初始内容
+     * @param {string} [options.placeholder=''] - 占位符文本
+     * @param {string} [options.ariaLabel='Markdown editor input'] - ARIA 标签
+     * @param {Function} [options.onChange] - 内容变化回调
+     * @param {Function} [options.onSearch] - 搜索触发回调
+     * @param {Function} [options.onEscape] - ESC 键按下回调
+     * @param {Object} [options.editorConfig] - 编辑器配置
+     * @param {Object} [options.interfaceConfig] - 界面配置
+     */
     constructor(container, options = {}) {
         this.container = container;
         this.options = options;
@@ -62,10 +124,34 @@ export class CodeMirrorEditor {
         this.highlightGutterCompartment = new Compartment();
     }
 
+    /**
+     * 获取当前活动的编辑器实例
+     * @returns {CodeMirrorEditor|null} 活动的编辑器实例
+     * @static
+     */
     static getActive() {
         return CodeMirrorEditor.active;
     }
 
+    /**
+     * 初始化编辑器
+     * 创建 CodeMirror 视图并配置所有扩展，包括：
+     * - 行号和折叠功能
+     * - 历史记录和撤销/重做
+     * - 选中高亮（仅文字内容，不延伸到行尾）
+     * - 矩形选择
+     * - 括号匹配
+     * - Markdown 语法高亮
+     * - 自动换行
+     * - 自定义快捷键（Cmd/Ctrl+F 搜索、Cmd/Ctrl+H 替换、Escape）
+     *
+     * @throws {Error} 如果容器元素不存在
+     * @example
+     * ```javascript
+     * const editor = new CodeMirrorEditor(container, options);
+     * editor.init();
+     * ```
+     */
     init() {
         if (!this.container || this.view) return;
 
@@ -149,6 +235,15 @@ export class CodeMirrorEditor {
         CodeMirrorEditor.active = this;
     }
 
+    /**
+     * 销毁编辑器
+     * 清理视图并重置活动实例
+     *
+     * @example
+     * ```javascript
+     * editor.destroy();
+     * ```
+     */
     destroy() {
         if (this.view) {
             this.view.destroy();
@@ -160,48 +255,152 @@ export class CodeMirrorEditor {
         }
     }
 
+    /**
+     * 创建缩进扩展
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.insertSpaces=true] - 是否使用空格缩进
+     * @param {number} [editorConfig.tabSize=4] - Tab 大小
+     * @returns {import('@codemirror/state').Extension} 缩进扩展
+     * @private
+     */
     createIndentExtension(editorConfig) {
         const { insertSpaces = true, tabSize = 4 } = editorConfig || {};
         const unit = insertSpaces ? ' '.repeat(tabSize) : '\t';
         return indentUnit.of(unit);
     }
 
+    /**
+     * 创建行号扩展
+     * 支持点击行号选中整行，拖动行号选中多行
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
+     * @returns {import('@codemirror/state').Extension} 行号扩展
+     * @private
+     */
     createLineNumbersExtension(editorConfig) {
         if (editorConfig?.lineNumbers === false) return [];
-        
+
+        // 用于跟踪拖动选择状态
+        let isDragging = false;
+        let startLine = null;
+
         return lineNumbers({
             domEventHandlers: {
                 mousedown: (view, line, event) => {
                     event.preventDefault();
-                    
+
+                    // 记录起始行
+                    isDragging = true;
+                    startLine = line;
+
                     // 选中整行（不包含换行符，仅内容）
                     view.dispatch({
                         selection: { anchor: line.from, head: line.to }
                     });
-                    
+
                     view.focus();
+                    return true;
+                },
+
+                mousemove: (view, line, event) => {
+                    // 如果不在拖动状态，不处理
+                    if (!isDragging || !startLine) return false;
+
+                    event.preventDefault();
+
+                    // 获取起始行和当前行的行号
+                    const startLineNum = view.state.doc.lineAt(startLine.from).number;
+                    const currentLineNum = view.state.doc.lineAt(line.from).number;
+
+                    // 确定选区的起始和结束位置
+                    const fromLineNum = Math.min(startLineNum, currentLineNum);
+                    const toLineNum = Math.max(startLineNum, currentLineNum);
+
+                    const fromLine = view.state.doc.line(fromLineNum);
+                    const toLine = view.state.doc.line(toLineNum);
+
+                    // 选中多行（从起始行到当前行）
+                    view.dispatch({
+                        selection: {
+                            anchor: fromLine.from,
+                            head: toLine.to
+                        }
+                    });
+
+                    return true;
+                },
+
+                mouseup: (view, line, event) => {
+                    // 结束拖动状态
+                    isDragging = false;
+                    startLine = null;
+                    return true;
+                },
+
+                mouseleave: (view, line, event) => {
+                    // 鼠标离开行号区域时结束拖动
+                    isDragging = false;
+                    startLine = null;
                     return true;
                 }
             }
         });
     }
 
+    /**
+     * 创建自动换行扩展
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.lineWrapping=true] - 是否自动换行
+     * @returns {import('@codemirror/state').Extension} 换行扩展
+     * @private
+     */
     createLineWrappingExtension(editorConfig) {
         return editorConfig?.lineWrapping !== false ? EditorView.lineWrapping : [];
     }
 
+    /**
+     * 创建高亮当前行扩展
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.highlightActiveLine=true] - 是否高亮当前行
+     * @returns {import('@codemirror/state').Extension} 高亮扩展
+     * @private
+     */
     createHighlightActiveLineExtension(editorConfig) {
         return editorConfig?.highlightActiveLine !== false ? highlightActiveLine() : [];
     }
 
+    /**
+     * 创建括号匹配扩展
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.bracketMatching=true] - 是否匹配括号
+     * @returns {import('@codemirror/state').Extension} 括号匹配扩展
+     * @private
+     */
     createBracketMatchingExtension(editorConfig) {
         return editorConfig?.bracketMatching !== false ? bracketMatching() : [];
     }
 
+    /**
+     * 创建高亮行号栏扩展
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.highlightGutter=true] - 是否高亮当前行号
+     * @returns {import('@codemirror/state').Extension} 行号高亮扩展
+     * @private
+     */
     createHighlightGutterExtension(editorConfig) {
         return editorConfig?.highlightGutter !== false ? highlightActiveLineGutter() : [];
     }
 
+    /**
+     * 创建主题扩展
+     * 动态配置字号和行高，其他样式通过 CSS 实现
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {number} [editorConfig.fontSize=16] - 字号（像素）
+     * @param {number} [editorConfig.lineHeight=1.6] - 行高
+     * @param {boolean} isDark - 是否为暗色主题
+     * @returns {import('@codemirror/state').Extension} 主题扩展
+     * @private
+     */
     createThemeExtension(editorConfig, isDark) {
         const fontSize = editorConfig.fontSize ?? 16;
         const lineHeight = editorConfig.lineHeight ?? 1.6;
@@ -221,6 +420,34 @@ export class CodeMirrorEditor {
         );
     }
 
+    /**
+     * 更新编辑器配置
+     * 动态更新编辑器的各种配置选项，无需重新初始化
+     *
+     * @param {Object} [editorConfig={}] - 编辑器配置
+     * @param {number} [editorConfig.tabSize=4] - Tab 大小
+     * @param {boolean} [editorConfig.insertSpaces=true] - 是否使用空格缩进
+     * @param {number} [editorConfig.fontSize=16] - 字号（像素）
+     * @param {number} [editorConfig.lineHeight=1.6] - 行高
+     * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
+     * @param {boolean} [editorConfig.lineWrapping=true] - 是否自动换行
+     * @param {boolean} [editorConfig.highlightActiveLine=true] - 是否高亮当前行
+     * @param {boolean} [editorConfig.bracketMatching=true] - 是否匹配括号
+     * @param {boolean} [editorConfig.highlightGutter=true] - 是否高亮当前行号
+     * @param {Object} [interfaceConfig={}] - 界面配置
+     * @param {string} [interfaceConfig.theme] - 主题模式 ('dark' | 'light' | 'auto')
+     *
+     * @example
+     * ```javascript
+     * editor.updateConfig({
+     *   fontSize: 18,
+     *   lineHeight: 1.8,
+     *   lineNumbers: true
+     * }, {
+     *   theme: 'dark'
+     * });
+     * ```
+     */
     updateConfig(editorConfig = {}, interfaceConfig = {}) {
         if (!this.view) return;
 
@@ -241,6 +468,13 @@ export class CodeMirrorEditor {
         });
     }
 
+    /**
+     * 解析暗色模式设置
+     * @param {Object} interfaceConfig - 界面配置
+     * @param {string} [interfaceConfig.theme] - 主题模式 ('dark' | 'light' | 'auto')
+     * @returns {boolean} 是否为暗色模式
+     * @private
+     */
     resolveDarkMode(interfaceConfig = {}) {
         if (interfaceConfig.theme === 'dark') return true;
         if (interfaceConfig.theme === 'light') return false;
@@ -249,6 +483,17 @@ export class CodeMirrorEditor {
         return currentMode === 'dark';
     }
 
+    /**
+     * 设置编辑器内容
+     * @param {string} value - 新内容
+     * @param {Object} [options={}] - 选项
+     * @param {boolean} [options.emitUpdate=false] - 是否触发 onChange 回调
+     * @example
+     * ```javascript
+     * editor.setValue('# New Content');
+     * editor.setValue('# Updated', { emitUpdate: true });
+     * ```
+     */
     setValue(value, options = {}) {
         if (!this.view) return;
         const current = this.getValue();
@@ -266,20 +511,57 @@ export class CodeMirrorEditor {
         });
     }
 
+    /**
+     * 获取编辑器内容
+     * @returns {string} 编辑器当前内容
+     * @example
+     * ```javascript
+     * const content = editor.getValue();
+     * ```
+     */
     getValue() {
         return this.view ? this.view.state.doc.toString() : '';
     }
 
+    /**
+     * 聚焦编辑器
+     * @example
+     * ```javascript
+     * editor.focus();
+     * ```
+     */
     focus() {
         this.view?.focus();
     }
 
+    /**
+     * 获取当前选区范围
+     * @returns {{start: number, end: number}} 选区起始和结束位置
+     * @example
+     * ```javascript
+     * const { start, end } = editor.getSelectionRange();
+     * console.log(`Selected: ${start} to ${end}`);
+     * ```
+     */
     getSelectionRange() {
         if (!this.view) return { start: 0, end: 0 };
         const selection = this.view.state.selection.main;
         return { start: selection.from, end: selection.to };
     }
 
+    /**
+     * 设置选区范围
+     * @param {number} start - 选区起始位置
+     * @param {number} end - 选区结束位置
+     * @param {Object} [options={}] - 选项
+     * @param {boolean} [options.scroll=false] - 是否滚动到选区
+     * @param {boolean} [options.focus=false] - 是否聚焦编辑器
+     * @example
+     * ```javascript
+     * editor.setSelectionRange(10, 20);
+     * editor.setSelectionRange(10, 20, { scroll: true, focus: true });
+     * ```
+     */
     setSelectionRange(start, end, options = {}) {
         if (!this.view) return;
 
@@ -298,6 +580,16 @@ export class CodeMirrorEditor {
         }
     }
 
+    /**
+     * 替换指定范围的内容
+     * @param {number} from - 起始位置
+     * @param {number} to - 结束位置
+     * @param {string} text - 替换文本
+     * @example
+     * ```javascript
+     * editor.replaceRange(10, 20, 'new text');
+     * ```
+     */
     replaceRange(from, to, text) {
         if (!this.view) return;
 
@@ -308,6 +600,15 @@ export class CodeMirrorEditor {
         });
     }
 
+    /**
+     * 获取滚动元素
+     * @returns {HTMLElement|null} 滚动容器元素
+     * @example
+     * ```javascript
+     * const scrollElement = editor.getScrollElement();
+     * scrollElement.scrollTop = 0;
+     * ```
+     */
     getScrollElement() {
         return this.view?.scrollDOM || null;
     }
