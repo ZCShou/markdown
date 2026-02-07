@@ -949,11 +949,11 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* 选中文本背景 */
 #markdown-editor .cm-selectionBackground {
-  background-color: transparent !important;
+  background-color: var(--md-selection-bg) !important;
 }
 
 #markdown-editor .cm-focused .cm-selectionBackground {
-  background-color: transparent !important;
+  background-color: var(--md-selection-bg) !important;
 }
 
 /* 选中文本背景 - 使用原生选中，仅覆盖文本内容 */
