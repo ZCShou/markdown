@@ -546,6 +546,7 @@ html::-webkit-scrollbar-thumb:hover,
   word-break: break-word;
   box-sizing: border-box;
   max-width: 100%;
+  font-size: 100%;
 }
 
 .md-toc-item:hover {
@@ -554,32 +555,26 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-toc-item.level-1 {
   font-weight: 600;
-  font-size: 16px;
 }
 
 .md-toc-item.level-2 {
   padding-left: 16px;
-  font-size: 15px;
 }
 
 .md-toc-item.level-3 {
   padding-left: 32px;
-  font-size: 14px;
 }
 
 .md-toc-item.level-4 {
   padding-left: 48px;
-  font-size: 14px;
 }
 
 .md-toc-item.level-5 {
   padding-left: 64px;
-  font-size: 14px;
 }
 
 .md-toc-item.level-6 {
   padding-left: 80px;
-  font-size: 14px;
 }
 
 .md-sidebar-divider {
@@ -624,7 +619,7 @@ html::-webkit-scrollbar-thumb:hover,
 }
 
 .md-sidebar-section-title {
-  font-size: 16px;
+  font-size: 100%;
   font-weight: 600;
   color: var(--md-text-primary);
   flex: 1;
@@ -1129,7 +1124,7 @@ html::-webkit-scrollbar-thumb:hover,
 /* Markdown 内容样式 - 使用 GitHub 风格 */
 .markdown-body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  font-size: 16px;
+  font-size: 100%;
   line-height: 1.6;
   color: var(--md-markdown-text);
   word-wrap: break-word;
@@ -1716,7 +1711,7 @@ pre.has-copy-btn {
 /* 名称 */
 .md-doc-item-name {
   flex: 1;
-  font-size: 14px;
+  font-size: 100%;
   height: 22px;
   line-height: 22px;
   color: var(--md-text-primary);

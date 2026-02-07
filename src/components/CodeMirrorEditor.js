@@ -417,29 +417,32 @@ export class CodeMirrorEditor {
      * 创建主题扩展
      * 动态配置字号和行高，其他样式通过 CSS 实现
      * @param {Object} editorConfig - 编辑器配置
-     * @param {number} [editorConfig.fontSize=16] - 字号（像素）
+     * @param {number} [editorConfig.fontSize] - 字号（像素），默认使用浏览器默认值
      * @param {number} [editorConfig.lineHeight=1.6] - 行高
      * @param {boolean} isDark - 是否为暗色主题
      * @returns {import('@codemirror/state').Extension} 主题扩展
      * @private
      */
     createThemeExtension(editorConfig, isDark) {
-        const fontSize = editorConfig.fontSize ?? 16;
+        const fontSize = editorConfig.fontSize ?? null;
         const lineHeight = editorConfig.lineHeight ?? 1.6;
 
         // 只保留需要动态配置的样式（字号、行高）
         // 其他样式通过 CSS 实现，保持与 markdown.css 一致
-        return EditorView.theme(
-            {
-                '&': {
-                    fontSize: `${fontSize}px`
-                },
-                '.cm-scroller': {
-                    lineHeight: String(lineHeight)
-                }
-            },
-            { dark: isDark }
-        );
+        const themeConfig = {
+            '.cm-scroller': {
+                lineHeight: String(lineHeight)
+            }
+        };
+
+        // 只有明确设置了 fontSize 时才覆盖
+        if (fontSize !== null) {
+            themeConfig['&'] = {
+                fontSize: `${fontSize}px`
+            };
+        }
+
+        return EditorView.theme(themeConfig, { dark: isDark });
     }
 
     /**
