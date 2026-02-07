@@ -87,8 +87,7 @@ export class CodeMirrorEditor {
                     },
                     ...defaultKeymap,
                     ...historyKeymap,
-                    indentWithTab,
-                    
+                    indentWithTab
                 ]),
                 EditorView.updateListener.of(update => {
                     if (!update.docChanged) return;
