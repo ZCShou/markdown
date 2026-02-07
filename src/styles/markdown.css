@@ -896,7 +896,7 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* CodeMirror 内容区域 */
 #markdown-editor .cm-content {
-  padding: 16px 16px 16px 4px;
+  padding: 0px;
 }
 
 #markdown-editor .cm-line {
