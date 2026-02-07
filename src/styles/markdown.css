@@ -1048,7 +1048,6 @@ html::-webkit-scrollbar-thumb:hover,
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   background-color: transparent;
   color: var(--md-code-text);
-  padding: 0.2em 0.4em;
   border-radius: 3px;
   font-size: 0.9em;
 }
