@@ -190,32 +190,7 @@ export class CodeMirrorEditor {
                 this.tabSizeCompartment.of(EditorState.tabSize.of(editorConfig.tabSize ?? 4)),
                 this.indentCompartment.of(this.createIndentExtension(editorConfig)),
                 this.themeCompartment.of(this.createThemeExtension(editorConfig, isDark)),
-                keymap.of([
-                    {
-                        key: 'Mod-f',
-                        run: () => {
-                            this.options.onSearch?.(false);
-                            return true;
-                        }
-                    },
-                    {
-                        key: 'Mod-h',
-                        run: () => {
-                            this.options.onSearch?.(true);
-                            return true;
-                        }
-                    },
-                    {
-                        key: 'Escape',
-                        run: () => {
-                            return this.options.onEscape?.() ?? false;
-                        }
-                    },
-                    ...defaultKeymap,
-                    ...historyKeymap,
-                    ...foldKeymap,
-                    indentWithTab
-                ]),
+                keymap.of(this.createCustomKeymap()),
                 EditorView.updateListener.of(update => {
                     if (!update.docChanged) return;
 
@@ -267,6 +242,40 @@ export class CodeMirrorEditor {
         const { insertSpaces = true, tabSize = 4 } = editorConfig || {};
         const unit = insertSpaces ? ' '.repeat(tabSize) : '\t';
         return indentUnit.of(unit);
+    }
+
+    /**
+     * 创建自定义快捷键配置
+     * @returns {Array} 快捷键配置数组
+     * @private
+     */
+    createCustomKeymap() {
+        return [
+            {
+                key: 'Mod-f',
+                run: () => {
+                    this.options.onSearch?.(false);
+                    return true;
+                }
+            },
+            {
+                key: 'Mod-h',
+                run: () => {
+                    this.options.onSearch?.(true);
+                    return true;
+                }
+            },
+            {
+                key: 'Escape',
+                run: () => {
+                    return this.options.onEscape?.() ?? false;
+                }
+            },
+            ...defaultKeymap,
+            ...historyKeymap,
+            ...foldKeymap,
+            indentWithTab
+        ];
     }
 
     /**
@@ -355,7 +364,7 @@ export class CodeMirrorEditor {
      * @private
      */
     createLineWrappingExtension(editorConfig) {
-        return editorConfig?.lineWrapping !== false ? EditorView.lineWrapping : [];
+        return this._createExtensionIfEnabled(editorConfig?.lineWrapping, EditorView.lineWrapping);
     }
 
     /**
@@ -366,7 +375,7 @@ export class CodeMirrorEditor {
      * @private
      */
     createHighlightActiveLineExtension(editorConfig) {
-        return editorConfig?.highlightActiveLine !== false ? highlightActiveLine() : [];
+        return this._createExtensionIfEnabled(editorConfig?.highlightActiveLine, highlightActiveLine);
     }
 
     /**
@@ -377,7 +386,7 @@ export class CodeMirrorEditor {
      * @private
      */
     createBracketMatchingExtension(editorConfig) {
-        return editorConfig?.bracketMatching !== false ? bracketMatching() : [];
+        return this._createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching);
     }
 
     /**
@@ -388,7 +397,20 @@ export class CodeMirrorEditor {
      * @private
      */
     createHighlightGutterExtension(editorConfig) {
-        return editorConfig?.highlightGutter !== false ? highlightActiveLineGutter() : [];
+        return this._createExtensionIfEnabled(editorConfig?.highlightGutter, highlightActiveLineGutter);
+    }
+
+    /**
+     * 通用的扩展创建方法 - 如果配置启用则返回扩展，否则返回空数组
+     * @param {boolean|undefined} enabled - 是否启用
+     * @param {Function|import('@codemirror/state').Extension} extensionOrFactory - 扩展或工厂函数
+     * @returns {import('@codemirror/state').Extension} 扩展或空数组
+     * @private
+     */
+    _createExtensionIfEnabled(enabled, extensionOrFactory) {
+        if (enabled === false) return [];
+        // 如果是函数，调用它；否则直接返回扩展
+        return typeof extensionOrFactory === 'function' ? extensionOrFactory() : extensionOrFactory;
     }
 
     /**
@@ -476,11 +498,11 @@ export class CodeMirrorEditor {
      * @private
      */
     resolveDarkMode(interfaceConfig = {}) {
-        if (interfaceConfig.theme === 'dark') return true;
-        if (interfaceConfig.theme === 'light') return false;
+        const theme = interfaceConfig.theme;
+        if (theme === 'dark') return true;
+        if (theme === 'light') return false;
 
-        const currentMode = document.documentElement.getAttribute('data-mode');
-        return currentMode === 'dark';
+        return document.documentElement.getAttribute('data-mode') === 'dark';
     }
 
     /**
@@ -496,14 +518,11 @@ export class CodeMirrorEditor {
      */
     setValue(value, options = {}) {
         if (!this.view) return;
-        const current = this.getValue();
-        if (current === value) return;
+        if (this.getValue() === value) return;
 
-        const annotations = [];
-        const emitUpdate = options.emitUpdate === true;
-        if (!emitUpdate) {
-            annotations.push(externalUpdate.of(true));
-        }
+        const annotations = options.emitUpdate !== true
+            ? [externalUpdate.of(true)]
+            : [];
 
         this.view.dispatch({
             changes: { from: 0, to: this.view.state.doc.length, insert: value },
@@ -565,10 +584,9 @@ export class CodeMirrorEditor {
     setSelectionRange(start, end, options = {}) {
         if (!this.view) return;
 
-        const effects = [];
-        if (options.scroll) {
-            effects.push(EditorView.scrollIntoView(start, { y: 'center' }));
-        }
+        const effects = options.scroll
+            ? [EditorView.scrollIntoView(start, { y: 'center' })]
+            : [];
 
         this.view.dispatch({
             selection: { anchor: start, head: end },
