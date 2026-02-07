@@ -859,36 +859,37 @@ html::-webkit-scrollbar-thumb:hover,
 #markdown-editor {
   width: 100%;
   height: 100%;
-  padding: 16px;
   border: none;
-  resize: none;
   outline: none;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--md-text-primary);
   background-color: var(--md-bg-secondary);
-  box-sizing: border-box;
-  /* 优化滚动性能 */
-  overflow: auto;
-  scroll-behavior: auto;
-  will-change: scroll-position;
 }
 
-#markdown-editor::placeholder {
-  color: var(--md-placeholder-color);
+#markdown-editor .cm-editor {
+  height: 100%;
+  background-color: var(--md-bg-secondary);
 }
 
-#markdown-editor::-webkit-input-placeholder {
-  color: var(--md-placeholder-color);
+#markdown-editor .cm-scroller {
+  scrollbar-width: auto;
+  scrollbar-color: var(--md-scrollbar-thumb) transparent;
 }
 
-#markdown-editor::-moz-placeholder {
-  color: var(--md-placeholder-color);
+#markdown-editor .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-#markdown-editor:-ms-input-placeholder {
-  color: var(--md-placeholder-color);
+#markdown-editor .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#markdown-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: var(--md-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+#markdown-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: var(--md-scrollbar-thumb-hover);
 }
 
 /* 分隔条 */
@@ -1225,7 +1226,6 @@ html::-webkit-scrollbar-thumb:hover,
     flex-wrap: wrap;
   }
 
-  #markdown-editor,
   .markdown-preview-wrapper {
     padding: 12px;
   }

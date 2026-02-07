@@ -5,6 +5,7 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
+import { CodeMirrorEditor } from './CodeMirrorEditor.js';
 
 export class SearchReplace extends BaseComponent {
     constructor(state, containerId) {
@@ -28,6 +29,46 @@ export class SearchReplace extends BaseComponent {
         super.init();
         // 初始隐藏
         this.hide();
+    }
+
+    getEditorAdapter() {
+        const codeMirror = CodeMirrorEditor.getActive();
+        if (codeMirror) return codeMirror;
+
+        const editor = dom.editor.element?.element;
+        if (!editor) return null;
+
+        return {
+            getValue: () => editor.value,
+            setValue: (value) => {
+                editor.value = value;
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+            },
+            getSelectionRange: () => ({
+                start: editor.selectionStart,
+                end: editor.selectionEnd
+            }),
+            setSelectionRange: (start, end, options = {}) => {
+                editor.setSelectionRange(start, end);
+                if (options.focus) {
+                    editor.focus();
+                }
+                if (options.scroll) {
+                    const linesBefore = editor.value.substring(0, start).split('\n').length;
+                    const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24;
+                    const scrollTop = (linesBefore - 5) * lineHeight;
+                    editor.scrollTop = Math.max(0, scrollTop);
+                }
+            },
+            replaceRange: (from, to, text) => {
+                const content = editor.value;
+                editor.value = content.substring(0, from) + text + content.substring(to);
+                const cursor = from + text.length;
+                editor.setSelectionRange(cursor, cursor);
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+            },
+            focus: () => editor.focus()
+        };
     }
 
     /**
@@ -185,10 +226,10 @@ export class SearchReplace extends BaseComponent {
     }
 
     performSearch(force = false) {
-        const editor = dom.editor.element?.element;
+        const editor = this.getEditorAdapter();
         if (!editor) return;
 
-        const content = editor.value;
+        const content = editor.getValue();
 
         // 如果搜索词为空，清空结果
         if (!this.searchTerm) {
@@ -202,7 +243,7 @@ export class SearchReplace extends BaseComponent {
         // 检查配置是否变化，如果没变化且已有结果且未被强制刷新，则跳过搜索
         if (!force && !this.hasSearchConfigChanged() && this.matches.length > 0) {
             // 只更新当前匹配索引（光标位置可能变化）
-            const cursorPos = editor.selectionStart;
+            const cursorPos = editor.getSelectionRange().start;
             this.currentMatchIndex = this.matches.findIndex(m => m.index >= cursorPos);
             if (this.currentMatchIndex === -1) {
                 this.currentMatchIndex = 0;
@@ -239,7 +280,7 @@ export class SearchReplace extends BaseComponent {
 
             // 如果有匹配，找到当前光标位置后的第一个匹配
             if (this.matches.length > 0) {
-                const cursorPos = editor.selectionStart;
+                const cursorPos = editor.getSelectionRange().start;
                 this.currentMatchIndex = this.matches.findIndex(
                     m => m.index >= cursorPos
                 );
@@ -279,7 +320,7 @@ export class SearchReplace extends BaseComponent {
      * @param {boolean} [shouldFocus=false] - 是否聚焦编辑器（用户主动导航时为 true）
      */
     highlightCurrentMatch(shouldFocus = false) {
-        const editor = dom.editor.element?.element;
+        const editor = this.getEditorAdapter();
         if (!editor || this.matches.length === 0) return;
 
         const match = this.matches[this.currentMatchIndex];
@@ -287,16 +328,18 @@ export class SearchReplace extends BaseComponent {
 
         // 只在用户主动导航时聚焦编辑器，以显示高亮
         // 输入时的自动搜索不聚焦，避免中断用户输入
-        if (shouldFocus) {
-            editor.focus();
-        }
-        editor.setSelectionRange(match.index, match.index + match.length);
+        editor.setSelectionRange(match.index, match.index + match.length, {
+            focus: shouldFocus,
+            scroll: true
+        });
+    }
 
-        // 滚动到可见区域
-        const linesBefore = editor.value.substring(0, match.index).split('\n').length;
-        const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24;
-        const scrollTop = (linesBefore - 5) * lineHeight;
-        editor.scrollTop = Math.max(0, scrollTop);
+    clearHighlights() {
+        const editor = this.getEditorAdapter();
+        if (!editor) return;
+
+        const selection = editor.getSelectionRange();
+        editor.setSelectionRange(selection.end, selection.end);
     }
 
     /**
@@ -334,7 +377,7 @@ export class SearchReplace extends BaseComponent {
     }
 
     replaceOne() {
-        const editor = dom.editor.element?.element;
+        const editor = this.getEditorAdapter();
         if (!editor || this.matches.length === 0) return;
 
         const match = this.matches[this.currentMatchIndex];
@@ -342,10 +385,6 @@ export class SearchReplace extends BaseComponent {
 
         const { replaceInput } = this.getElements();
         const replacement = replaceInput ? (replaceInput.value || '') : '';
-
-        const content = editor.value;
-        const before = content.substring(0, match.index);
-        const after = content.substring(match.index + match.length);
 
         let finalReplacement = replacement;
 
@@ -359,14 +398,7 @@ export class SearchReplace extends BaseComponent {
             }
         }
 
-        editor.value = before + finalReplacement + after;
-
-        // 更新光标位置
-        const newCursorPos = match.index + finalReplacement.length;
-        editor.setSelectionRange(newCursorPos, newCursorPos);
-
-        // 触发 input 事件以更新状态
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.replaceRange(match.index, match.index + match.length, finalReplacement);
 
         // 增量更新匹配位置，避免重新搜索整个文档
         const lengthDiff = finalReplacement.length - match.length;
@@ -403,14 +435,14 @@ export class SearchReplace extends BaseComponent {
     }
 
     replaceAll() {
-        const editor = dom.editor.element?.element;
+        const editor = this.getEditorAdapter();
         if (!editor || this.matches.length === 0) return;
 
         // 获取当前替换文本
         const { replaceInput } = this.getElements();
         const replacement = replaceInput ? (replaceInput.value || '') : '';
 
-        let content = editor.value;
+        let content = editor.getValue();
         let replaceCount = 0;
 
         try {
@@ -421,10 +453,7 @@ export class SearchReplace extends BaseComponent {
                 return replacement;
             });
 
-            editor.value = content;
-
-            // 触发 input 事件以更新状态
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            editor.setValue(content, { emitUpdate: true });
 
             this.showMessage(`已替换 ${replaceCount} 处`, 'success');
 
@@ -526,9 +555,11 @@ export class SearchReplace extends BaseComponent {
             searchInput.focus();
 
             // 如果有选中文本，自动填充到搜索框并高亮第一个匹配
-            const editor = dom.editor.element?.element;
-            if (editor && editor.selectionStart !== editor.selectionEnd) {
-                const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+            const editor = this.getEditorAdapter();
+            if (editor) {
+                const { start, end } = editor.getSelectionRange();
+                if (start === end) return;
+                const selectedText = editor.getValue().substring(start, end);
                 searchInput.value = selectedText;
                 this.searchTerm = selectedText;
                 this.performSearch();

@@ -11,10 +11,10 @@
  */
 import { EditorState } from './EditorState.js';
 import { Preview } from './components/Preview.js';
-import { Editor } from './components/Editor.js';
 import { LeftSidebar } from './components/LeftSidebar.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { SearchReplace } from './components/SearchReplace.js';
+import { CodeMirrorEditor } from './components/CodeMirrorEditor.js';
 import { Settings } from './components/Settings.js';
 import { dom } from './utils/dom.js';
 
@@ -116,6 +116,18 @@ export class MarkdownEditor {
 
         /** @type {Element|null} 同步滚动图标元素 */
         this._syncScrollIcon = null;
+
+        /** @type {CodeMirrorEditor|null} CodeMirror 实例 */
+        this.codeMirrorEditor = null;
+
+        /** @type {number|null} 编辑器输入防抖定时器 */
+        this._editorInputTimer = null;
+
+        /** @type {Function|null} 编辑器状态订阅取消函数 */
+        this._editorStateUnsubscribe = null;
+
+        /** @type {Function|null} 编辑器配置订阅取消函数 */
+        this._editorConfigUnsubscribe = null;
     }
 
     // ==================== 工具函数 ====================
@@ -151,8 +163,43 @@ export class MarkdownEditor {
      * 初始化所有组件
      */
     initComponents() {
-        // 编辑器组件
-        this.components.editor = new Editor(this.state, 'markdown-editor');
+        // CodeMirror 编辑器
+        const editorHost = dom.getById('markdown-editor')?.element;
+        if (editorHost) {
+            const editorConfig = this.state.get('editor') || {};
+            const interfaceConfig = this.state.get('interface') || {};
+
+            this.codeMirrorEditor = new CodeMirrorEditor(editorHost, {
+                initialValue: this.state.get('content') || '',
+                editorConfig,
+                interfaceConfig,
+                placeholder: '在此输入 Markdown 内容...',
+                ariaLabel: 'Markdown 编辑器输入区域',
+                onChange: (content) => {
+                    if (this._editorInputTimer) {
+                        clearTimeout(this._editorInputTimer);
+                    }
+                    this._editorInputTimer = setTimeout(() => {
+                        this.state.updateContent(content);
+                    }, 150);
+                },
+                onSearch: (isReplaceMode) => {
+                    this.state.showSearchReplace(isReplaceMode);
+                },
+                onEscape: () => {
+                    const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
+                    if (searchReplaceVisible) {
+                        this.state.hideSearchReplace();
+                        return true;
+                    }
+                    return false;
+                }
+            });
+
+            this.codeMirrorEditor.init();
+        } else {
+            console.error('Editor host not found: markdown-editor');
+        }
 
         // 预览组件
         this.components.preview = new Preview(this.state, 'markdown-preview');
@@ -181,7 +228,8 @@ export class MarkdownEditor {
      * 设置同步滚动（性能优化版 - 修复滚轮抖动）
      */
     setupSyncScroll() {
-        const editor = dom.editor.element?.element;
+        const editorInstance = CodeMirrorEditor.getActive();
+        const editor = editorInstance?.getScrollElement() ?? dom.editor.element?.element;
         const previewWrapper = dom.preview.wrapper?.element;
 
         if (!editor || !previewWrapper) return;
@@ -566,6 +614,19 @@ export class MarkdownEditor {
      * @private
      */
     #subscribe() {
+        // 同步内容到 CodeMirror
+        this._editorStateUnsubscribe = this.state.subscribeTo(
+            ['content', 'currentDocId'],
+            () => {
+                this.codeMirrorEditor?.setValue(this.state.get('content') || '', { emitUpdate: false });
+            }
+        );
+
+        // 同步编辑器配置到 CodeMirror
+        this._editorConfigUnsubscribe = this.state.subscribeTo('editor', (newEditor) => {
+            this.codeMirrorEditor?.updateConfig(newEditor, this.state.get('interface'));
+        });
+
         // 监听界面配置变化，应用到界面
         this.state.subscribeTo('interface', (newInterface, oldInterface) => {
             const hasOld = !!oldInterface;
@@ -575,6 +636,8 @@ export class MarkdownEditor {
                 this.applyTheme(newInterface.theme ?? 'light');
                 this.components.preview?.updateMermaidTheme();
             }
+
+            this.codeMirrorEditor?.updateConfig(this.state.get('editor'), newInterface);
 
             // 应用布局（只在布局变化时）
             if (!hasOld || newInterface.layout !== oldInterface.layout) {
@@ -599,6 +662,26 @@ export class MarkdownEditor {
      * 清理资源
      */
     destroy() {
+        if (this._editorInputTimer) {
+            clearTimeout(this._editorInputTimer);
+            this._editorInputTimer = null;
+        }
+
+        if (this._editorStateUnsubscribe) {
+            this._editorStateUnsubscribe();
+            this._editorStateUnsubscribe = null;
+        }
+
+        if (this._editorConfigUnsubscribe) {
+            this._editorConfigUnsubscribe();
+            this._editorConfigUnsubscribe = null;
+        }
+
+        if (this.codeMirrorEditor) {
+            this.codeMirrorEditor.destroy();
+            this.codeMirrorEditor = null;
+        }
+
         // 清理同步滚动的 ResizeObserver
         if (this._syncScrollResizeObserver) {
             this._syncScrollResizeObserver.disconnect();
