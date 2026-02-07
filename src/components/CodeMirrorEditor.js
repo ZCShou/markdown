@@ -152,7 +152,23 @@ export class CodeMirrorEditor {
     }
 
     createLineNumbersExtension(editorConfig) {
-        return editorConfig?.lineNumbers !== false ? lineNumbers() : [];
+        if (editorConfig?.lineNumbers === false) return [];
+        
+        return lineNumbers({
+            domEventHandlers: {
+                mousedown: (view, line, event) => {
+                    event.preventDefault();
+                    
+                    // 选中整行
+                    view.dispatch({
+                        selection: { anchor: line.from, head: line.to }
+                    });
+                    
+                    view.focus();
+                    return true;
+                }
+            }
+        });
     }
 
     createLineWrappingExtension(editorConfig) {
