@@ -896,7 +896,11 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* CodeMirror 内容区域 */
 #markdown-editor .cm-content {
-  padding: 16px;
+  padding: 16px 16px 16px 4px;
+}
+
+#markdown-editor .cm-line {
+  padding-left: 12px;
 }
 
 /* CodeMirror 行号栏 */
@@ -913,7 +917,7 @@ html::-webkit-scrollbar-thumb:hover,
   font-weight: 500;
 }
 
-/* 激活行背景 */
+/* 激活行背景和对齐 */
 #markdown-editor .cm-activeLine {
   background-color: transparent;
 }
