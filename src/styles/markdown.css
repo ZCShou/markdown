@@ -937,12 +937,6 @@ html::-webkit-scrollbar-thumb:hover,
   border-left-width: 2px;
 }
 
-/* 光标所在行的选中背景向左扩展以覆盖光标 */
-#markdown-editor .cm-line.cm-activeLine .cm-selectionBackground {
-  margin-left: -10px;
-  padding-left: -10px;
-}
-
 /* 占位符样式 */
 #markdown-editor .cm-placeholder {
   color: var(--md-placeholder-color);
