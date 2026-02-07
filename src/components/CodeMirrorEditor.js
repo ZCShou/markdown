@@ -188,7 +188,7 @@ export class CodeMirrorEditor {
     }
 
     createThemeExtension(editorConfig, isDark) {
-        const fontSize = editorConfig.fontSize ?? 14;
+        const fontSize = editorConfig.fontSize ?? 16;
         const lineHeight = editorConfig.lineHeight ?? 1.6;
 
         // 只保留需要动态配置的样式（字号、行高）

@@ -263,7 +263,7 @@ export class Settings {
         const exportConfig = this.state.get('export') || {};
 
         // 编辑器设置
-        this.#setInputValue(this.cachedElements.fontSizeInput, editor.fontSize, 14);
+        this.#setInputValue(this.cachedElements.fontSizeInput, editor.fontSize, 16);
         this.#setInputValue(this.cachedElements.lineHeightInput, editor.lineHeight, 1.6);
         this.#setInputChecked(this.cachedElements.autoSaveInput, editor.autoSave, true);
         this.#setInputChecked(this.cachedElements.insertSpacesInput, editor.insertSpaces, true);
@@ -322,7 +322,7 @@ export class Settings {
     readSettingsFromUI() {
         // 读取编辑器配置 - 使用缓存的元素
         const editorConfig = {
-            fontSize: parseInt(this.cachedElements.fontSizeInput?.value) || 14,
+            fontSize: parseInt(this.cachedElements.fontSizeInput?.value) || 16,
             lineHeight: parseFloat(this.cachedElements.lineHeightInput?.value) || 1.6,
             autoSave: this.cachedElements.autoSaveInput?.checked || false,
             insertSpaces: this.cachedElements.insertSpacesInput?.checked ?? true,
@@ -416,7 +416,7 @@ export class Settings {
 
         // 应用字体大小 - 使用缓存的元素
         if (this.cachedElements?.editorElement) {
-            this.cachedElements.editorElement.style.fontSize = `${editor.fontSize ?? 14}px`;
+            this.cachedElements.editorElement.style.fontSize = `${editor.fontSize ?? 16}px`;
             this.cachedElements.editorElement.style.lineHeight = editor.lineHeight ?? 1.6;
         }
 

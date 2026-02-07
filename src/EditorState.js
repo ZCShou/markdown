@@ -32,7 +32,7 @@ export class EditorState {
      */
     static DEFAULT_SETTINGS = {
         editor: {
-            fontSize: 14,
+            fontSize: 16,
             lineHeight: 1.6,
             autoSave: true,
             insertSpaces: true,
