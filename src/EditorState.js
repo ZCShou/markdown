@@ -36,7 +36,12 @@ export class EditorState {
             lineHeight: 1.6,
             autoSave: true,
             insertSpaces: true,
-            tabSize: 4
+            tabSize: 4,
+            lineNumbers: true,
+            lineWrapping: true,
+            highlightActiveLine: true,
+            bracketMatching: true,
+            highlightGutter: true
         },
         interface: {
             theme: 'light',

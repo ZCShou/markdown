@@ -48,6 +48,11 @@ export class CodeMirrorEditor {
         this.themeCompartment = new Compartment();
         this.indentCompartment = new Compartment();
         this.tabSizeCompartment = new Compartment();
+        this.lineNumbersCompartment = new Compartment();
+        this.lineWrappingCompartment = new Compartment();
+        this.highlightActiveLineCompartment = new Compartment();
+        this.bracketMatchingCompartment = new Compartment();
+        this.highlightGutterCompartment = new Compartment();
     }
 
     static getActive() {
@@ -64,18 +69,18 @@ export class CodeMirrorEditor {
         const state = EditorState.create({
             doc: this.options.initialValue || '',
             extensions: [
-                lineNumbers(),
-                highlightActiveLineGutter(),
+                this.lineNumbersCompartment.of(this.createLineNumbersExtension(editorConfig)),
+                this.highlightGutterCompartment.of(this.createHighlightGutterExtension(editorConfig)),
                 history(),
                 drawSelection(),
                 rectangularSelection(),
-                highlightActiveLine(),
-                bracketMatching(),
+                this.highlightActiveLineCompartment.of(this.createHighlightActiveLineExtension(editorConfig)),
+                this.bracketMatchingCompartment.of(this.createBracketMatchingExtension(editorConfig)),
                 syntaxHighlighting(customHighlightStyle, { fallback: true }),
                 markdown({
                     codeLanguages: languages
                 }),
-                EditorView.lineWrapping,
+                this.lineWrappingCompartment.of(this.createLineWrappingExtension(editorConfig)),
                 placeholder(this.options.placeholder || ''),
                 EditorView.contentAttributes.of({
                     'aria-label': this.options.ariaLabel || 'Markdown editor input',
@@ -146,6 +151,26 @@ export class CodeMirrorEditor {
         return indentUnit.of(unit);
     }
 
+    createLineNumbersExtension(editorConfig) {
+        return editorConfig?.lineNumbers !== false ? lineNumbers() : [];
+    }
+
+    createLineWrappingExtension(editorConfig) {
+        return editorConfig?.lineWrapping !== false ? EditorView.lineWrapping : [];
+    }
+
+    createHighlightActiveLineExtension(editorConfig) {
+        return editorConfig?.highlightActiveLine !== false ? highlightActiveLine() : [];
+    }
+
+    createBracketMatchingExtension(editorConfig) {
+        return editorConfig?.bracketMatching !== false ? bracketMatching() : [];
+    }
+
+    createHighlightGutterExtension(editorConfig) {
+        return editorConfig?.highlightGutter !== false ? highlightActiveLineGutter() : [];
+    }
+
     createThemeExtension(editorConfig, isDark) {
         const fontSize = editorConfig.fontSize ?? 14;
         const lineHeight = editorConfig.lineHeight ?? 1.6;
@@ -175,7 +200,12 @@ export class CodeMirrorEditor {
                     EditorState.tabSize.of(editorConfig.tabSize ?? 4)
                 ),
                 this.indentCompartment.reconfigure(this.createIndentExtension(editorConfig)),
-                this.themeCompartment.reconfigure(this.createThemeExtension(editorConfig, isDark))
+                this.themeCompartment.reconfigure(this.createThemeExtension(editorConfig, isDark)),
+                this.lineNumbersCompartment.reconfigure(this.createLineNumbersExtension(editorConfig)),
+                this.lineWrappingCompartment.reconfigure(this.createLineWrappingExtension(editorConfig)),
+                this.highlightActiveLineCompartment.reconfigure(this.createHighlightActiveLineExtension(editorConfig)),
+                this.bracketMatchingCompartment.reconfigure(this.createBracketMatchingExtension(editorConfig)),
+                this.highlightGutterCompartment.reconfigure(this.createHighlightGutterExtension(editorConfig))
             ]
         });
     }

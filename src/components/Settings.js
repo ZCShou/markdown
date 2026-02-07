@@ -79,6 +79,11 @@ export class Settings {
             autoSaveInput: dom.get('#setting-auto-save'),
             insertSpacesInput: dom.get('#setting-insert-spaces'),
             tabSizeInput: dom.get('#setting-tab-size'),
+            lineNumbersInput: dom.get('#setting-line-numbers'),
+            lineWrappingInput: dom.get('#setting-line-wrapping'),
+            highlightActiveLineInput: dom.get('#setting-highlight-active-line'),
+            bracketMatchingInput: dom.get('#setting-bracket-matching'),
+            highlightGutterInput: dom.get('#setting-highlight-gutter'),
             
             // 界面设置
             themeSelect: dom.get('#setting-theme'),
@@ -263,6 +268,11 @@ export class Settings {
         this.#setInputChecked(this.cachedElements.autoSaveInput, editor.autoSave, true);
         this.#setInputChecked(this.cachedElements.insertSpacesInput, editor.insertSpaces, true);
         this.#setInputValue(this.cachedElements.tabSizeInput, editor.tabSize, 4);
+        this.#setInputChecked(this.cachedElements.lineNumbersInput, editor.lineNumbers, true);
+        this.#setInputChecked(this.cachedElements.lineWrappingInput, editor.lineWrapping, true);
+        this.#setInputChecked(this.cachedElements.highlightActiveLineInput, editor.highlightActiveLine, true);
+        this.#setInputChecked(this.cachedElements.bracketMatchingInput, editor.bracketMatching, true);
+        this.#setInputChecked(this.cachedElements.highlightGutterInput, editor.highlightGutter, true);
 
         // 界面配置
         this.#setInputValue(this.cachedElements.themeSelect, interfaceState.theme, 'auto');
@@ -316,7 +326,12 @@ export class Settings {
             lineHeight: parseFloat(this.cachedElements.lineHeightInput?.value) || 1.6,
             autoSave: this.cachedElements.autoSaveInput?.checked || false,
             insertSpaces: this.cachedElements.insertSpacesInput?.checked ?? true,
-            tabSize: parseInt(this.cachedElements.tabSizeInput?.value) || 4
+            tabSize: parseInt(this.cachedElements.tabSizeInput?.value) || 4,
+            lineNumbers: this.cachedElements.lineNumbersInput?.checked ?? true,
+            lineWrapping: this.cachedElements.lineWrappingInput?.checked ?? true,
+            highlightActiveLine: this.cachedElements.highlightActiveLineInput?.checked ?? true,
+            bracketMatching: this.cachedElements.bracketMatchingInput?.checked ?? true,
+            highlightGutter: this.cachedElements.highlightGutterInput?.checked ?? true
         };
 
         // 读取界面配置
