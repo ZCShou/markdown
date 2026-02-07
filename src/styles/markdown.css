@@ -938,8 +938,7 @@ html::-webkit-scrollbar-thumb:hover,
   padding: 0 4px;
   display: inline-flex;
   align-items: center;
-  vertical-align: center;
-  transform: translateY(-0.15em);
+  vertical-align: baseline;
   white-space: nowrap;
   border: 1px solid var(--md-border-primary);
 }
