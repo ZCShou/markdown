@@ -925,6 +925,14 @@ html::-webkit-scrollbar-thumb:hover,
   color: var(--md-text-secondary);
   display: inline-block;
   transform: translateY(-3px);
+  opacity: 0;
+  transition: none;
+}
+
+#markdown-editor .cm-gutters:hover .cm-foldGutter .cm-gutterElement .codicon,
+#markdown-editor .cm-foldGutter .cm-gutterElement:hover .codicon,
+#markdown-editor .cm-foldGutter .cm-gutterElement:focus-within .codicon {
+  opacity: 1;
 }
 
 /* 激活行的行号栏 */
