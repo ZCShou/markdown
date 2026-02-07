@@ -4,7 +4,6 @@ import {
     keymap,
     lineNumbers,
     highlightActiveLineGutter,
-    drawSelection,
     highlightActiveLine,
     rectangularSelection,
     placeholder
@@ -86,7 +85,6 @@ export class CodeMirrorEditor {
                     }
                 }),
                 history(),
-                drawSelection({ drawRangeCursor: true }),
                 rectangularSelection(),
                 this.highlightActiveLineCompartment.of(this.createHighlightActiveLineExtension(editorConfig)),
                 this.bracketMatchingCompartment.of(this.createBracketMatchingExtension(editorConfig)),
@@ -215,9 +213,6 @@ export class CodeMirrorEditor {
                 },
                 '.cm-scroller': {
                     lineHeight: String(lineHeight)
-                },
-                '.cm-selectionBackground': {
-                    display: 'inline'
                 }
             },
             { dark: isDark }

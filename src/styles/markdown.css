@@ -949,11 +949,20 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* 选中文本背景 */
 #markdown-editor .cm-selectionBackground {
-  background-color: var(--md-selection-bg) !important;
+  background-color: transparent !important;
 }
 
 #markdown-editor .cm-focused .cm-selectionBackground {
-  background-color: var(--md-selection-bg) !important;
+  background-color: transparent !important;
+}
+
+/* 选中文本背景 - 使用原生选中，仅覆盖文本内容 */
+#markdown-editor .cm-content ::selection {
+  background-color: var(--md-selection-bg);
+}
+
+#markdown-editor .cm-content ::-moz-selection {
+  background-color: var(--md-selection-bg);
 }
 
 /* 光标样式 */
