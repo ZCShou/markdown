@@ -289,20 +289,18 @@ export class CodeMirrorEditor {
     createLineNumbersExtension(editorConfig) {
         if (editorConfig?.lineNumbers === false) return [];
 
-        // 用于跟踪拖动选择状态
-        let isDragging = false;
-        let startLine = null;
-
         return lineNumbers({
             domEventHandlers: {
                 mousedown: (view, line, event) => {
                     event.preventDefault();
 
-                    // 记录起始行
-                    isDragging = true;
-                    startLine = line;
+                    // 缓存起始行信息到实例属性
+                    this._lineDragState = {
+                        isDragging: true,
+                        startLineNum: view.state.doc.lineAt(line.from).number
+                    };
 
-                    // 选中整行（不包含换行符，仅内容）
+                    // 选中整行
                     view.dispatch({
                         selection: { anchor: line.from, head: line.to }
                     });
@@ -312,48 +310,54 @@ export class CodeMirrorEditor {
                 },
 
                 mousemove: (view, line, event) => {
-                    // 如果不在拖动状态，不处理
-                    if (!isDragging || !startLine) return false;
+                    const dragState = this._lineDragState;
+                    if (!dragState?.isDragging) return false;
 
                     event.preventDefault();
 
-                    // 获取起始行和当前行的行号
-                    const startLineNum = view.state.doc.lineAt(startLine.from).number;
-                    const currentLineNum = view.state.doc.lineAt(line.from).number;
+                    // 使用 requestAnimationFrame 节流
+                    if (dragState.rafId) {
+                        return true;
+                    }
 
-                    // 确定选区的起始和结束位置
-                    const fromLineNum = Math.min(startLineNum, currentLineNum);
-                    const toLineNum = Math.max(startLineNum, currentLineNum);
+                    dragState.rafId = requestAnimationFrame(() => {
+                        const currentLineNum = view.state.doc.lineAt(line.from).number;
+                        const fromLineNum = Math.min(dragState.startLineNum, currentLineNum);
+                        const toLineNum = Math.max(dragState.startLineNum, currentLineNum);
 
-                    const fromLine = view.state.doc.line(fromLineNum);
-                    const toLine = view.state.doc.line(toLineNum);
+                        const fromLine = view.state.doc.line(fromLineNum);
+                        const toLine = view.state.doc.line(toLineNum);
 
-                    // 选中多行（从起始行到当前行）
-                    view.dispatch({
-                        selection: {
-                            anchor: fromLine.from,
-                            head: toLine.to
-                        }
+                        view.dispatch({
+                            selection: {
+                                anchor: fromLine.from,
+                                head: toLine.to
+                            }
+                        });
+
+                        dragState.rafId = null;
                     });
 
                     return true;
                 },
 
-                mouseup: (view, line, event) => {
-                    // 结束拖动状态
-                    isDragging = false;
-                    startLine = null;
-                    return true;
-                },
-
-                mouseleave: (view, line, event) => {
-                    // 鼠标离开行号区域时结束拖动
-                    isDragging = false;
-                    startLine = null;
-                    return true;
-                }
+                mouseup: () => this._endLineDrag(),
+                mouseleave: () => this._endLineDrag()
             }
         });
+    }
+
+    /**
+     * 结束行号拖动状态
+     * @returns {boolean} 返回 true 表示事件已处理
+     * @private
+     */
+    _endLineDrag() {
+        if (this._lineDragState?.rafId) {
+            cancelAnimationFrame(this._lineDragState.rafId);
+        }
+        this._lineDragState = null;
+        return true;
     }
 
     /**
