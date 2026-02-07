@@ -910,6 +910,23 @@ html::-webkit-scrollbar-thumb:hover,
   border-right: none;
 }
 
+/* CodeMirror 折叠符号 - 使用 codicon */
+#markdown-editor .cm-foldGutter .cm-gutterElement {
+  width: 20px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#markdown-editor .cm-foldGutter .cm-gutterElement .codicon {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--md-text-secondary);
+  display: inline-block;
+  transform: translateY(-3px);
+}
+
 /* 激活行的行号栏 */
 #markdown-editor .cm-activeLineGutter {
   background-color: transparent;

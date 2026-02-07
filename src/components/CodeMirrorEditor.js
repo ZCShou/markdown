@@ -9,7 +9,14 @@ import {
     placeholder
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { bracketMatching, indentUnit, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import {
+    bracketMatching,
+    indentUnit,
+    syntaxHighlighting,
+    HighlightStyle,
+    foldGutter,
+    foldKeymap
+} from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -70,6 +77,13 @@ export class CodeMirrorEditor {
             extensions: [
                 this.lineNumbersCompartment.of(this.createLineNumbersExtension(editorConfig)),
                 this.highlightGutterCompartment.of(this.createHighlightGutterExtension(editorConfig)),
+                foldGutter({
+                    markerDOM: open => {
+                        const icon = document.createElement('span');
+                        icon.className = `codicon ${open ? 'codicon-chevron-down' : 'codicon-chevron-right'}`;
+                        return icon;
+                    }
+                }),
                 history(),
                 rectangularSelection(),
                 this.highlightActiveLineCompartment.of(this.createHighlightActiveLineExtension(editorConfig)),
@@ -111,6 +125,7 @@ export class CodeMirrorEditor {
                     },
                     ...defaultKeymap,
                     ...historyKeymap,
+                    ...foldKeymap,
                     indentWithTab
                 ]),
                 EditorView.updateListener.of(update => {
