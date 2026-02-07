@@ -903,6 +903,7 @@ html::-webkit-scrollbar-thumb:hover,
   background-color: var(--md-bg-secondary);
   color: var(--md-text-secondary);
   border-right: none;
+  cursor: default;
 }
 
 /* CodeMirror 折叠符号 - 使用 codicon */
