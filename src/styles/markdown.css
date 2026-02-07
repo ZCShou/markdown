@@ -867,9 +867,11 @@ html::-webkit-scrollbar-thumb:hover,
 #markdown-editor .cm-editor {
   height: 100%;
   background-color: var(--md-bg-secondary);
+  color: var(--md-text-primary);
 }
 
 #markdown-editor .cm-scroller {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   scrollbar-width: auto;
   scrollbar-color: var(--md-scrollbar-thumb) transparent;
 }
@@ -890,6 +892,139 @@ html::-webkit-scrollbar-thumb:hover,
 
 #markdown-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
   background-color: var(--md-scrollbar-thumb-hover);
+}
+
+/* CodeMirror 内容区域 */
+#markdown-editor .cm-content {
+  padding: 16px;
+}
+
+/* CodeMirror 行号栏 */
+#markdown-editor .cm-gutters {
+  background-color: var(--md-bg-tertiary);
+  color: var(--md-text-secondary);
+  border-right: 1px solid var(--md-border-secondary);
+}
+
+/* 激活行的行号栏 */
+#markdown-editor .cm-activeLineGutter {
+  background-color: var(--md-bg-active);
+}
+
+/* 激活行背景 */
+#markdown-editor .cm-activeLine {
+  background-color: transparent;
+}
+
+/* 选中文本背景 */
+#markdown-editor .cm-selectionBackground {
+  background-color: var(--md-selection-bg) !important;
+}
+
+#markdown-editor .cm-focused .cm-selectionBackground {
+  background-color: var(--md-selection-bg) !important;
+}
+
+/* 光标样式 */
+#markdown-editor .cm-cursor {
+  border-left-color: var(--md-text-primary);
+}
+
+/* 占位符样式 */
+#markdown-editor .cm-placeholder {
+  color: var(--md-placeholder-color);
+}
+
+/* Markdown 语法高亮样式 */
+#markdown-editor .md-link,
+#markdown-editor .md-url {
+  color: var(--md-markdown-link);
+  text-decoration: none;
+}
+
+/* 选中链接时保持颜色不变 */
+#markdown-editor .md-link::selection,
+#markdown-editor .md-url::selection {
+  color: var(--md-markdown-link);
+  background-color: var(--md-selection-bg);
+}
+
+#markdown-editor .md-heading {
+  font-weight: bold;
+  color: var(--md-text-primary);
+}
+
+/* 选中标题时保持颜色 */
+#markdown-editor .md-heading::selection,
+#markdown-editor .md-heading1::selection,
+#markdown-editor .md-heading2::selection,
+#markdown-editor .md-heading3::selection {
+  color: var(--md-text-primary);
+  background-color: var(--md-selection-bg);
+}
+
+#markdown-editor .md-heading1 {
+  font-size: 1.6em;
+}
+
+#markdown-editor .md-heading2 {
+  font-size: 1.4em;
+}
+
+#markdown-editor .md-heading3 {
+  font-size: 1.2em;
+}
+
+#markdown-editor .md-emphasis {
+  font-style: italic;
+}
+
+#markdown-editor .md-strong {
+  font-weight: bold;
+}
+
+#markdown-editor .md-strikethrough {
+  text-decoration: line-through;
+}
+
+#markdown-editor .md-quote {
+  color: var(--md-markdown-quote);
+  font-style: italic;
+}
+
+/* 选中引用时保持颜色 */
+#markdown-editor .md-quote::selection {
+  color: var(--md-markdown-quote);
+  background-color: var(--md-selection-bg);
+}
+
+#markdown-editor .md-list {
+  color: var(--md-text-secondary);
+}
+
+/* 选中列表标记时保持颜色 */
+#markdown-editor .md-list::selection {
+  color: var(--md-text-secondary);
+  background-color: var(--md-selection-bg);
+}
+
+#markdown-editor .md-monospace {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  background-color: var(--md-code-bg-inline);
+  color: var(--md-code-text);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* 选中代码时保持颜色 */
+#markdown-editor .md-monospace::selection {
+  color: var(--md-code-text);
+  background-color: var(--md-selection-bg);
+}
+
+#markdown-editor .md-separator {
+  color: var(--md-text-tertiary);
 }
 
 /* 分隔条 */

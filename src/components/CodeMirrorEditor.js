@@ -10,9 +10,30 @@ import {
     placeholder
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { bracketMatching, indentUnit, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
+import { bracketMatching, indentUnit, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
+
+// 自定义语法高亮样式，使用 CSS 变量
+const customHighlightStyle = HighlightStyle.define([
+    { tag: tags.link, class: 'md-link' },
+    { tag: tags.url, class: 'md-url' },
+    { tag: tags.heading, class: 'md-heading' },
+    { tag: tags.heading1, class: 'md-heading1' },
+    { tag: tags.heading2, class: 'md-heading2' },
+    { tag: tags.heading3, class: 'md-heading3' },
+    { tag: tags.heading4, class: 'md-heading4' },
+    { tag: tags.heading5, class: 'md-heading5' },
+    { tag: tags.heading6, class: 'md-heading6' },
+    { tag: tags.emphasis, class: 'md-emphasis' },
+    { tag: tags.strong, class: 'md-strong' },
+    { tag: tags.strikethrough, class: 'md-strikethrough' },
+    { tag: tags.quote, class: 'md-quote' },
+    { tag: tags.list, class: 'md-list' },
+    { tag: tags.monospace, class: 'md-monospace' },
+    { tag: tags.contentSeparator, class: 'md-separator' }
+]);
 
 
 const externalUpdate = Annotation.define();
@@ -50,7 +71,7 @@ export class CodeMirrorEditor {
                 rectangularSelection(),
                 highlightActiveLine(),
                 bracketMatching(),
-                syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+                syntaxHighlighting(customHighlightStyle, { fallback: true }),
                 markdown({
                     codeLanguages: languages
                 }),
@@ -129,38 +150,15 @@ export class CodeMirrorEditor {
         const fontSize = editorConfig.fontSize ?? 14;
         const lineHeight = editorConfig.lineHeight ?? 1.6;
 
+        // 只保留需要动态配置的样式（字号、行高）
+        // 其他样式通过 CSS 实现，保持与 markdown.css 一致
         return EditorView.theme(
             {
                 '&': {
-                    height: '100%',
-                    backgroundColor: 'var(--md-bg-secondary)',
-                    color: 'var(--md-text-primary)',
                     fontSize: `${fontSize}px`
                 },
                 '.cm-scroller': {
-                    fontFamily:
-                        "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
                     lineHeight: String(lineHeight)
-                },
-                '.cm-content': {
-                    padding: '16px'
-                },
-                '.cm-gutters': {
-                    backgroundColor: 'var(--md-bg-tertiary)',
-                    color: 'var(--md-text-secondary)',
-                    borderRight: '1px solid var(--md-border-secondary)'
-                },
-                '.cm-activeLineGutter': {
-                    backgroundColor: 'var(--md-bg-active)'
-                },
-                '.cm-selectionBackground': {
-                    backgroundColor: 'var(--md-selection-bg)'
-                },
-                '.cm-cursor': {
-                    borderLeftColor: 'var(--md-text-primary)'
-                },
-                '.cm-placeholder': {
-                    color: 'var(--md-placeholder-color)'
                 }
             },
             { dark: isDark }
