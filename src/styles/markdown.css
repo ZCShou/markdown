@@ -1023,16 +1023,15 @@ html::-webkit-scrollbar-thumb:hover,
 
 #markdown-editor .md-monospace {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  background-color: var(--md-code-bg-inline);
+  background-color: transparent;
   color: var(--md-code-text);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-size: 0.9em;
 }
 
-/* 选中代码时保持颜色 */
+/* 选中代码时保持选中背景色 */
 #markdown-editor .md-monospace::selection {
-  color: var(--md-code-text);
   background-color: var(--md-selection-bg);
 }
 
