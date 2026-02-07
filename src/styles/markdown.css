@@ -908,7 +908,9 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* 激活行的行号栏 */
 #markdown-editor .cm-activeLineGutter {
-  background-color: var(--md-bg-active);
+  background-color: transparent;
+  color: var(--md-text-primary);
+  font-weight: 500;
 }
 
 /* 激活行背景 */
