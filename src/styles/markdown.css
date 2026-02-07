@@ -901,9 +901,9 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* CodeMirror 行号栏 */
 #markdown-editor .cm-gutters {
-  background-color: var(--md-bg-tertiary);
+  background-color: var(--md-bg-secondary);
   color: var(--md-text-secondary);
-  border-right: 1px solid var(--md-border-secondary);
+  border-right: none;
 }
 
 /* 激活行的行号栏 */
