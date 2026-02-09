@@ -227,6 +227,7 @@ body {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 14px;
   background-color: var(--md-bg-primary);
 }
 
@@ -1726,15 +1727,6 @@ pre.has-copy-btn {
 /* 名称 */
 .md-doc-item-name {
   flex: 1;
-  font-size: 100%;
-  height: 22px;
-  line-height: 22px;
-  color: var(--md-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  display: inline-flex;
   align-items: center;
 }
 
