@@ -951,6 +951,9 @@ html::-webkit-scrollbar-thumb:hover,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: inherit;
+  min-height: 1em;
+  transform: translateY(-1px);
   white-space: nowrap;
   border: 1px solid var(--md-border-primary);
   box-sizing: border-box;
