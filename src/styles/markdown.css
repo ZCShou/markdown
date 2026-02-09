@@ -905,25 +905,35 @@ html::-webkit-scrollbar-thumb:hover,
   color: var(--md-text-secondary);
   border-right: none;
   cursor: default;
+  display: flex;
+  align-items: stretch;
+}
+
+/* 行号栏元素 - 居中对齐 */
+#markdown-editor .cm-gutters .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
 }
 
 /* CodeMirror 折叠符号 - 使用 codicon */
 #markdown-editor .cm-foldGutter .cm-gutterElement {
-  width: 20px;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 4px;
 }
 
 #markdown-editor .cm-foldGutter .cm-gutterElement .codicon {
   font-size: 16px;
   line-height: 1;
   color: var(--md-text-secondary);
-  display: inline-block;
-  transform: translateY(-3px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
-  transition: none;
+  transition: opacity 0.15s ease;
 }
 
 #markdown-editor .cm-gutters:hover .cm-foldGutter .cm-gutterElement .codicon,
