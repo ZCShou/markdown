@@ -212,7 +212,7 @@ export class CodeMirrorEditor {
 
     /**
      * 销毁编辑器
-     * 清理视图并重置活动实例
+     * 清理视图、全局事件监听器并重置活动实例
      *
      * @example
      * ```javascript
@@ -220,6 +220,9 @@ export class CodeMirrorEditor {
      * ```
      */
     destroy() {
+        // 清理拖动状态和全局监听器
+        this._endLineDrag();
+
         if (this.view) {
             this.view.destroy();
             this.view = null;
@@ -281,6 +284,7 @@ export class CodeMirrorEditor {
     /**
      * 创建行号扩展
      * 支持点击行号选中整行，拖动行号选中多行
+     * 拖动时即使鼠标离开行号区域，只要不释放鼠标左键，选择仍然有效
      * @param {Object} editorConfig - 编辑器配置
      * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
      * @returns {import('@codemirror/state').Extension} 行号扩展
@@ -297,7 +301,8 @@ export class CodeMirrorEditor {
                     // 缓存起始行信息到实例属性
                     this._lineDragState = {
                         isDragging: true,
-                        startLineNum: view.state.doc.lineAt(line.from).number
+                        startLineNum: view.state.doc.lineAt(line.from).number,
+                        view: view
                     };
 
                     // 选中整行
@@ -306,6 +311,10 @@ export class CodeMirrorEditor {
                     });
 
                     view.focus();
+
+                    // 添加全局事件监听器，以便在整个文档范围内跟踪鼠标移动
+                    this._setupGlobalDragListeners();
+
                     return true;
                 },
 
@@ -314,50 +323,97 @@ export class CodeMirrorEditor {
                     if (!dragState?.isDragging) return false;
 
                     event.preventDefault();
-
-                    // 使用 requestAnimationFrame 节流
-                    if (dragState.rafId) {
-                        return true;
-                    }
-
-                    dragState.rafId = requestAnimationFrame(() => {
-                        const currentLineNum = view.state.doc.lineAt(line.from).number;
-                        const fromLineNum = Math.min(dragState.startLineNum, currentLineNum);
-                        const toLineNum = Math.max(dragState.startLineNum, currentLineNum);
-
-                        const fromLine = view.state.doc.line(fromLineNum);
-                        const toLine = view.state.doc.line(toLineNum);
-
-                        view.dispatch({
-                            selection: {
-                                anchor: fromLine.from,
-                                head: toLine.to
-                            }
-                        });
-
-                        dragState.rafId = null;
-                    });
-
+                    this._updateLineSelection(view, line.from);
                     return true;
-                },
+                }
+            }
+        });
+    }
 
-                mouseup: () => this._endLineDrag(),
-                mouseleave: () => this._endLineDrag()
+    /**
+     * 设置全局拖动事件监听器
+     * 在文档级别监听鼠标移动和释放事件
+     * @private
+     */
+    _setupGlobalDragListeners() {
+        // 全局鼠标移动处理
+        this._globalMouseMoveHandler = (event) => {
+            const dragState = this._lineDragState;
+            if (!dragState?.isDragging || !dragState.view) return;
+
+            event.preventDefault();
+
+            // 使用 requestAnimationFrame 节流
+            if (dragState.rafId) return;
+
+            dragState.rafId = requestAnimationFrame(() => {
+                const view = dragState.view;
+                // 根据鼠标坐标获取对应的文档位置
+                const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+
+                if (pos !== null) {
+                    this._updateLineSelection(view, pos);
+                }
+
+                dragState.rafId = null;
+            });
+        };
+
+        // 全局鼠标释放处理
+        this._globalMouseUpHandler = () => {
+            this._endLineDrag();
+        };
+
+        document.addEventListener('mousemove', this._globalMouseMoveHandler);
+        document.addEventListener('mouseup', this._globalMouseUpHandler);
+    }
+
+    /**
+     * 更新行选择
+     * @param {EditorView} view - 编辑器视图
+     * @param {number} pos - 当前位置
+     * @private
+     */
+    _updateLineSelection(view, pos) {
+        const dragState = this._lineDragState;
+        if (!dragState?.isDragging) return;
+
+        const currentLineNum = view.state.doc.lineAt(pos).number;
+        const fromLineNum = Math.min(dragState.startLineNum, currentLineNum);
+        const toLineNum = Math.max(dragState.startLineNum, currentLineNum);
+
+        const fromLine = view.state.doc.line(fromLineNum);
+        const toLine = view.state.doc.line(toLineNum);
+
+        view.dispatch({
+            selection: {
+                anchor: fromLine.from,
+                head: toLine.to
             }
         });
     }
 
     /**
      * 结束行号拖动状态
-     * @returns {boolean} 返回 true 表示事件已处理
+     * 清理全局事件监听器和拖动状态
      * @private
      */
     _endLineDrag() {
         if (this._lineDragState?.rafId) {
             cancelAnimationFrame(this._lineDragState.rafId);
         }
+
+        // 移除全局事件监听器
+        if (this._globalMouseMoveHandler) {
+            document.removeEventListener('mousemove', this._globalMouseMoveHandler);
+            this._globalMouseMoveHandler = null;
+        }
+        if (this._globalMouseUpHandler) {
+            document.removeEventListener('mouseup', this._globalMouseUpHandler);
+            this._globalMouseUpHandler = null;
+        }
+
         this._lineDragState = null;
-        return true;
     }
 
     /**
