@@ -974,8 +974,6 @@ html::-webkit-scrollbar-thumb:hover,
 /* 选中文本背景 */
 #markdown-editor .cm-selectionBackground {
   background-color: var(--md-selection-bg) !important;
-  display: inline;
-  width: auto;
 }
 
 #markdown-editor .cm-focused .cm-selectionBackground {
