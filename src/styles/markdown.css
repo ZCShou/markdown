@@ -933,11 +933,11 @@ html::-webkit-scrollbar-thumb:hover,
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.15s ease;
 }
 
 #markdown-editor .cm-gutters:hover .cm-foldGutter .cm-gutterElement .codicon,
 #markdown-editor .cm-foldGutter .cm-gutterElement:hover .codicon,
+#markdown-editor .cm-foldGutter .cm-gutterElement:active .codicon,
 #markdown-editor .cm-foldGutter .cm-gutterElement:focus-within .codicon {
   opacity: 1;
 }
