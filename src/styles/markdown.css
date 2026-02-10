@@ -88,6 +88,9 @@
   --md-selection-bg: rgba(51, 153, 255, 0.25);
   --md-selection-text: #24292e;
 
+  /* 当前行高亮颜色 - VSCode 明亮主题风格 */
+  --md-active-line-bg: rgba(0, 0, 0, 0.04);
+
   /* 树型条目选中效果 - 明亮主题 */
   --md-tree-item-active-bg: #e3f2fd;
   --md-tree-item-active-border: #2196f3;
@@ -197,6 +200,9 @@
   /* 文本选中颜色 - VSCode 黑暗主题风格 */
   --md-selection-bg: rgba(65, 165, 245, 0.4);
   --md-selection-text: #e0e0e0;
+
+  /* 当前行高亮颜色 - VSCode 黑暗主题风格 */
+  --md-active-line-bg: rgba(255, 255, 255, 0.05);
 
   /* 树型条目选中效果 - 暗黑主题 */
   --md-tree-item-active-bg: rgba(66, 165, 245, 0.25);
@@ -968,6 +974,11 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* 激活行背景和对齐 */
 #markdown-editor .cm-activeLine {
+  background-color: var(--md-active-line-bg);
+}
+
+/* 当有文本选中时，隐藏当前行高亮以避免视觉重叠 */
+#markdown-editor:has(.cm-selectionBackground) .cm-activeLine {
   background-color: transparent;
 }
 
