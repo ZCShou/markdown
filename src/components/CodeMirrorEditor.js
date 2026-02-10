@@ -97,6 +97,11 @@ export class CodeMirrorEditor {
      */
     static active = null;
 
+    // 私有字段声明
+    #lineDragState = null;
+    #globalMouseMoveHandler = null;
+    #globalMouseUpHandler = null;
+
     /**
      * 创建编辑器实例
      * @param {HTMLElement} container - 编辑器容器元素
@@ -163,7 +168,9 @@ export class CodeMirrorEditor {
             doc: this.options.initialValue || '',
             extensions: [
                 this.lineNumbersCompartment.of(this.createLineNumbersExtension(editorConfig)),
-                this.highlightGutterCompartment.of(this.createHighlightGutterExtension(editorConfig)),
+                this.highlightGutterCompartment.of(
+                    this.#createExtensionIfEnabled(editorConfig?.highlightGutter, highlightActiveLineGutter)
+                ),
                 foldGutter({
                     markerDOM: open => {
                         const icon = document.createElement('span');
@@ -174,13 +181,19 @@ export class CodeMirrorEditor {
                 history(),
                 drawSelection({ drawRangeCursor: true }),
                 rectangularSelection(),
-                this.highlightActiveLineCompartment.of(this.createHighlightActiveLineExtension(editorConfig)),
-                this.bracketMatchingCompartment.of(this.createBracketMatchingExtension(editorConfig)),
+                this.highlightActiveLineCompartment.of(
+                    this.#createExtensionIfEnabled(editorConfig?.highlightActiveLine, highlightActiveLine)
+                ),
+                this.bracketMatchingCompartment.of(
+                    this.#createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching)
+                ),
                 syntaxHighlighting(customHighlightStyle, { fallback: true }),
                 markdown({
                     codeLanguages: languages
                 }),
-                this.lineWrappingCompartment.of(this.createLineWrappingExtension(editorConfig)),
+                this.lineWrappingCompartment.of(
+                    this.#createExtensionIfEnabled(editorConfig?.lineWrapping, EditorView.lineWrapping)
+                ),
                 placeholder(this.options.placeholder || ''),
                 EditorView.contentAttributes.of({
                     'aria-label': this.options.ariaLabel || 'Markdown editor input',
@@ -221,7 +234,7 @@ export class CodeMirrorEditor {
      */
     destroy() {
         // 清理拖动状态和全局监听器
-        this._endLineDrag();
+        this.#endLineDrag();
 
         if (this.view) {
             this.view.destroy();
@@ -299,7 +312,7 @@ export class CodeMirrorEditor {
                     event.preventDefault();
 
                     // 缓存起始行信息到实例属性
-                    this._lineDragState = {
+                    this.#lineDragState = {
                         isDragging: true,
                         startLineNum: view.state.doc.lineAt(line.from).number,
                         view: view
@@ -313,17 +326,17 @@ export class CodeMirrorEditor {
                     view.focus();
 
                     // 添加全局事件监听器，以便在整个文档范围内跟踪鼠标移动
-                    this._setupGlobalDragListeners();
+                    this.#setupGlobalDragListeners();
 
                     return true;
                 },
 
                 mousemove: (view, line, event) => {
-                    const dragState = this._lineDragState;
+                    const dragState = this.#lineDragState;
                     if (!dragState?.isDragging) return false;
 
                     event.preventDefault();
-                    this._updateLineSelection(view, line.from);
+                    this.#updateLineSelection(view, line.from);
                     return true;
                 }
             }
@@ -335,10 +348,10 @@ export class CodeMirrorEditor {
      * 在文档级别监听鼠标移动和释放事件
      * @private
      */
-    _setupGlobalDragListeners() {
+    #setupGlobalDragListeners() {
         // 全局鼠标移动处理
-        this._globalMouseMoveHandler = (event) => {
-            const dragState = this._lineDragState;
+        this.#globalMouseMoveHandler = (event) => {
+            const dragState = this.#lineDragState;
             if (!dragState?.isDragging || !dragState.view) return;
 
             event.preventDefault();
@@ -352,7 +365,7 @@ export class CodeMirrorEditor {
                 const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
 
                 if (pos !== null) {
-                    this._updateLineSelection(view, pos);
+                    this.#updateLineSelection(view, pos);
                 }
 
                 dragState.rafId = null;
@@ -360,12 +373,12 @@ export class CodeMirrorEditor {
         };
 
         // 全局鼠标释放处理
-        this._globalMouseUpHandler = () => {
-            this._endLineDrag();
+        this.#globalMouseUpHandler = () => {
+            this.#endLineDrag();
         };
 
-        document.addEventListener('mousemove', this._globalMouseMoveHandler);
-        document.addEventListener('mouseup', this._globalMouseUpHandler);
+        document.addEventListener('mousemove', this.#globalMouseMoveHandler);
+        document.addEventListener('mouseup', this.#globalMouseUpHandler);
     }
 
     /**
@@ -374,8 +387,8 @@ export class CodeMirrorEditor {
      * @param {number} pos - 当前位置
      * @private
      */
-    _updateLineSelection(view, pos) {
-        const dragState = this._lineDragState;
+    #updateLineSelection(view, pos) {
+        const dragState = this.#lineDragState;
         if (!dragState?.isDragging) return;
 
         const currentLineNum = view.state.doc.lineAt(pos).number;
@@ -398,66 +411,22 @@ export class CodeMirrorEditor {
      * 清理全局事件监听器和拖动状态
      * @private
      */
-    _endLineDrag() {
-        if (this._lineDragState?.rafId) {
-            cancelAnimationFrame(this._lineDragState.rafId);
+    #endLineDrag() {
+        if (this.#lineDragState?.rafId) {
+            cancelAnimationFrame(this.#lineDragState.rafId);
         }
 
         // 移除全局事件监听器
-        if (this._globalMouseMoveHandler) {
-            document.removeEventListener('mousemove', this._globalMouseMoveHandler);
-            this._globalMouseMoveHandler = null;
+        if (this.#globalMouseMoveHandler) {
+            document.removeEventListener('mousemove', this.#globalMouseMoveHandler);
+            this.#globalMouseMoveHandler = null;
         }
-        if (this._globalMouseUpHandler) {
-            document.removeEventListener('mouseup', this._globalMouseUpHandler);
-            this._globalMouseUpHandler = null;
+        if (this.#globalMouseUpHandler) {
+            document.removeEventListener('mouseup', this.#globalMouseUpHandler);
+            this.#globalMouseUpHandler = null;
         }
 
-        this._lineDragState = null;
-    }
-
-    /**
-     * 创建自动换行扩展
-     * @param {Object} editorConfig - 编辑器配置
-     * @param {boolean} [editorConfig.lineWrapping=true] - 是否自动换行
-     * @returns {import('@codemirror/state').Extension} 换行扩展
-     * @private
-     */
-    createLineWrappingExtension(editorConfig) {
-        return this._createExtensionIfEnabled(editorConfig?.lineWrapping, EditorView.lineWrapping);
-    }
-
-    /**
-     * 创建高亮当前行扩展
-     * @param {Object} editorConfig - 编辑器配置
-     * @param {boolean} [editorConfig.highlightActiveLine=true] - 是否高亮当前行
-     * @returns {import('@codemirror/state').Extension} 高亮扩展
-     * @private
-     */
-    createHighlightActiveLineExtension(editorConfig) {
-        return this._createExtensionIfEnabled(editorConfig?.highlightActiveLine, highlightActiveLine);
-    }
-
-    /**
-     * 创建括号匹配扩展
-     * @param {Object} editorConfig - 编辑器配置
-     * @param {boolean} [editorConfig.bracketMatching=true] - 是否匹配括号
-     * @returns {import('@codemirror/state').Extension} 括号匹配扩展
-     * @private
-     */
-    createBracketMatchingExtension(editorConfig) {
-        return this._createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching);
-    }
-
-    /**
-     * 创建高亮行号栏扩展
-     * @param {Object} editorConfig - 编辑器配置
-     * @param {boolean} [editorConfig.highlightGutter=true] - 是否高亮当前行号
-     * @returns {import('@codemirror/state').Extension} 行号高亮扩展
-     * @private
-     */
-    createHighlightGutterExtension(editorConfig) {
-        return this._createExtensionIfEnabled(editorConfig?.highlightGutter, highlightActiveLineGutter);
+        this.#lineDragState = null;
     }
 
     /**
@@ -467,7 +436,7 @@ export class CodeMirrorEditor {
      * @returns {import('@codemirror/state').Extension} 扩展或空数组
      * @private
      */
-    _createExtensionIfEnabled(enabled, extensionOrFactory) {
+    #createExtensionIfEnabled(enabled, extensionOrFactory) {
         if (enabled === false) return [];
         // 如果是函数，调用它；否则直接返回扩展
         return typeof extensionOrFactory === 'function' ? extensionOrFactory() : extensionOrFactory;
@@ -545,10 +514,18 @@ export class CodeMirrorEditor {
                 this.indentCompartment.reconfigure(this.createIndentExtension(editorConfig)),
                 this.themeCompartment.reconfigure(this.createThemeExtension(editorConfig, isDark)),
                 this.lineNumbersCompartment.reconfigure(this.createLineNumbersExtension(editorConfig)),
-                this.lineWrappingCompartment.reconfigure(this.createLineWrappingExtension(editorConfig)),
-                this.highlightActiveLineCompartment.reconfigure(this.createHighlightActiveLineExtension(editorConfig)),
-                this.bracketMatchingCompartment.reconfigure(this.createBracketMatchingExtension(editorConfig)),
-                this.highlightGutterCompartment.reconfigure(this.createHighlightGutterExtension(editorConfig))
+                this.lineWrappingCompartment.reconfigure(
+                    this.#createExtensionIfEnabled(editorConfig?.lineWrapping, EditorView.lineWrapping)
+                ),
+                this.highlightActiveLineCompartment.reconfigure(
+                    this.#createExtensionIfEnabled(editorConfig?.highlightActiveLine, highlightActiveLine)
+                ),
+                this.bracketMatchingCompartment.reconfigure(
+                    this.#createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching)
+                ),
+                this.highlightGutterCompartment.reconfigure(
+                    this.#createExtensionIfEnabled(editorConfig?.highlightGutter, highlightActiveLineGutter)
+                )
             ]
         });
     }
@@ -581,14 +558,19 @@ export class CodeMirrorEditor {
      */
     setValue(value, options = {}) {
         if (!this.view) return;
-        if (this.getValue() === value) return;
+
+        // 性能优化：先比较长度，避免大文档的完整字符串比较
+        const currentDoc = this.view.state.doc;
+        if (currentDoc.length === value.length && currentDoc.toString() === value) {
+            return;
+        }
 
         const annotations = options.emitUpdate !== true
             ? [externalUpdate.of(true)]
             : [];
 
         this.view.dispatch({
-            changes: { from: 0, to: this.view.state.doc.length, insert: value },
+            changes: { from: 0, to: currentDoc.length, insert: value },
             annotations
         });
     }
