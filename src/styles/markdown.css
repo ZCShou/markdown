@@ -896,7 +896,7 @@ html::-webkit-scrollbar-thumb:hover,
 }
 
 #markdown-editor .cm-line {
-  padding-left: 12px;
+  padding: 0;
 }
 
 /* CodeMirror 行号栏 */
