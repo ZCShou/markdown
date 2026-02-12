@@ -182,29 +182,6 @@ export class MonacoEditor {
         });
         this.disposables.push(changeListener);
 
-        // 监听 ESC 键
-        const keydownListener = this.editor.onKeyDown((e) => {
-            if (e.code === 'Escape') {
-                if (this.options.onEscape?.()) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                }
-            }
-            // Cmd/Ctrl+F 搜索
-            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') {
-                this.options.onSearch?.(false);
-                e.stopPropagation();
-                e.preventDefault();
-            }
-            // Cmd/Ctrl+H 替换
-            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyH') {
-                this.options.onSearch?.(true);
-                e.stopPropagation();
-                e.preventDefault();
-            }
-        });
-        this.disposables.push(keydownListener);
-
         MonacoEditor.active = this;
     }
 
