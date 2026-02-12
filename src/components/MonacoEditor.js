@@ -17,6 +17,7 @@
  */
 
 import * as monaco from 'monaco-editor';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 
 /**
  * Monaco 编辑器包装类
@@ -91,6 +92,9 @@ export class MonacoEditor {
         const editorConfig = this.options.editorConfig || {};
         const interfaceConfig = this.options.interfaceConfig || {};
         const isDark = this.resolveDarkMode(interfaceConfig);
+
+        // 配置 Monaco Editor Workers
+        this.setupMonacoWorkers();
 
         // 注册 Markdown 语言
         this.registerMarkdownLanguage();
@@ -509,5 +513,31 @@ export class MonacoEditor {
      */
     getEditorInstance() {
         return this.editor;
+    }
+
+    /**
+     * 配置 Monaco Editor Workers
+     * 
+     * Monaco Editor 需要 Web Workers 来处理语言服务功能（语法高亮、代码补全等）。
+     * 此方法配置全局的 MonacoEnvironment 来告诉 Monaco 如何加载 worker 文件。
+     * 
+     * @private
+     * @see {@link https://code.visualstudio.com/api/extension-guides/vscode-web-extensions#web-workers}
+     */
+    setupMonacoWorkers() {
+        // 如果已经配置过，则跳过
+        if (self.MonacoEnvironment?.getWorker) return;
+
+        /**
+         * 获取 Worker 实例
+         * @param {string} _workerId - Worker ID（未使用）
+         * @param {string} _label - Worker 标签（语言标识）
+         * @returns {Worker} Worker 实例
+         */
+        self.MonacoEnvironment = {
+            getWorker: function(_workerId, _label) {
+                return new EditorWorker();
+            }
+        };
     }
 }
