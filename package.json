@@ -26,6 +26,7 @@
     "katex": "^0.16.28",
     "marked": "^17.0.2",
     "mermaid": "^11.12.2",
+    "monaco-editor": "^0.55.1",
     "prismjs": "^1.30.0"
   },
   "devDependencies": {

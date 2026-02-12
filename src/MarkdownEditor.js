@@ -15,6 +15,7 @@ import { LeftSidebar } from './components/LeftSidebar.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { SearchReplace } from './components/SearchReplace.js';
 import { CodeMirrorEditor } from './components/CodeMirrorEditor.js';
+import { MonacoEditor } from './components/MonacoEditor.js';
 import { Settings } from './components/Settings.js';
 import { dom } from './utils/dom.js';
 
@@ -120,6 +121,12 @@ export class MarkdownEditor {
         /** @type {CodeMirrorEditor|null} CodeMirror 实例 */
         this.codeMirrorEditor = null;
 
+        /** @type {MonacoEditor|null} Monaco 实例 */
+        this.monacoEditor = null;
+
+        /** @type {string} 当前编辑器类型 */
+        this.currentEditorType = 'codemirror';
+
         /** @type {number|null} 编辑器输入防抖定时器 */
         this._editorInputTimer = null;
 
@@ -157,20 +164,88 @@ export class MarkdownEditor {
         }
     }
 
-    // ==================== 组件初始化 ====================
+    /**
+     * 获取当前活动的编辑器实例
+     * @returns {CodeMirrorEditor|MonacoEditor|null} 当前活动的编辑器实例
+     * @private
+     */
+    #getActiveEditor() {
+        if (this.currentEditorType === 'monaco') {
+            return this.monacoEditor;
+        }
+        return this.codeMirrorEditor;
+    }
 
     /**
-     * 初始化所有组件
+     * 切换编辑器类型
+     * @param {string} editorType - 编辑器类型 ('codemirror' | 'monaco')
+     * @example
+     * ```javascript
+     * editor.switchEditorType('monaco');
+     * editor.switchEditorType('codemirror');
+     * ```
      */
-    initComponents() {
-        // CodeMirror 编辑器
-        const editorHost = dom.getById('markdown-editor')?.element;
-        if (editorHost) {
-            const editorConfig = this.state.get('editor') || {};
-            const interfaceConfig = this.state.get('interface') || {};
+    switchEditorType(editorType) {
+        if (editorType === this.currentEditorType) return;
 
+        const editorHost = dom.getById('markdown-editor')?.element;
+        if (!editorHost) return;
+
+        // 保存当前内容
+        const currentContent = this.#getActiveEditor()?.getValue() || '';
+
+        // 销毁当前编辑器
+        if (this.codeMirrorEditor) {
+            this.codeMirrorEditor.destroy();
+            this.codeMirrorEditor = null;
+        }
+        if (this.monacoEditor) {
+            this.monacoEditor.destroy();
+            this.monacoEditor = null;
+        }
+
+        // 清空容器
+        editorHost.innerHTML = '';
+
+        // 更新编辑器类型
+        this.currentEditorType = editorType;
+
+        // 创建新编辑器
+        const editorConfig = this.state.get('editor') || {};
+        const interfaceConfig = this.state.get('interface') || {};
+
+        if (editorType === 'monaco') {
+            this.monacoEditor = new MonacoEditor(editorHost, {
+                initialValue: currentContent,
+                editorConfig,
+                interfaceConfig,
+                placeholder: '在此输入 Markdown 内容...',
+                ariaLabel: 'Markdown 编辑器输入区域',
+                onChange: (content) => {
+                    if (this._editorInputTimer) {
+                        clearTimeout(this._editorInputTimer);
+                    }
+                    this._editorInputTimer = setTimeout(() => {
+                        this.state.updateContent(content);
+                    }, 150);
+                },
+                onSearch: (isReplaceMode) => {
+                    this.state.showSearchReplace(isReplaceMode);
+                },
+                onEscape: () => {
+                    const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
+                    if (searchReplaceVisible) {
+                        this.state.hideSearchReplace();
+                        return true;
+                    }
+                    return false;
+                }
+            });
+
+            this.monacoEditor.init();
+        } else {
             this.codeMirrorEditor = new CodeMirrorEditor(editorHost, {
-                initialValue: this.state.get('content') || '',
+                initialValue: currentContent,
                 editorConfig,
                 interfaceConfig,
                 placeholder: '在此输入 Markdown 内容...',
@@ -197,6 +272,90 @@ export class MarkdownEditor {
             });
 
             this.codeMirrorEditor.init();
+        }
+
+        // 更新状态
+        this.state.updateEditorConfig({ type: editorType });
+
+        this.showMessage(`已切换到 ${editorType === 'monaco' ? 'Monaco' : 'CodeMirror'} 编辑器`, 'success');
+    }
+
+    // ==================== 组件初始化 ====================
+
+    /**
+     * 初始化所有组件
+     */
+    initComponents() {
+        // 编辑器
+        const editorHost = dom.getById('markdown-editor')?.element;
+        if (editorHost) {
+            const editorConfig = this.state.get('editor') || {};
+            const interfaceConfig = this.state.get('interface') || {};
+            const editorType = editorConfig.type || 'codemirror';
+
+            this.currentEditorType = editorType;
+
+            // 根据编辑器类型创建不同的编辑器实例
+            if (editorType === 'monaco') {
+                this.monacoEditor = new MonacoEditor(editorHost, {
+                    initialValue: this.state.get('content') || '',
+                    editorConfig,
+                    interfaceConfig,
+                    placeholder: '在此输入 Markdown 内容...',
+                    ariaLabel: 'Markdown 编辑器输入区域',
+                    onChange: (content) => {
+                        if (this._editorInputTimer) {
+                            clearTimeout(this._editorInputTimer);
+                        }
+                        this._editorInputTimer = setTimeout(() => {
+                            this.state.updateContent(content);
+                        }, 150);
+                    },
+                    onSearch: (isReplaceMode) => {
+                        this.state.showSearchReplace(isReplaceMode);
+                    },
+                    onEscape: () => {
+                        const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
+                        if (searchReplaceVisible) {
+                            this.state.hideSearchReplace();
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+
+                this.monacoEditor.init();
+            } else {
+                // 默认使用 CodeMirror
+                this.codeMirrorEditor = new CodeMirrorEditor(editorHost, {
+                    initialValue: this.state.get('content') || '',
+                    editorConfig,
+                    interfaceConfig,
+                    placeholder: '在此输入 Markdown 内容...',
+                    ariaLabel: 'Markdown 编辑器输入区域',
+                    onChange: (content) => {
+                        if (this._editorInputTimer) {
+                            clearTimeout(this._editorInputTimer);
+                        }
+                        this._editorInputTimer = setTimeout(() => {
+                            this.state.updateContent(content);
+                        }, 150);
+                    },
+                    onSearch: (isReplaceMode) => {
+                        this.state.showSearchReplace(isReplaceMode);
+                    },
+                    onEscape: () => {
+                        const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
+                        if (searchReplaceVisible) {
+                            this.state.hideSearchReplace();
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+
+                this.codeMirrorEditor.init();
+            }
         } else {
             console.error('Editor host not found: markdown-editor');
         }
@@ -614,30 +773,35 @@ export class MarkdownEditor {
      * @private
      */
     #subscribe() {
-        // 同步内容到 CodeMirror
+        // 同步内容到编辑器
         this._editorStateUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
             () => {
-                this.codeMirrorEditor?.setValue(this.state.get('content') || '', { emitUpdate: false });
+                this.#getActiveEditor()?.setValue(this.state.get('content') || '', { emitUpdate: false });
             }
         );
 
-        // 同步编辑器配置到 CodeMirror
+        // 同步编辑器配置到编辑器
         this._editorConfigUnsubscribe = this.state.subscribeTo('editor', (newEditor) => {
-            this.codeMirrorEditor?.updateConfig(newEditor, this.state.get('interface'));
+            this.#getActiveEditor()?.updateConfig(newEditor, this.state.get('interface'));
+
+            // 如果编辑器类型变化，切换编辑器
+            if (newEditor.type && newEditor.type !== this.currentEditorType) {
+                this.switchEditorType(newEditor.type);
+            }
         });
 
         // 监听界面配置变化，应用到界面
         this.state.subscribeTo('interface', (newInterface, oldInterface) => {
             const hasOld = !!oldInterface;
-            
+
             // 应用主题（只在主题变化时）
             if (!hasOld || newInterface.theme !== oldInterface.theme) {
                 this.applyTheme(newInterface.theme ?? 'light');
                 this.components.preview?.updateMermaidTheme();
             }
 
-            this.codeMirrorEditor?.updateConfig(this.state.get('editor'), newInterface);
+            this.#getActiveEditor()?.updateConfig(this.state.get('editor'), newInterface);
 
             // 应用布局（只在布局变化时）
             if (!hasOld || newInterface.layout !== oldInterface.layout) {

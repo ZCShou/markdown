@@ -74,6 +74,7 @@ export class Settings {
     cacheElements() {
         this.cachedElements = {
             // 编辑器设置
+            editorTypeSelect: dom.get('#setting-editor-type'),
             fontSizeInput: dom.get('#setting-font-size'),
             lineHeightInput: dom.get('#setting-line-height'),
             autoSaveInput: dom.get('#setting-auto-save'),
@@ -84,7 +85,7 @@ export class Settings {
             highlightActiveLineInput: dom.get('#setting-highlight-active-line'),
             bracketMatchingInput: dom.get('#setting-bracket-matching'),
             highlightGutterInput: dom.get('#setting-highlight-gutter'),
-            
+
             // 界面设置
             themeSelect: dom.get('#setting-theme'),
             layoutSelect: dom.get('#setting-layout'),
@@ -95,7 +96,7 @@ export class Settings {
             tocSectionInput: dom.get('#setting-section-toc'),
             exportSectionInput: dom.get('#setting-section-export'),
             syncScrollEnabledInput: dom.get('#setting-sync-scroll-enabled'),
-            
+
             // 导出设置
             exportStyleInput: dom.get('#setting-export-include-style'),
             exportHighlightInput: dom.get('#setting-export-code-highlight'),
@@ -263,6 +264,7 @@ export class Settings {
         const exportConfig = this.state.get('export') || {};
 
         // 编辑器设置
+        this.#setInputValue(this.cachedElements.editorTypeSelect, editor.type, 'codemirror');
         this.#setInputValue(this.cachedElements.fontSizeInput, editor.fontSize, null);
         this.#setInputValue(this.cachedElements.lineHeightInput, editor.lineHeight, 1.6);
         this.#setInputChecked(this.cachedElements.autoSaveInput, editor.autoSave, true);
@@ -325,6 +327,7 @@ export class Settings {
         const fontSize = fontSizeValue ? parseInt(fontSizeValue) : null;
 
         const editorConfig = {
+            type: this.cachedElements.editorTypeSelect?.value || 'codemirror',
             fontSize: fontSize,
             lineHeight: parseFloat(this.cachedElements.lineHeightInput?.value) || 1.6,
             autoSave: this.cachedElements.autoSaveInput?.checked || false,
