@@ -659,13 +659,22 @@ export class Preview extends BaseComponent {
             // 使用 marked 解析
             let html;
             if (marked?.parse) {
-                const renderer = new marked.Renderer();
+                // 先使用默认渲染器解析
+                html = marked.parse(processedMarkdown, {
+                    breaks: false,
+                    gfm: true
+                });
+
+                // 手动添加标题 ID（在解析后处理）
+                // 匹配包含任意内容的标题标签（包括 HTML 标签）
                 let headingIndex = 0;
-
-                renderer.heading = (text, level) =>
-                    `<h${level} id="heading-${headingIndex++}">${text}</h${level}>`;
-
-                html = marked.parse(processedMarkdown, { renderer, breaks: false, gfm: true });
+                html = html.replace(/<h([1-6])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, text) => {
+                    // 如果已经有 id 属性，不重复添加
+                    if (attrs.includes('id=')) {
+                        return match;
+                    }
+                    return `<h${level}${attrs} id="heading-${headingIndex++}">${text}</h${level}>`;
+                });
             } else {
                 html = this.escapeHtml(processedMarkdown);
             }
