@@ -598,11 +598,36 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   background-color: transparent !important;
 }
 
-/* 折叠符号居中 */
+/* 折叠符号默认隐藏，悬停时显示 */
 #markdown-editor .cm-foldGutter .cm-gutterElement {
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+}
+
+#markdown-editor .cm-foldGutter .cm-gutterElement:hover,
+#markdown-editor .cm-content:hover ~ .cm-gutters .cm-foldGutter .cm-gutterElement,
+#markdown-editor .cm-gutters:hover .cm-foldGutter .cm-gutterElement {
+  opacity: 1;
+}
+
+/* 折叠占位符样式 */
+#markdown-editor .cm-foldPlaceholder {
+  background: var(--md-bg-tertiary);
+  border: 1px solid var(--md-border);
+  border-radius: 4px;
+  color: var(--md-text-secondary);
+  font-size: 0.85em;
+  padding: 0 6px;
+  margin: 0 2px;
+  cursor: pointer;
+}
+
+#markdown-editor .cm-foldPlaceholder:hover {
+  background: var(--md-color-primary);
+  border-color: var(--md-color-primary);
+  color: #fff;
 }
 
 /* Markdown 语法高亮 */
