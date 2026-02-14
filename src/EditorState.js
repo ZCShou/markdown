@@ -60,7 +60,13 @@ export class EditorState {
             includeStyle: true,
             codeHighlight: true,
             pdfSize: 'A4',
-            pdfMargin: 'default'
+            pdfMargin: 'default',
+            pdfHeaderLeft: '',
+            pdfHeaderCenter: '{title}',
+            pdfHeaderRight: '',
+            pdfFooterLeft: '',
+            pdfFooterCenter: '',
+            pdfFooterRight: '{page} / {pages}'
         }
     };
 

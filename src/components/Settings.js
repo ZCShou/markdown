@@ -102,6 +102,12 @@ export class Settings {
             exportHighlightInput: dom.get('#setting-export-code-highlight'),
             pdfSizeSelect: dom.get('#setting-pdf-size'),
             pdfMarginSelect: dom.get('#setting-pdf-margin'),
+            pdfHeaderLeftInput: dom.get('#setting-pdf-header-left'),
+            pdfHeaderCenterInput: dom.get('#setting-pdf-header-center'),
+            pdfHeaderRightInput: dom.get('#setting-pdf-header-right'),
+            pdfFooterLeftInput: dom.get('#setting-pdf-footer-left'),
+            pdfFooterCenterInput: dom.get('#setting-pdf-footer-center'),
+            pdfFooterRightInput: dom.get('#setting-pdf-footer-right'),
             
             // 应用元素
             editorElement: dom.get('#markdown-editor'),
@@ -296,6 +302,14 @@ export class Settings {
         this.#setInputChecked(this.cachedElements.exportHighlightInput, exportConfig.codeHighlight, true);
         this.#setInputValue(this.cachedElements.pdfSizeSelect, exportConfig.pdfSize, 'A4');
         this.#setInputValue(this.cachedElements.pdfMarginSelect, exportConfig.pdfMargin, 'default');
+        // 页眉配置
+        this.#setInputValue(this.cachedElements.pdfHeaderLeftInput, exportConfig.pdfHeaderLeft, '');
+        this.#setInputValue(this.cachedElements.pdfHeaderCenterInput, exportConfig.pdfHeaderCenter, '{title}');
+        this.#setInputValue(this.cachedElements.pdfHeaderRightInput, exportConfig.pdfHeaderRight, '');
+        // 页脚配置
+        this.#setInputValue(this.cachedElements.pdfFooterLeftInput, exportConfig.pdfFooterLeft, '');
+        this.#setInputValue(this.cachedElements.pdfFooterCenterInput, exportConfig.pdfFooterCenter, '');
+        this.#setInputValue(this.cachedElements.pdfFooterRightInput, exportConfig.pdfFooterRight, '{page} / {pages}');
     }
 
     /**
@@ -359,7 +373,15 @@ export class Settings {
             includeStyle: this.cachedElements.exportStyleInput?.checked || false,
             codeHighlight: this.cachedElements.exportHighlightInput?.checked || false,
             pdfSize: this.cachedElements.pdfSizeSelect?.value || 'A4',
-            pdfMargin: this.cachedElements.pdfMarginSelect?.value || 'default'
+            pdfMargin: this.cachedElements.pdfMarginSelect?.value || 'default',
+            // 页眉配置
+            pdfHeaderLeft: this.cachedElements.pdfHeaderLeftInput?.value || '',
+            pdfHeaderCenter: this.cachedElements.pdfHeaderCenterInput?.value || '',
+            pdfHeaderRight: this.cachedElements.pdfHeaderRightInput?.value || '',
+            // 页脚配置
+            pdfFooterLeft: this.cachedElements.pdfFooterLeftInput?.value || '',
+            pdfFooterCenter: this.cachedElements.pdfFooterCenterInput?.value || '',
+            pdfFooterRight: this.cachedElements.pdfFooterRightInput?.value || ''
         };
 
         return { editorConfig, interfaceConfig, exportConfig };
