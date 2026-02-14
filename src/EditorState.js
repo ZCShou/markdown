@@ -32,7 +32,7 @@ export class EditorState {
      */
     static DEFAULT_SETTINGS = {
         editor: {
-            type: 'codemirror', // 编辑器类型: 'codemirror' | 'monaco'
+            type: 'monaco', // 编辑器类型: 'codemirror' | 'monaco'
             fontSize: 16,
             lineHeight: 1.6,
             autoSave: true,
