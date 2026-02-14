@@ -9,9 +9,6 @@ import { dom } from '../utils/dom.js';
  *
  */
 export class RightSidebar extends BaseComponent {
-    // 防抖延迟（毫秒）
-    static #DEBOUNCE_DELAY = 150;
-
     /**
      * 构造函数
      * @param state
@@ -20,7 +17,6 @@ export class RightSidebar extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.side = 'right';
-        this.animationFrameId = null;
         this.debounceTimer = null;
     }
 
@@ -51,11 +47,10 @@ export class RightSidebar extends BaseComponent {
             if (this.debounceTimer) {
                 clearTimeout(this.debounceTimer);
             }
-
             this.debounceTimer = setTimeout(() => {
                 this.debounceTimer = null;
                 this.generateTOC();
-            }, RightSidebar.#DEBOUNCE_DELAY);
+            }, 150);
         });
 
         // 合并取消订阅函数
@@ -97,21 +92,13 @@ export class RightSidebar extends BaseComponent {
             closeBtn.onclick = () => this.toggle();
         }
 
-        // 导出按钮（通过状态管理器触发导出事件）
-        const exportHTMLBtn = dom.getById('md-export-html')?.element;
-        if (exportHTMLBtn) {
-            exportHTMLBtn.onclick = () => this.state.triggerExport('html');
-        }
-
-        const exportMDBtn = dom.getById('md-export-md')?.element;
-        if (exportMDBtn) {
-            exportMDBtn.onclick = () => this.state.triggerExport('md');
-        }
-
-        const exportPDFBtn = dom.getById('md-export-pdf')?.element;
-        if (exportPDFBtn) {
-            exportPDFBtn.onclick = () => this.state.triggerExport('pdf');
-        }
+        // 导出按钮
+        ['html', 'md', 'pdf'].forEach(type => {
+            const btn = dom.getById(`md-export-${type}`)?.element;
+            if (btn) {
+                btn.onclick = () => this.state.triggerExport(type);
+            }
+        });
     }
 
     // ==================== 侧边栏控制 ====================
@@ -148,20 +135,10 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     updateVisibility(isOpen) {
-        const isMobile = window.innerWidth <= 768;
-
-        if (isOpen) {
-            this.container.classList.add('open');
-
-            if (isMobile) {
-                dom.app.overlay?.addClass('show');
-            }
-        } else {
-            this.container.classList.remove('open');
-
-            if (isMobile) {
-                dom.app.overlay?.removeClass('show');
-            }
+        this.container.classList.toggle('open', isOpen);
+        
+        if (window.innerWidth <= 768) {
+            dom.app.overlay?.[isOpen ? 'addClass' : 'removeClass']('show');
         }
     }
 
@@ -172,7 +149,6 @@ export class RightSidebar extends BaseComponent {
      */
     toggleSection(sectionName) {
         const isExpanded = this.state.toggleSection(sectionName);
-        // 内联更新 UI
         const content = dom.getById(`md-${sectionName}-content`)?.element;
         if (content) {
             content.classList.toggle('collapsed', !isExpanded);
@@ -185,10 +161,7 @@ export class RightSidebar extends BaseComponent {
      */
     applySectionStates() {
         const { sections } = this.state.get('interface');
-        const sectionNames = Object.keys(sections);
-
-        for (let i = 0; i < sectionNames.length; i++) {
-            const sectionName = sectionNames[i];
+        for (const sectionName in sections) {
             const content = dom.getById(`md-${sectionName}-content`)?.element;
             if (content) {
                 content.classList.toggle('collapsed', !sections[sectionName]);
@@ -199,7 +172,7 @@ export class RightSidebar extends BaseComponent {
     // ==================== 目录功能 ====================
 
     /**
-     * 生成目录（增量更新优化）
+     * 生成目录
      * @returns {void}
      */
     generateTOC() {
@@ -207,51 +180,16 @@ export class RightSidebar extends BaseComponent {
         if (!tocContainer) return;
 
         const headings = this.state.get('headings');
-        const headingCount = headings ? headings.length : 0;
 
-        if (headingCount === 0) {
+        if (!headings || headings.length === 0) {
             tocContainer.innerHTML = '<p class="md-empty-state">暂无目录</p>';
             return;
         }
 
-        // 使用 dom.js 统一查询，检查是否需要完全重建
-        const currentItems = dom.getAllIn(tocContainer, '.md-toc-item');
-        const itemCount = currentItems.length;
-
-        // 数量不同，直接重建
-        if (itemCount !== headingCount) {
-            // 使用 RAF 避免阻塞
-            if (this.animationFrameId) {
-                cancelAnimationFrame(this.animationFrameId);
-            }
-
-            this.animationFrameId = requestAnimationFrame(() => {
-                this.animationFrameId = null;
-                this.#rebuildTOC(headings, tocContainer);
-            });
-            return;
-        }
-
-        // 数量相同，增量更新
-        this.#updateTOC(headings, currentItems);
-    }
-
-    /**
-     * 完全重建目录
-     * @param headings
-     * @param tocContainer
-     * @private
-     */
-    #rebuildTOC(headings, tocContainer) {
-        const headingCount = headings.length;
-
-        // 使用 DocumentFragment 提升性能
         const fragment = document.createDocumentFragment();
 
-        for (let i = 0; i < headingCount; i++) {
+        for (let i = 0; i < headings.length; i++) {
             const heading = headings[i];
-
-            // 直接使用已有的数据，无需解析
             const headingId = heading.id || `heading-${i}`;
             const level = heading.level || +heading.tagName.substring(1);
             const text = heading.textContent || '';
@@ -259,7 +197,6 @@ export class RightSidebar extends BaseComponent {
             const item = document.createElement('div');
             item.className = `md-toc-item level-${level}`;
             item.dataset.headingId = headingId;
-            item.dataset.level = level; // 存储 level 避免后续正则匹配
             item.textContent = text;
 
             fragment.appendChild(item);
@@ -267,38 +204,6 @@ export class RightSidebar extends BaseComponent {
 
         tocContainer.innerHTML = '';
         tocContainer.appendChild(fragment);
-    }
-
-    /**
-     * 增量更新目录（性能优化 - 减少不必要的 DOM 操作）
-     * @param headings
-     * @param currentItems
-     * @private
-     */
-    #updateTOC(headings, currentItems) {
-        for (let i = 0; i < headings.length; i++) {
-            const heading = headings[i];
-            const currentItem = currentItems[i];
-
-            // 直接使用已有的数据，无需解析
-            const headingId = heading.id || `heading-${i}`;
-            const level = heading.level || +heading.tagName.substring(1);
-            const text = heading.textContent || '';
-
-            // 一次性读取当前值，避免重复查询 DOM
-            const { dataset } = currentItem;
-            const currentId = dataset.headingId;
-            const currentLevel = +dataset.level; // 直接从 data-level 读取，避免正则匹配
-            const currentText = currentItem.textContent;
-
-            // 检查是否需要更新，直接更新 DOM
-            if (currentId !== headingId || currentText !== text || currentLevel !== level) {
-                dataset.headingId = headingId;
-                dataset.level = level;
-                currentItem.textContent = text;
-                currentItem.className = `md-toc-item level-${level}`;
-            }
-        }
     }
 
     /**
@@ -337,21 +242,14 @@ export class RightSidebar extends BaseComponent {
     // ==================== 资源清理 ====================
 
     /**
-     * 销毁组件，清理动画帧请求
+     * 销毁组件
      * @returns {void}
      */
     destroy() {
-        // 清理防抖定时器
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer);
             this.debounceTimer = null;
         }
-        // 清理动画帧请求
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
-        // 调用父类销毁逻辑
         super.destroy();
     }
 }
