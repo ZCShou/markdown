@@ -435,9 +435,8 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 .md-sidebar-section-content {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 280px);
   overflow: hidden;
-  padding-bottom: 8px;
 }
 
 .md-sidebar-section-content.collapsed {
