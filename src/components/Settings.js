@@ -105,11 +105,11 @@ export class Settings {
             
             // 应用元素
             editorElement: dom.get('#markdown-editor'),
-            container: dom.get('.markdown-container'),
+            container: dom.get('.md-container'),
             leftSidebar: dom.get('.md-sidebar-left'),
             rightSidebar: dom.get('.md-sidebar-right'),
-            editorSection: dom.get('.markdown-editor-pane'),
-            previewSection: dom.get('.markdown-preview-pane'),
+            editorSection: dom.get('.md-editor-pane'),
+            previewSection: dom.get('.md-preview-pane'),
             tocSection: dom.get('.md-sidebar-section-toc'),
             exportSection: dom.get('.md-sidebar-section-export')
         };

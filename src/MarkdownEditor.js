@@ -691,7 +691,7 @@ export class MarkdownEditor {
      * @param layout
      */
     applyLayout(layout) {
-        const container = dom.get('.markdown-container');
+        const container = dom.get('.md-container');
         if (!container) return;
 
         // 移除所有布局类并添加新布局类
@@ -824,7 +824,7 @@ export class MarkdownEditor {
 
             // 应用布局（只在布局变化时）
             if (!hasOld || newInterface.layout !== oldInterface.layout) {
-                const container = dom.get('.markdown-container');
+                const container = dom.get('.md-container');
                 if (container) {
                     container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
                     container.classList.add(newInterface.layout ?? 'layout-both');

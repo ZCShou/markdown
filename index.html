@@ -28,6 +28,114 @@
         <!-- Sidebar Overlay (for mobile) -->
         <div class="md-sidebar-overlay" id="md-sidebar-overlay"></div>
 
+        <!-- Search & Replace Panel (positioned at body level for better z-index control) -->
+        <div class="md-search-panel" id="md-search-replace-panel">
+            <div class="md-search-content">
+                <button
+                    class="md-btn md-btn-icon md-search-toggle"
+                    id="md-search-toggle"
+                    title="切换搜索/替换模式"
+                >
+                    <i class="codicon codicon-chevron-right" aria-hidden="true"></i>
+                </button>
+                <div class="md-search-form">
+                    <div class="md-search-row">
+                        <div class="md-search-input-wrap">
+                            <input
+                                type="text"
+                                id="md-search-input"
+                                class="md-input"
+                                placeholder="查找"
+                                aria-label="查找内容"
+                                spellcheck="false"
+                            />
+                            <div class="md-search-options">
+                                <button
+                                    class="md-btn md-btn-icon md-btn-ghost md-search-opt"
+                                    id="md-search-case"
+                                    title="区分大小写"
+                                    aria-label="区分大小写"
+                                    aria-pressed="false"
+                                >
+                                    <i class="codicon codicon-case-sensitive" aria-hidden="true"></i>
+                                </button>
+                                <button
+                                    class="md-btn md-btn-icon md-btn-ghost md-search-opt"
+                                    id="md-search-whole-word"
+                                    title="全字匹配"
+                                    aria-label="全字匹配"
+                                    aria-pressed="false"
+                                >
+                                    <i class="codicon codicon-whole-word" aria-hidden="true"></i>
+                                </button>
+                                <button
+                                    class="md-btn md-btn-icon md-btn-ghost md-search-opt"
+                                    id="md-search-regex"
+                                    title="使用正则表达式"
+                                    aria-label="使用正则表达式"
+                                    aria-pressed="false"
+                                >
+                                    <i class="codicon codicon-regex" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <span class="md-search-count" id="md-search-match-count"></span>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost"
+                            id="md-search-prev"
+                            title="上一个 (Shift+Enter)"
+                            aria-label="上一个匹配"
+                        >
+                            <i class="codicon codicon-arrow-up" aria-hidden="true"></i>
+                        </button>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost"
+                            id="md-search-next"
+                            title="下一个 (Enter)"
+                            aria-label="下一个匹配"
+                        >
+                            <i class="codicon codicon-arrow-down" aria-hidden="true"></i>
+                        </button>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost"
+                            id="md-search-close"
+                            title="关闭 (Esc)"
+                        >
+                            <i class="codicon codicon-close" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="md-replace-row">
+                        <div class="md-replace-input-wrap">
+                            <input
+                                type="text"
+                                id="md-replace-input"
+                                class="md-input"
+                                placeholder="替换"
+                                aria-label="替换内容"
+                                spellcheck="false"
+                            />
+                        </div>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost"
+                            id="md-replace-one"
+                            title="替换当前 (Enter)"
+                            aria-label="替换当前匹配"
+                        >
+                            <i class="codicon codicon-replace" aria-hidden="true"></i>
+                        </button>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost"
+                            id="md-replace-all"
+                            title="全部替换"
+                            aria-label="全部替换"
+                        >
+                            <i class="codicon codicon-replace-all" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Layout Container - 横向布局 -->
         <div class="md-main-layout">
             <!-- Left Sidebar - Project Management -->
@@ -98,8 +206,8 @@
             <!-- Middle Area - Toolbar + Container 垂直布局 -->
             <div class="md-middle-area">
                 <!-- Top Toolbar -->
-                <div class="markdown-toolbar">
-                    <div class="markdown-toolbar-left">
+                <div class="md-toolbar">
+                    <div class="md-toolbar-left">
                         <button
                             class="md-btn md-btn-icon md-btn-ghost"
                             id="md-toggle-left-sidebar"
@@ -127,7 +235,7 @@
                             <i class="codicon codicon-sync" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <div class="markdown-toolbar-right">
+                    <div class="md-toolbar-right">
                         <button
                             class="md-btn md-btn-icon md-btn-ghost"
                             id="md-search-toggle-btn"
@@ -165,134 +273,19 @@
                 </div>
 
                 <!-- Main Container -->
-                <div class="markdown-container" id="md-container">
-                    <!-- Search & Replace Panel -->
-                    <div class="md-search-replace-panel" id="md-search-replace-panel">
-                        <div class="md-search-replace-content">
-                            <button
-                                class="md-btn md-btn-icon md-search-toggle"
-                                id="md-search-toggle"
-                                title="切换搜索/替换模式"
-                            >
-                                <i class="codicon codicon-chevron-right" aria-hidden="true"></i>
-                            </button>
-                            <div class="md-search-form">
-                                <!-- 搜索行 -->
-                                <div class="md-search-row">
-                                    <div class="md-search-input-wrapper">
-                                        <input
-                                            type="text"
-                                            id="md-search-input"
-                                            class="md-search-input"
-                                            placeholder="查找"
-                                            aria-label="查找内容"
-                                            spellcheck="false"
-                                        />
-                                        <div class="md-search-input-options">
-                                            <button
-                                                class="md-btn md-btn-icon md-btn-ghost md-search-option-btn"
-                                                id="md-search-case"
-                                                title="区分大小写"
-                                                aria-label="区分大小写"
-                                                aria-pressed="false"
-                                            >
-                                                <i class="codicon codicon-case-sensitive" aria-hidden="true"></i>
-                                            </button>
-                                            <button
-                                                class="md-btn md-btn-icon md-btn-ghost md-search-option-btn"
-                                                id="md-search-whole-word"
-                                                title="全字匹配"
-                                                aria-label="全字匹配"
-                                                aria-pressed="false"
-                                            >
-                                                <i class="codicon codicon-whole-word" aria-hidden="true"></i>
-                                            </button>
-                                            <button
-                                                class="md-btn md-btn-icon md-btn-ghost md-search-option-btn"
-                                                id="md-search-regex"
-                                                title="使用正则表达式"
-                                                aria-label="使用正则表达式"
-                                                aria-pressed="false"
-                                            >
-                                                <i class="codicon codicon-regex" aria-hidden="true"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="md-search-match-info">
-                                        <span id="md-search-match-count"></span>
-                                    </div>
-                                    <button
-                                        class="md-btn md-btn-icon md-btn-ghost"
-                                        id="md-search-prev"
-                                        title="上一个 (Shift+Enter)"
-                                        aria-label="上一个匹配"
-                                    >
-                                        <i class="codicon codicon-arrow-up" aria-hidden="true"></i>
-                                    </button>
-                                    <button
-                                        class="md-btn md-btn-icon md-btn-ghost"
-                                        id="md-search-next"
-                                        title="下一个 (Enter)"
-                                        aria-label="下一个匹配"
-                                    >
-                                        <i class="codicon codicon-arrow-down" aria-hidden="true"></i>
-                                    </button>
-                                    <button
-                                        class="md-btn md-btn-icon md-btn-ghost md-search-close"
-                                        id="md-search-close"
-                                        title="关闭 (Esc)"
-                                    >
-                                        <i class="codicon codicon-close" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-                                
-                                <!-- 替换行 -->
-                                <div class="md-replace-row">
-                                    <div class="md-replace-input-wrapper">
-                                        <input
-                                            type="text"
-                                            id="md-replace-input"
-                                            class="md-replace-input"
-                                            placeholder="替换"
-                                            aria-label="替换内容"
-                                            spellcheck="false"
-                                        />
-                                    </div>
-                                    <button
-                                        class="md-btn md-btn-icon md-btn-ghost"
-                                        id="md-replace-one"
-                                        title="替换当前 (Enter)"
-                                        aria-label="替换当前匹配"
-                                    >
-                                        <i class="codicon codicon-replace" aria-hidden="true"></i>
-                                    </button>
-                                    <button
-                                        class="md-btn md-btn-icon md-btn-ghost"
-                                        id="md-replace-all"
-                                        title="全部替换"
-                                        aria-label="全部替换"
-                                    >
-                                        <i class="codicon codicon-replace-all" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+                <div class="md-container" id="md-container">
                     <!-- Editor Pane -->
-                    <div class="markdown-editor-pane" id="md-editor-pane">
-                        <div class="markdown-editor-wrapper">
-                            <div id="markdown-editor" class="markdown-editor-host"></div>
-                        </div>
+                    <div class="md-pane md-editor-pane" id="md-editor-pane">
+                        <div id="markdown-editor"></div>
                     </div>
 
                     <!-- Divider -->
-                    <div class="markdown-divider" id="md-divider"></div>
+                    <div class="md-divider" id="md-divider"></div>
 
                     <!-- Preview Pane -->
-                    <div class="markdown-preview-pane" id="md-preview-pane">
+                    <div class="md-pane md-preview-pane" id="md-preview-pane">
                         <div
-                            class="markdown-preview-wrapper unified-scrollbar"
+                            class="md-preview-scroll unified-scrollbar"
                             id="md-preview-wrapper"
                         >
                             <div
