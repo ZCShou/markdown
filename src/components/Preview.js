@@ -1672,56 +1672,440 @@ export class Preview extends BaseComponent {
         html = html
             .replace(/ class="prism-highlighted"/g, '')
             .replace(/ class="mermaid-done"/g, '')
+            .replace(/ class="mermaid-pending"/g, '')
+            .replace(/ class="mermaid-rendering"/g, '')
             .replace(/ data-load-status="[^"]*"/g, '')
-            .replace(/ class="math-rendered"/g, '');
+            .replace(/ class="math-rendered"/g, '')
+            .replace(/ class="math-pending"/g, '')
+            .replace(/ data-mermaid="[^"]*"/g, '')
+            .replace(/ data-latex="[^"]*"/g, '');
+
+        // 获取当前主题
+        const isDark = this.state.get('interface')?.theme === 'dark';
 
         const fullHtml = `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN"${isDark ? ' data-mode="dark"' : ''}>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Markdown 导出</title>
 <style>
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.6;max-width:900px;margin:0 auto;padding:20px;color:#24292e;word-wrap:break-word}
-pre{background:#f3f4f6;padding:16px;margin:0;border-radius:6px;overflow-x:auto;min-height:3em;box-sizing:border-box}
-code{padding:.2em .4em;margin:0;font-size:85%;background:rgba(0,0,0,.06);border-radius:3px;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;color:#24292e}
-pre code{padding:0;margin:0;background:transparent;border-radius:0;font-size:inherit;display:inline-block;min-width:100%;line-height:1.5;box-sizing:border-box}
-blockquote{padding:0 1em;color:#6a737d;border-left:.25em solid #dfe2e5;margin:0 0 16px}
-blockquote>:first-child{margin-top:0}
-blockquote>:last-child{margin-bottom:0}
-table{border-spacing:0;border-collapse:collapse;margin-top:0;margin-bottom:16px;width:100%;max-width:100%;overflow-x:auto;display:block}
-table th{font-weight:600;background:#f3f4f6}
-table th,table td{padding:6px 13px;border:1px solid #dfe2e5}
-table tr{background:#fff;border-top:1px solid #c6cbd1}
-table tr:nth-child(2n){background:#f3f4f6}
-img{max-width:100%;height:auto}
-a{color:#0366d6;text-decoration:none}
-a:hover{text-decoration:underline}
-h1,h2,h3,h4,h5,h6{margin-top:24px;margin-bottom:16px;font-weight:600;line-height:1.25}
-h1{font-size:2em;padding-bottom:.3em;border-bottom:1px solid #e0e0e0}
-h2{font-size:1.75em;padding-bottom:.3em;border-bottom:1px solid #e0e0e0}
-h3{font-size:1.5em}
-h4{font-size:1.25em}
-h5{font-size:1.1em}
-h6{font-size:1em;color:#6a737d}
-p{margin-top:0;margin-bottom:16px}
-ul,ol{margin-top:0;margin-bottom:16px;padding-left:2em}
-li{margin-top:.25em}
-hr{height:.25em;padding:0;margin:24px 0;background:#e1e4e8;border:0}
-.mermaid{text-align:center;margin:1.5em 0;background:#fff;padding:10px;border-radius:6px}
-/* Prism 代码高亮样式*/
-.token.comment,.token.prolog,.token.doctype,.token.cdata{color:#6a737d}.token.punctuation{color:#24292e}.token.property,.token.tag,.token.boolean,.token.number,.token.constant,.token.symbol,.token.deleted{color:#0366d6}.token.selector,.token.attr-name,.token.string,.token.char,.token.builtin,.token.inserted{color:#22863a}.token.operator,.token.entity,.token.url,.language-css .token.string,.style .token.string{color:#d73a49}.token.atrule,.token.attr-value,.token.keyword{color:#6f42c1}.token.function,.token.class-name{color:#6f42c1}.token.regex,.token.important,.token.variable{color:#e90fc9}
-/* 代码块包装器和复制按钮*/
-.code-block-wrapper{position:relative;margin:16px 0}
-.code-copy-btn{position:absolute;top:8px;right:8px;padding:4px 8px;font-size:12px;opacity:0;transition:opacity .2s;z-index:10;cursor:pointer;border:1px solid #dfe2e5;background:#fff;border-radius:3px}
-.code-block-wrapper:hover .code-copy-btn,.code-copy-btn:hover{opacity:1}
-.code-copy-btn.copied{background:#4caf50;color:#fff;border-color:#4caf50}
-/* KaTeX 数学公式样式*/
-.katex-display{margin:1em 0;overflow-x:auto}.katex{font-size:1.1em}.katex-display>.katex{white-space:nowrap}.katex-display{overflow-x:auto;overflow-y:hidden;padding:.5em 0}
+/* ==================== CSS 变量 ==================== */
+:root {
+  --md-bg-primary: #f5f5f5;
+  --md-bg-secondary: #fff;
+  --md-bg-tertiary: #f8f9fa;
+  --md-text-primary: #333;
+  --md-text-secondary: #666;
+  --md-text-tertiary: #999;
+  --md-border: #e0e0e0;
+  --md-border-light: #dfe2e5;
+  --md-color-primary: #2196f3;
+  --md-color-success: #4caf50;
+  --md-code-bg: #f3f4f6;
+  --md-code-bg-inline: rgba(0, 0, 0, 0.06);
+  --md-code-text: #24292e;
+  --md-markdown-bg: #fff;
+  --md-markdown-text: #24292e;
+  --md-markdown-link: #0366d6;
+  --md-markdown-quote: #6a737d;
+  --md-checkbox-border: #dfe2e5;
+  --md-checkbox-checked-bg: #0366d6;
+  --prism-bg: #f5f5f5;
+  --prism-text-shadow: 0 1px #fff;
+  --prism-comment: #708090;
+  --prism-punctuation: #999;
+  --prism-property: #905;
+  --prism-selector: #690;
+  --prism-operator: #9a6e3a;
+  --prism-keyword: #07a;
+  --prism-function: #dd4a68;
+  --prism-regex: #e90;
+}
+
+[data-mode='dark'] {
+  --md-bg-primary: #0f1420;
+  --md-bg-secondary: #1e1e1e;
+  --md-bg-tertiary: #2d2d2d;
+  --md-text-primary: #e0e0e0;
+  --md-text-secondary: #b0b0b0;
+  --md-text-tertiary: #7f8c8d;
+  --md-border: #3e3e3e;
+  --md-border-light: #3e3e3e;
+  --md-color-primary: #42a5f5;
+  --md-code-bg: #2d2d2d;
+  --md-code-bg-inline: rgba(255, 255, 255, 0.1);
+  --md-code-text: #e0e0e0;
+  --md-markdown-bg: #1e1e1e;
+  --md-markdown-text: #e0e0e0;
+  --md-markdown-link: #42a5f5;
+  --md-markdown-quote: #b0b0b0;
+  --md-checkbox-border: #3e3e3e;
+  --md-checkbox-checked-bg: #0d47a1;
+  --prism-bg: #2d2d2d;
+  --prism-text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+  --prism-comment: #8e929a;
+  --prism-punctuation: #d4d4d4;
+  --prism-property: #b5cea8;
+  --prism-selector: #ce9178;
+  --prism-operator: #d4d4d4;
+  --prism-keyword: #c586c0;
+  --prism-function: #dcdcaa;
+  --prism-regex: #d16969;
+}
+
+/* ==================== 基础样式 ==================== */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background-color: var(--md-bg-primary);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--md-markdown-text);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* ==================== Markdown 内容样式 ==================== */
+.markdown-body {
+  max-width: 900px;
+  margin: 0 auto;
+  background-color: var(--md-markdown-bg);
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-body > *:first-child { margin-top: 0 !important; }
+.markdown-body > *:last-child { margin-bottom: 0 !important; }
+
+.markdown-body a {
+  color: var(--md-markdown-link);
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--md-text-primary);
+}
+
+.markdown-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--md-border); }
+.markdown-body h2 { font-size: 1.75em; padding-bottom: 0.3em; border-bottom: 1px solid var(--md-border); }
+.markdown-body h3 { font-size: 1.5em; }
+.markdown-body h4 { font-size: 1.25em; }
+.markdown-body h5 { font-size: 1.1em; }
+.markdown-body h6 { font-size: 1em; color: var(--md-text-tertiary); }
+
+.markdown-body p { margin-top: 0; margin-bottom: 16px; }
+
+.markdown-body ul, .markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 1.75em;
+  list-style-position: outside;
+}
+
+.markdown-body ul li, .markdown-body ol li {
+  padding-left: 0.25em;
+  margin-top: 0.25em;
+}
+
+.markdown-body li:has(input[type='checkbox']) {
+  list-style-type: none;
+  margin-left: -1.25em;
+  padding-left: 0.25em;
+}
+
+.markdown-body code {
+  padding: 0.2em 0.4em;
+  font-size: 85%;
+  background-color: var(--md-code-bg-inline);
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: var(--md-code-text);
+}
+
+.markdown-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 16px;
+  margin: 16px 0;
+  background-color: var(--md-code-bg) !important;
+  border-radius: 6px;
+  min-height: 3em;
+  box-sizing: border-box;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  margin: 0;
+  background-color: transparent;
+  font-size: inherit;
+  display: inline-block;
+  min-width: 100%;
+  line-height: 1.5;
+}
+
+.markdown-body blockquote {
+  padding: 0 1em;
+  color: var(--md-markdown-quote);
+  border-left: 0.25em solid var(--md-border-light);
+  margin: 0 0 16px 0;
+}
+
+.markdown-body blockquote > :first-child { margin-top: 0; }
+.markdown-body blockquote > :last-child { margin-bottom: 0; }
+
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-top: 0;
+  margin-bottom: 16px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
+}
+
+.markdown-body th { font-weight: 600; background-color: var(--md-code-bg); }
+.markdown-body th, .markdown-body td {
+  padding: 6px 13px;
+  border: 1px solid var(--md-border-light);
+}
+
+.markdown-body tr { border-top: 1px solid var(--md-border); background-color: var(--md-bg-secondary); }
+.markdown-body tr:nth-child(2n) { background-color: var(--md-code-bg); }
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  box-sizing: border-box;
+}
+
+.markdown-body hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: var(--md-border);
+  border: 0;
+}
+
+/* ==================== 复选框样式 ==================== */
+.markdown-body input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1em;
+  height: 1em;
+  border: 1px solid var(--md-checkbox-border);
+  background-color: var(--md-bg-secondary);
+  vertical-align: -0.1em;
+  margin: 0 0.25em 0 0;
+  border-radius: 2px;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.markdown-body input[type='checkbox']:checked {
+  background-color: var(--md-checkbox-checked-bg);
+  border-color: var(--md-checkbox-checked-bg);
+}
+
+.markdown-body input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 0.25em;
+  top: 0.05em;
+  width: 0.25em;
+  height: 0.5em;
+  border: solid white;
+  border-width: 0 0.15em 0.15em 0;
+  transform: rotate(45deg);
+}
+
+/* ==================== 代码块包装器 ==================== */
+.code-block-wrapper {
+  position: relative;
+  margin: 16px 0;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+  cursor: pointer;
+  border: 1px solid var(--md-border-light);
+  background: var(--md-bg-secondary);
+  color: var(--md-text-primary);
+  border-radius: 3px;
+  font-family: inherit;
+}
+
+.code-block-wrapper:hover .code-copy-btn,
+.code-copy-btn:hover {
+  opacity: 1;
+}
+
+.code-copy-btn.copied {
+  background: var(--md-color-success);
+  color: #fff;
+  border-color: var(--md-color-success);
+}
+
+/* ==================== Mermaid 图表 ==================== */
+.markdown-body .mermaid {
+  text-align: center;
+  margin: 16px 0;
+  background-color: var(--md-bg-secondary);
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--md-border-light);
+}
+
+.markdown-body .mermaid svg {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ==================== 数学公式 ==================== */
+.markdown-body .math-block {
+  display: block;
+  overflow-x: auto;
+  text-align: center;
+  margin: 1em 0;
+  padding: 0.5em 0;
+}
+
+.markdown-body .math-inline {
+  display: inline;
+  padding: 0 2px;
+}
+
+/* ==================== Prism 代码高亮 ==================== */
+code[class*='language-'],
+pre[class*='language-'] {
+  text-shadow: var(--prism-text-shadow);
+  background: var(--prism-bg);
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--prism-comment);
+}
+
+.token.punctuation {
+  color: var(--prism-punctuation);
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: var(--prism-property);
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: var(--prism-selector);
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: var(--prism-operator);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: var(--prism-keyword);
+}
+
+.token.function,
+.token.class-name {
+  color: var(--prism-function);
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: var(--prism-regex);
+}
+
+/* ==================== KaTeX 数学公式样式 ==================== */
+.katex-display { margin: 1em 0; overflow-x: auto; }
+.katex { font-size: 1.1em; }
+.katex-display > .katex { white-space: nowrap; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.5em 0; }
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
+  
+  .markdown-body {
+    padding: 16px;
+  }
+}
+
+/* ==================== 打印优化 ==================== */
+@media print {
+  body {
+    background: #fff !important;
+    padding: 0 !important;
+  }
+  
+  .markdown-body {
+    max-width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+  
+  .code-copy-btn {
+    display: none !important;
+  }
+}
 </style>
 </head>
 <body>
+<div class="markdown-body">
 ${html}
+</div>
 </body>
 </html>`;
 
