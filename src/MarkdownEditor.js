@@ -57,11 +57,41 @@ export class MarkdownEditor {
     // ==================== 配置常量 ====================
 
     /**
+     * 编辑器类型常量
+     * @type {Object}
+     */
+    static EDITOR_TYPES = {
+        CODEMIRROR: 'codemirror',
+        MONACO: 'monaco'
+    };
+
+    /**
+     * 布局模式常量
+     * @type {Object}
+     */
+    static LAYOUT_MODES = {
+        BOTH: 'layout-both',
+        EDITOR_ONLY: 'layout-editor-only',
+        PREVIEW_ONLY: 'layout-preview-only'
+    };
+
+    /**
+     * 消息类型常量
+     * @type {Object}
+     */
+    static MESSAGE_TYPES = {
+        INFO: 'info',
+        SUCCESS: 'success',
+        WARNING: 'warning',
+        ERROR: 'error'
+    };
+
+    /**
      * 防抖延迟配置（毫秒）
      * @type {Object}
      */
     static DEBOUNCE_DELAY = {
-        UPDATE: 300, // 内容更新防抖延迟
+        UPDATE: 150, // 内容更新防抖延迟
         SAVE: 1000 // 自动保存防抖延迟
     };
 
@@ -135,17 +165,27 @@ export class MarkdownEditor {
 
         /** @type {Function|null} 编辑器配置订阅取消函数 */
         this._editorConfigUnsubscribe = null;
+
+        /** @type {Function|null} 同步滚动内容订阅取消函数 */
+        this._syncScrollContentUnsubscribe = null;
+
+        /** @type {Function|null} 同步滚动编辑器滚动订阅取消函数 */
+        this._syncScrollEditorScrollUnsubscribe = null;
     }
 
     // ==================== 工具函数 ====================
 
     /**
      * 显示消息提示
-     * @param message
-     * @param type
-     * @param duration
+     * @param {string} message - 消息内容
+     * @param {string} type - 消息类型
+     * @param {number} duration - 显示时长（毫秒）
      */
-    showMessage(message, type = 'info', duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION) {
+    showMessage(
+        message, 
+        type = MarkdownEditor.MESSAGE_TYPES.INFO, 
+        duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION
+    ) {
         const overlay = dom.status.overlay?.element;
         const messageEl = dom.status.message?.element;
 
@@ -170,10 +210,109 @@ export class MarkdownEditor {
      * @private
      */
     #getActiveEditor() {
-        if (this.currentEditorType === 'monaco') {
+        if (this.currentEditorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
             return this.monacoEditor;
         }
         return this.codeMirrorEditor;
+    }
+
+    /**
+     * 构建编辑器配置对象
+     * @param {string} initialValue - 初始内容
+     * @returns {Object} 编辑器配置
+     * @private
+     */
+    #buildEditorConfig(initialValue = '') {
+        const editorConfig = this.state.get('editor') || {};
+        const interfaceConfig = this.state.get('interface') || {};
+        
+        return {
+            initialValue,
+            editorConfig,
+            interfaceConfig,
+            placeholder: '在此输入 Markdown 内容...',
+            ariaLabel: 'Markdown 编辑器输入区域',
+            onChange: this.#handleEditorChange.bind(this),
+            onSearch: this.#handleEditorSearch.bind(this),
+            onEscape: this.#handleEditorEscape.bind(this)
+        };
+    }
+
+    /**
+     * 处理编辑器内容变化
+     * @param {string} content - 新内容
+     * @private
+     */
+    #handleEditorChange(content) {
+        if (this._editorInputTimer) {
+            clearTimeout(this._editorInputTimer);
+        }
+        this._editorInputTimer = setTimeout(() => {
+            this.state.updateContent(content);
+        }, MarkdownEditor.DEBOUNCE_DELAY.UPDATE);
+    }
+
+    /**
+     * 处理编辑器搜索
+     * @param {boolean} isReplaceMode - 是否为替换模式
+     * @private
+     */
+    #handleEditorSearch(isReplaceMode) {
+        this.state.showSearchReplace(isReplaceMode);
+    }
+
+    /**
+     * 处理编辑器 ESC 键
+     * @returns {boolean} 是否阻止默认行为
+     * @private
+     */
+    #handleEditorEscape() {
+        const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
+        if (searchReplaceVisible) {
+            this.state.hideSearchReplace();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 创建编辑器实例
+     * @param {string} editorType - 编辑器类型
+     * @param {string} initialValue - 初始内容
+     * @param {HTMLElement} editorHost - 编辑器容器
+     * @returns {CodeMirrorEditor|MonacoEditor} 编辑器实例
+     * @private
+     */
+    #createEditorInstance(editorType, initialValue, editorHost) {
+        const config = this.#buildEditorConfig(initialValue);
+        const EditorClass = editorType === MarkdownEditor.EDITOR_TYPES.MONACO 
+            ? MonacoEditor 
+            : CodeMirrorEditor;
+        
+        const editor = new EditorClass(editorHost, config);
+        editor.init();
+        
+        return editor;
+    }
+
+    /**
+     * 销毁当前活动的编辑器
+     * @private
+     */
+    #destroyCurrentEditor() {
+        if (this.codeMirrorEditor) {
+            this.codeMirrorEditor.destroy();
+            this.codeMirrorEditor = null;
+        }
+        if (this.monacoEditor) {
+            this.monacoEditor.destroy();
+            this.monacoEditor = null;
+        }
+        
+        const editorHost = dom.getById('markdown-editor')?.element;
+        if (editorHost) {
+            editorHost.innerHTML = '';
+        }
     }
 
     /**
@@ -189,89 +328,26 @@ export class MarkdownEditor {
         if (editorType === this.currentEditorType) return;
 
         const editorHost = dom.getById('markdown-editor')?.element;
-        if (!editorHost) return;
+        if (!editorHost) {
+            console.error('Editor host not found: markdown-editor');
+            this.showMessage('编辑器容器未找到', MarkdownEditor.MESSAGE_TYPES.ERROR);
+            return;
+        }
 
         // 保存当前内容
         const currentContent = this.#getActiveEditor()?.getValue() || '';
 
-        // 销毁当前编辑器
-        if (this.codeMirrorEditor) {
-            this.codeMirrorEditor.destroy();
-            this.codeMirrorEditor = null;
-        }
-        if (this.monacoEditor) {
-            this.monacoEditor.destroy();
-            this.monacoEditor = null;
-        }
-
-        // 清空容器
-        editorHost.innerHTML = '';
-
-        // 更新编辑器类型
-        this.currentEditorType = editorType;
+        // 销毁旧编辑器
+        this.#destroyCurrentEditor();
 
         // 创建新编辑器
-        const editorConfig = this.state.get('editor') || {};
-        const interfaceConfig = this.state.get('interface') || {};
-
-        if (editorType === 'monaco') {
-            this.monacoEditor = new MonacoEditor(editorHost, {
-                initialValue: currentContent,
-                editorConfig,
-                interfaceConfig,
-                placeholder: '在此输入 Markdown 内容...',
-                ariaLabel: 'Markdown 编辑器输入区域',
-                onChange: (content) => {
-                    if (this._editorInputTimer) {
-                        clearTimeout(this._editorInputTimer);
-                    }
-                    this._editorInputTimer = setTimeout(() => {
-                        this.state.updateContent(content);
-                    }, 150);
-                },
-                onSearch: (isReplaceMode) => {
-                    this.state.showSearchReplace(isReplaceMode);
-                },
-                onEscape: () => {
-                    const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
-                    if (searchReplaceVisible) {
-                        this.state.hideSearchReplace();
-                        return true;
-                    }
-                    return false;
-                }
-            });
-
-            this.monacoEditor.init();
+        this.currentEditorType = editorType;
+        const editor = this.#createEditorInstance(editorType, currentContent, editorHost);
+        
+        if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
+            this.monacoEditor = editor;
         } else {
-            this.codeMirrorEditor = new CodeMirrorEditor(editorHost, {
-                initialValue: currentContent,
-                editorConfig,
-                interfaceConfig,
-                placeholder: '在此输入 Markdown 内容...',
-                ariaLabel: 'Markdown 编辑器输入区域',
-                onChange: (content) => {
-                    if (this._editorInputTimer) {
-                        clearTimeout(this._editorInputTimer);
-                    }
-                    this._editorInputTimer = setTimeout(() => {
-                        this.state.updateContent(content);
-                    }, 150);
-                },
-                onSearch: (isReplaceMode) => {
-                    this.state.showSearchReplace(isReplaceMode);
-                },
-                onEscape: () => {
-                    const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
-                    if (searchReplaceVisible) {
-                        this.state.hideSearchReplace();
-                        return true;
-                    }
-                    return false;
-                }
-            });
-
-            this.codeMirrorEditor.init();
+            this.codeMirrorEditor = editor;
         }
 
         // 更新状态
@@ -280,7 +356,10 @@ export class MarkdownEditor {
         // 重新设置同步滚动（切换编辑器后需要重新绑定事件）
         this.setupSyncScroll();
 
-        this.showMessage(`已切换到 ${editorType === 'monaco' ? 'Monaco' : 'CodeMirror'} 编辑器`, 'success');
+        this.showMessage(
+            `已切换到 ${editorType === MarkdownEditor.EDITOR_TYPES.MONACO ? 'Monaco' : 'CodeMirror'} 编辑器`, 
+            MarkdownEditor.MESSAGE_TYPES.SUCCESS
+        );
     }
 
     // ==================== 组件初始化 ====================
@@ -293,74 +372,22 @@ export class MarkdownEditor {
         const editorHost = dom.getById('markdown-editor')?.element;
         if (editorHost) {
             const editorConfig = this.state.get('editor') || {};
-            const interfaceConfig = this.state.get('interface') || {};
-            const editorType = editorConfig.type || 'codemirror';
+            const editorType = editorConfig.type || MarkdownEditor.EDITOR_TYPES.CODEMIRROR;
+            const initialValue = this.state.get('content') || '';
 
             this.currentEditorType = editorType;
 
-            // 根据编辑器类型创建不同的编辑器实例
-            if (editorType === 'monaco') {
-                this.monacoEditor = new MonacoEditor(editorHost, {
-                    initialValue: this.state.get('content') || '',
-                    editorConfig,
-                    interfaceConfig,
-                    placeholder: '在此输入 Markdown 内容...',
-                    ariaLabel: 'Markdown 编辑器输入区域',
-                    onChange: (content) => {
-                        if (this._editorInputTimer) {
-                            clearTimeout(this._editorInputTimer);
-                        }
-                        this._editorInputTimer = setTimeout(() => {
-                            this.state.updateContent(content);
-                        }, 150);
-                    },
-                    onSearch: (isReplaceMode) => {
-                        this.state.showSearchReplace(isReplaceMode);
-                    },
-                    onEscape: () => {
-                        const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
-                        if (searchReplaceVisible) {
-                            this.state.hideSearchReplace();
-                            return true;
-                        }
-                        return false;
-                    }
-                });
-
-                this.monacoEditor.init();
+            // 使用统一的创建方法
+            const editor = this.#createEditorInstance(editorType, initialValue, editorHost);
+            
+            if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
+                this.monacoEditor = editor;
             } else {
-                // 默认使用 CodeMirror
-                this.codeMirrorEditor = new CodeMirrorEditor(editorHost, {
-                    initialValue: this.state.get('content') || '',
-                    editorConfig,
-                    interfaceConfig,
-                    placeholder: '在此输入 Markdown 内容...',
-                    ariaLabel: 'Markdown 编辑器输入区域',
-                    onChange: (content) => {
-                        if (this._editorInputTimer) {
-                            clearTimeout(this._editorInputTimer);
-                        }
-                        this._editorInputTimer = setTimeout(() => {
-                            this.state.updateContent(content);
-                        }, 150);
-                    },
-                    onSearch: (isReplaceMode) => {
-                        this.state.showSearchReplace(isReplaceMode);
-                    },
-                    onEscape: () => {
-                        const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
-                        if (searchReplaceVisible) {
-                            this.state.hideSearchReplace();
-                            return true;
-                        }
-                        return false;
-                    }
-                });
-
-                this.codeMirrorEditor.init();
+                this.codeMirrorEditor = editor;
             }
         } else {
             console.error('Editor host not found: markdown-editor');
+            this.showMessage('编辑器初始化失败', MarkdownEditor.MESSAGE_TYPES.ERROR);
         }
 
         // 预览组件
@@ -421,8 +448,8 @@ export class MarkdownEditor {
         if (editorResizeElement) resizeObserver.observe(editorResizeElement);
         resizeObserver.observe(previewWrapper);
 
-        // 内容变化时更新高度
-        this._syncScrollStateUnsubscribe = this.state.subscribeTo(
+        // 内容变化时更新高度（使用新的订阅名称避免冲突）
+        this._syncScrollContentUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
             () => requestAnimationFrame(() => heights = updateScrollHeights())
         );
@@ -442,8 +469,8 @@ export class MarkdownEditor {
             requestAnimationFrame(() => this.isSyncing = false);
         };
 
-        // 编辑器滚动 -> 预览
-        this._syncScrollEditorUnsubscribe = editorInstance.onScroll(() => {
+        // 编辑器滚动 -> 预览（使用新的订阅名称避免冲突）
+        this._syncScrollEditorScrollUnsubscribe = editorInstance.onScroll(() => {
             handleScroll(editor, previewWrapper, heights.editor, heights.preview);
         });
 
@@ -468,13 +495,13 @@ export class MarkdownEditor {
             this._syncScrollResizeObserver.disconnect();
             this._syncScrollResizeObserver = null;
         }
-        if (this._syncScrollStateUnsubscribe) {
-            this._syncScrollStateUnsubscribe();
-            this._syncScrollStateUnsubscribe = null;
+        if (this._syncScrollContentUnsubscribe) {
+            this._syncScrollContentUnsubscribe();
+            this._syncScrollContentUnsubscribe = null;
         }
-        if (this._syncScrollEditorUnsubscribe) {
-            this._syncScrollEditorUnsubscribe();
-            this._syncScrollEditorUnsubscribe = null;
+        if (this._syncScrollEditorScrollUnsubscribe) {
+            this._syncScrollEditorScrollUnsubscribe();
+            this._syncScrollEditorScrollUnsubscribe = null;
         }
         if (this._syncScrollPreview && this._syncScrollPreviewHandler) {
             this._syncScrollPreview.removeEventListener('scroll', this._syncScrollPreviewHandler);
@@ -501,10 +528,16 @@ export class MarkdownEditor {
             // Avoid unnecessary updates when ratio hasn't changed much
             if (Math.abs(clamped - this.lastLeftRatio) < 1e-6) return;
 
-            container.style.setProperty('--split-ratio', String(clamped));
-            container.classList.add('has-split-ratio');
-            this.lastLeftRatio = clamped;
+            // 批量更新 DOM，减少回流/重绘
+            requestAnimationFrame(() => {
+                // 只在需要时添加类
+                if (!container.classList.contains('has-split-ratio')) {
+                    container.classList.add('has-split-ratio');
+                }
+                container.style.setProperty('--split-ratio', String(clamped));
+            });
 
+            this.lastLeftRatio = clamped;
             // 不再设置内联样式，让 CSS 通过 --split-ratio 变量自动处理
             // 这样可以避免滚动条出现时的布局问题
         };
@@ -515,7 +548,7 @@ export class MarkdownEditor {
 
         const recalculateSplitRatio = () => {
             const currentLayout = this.state.get('interface').layout;
-            if (currentLayout !== 'layout-both') {
+            if (currentLayout !== MarkdownEditor.LAYOUT_MODES.BOTH) {
                 clearSplitRatio();
                 return;
             }
@@ -527,7 +560,7 @@ export class MarkdownEditor {
 
         // 初始化（依赖 CSS 处理布局）
         const currentLayout = this.state.get('interface').layout;
-        if (currentLayout === 'layout-both') {
+        if (currentLayout === MarkdownEditor.LAYOUT_MODES.BOTH) {
             updateSplitRatio(this.lastLeftRatio);
         }
 
@@ -688,21 +721,25 @@ export class MarkdownEditor {
 
     /**
      * 应用布局
-     * @param layout
+     * @param {string} layout - 布局模式
      */
     applyLayout(layout) {
         const container = dom.get('.md-container');
         if (!container) return;
 
         // 移除所有布局类并添加新布局类
-        container.classList.remove('layout-editor-only', 'layout-preview-only', 'layout-both');
+        container.classList.remove(
+            MarkdownEditor.LAYOUT_MODES.EDITOR_ONLY,
+            MarkdownEditor.LAYOUT_MODES.PREVIEW_ONLY,
+            MarkdownEditor.LAYOUT_MODES.BOTH
+        );
         container.classList.add(layout);
 
         // 清除分割比例类，让布局自适应
         container.classList.remove('has-split-ratio');
 
         // 如果切换到双面板模式，延迟一帧后重新应用保存的比例
-        if (layout === 'layout-both') {
+        if (layout === MarkdownEditor.LAYOUT_MODES.BOTH) {
             requestAnimationFrame(() => {
                 container.style.setProperty('--split-ratio', this.lastLeftRatio);
                 container.classList.add('has-split-ratio');
@@ -826,8 +863,12 @@ export class MarkdownEditor {
             if (!hasOld || newInterface.layout !== oldInterface.layout) {
                 const container = dom.get('.md-container');
                 if (container) {
-                    container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
-                    container.classList.add(newInterface.layout ?? 'layout-both');
+                    container.classList.remove(
+                        MarkdownEditor.LAYOUT_MODES.BOTH,
+                        MarkdownEditor.LAYOUT_MODES.EDITOR_ONLY,
+                        MarkdownEditor.LAYOUT_MODES.PREVIEW_ONLY
+                    );
+                    container.classList.add(newInterface.layout ?? MarkdownEditor.LAYOUT_MODES.BOTH);
                 }
             }
         });
@@ -845,11 +886,18 @@ export class MarkdownEditor {
      * 清理资源
      */
     destroy() {
+        // 清理定时器
         if (this._editorInputTimer) {
             clearTimeout(this._editorInputTimer);
             this._editorInputTimer = null;
         }
 
+        if (this._resizeTimeout) {
+            clearTimeout(this._resizeTimeout);
+            this._resizeTimeout = null;
+        }
+
+        // 清理状态订阅
         if (this._editorStateUnsubscribe) {
             this._editorStateUnsubscribe();
             this._editorStateUnsubscribe = null;
@@ -860,27 +908,14 @@ export class MarkdownEditor {
             this._editorConfigUnsubscribe = null;
         }
 
-        if (this.codeMirrorEditor) {
-            this.codeMirrorEditor.destroy();
-            this.codeMirrorEditor = null;
-        }
+        // 清理编辑器
+        this.#destroyCurrentEditor();
 
-        // 清理同步滚动的 ResizeObserver
-        if (this._syncScrollResizeObserver) {
-            this._syncScrollResizeObserver.disconnect();
-            this._syncScrollResizeObserver = null;
-        }
+        // 清理同步滚动
+        this.#cleanupSyncScroll();
 
-        if (this._syncScrollStateUnsubscribe) {
-            this._syncScrollStateUnsubscribe();
-            this._syncScrollStateUnsubscribe = null;
-        }
-
-        // 清理 resize 定时器
-        if (this._resizeTimeout) {
-            clearTimeout(this._resizeTimeout);
-            this._resizeTimeout = null;
-        }
+        // 清理 DOM 引用
+        this._syncScrollIcon = null;
 
         // 清理拖拽 rAF
         if (this._dragRafId) {
@@ -892,8 +927,25 @@ export class MarkdownEditor {
         if (this._dividerCleanup) {
             try {
                 this._dividerCleanup();
-            } catch (_err) {}
+            } catch (err) {
+                console.error('Error cleaning up divider:', err);
+            }
             this._dividerCleanup = null;
         }
+
+        // 清理组件
+        Object.values(this.components).forEach(component => {
+            if (typeof component.destroy === 'function') {
+                try {
+                    component.destroy();
+                } catch (err) {
+                    console.error('Error destroying component:', err);
+                }
+            }
+        });
+        this.components = {};
+
+        // 标记为未初始化
+        this.isInitialized = false;
     }
 }
