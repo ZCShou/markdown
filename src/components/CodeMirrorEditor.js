@@ -666,13 +666,28 @@ export class CodeMirrorEditor {
     /**
      * 获取滚动元素
      * @returns {HTMLElement|null} 滚动容器元素
-     * @example
-     * ```javascript
-     * const scrollElement = editor.getScrollElement();
-     * scrollElement.scrollTop = 0;
-     * ```
      */
     getScrollElement() {
         return this.view?.scrollDOM || null;
+    }
+
+    /**
+     * 获取用于 ResizeObserver 的 DOM 元素
+     */
+    getResizeObserverElement() {
+        return this.view?.scrollDOM || null;
+    }
+
+    /**
+     * 注册滚动回调
+     * @param {Function} callback - 滚动回调函数
+     * @returns {Function} 取消订阅函数
+     */
+    onScroll(callback) {
+        const scrollDOM = this.view?.scrollDOM;
+        if (!scrollDOM || typeof callback !== 'function') return () => {};
+        
+        scrollDOM.addEventListener('scroll', callback, { passive: true });
+        return () => scrollDOM.removeEventListener('scroll', callback);
     }
 }

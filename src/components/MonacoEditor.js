@@ -454,16 +454,40 @@ export class MonacoEditor {
     }
 
     /**
-     * 获取滚动元素
-     * @returns {HTMLElement|null} 滚动容器元素
-     * @example
-     * ```javascript
-     * const scrollElement = editor.getScrollElement();
-     * scrollElement.scrollTop = 0;
-     * ```
+     * 获取滚动元素（代理对象，用于同步滚动）
+     * 仅提供滚动属性，事件通过 onScroll 回调处理
+     * 
+     * @returns {Object|null} 滚动代理对象
      */
     getScrollElement() {
-        return this.editor?.getDomNode()?.querySelector('.monaco-scrollable-element') || null;
+        const editor = this.editor;
+        if (!editor) return null;
+
+        return {
+            get scrollTop() { return editor.getScrollTop(); },
+            set scrollTop(v) { editor.setScrollTop(Math.max(0, v)); },
+            get scrollHeight() { return editor.getScrollHeight(); },
+            get clientHeight() { return editor.getLayoutInfo().height; }
+        };
+    }
+
+    /**
+     * 获取用于 ResizeObserver 的 DOM 元素
+     */
+    getResizeObserverElement() {
+        return this.editor?.getDomNode() || null;
+    }
+
+    /**
+     * 注册滚动回调（同步滚动使用）
+     * @param {Function} callback - 滚动回调函数
+     * @returns {Function} 取消订阅函数
+     */
+    onScroll(callback) {
+        if (!this.editor || typeof callback !== 'function') return () => {};
+        
+        const disposable = this.editor.onDidScrollChange(callback);
+        return () => disposable.dispose();
     }
 
     /**

@@ -277,6 +277,9 @@ export class MarkdownEditor {
         // 更新状态
         this.state.updateEditorConfig({ type: editorType });
 
+        // 重新设置同步滚动（切换编辑器后需要重新绑定事件）
+        this.setupSyncScroll();
+
         this.showMessage(`已切换到 ${editorType === 'monaco' ? 'Monaco' : 'CodeMirror'} 编辑器`, 'success');
     }
 
@@ -384,84 +387,100 @@ export class MarkdownEditor {
     // ==================== 同步滚动 ====================
 
     /**
-     * 设置同步滚动（性能优化版 - 修复滚轮抖动）
+     * 设置同步滚动
      */
     setupSyncScroll() {
-        const editorInstance = CodeMirrorEditor.getActive();
-        const editor = editorInstance?.getScrollElement() ?? dom.editor.element?.element;
+        this.#cleanupSyncScroll();
+
+        const editorInstance = this.#getActiveEditor();
+        const editor = editorInstance?.getScrollElement();
         const previewWrapper = dom.preview.wrapper?.element;
 
         if (!editor || !previewWrapper) return;
 
-        // 从状态管理器获取同步滚动状态
+        const editorResizeElement = editorInstance?.getResizeObserverElement?.();
+
         const interfaceState = this.state.get('interface');
         this.syncScrollEnabled = interfaceState?.syncScrollEnabled ?? true;
         this.updateSyncScrollIcon(this.syncScrollEnabled);
 
-        // 缓存可滚动高度，避免频繁查询 DOM
-        let editorScrollableHeight = 0;
-        let previewScrollableHeight = 0;
         let lastSyncTime = 0;
         const SYNC_DELAY = 50;
 
-        // 更新缓存的滚动高度
-        const updateScrollHeights = () => {
-            editorScrollableHeight = Math.max(0, editor.scrollHeight - editor.clientHeight);
-            previewScrollableHeight = Math.max(
-                0,
-                previewWrapper.scrollHeight - previewWrapper.clientHeight
-            );
-        };
+        const updateScrollHeights = () => ({
+            editor: Math.max(0, editor.scrollHeight - editor.clientHeight),
+            preview: Math.max(0, previewWrapper.scrollHeight - previewWrapper.clientHeight)
+        });
 
-        // 初始化缓存
-        updateScrollHeights();
+        let heights = updateScrollHeights();
 
-        // 监听内容变化，更新缓存
-        const resizeObserver = new ResizeObserver(updateScrollHeights);
-        resizeObserver.observe(editor);
+        // ResizeObserver 监听尺寸变化
+        const resizeObserver = new ResizeObserver(() => {
+            heights = updateScrollHeights();
+        });
+        if (editorResizeElement) resizeObserver.observe(editorResizeElement);
         resizeObserver.observe(previewWrapper);
 
-        // 内容或文档切换后刷新滚动高度
+        // 内容变化时更新高度
         this._syncScrollStateUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
-            () => {
-                requestAnimationFrame(updateScrollHeights);
-                setTimeout(updateScrollHeights, 120);
-            }
+            () => requestAnimationFrame(() => heights = updateScrollHeights())
         );
 
-        // 统一的滚动处理函数（消除重复代码）
-        const handleScroll = (source, target, sourceHeight, targetHeight) => {
+        // 滚动处理
+        const handleScroll = (source, target, sourceH, targetH) => {
             if (!this.syncScrollEnabled || this.isSyncing) return;
-            
-            updateScrollHeights();
-            if (sourceHeight <= 0 || targetHeight <= 0) return;
+            if (sourceH <= 0 || targetH <= 0) return;
 
             const now = performance.now();
             if (now - lastSyncTime < SYNC_DELAY) return;
 
             this.isSyncing = true;
-            const scrollRatio = source.scrollTop / sourceHeight;
-            target.scrollTop = scrollRatio * targetHeight;
+            target.scrollTop = (source.scrollTop / sourceH) * targetH;
             lastSyncTime = now;
 
-            requestAnimationFrame(() => {
-                this.isSyncing = false;
-            });
+            requestAnimationFrame(() => this.isSyncing = false);
         };
 
-        // 编辑器滚动时同步预览
-        editor.addEventListener('scroll', () => {
-            handleScroll(editor, previewWrapper, editorScrollableHeight, previewScrollableHeight);
-        }, { passive: true });
+        // 编辑器滚动 -> 预览
+        this._syncScrollEditorUnsubscribe = editorInstance.onScroll(() => {
+            handleScroll(editor, previewWrapper, heights.editor, heights.preview);
+        });
 
-        // 预览滚动时同步编辑器
-        previewWrapper.addEventListener('scroll', () => {
-            handleScroll(previewWrapper, editor, previewScrollableHeight, editorScrollableHeight);
-        }, { passive: true });
+        // 预览滚动 -> 编辑器
+        const previewScrollHandler = () => {
+            handleScroll(previewWrapper, editor, heights.preview, heights.editor);
+        };
+        previewWrapper.addEventListener('scroll', previewScrollHandler, { passive: true });
 
-        // 保存 observer 引用，用于清理
+        // 保存引用
         this._syncScrollResizeObserver = resizeObserver;
+        this._syncScrollPreview = previewWrapper;
+        this._syncScrollPreviewHandler = previewScrollHandler;
+    }
+
+    /**
+     * 清理同步滚动相关的监听器
+     * @private
+     */
+    #cleanupSyncScroll() {
+        if (this._syncScrollResizeObserver) {
+            this._syncScrollResizeObserver.disconnect();
+            this._syncScrollResizeObserver = null;
+        }
+        if (this._syncScrollStateUnsubscribe) {
+            this._syncScrollStateUnsubscribe();
+            this._syncScrollStateUnsubscribe = null;
+        }
+        if (this._syncScrollEditorUnsubscribe) {
+            this._syncScrollEditorUnsubscribe();
+            this._syncScrollEditorUnsubscribe = null;
+        }
+        if (this._syncScrollPreview && this._syncScrollPreviewHandler) {
+            this._syncScrollPreview.removeEventListener('scroll', this._syncScrollPreviewHandler);
+            this._syncScrollPreview = null;
+            this._syncScrollPreviewHandler = null;
+        }
     }
 
     // ==================== 分隔条拖拽 ====================
