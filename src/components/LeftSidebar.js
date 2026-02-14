@@ -12,9 +12,6 @@ import { Dialog } from './Dialog.js';
  */
 export class LeftSidebar extends BaseComponent {
     /** @private */
-    #domCache = new Map(); // DOM 元素缓存
-
-    /** @private */
     #pendingEdit = null; // 待处理的编辑操作 { docId, isNewItem, shouldSetCurrent }
 
     /**
@@ -26,14 +23,12 @@ export class LeftSidebar extends BaseComponent {
         super(state, containerId);
         this.side = 'left';
         this.editingDocId = null;
-        this.draggedItems = null; // 被拖动的所有项目ID数组（支持多选拖放）
-        this.dragTarget = null; // 缓存当前拖拽目标
-        this.dragTargetType = null; // 缓存当前拖拽目标类型
+        this.draggedItems = null;
+        this.dragTarget = null;
+        this.dragTargetType = null;
         this.clickTimeout = null;
-        this.lastDragOverTime = 0; // 上次 dragover 处理时间
-        this.expandedFolders = new Set(); // 本地文件夹展开状态
-        this.treeContainer = null; // 缓存树容器
-        this.domCacheVersion = 0; // DOM 缓存版本号，用于失效检测
+        this.lastDragOverTime = 0;
+        this.expandedFolders = new Set();
     }
 
     // ==================== 生命周期管理 ====================
@@ -211,95 +206,31 @@ export class LeftSidebar extends BaseComponent {
         return oldMap.size > 0;
     }
 
-    // ==================== DOM 缓存管理 ====================
-
-    /**
-     * 获取缓存的文档项元素
-     * @private
-     * @param {string} docId - 文档 ID
-     * @returns {Element|null} 文档项元素
-     */
-    #getCachedDocItem(docId) {
-        const cached = this.#domCache.get(docId);
-        // 检查缓存是否有效
-        if (cached?.element?.isConnected) {
-            return cached.element;
-        }
-        // 重新查询并缓存
-        const item = this.container?.querySelector(`[data-doc-id="${docId}"]`);
-        if (item) {
-            this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
-        }
-        return item;
-    }
-
-    /**
-     * 清空 DOM 缓存并增加版本号
-     * @private
-     */
-    #clearDomCache() {
-        this.#domCache.clear();
-        this.domCacheVersion++;
-    }
-
     // ==================== 选择状态管理 ====================
 
     /**
-     * 更新多选状态（局部更新，优化版：单次遍历，直接更新）
+     * 更新多选状态（局部更新）
      * @param {Array} newSelectedIds - 新选中的文档ID列表
      * @param {Array} oldSelectedIds - 旧选中的文档ID列表
      */
     updateSelectionState(newSelectedIds = [], oldSelectedIds = []) {
         const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer) return;
-
-        // 快速路径：完全相同
-        if (newSelectedIds.length === oldSelectedIds.length &&
-            newSelectedIds.length === 0) {
-            return;
-        }
+        if (!treeContainer || (newSelectedIds.length === 0 && oldSelectedIds.length === 0)) return;
 
         const newSet = new Set(newSelectedIds);
         const oldSet = new Set(oldSelectedIds);
 
-        // 单次遍历：同时计算差集并收集 DOM 元素
-        const toRemove = [];
-        const toAdd = [];
-        const removeElements = [];
-        const addElements = [];
-
-        // 遍历旧集合，找出需要移除的（同时获取 DOM 元素）
-        for (const docId of oldSet) {
-            if (!newSet.has(docId)) {
-                toRemove.push(docId);
-                const item = this.#getCachedDocItem(docId);
-                if (item) removeElements.push(item);
-            }
-        }
-
-        // 遍历新集合，找出需要添加的（同时获取 DOM 元素）
-        for (const docId of newSet) {
-            if (!oldSet.has(docId)) {
-                toAdd.push(docId);
-                const item = this.#getCachedDocItem(docId);
-                if (item) addElements.push(item);
-            }
-        }
-
-        // 如果没有变化，直接返回
-        if (removeElements.length === 0 && addElements.length === 0) {
-            return;
-        }
-
-        // 使用requestAnimationFrame批量更新DOM（直接操作元素，无需再次查询）
+        // 批量更新DOM
         requestAnimationFrame(() => {
-            // 移除旧选中
-            for (const item of removeElements) {
-                item.classList.remove('active');
+            for (const docId of oldSet) {
+                if (!newSet.has(docId)) {
+                    treeContainer.querySelector(`[data-doc-id="${docId}"]`)?.classList.remove('active');
+                }
             }
-            // 添加新选中
-            for (const item of addElements) {
-                item.classList.add('active');
+            for (const docId of newSet) {
+                if (!oldSet.has(docId)) {
+                    treeContainer.querySelector(`[data-doc-id="${docId}"]`)?.classList.add('active');
+                }
             }
         });
     }
@@ -307,147 +238,35 @@ export class LeftSidebar extends BaseComponent {
     // ==================== 文件夹展开/折叠 ====================
 
     /**
-     * 管理文件夹展开状态（统一的公共接口）
+     * 管理文件夹展开状态
      * @param {string} folderId - 文件夹 ID
      * @param {boolean|string} [expanded='toggle'] - 展开状态：true=展开, false=折叠, 'toggle'=切换
-     * @param {boolean} [skipUI=false] - 是否跳过 UI 更新（用于批量操作）
      */
-    manageFolderState(folderId, expanded = 'toggle', skipUI = false) {
-        // 处理 'toggle' 模式
-        let finalExpanded = expanded;
-        if (expanded === 'toggle') {
-            finalExpanded = !this.expandedFolders.has(folderId);
-        }
-
-        // 检查状态是否改变
+    manageFolderState(folderId, expanded = 'toggle') {
+        const finalExpanded = expanded === 'toggle' ? !this.expandedFolders.has(folderId) : expanded;
         const currentlyExpanded = this.expandedFolders.has(folderId);
-        if (finalExpanded && !currentlyExpanded) {
-            this.expandedFolders.add(folderId);
-        } else if (!finalExpanded && currentlyExpanded) {
-            this.expandedFolders.delete(folderId);
-        } else {
-            return; // 状态未改变
-        }
+        
+        if (finalExpanded === currentlyExpanded) return;
+        
+        finalExpanded ? this.expandedFolders.add(folderId) : this.expandedFolders.delete(folderId);
 
-        // 更新 UI（除非跳过）
-        if (!skipUI) {
-            this.#updateFolderUI(folderId, finalExpanded);
-        }
-    }
-
-    /**
-     * 更新文件夹 UI（内部方法，一次性完成所有 DOM 操作）
-     * @param {string} folderId - 文件夹 ID
-     * @param {boolean} expanded - 是否展开
-     * @private
-     */
-    #updateFolderUI(folderId, expanded) {
         const treeContainer = dom.getById('md-doc-tree')?.element;
         if (!treeContainer) return;
 
-        // 使用缓存获取元素
-        const item = this.#getCachedDocItem(folderId);
+        const item = treeContainer.querySelector(`[data-doc-id="${folderId}"]`);
         if (!item) return;
 
-        // 使用 dom.js 统一查询，一次性获取所有需要的子元素
         const toggle = dom.getIn(item, '.md-tree-toggle');
         const icon = dom.getIn(item, '.md-doc-item-icon i');
         const nodeContainer = item.closest('.md-tree-node');
-        const childrenContainer = nodeContainer
-            ? dom.getIn(nodeContainer, '.md-tree-children')
-            : null;
+        const childrenContainer = nodeContainer ? dom.getIn(nodeContainer, '.md-tree-children') : null;
 
-        // 批量更新类名
-        if (toggle) {
-            toggle.classList.toggle('expanded', expanded);
-        }
-
+        if (toggle) toggle.classList.toggle('expanded', finalExpanded);
         if (icon) {
-            if (expanded) {
-                icon.classList.remove('codicon-folder');
-                icon.classList.add('codicon-folder-opened');
-            } else {
-                icon.classList.remove('codicon-folder-opened');
-                icon.classList.add('codicon-folder');
-            }
+            icon.classList.toggle('codicon-folder', !finalExpanded);
+            icon.classList.toggle('codicon-folder-opened', finalExpanded);
         }
-
-        if (childrenContainer) {
-            childrenContainer.classList.toggle('collapsed', !expanded);
-        }
-    }
-
-    /**
-     * 查找包含指定节点的展开文件夹
-     * @private
-     * @param {Element} node - 节点元素
-     * @returns {Element|null} 展开的文件夹节点
-     */
-    #findExpandedFolder(node) {
-        const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer) return null;
-
-        let current = node.parentElement;
-
-        while (current && current !== treeContainer) {
-            // 检查是否在未折叠的子容器内
-            if (
-                current.classList.contains('md-tree-children') &&
-                !current.classList.contains('collapsed')
-            ) {
-                // 获取父节点（文件夹节点）
-                const folderNode = current.parentElement;
-                // 使用 dom.js 统一查询，验证是有效的文件夹节点
-                if (
-                    folderNode?.classList.contains('md-tree-node') &&
-                    folderNode !== node &&
-                    dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder'
-                ) {
-                    return folderNode;
-                }
-            }
-            current = current.parentElement;
-        }
-        return null;
-    }
-
-    /**
-     * 展开所有祖先文件夹（优化版：批量更新，减少 DOM 操作）
-     * @private
-     * @param {string|null} folderId - 文件夹 ID
-     */
-    #expandAncestorFolders(folderId) {
-        // 根目录创建：不需要展开任何文件夹
-        if (!folderId) return;
-
-        const documents = this.state.get('documents');
-        const folderSet = new Set();
-        const docMap = new Map(documents.map(d => [d.id, d]));
-
-        // 从当前文档开始，向上遍历所有祖先
-        let currentId = folderId;
-
-        while (currentId) {
-            const doc = docMap.get(currentId);
-            if (!doc) break;
-            
-            // 只添加文件夹类型的节点到集合中
-            if (doc.type === 'folder') {
-                folderSet.add(currentId);
-            }
-            
-            if (!doc.parentId) break;
-            currentId = doc.parentId;
-        }
-
-        if (folderSet.size === 0) return;
-
-        // 使用单次 RAF 批量更新所有文件夹
-        requestAnimationFrame(() => {
-            for (const fid of folderSet) {
-                this.manageFolderState(fid, true, false);
-            }
-        });
+        if (childrenContainer) childrenContainer.classList.toggle('collapsed', !finalExpanded);
     }
 
     // ==================== 文档树事件处理 ====================
@@ -549,23 +368,15 @@ export class LeftSidebar extends BaseComponent {
         const { docId } = item.dataset;
         const selectedDocIds = this.state.get('selectedDocIds') || [];
         
-        // 如果拖动的项在选中列表中，拖动所有选中项；否则只拖动当前项
         this.draggedItems = selectedDocIds.includes(docId) ? [...selectedDocIds] : [docId];
         
-        // 为所有被拖动的项添加拖动样式
         this.draggedItems.forEach(id => {
-            const dragItem = this.#getCachedDocItem(id);
-            if (dragItem) {
-                dragItem.classList.add('md-dragging');
-            }
+            this.container.querySelector(`[data-doc-id="${id}"]`)?.classList.add('md-dragging');
         });
         
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedItems.join(','));
         document.body.classList.add('is-dragging-tree');
-
-        // 缓存文档树容器，避免重复查询
-        this.treeContainer = dom.getById('md-doc-tree')?.element;
     }
 
     /**
@@ -577,112 +388,89 @@ export class LeftSidebar extends BaseComponent {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
 
-        // 节流：50ms 内只处理一次
         const now = performance.now();
-        if (now - this.lastDragOverTime < 50) {
-            return;
-        }
+        if (now - this.lastDragOverTime < 50) return;
         this.lastDragOverTime = now;
 
         const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer) return;
-
-        // 快速检查：是否在有效的拖拽区域
-        if (e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
-            this.#manageDropTarget(null, null);
+        if (!treeContainer || e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
+            this.#clearDropTarget();
             return;
         }
 
         const targetItem = e.target.closest('.md-doc-item');
 
-        // 没有文档项 → 根目录区域
         if (!targetItem) {
-            this.#manageDropTarget(treeContainer, 'root');
+            this.#setDropTarget(treeContainer, 'root');
             return;
         }
 
-        // 检查是否拖到被选中的项上（禁止）
-        if (this.draggedItems && this.draggedItems.includes(targetItem.dataset.docId)) {
-            this.#manageDropTarget(null, null);
+        if (this.draggedItems?.includes(targetItem.dataset.docId)) {
+            this.#clearDropTarget();
             return;
         }
 
-        // 有文档项，检查是否在展开的文件夹内
         const targetNode = targetItem.closest('.md-tree-node');
         if (!targetNode) {
-            this.#manageDropTarget(null, null);
+            this.#clearDropTarget();
             return;
         }
 
-        // 优先检查：目标项本身是否是展开的文件夹
-        if (
-            targetItem.dataset.docType === 'folder' &&
-            this.expandedFolders.has(targetItem.dataset.docId)
-        ) {
-            // 展开的文件夹 → 高亮整个展开区域
-            this.#manageDropTarget(targetNode, 'expanded');
-            return;
-        }
-
-        // 检查目标项是否是折叠的文件夹（必须在检查展开的父文件夹之前）
         if (targetItem.dataset.docType === 'folder') {
-            // 折叠的文件夹 → 高亮文件夹本身
-            this.#manageDropTarget(targetItem, 'item');
+            if (this.expandedFolders.has(targetItem.dataset.docId)) {
+                this.#setDropTarget(targetNode, 'expanded');
+            } else {
+                this.#setDropTarget(targetItem, 'item');
+            }
             return;
         }
 
-        // 检查是否在展开的文件夹内（只对文件项检查）
-        const expandedFolder = this.#findExpandedFolder(targetNode);
-        if (expandedFolder) {
-            this.#manageDropTarget(expandedFolder, 'expanded');
-            return;
+        // 检查是否在展开的文件夹内
+        let current = targetNode.parentElement;
+        while (current && current !== treeContainer) {
+            if (current.classList.contains('md-tree-children') && !current.classList.contains('collapsed')) {
+                const folderNode = current.parentElement;
+                if (folderNode?.classList.contains('md-tree-node') && 
+                    dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder') {
+                    this.#setDropTarget(folderNode, 'expanded');
+                    return;
+                }
+            }
+            current = current.parentElement;
         }
 
-        // 文件项 → 检查是否在根目录层级
         const isRootLevel = targetNode.parentElement === treeContainer;
-        this.#manageDropTarget(isRootLevel ? treeContainer : null, 'root');
+        this.#setDropTarget(isRootLevel ? treeContainer : null, 'root');
     }
 
-    // ==================== 拖拽 ====================
-
     /**
-     * 管理拖拽目标高亮
-     * @param {Element|null} element - 目标元素，null 表示清除高亮
-     * @param {string|null} type - 目标类型：'expanded' | 'root' | 'item'
+     * 设置拖拽目标高亮
      * @private
      */
-    #manageDropTarget(element, type) {
-        // 如果目标未改变，不做任何操作
+    #setDropTarget(element, type) {
         if (this.dragTarget === element && element !== null) return;
-
-        // 清除旧的高亮
-        if (this.dragTarget) {
-            this.dragTarget.classList.remove(
-                'md-drop-target',
-                'md-drop-target-expanded',
-                'md-drop-target-root'
-            );
-        }
-
-        // 无效元素，直接返回
-        if (!element) {
-            this.dragTarget = null;
-            this.dragTargetType = null;
-            return;
-        }
-
-        // 设置新的高亮
+        
+        this.#clearDropTarget();
+        
+        if (!element) return;
+        
         this.dragTarget = element;
         this.dragTargetType = type;
+        
+        const classMap = { expanded: 'md-drop-target-expanded', root: 'md-drop-target-root', item: 'md-drop-target' };
+        element.classList.add(classMap[type]);
+    }
 
-        // 使用映射简化类名添加
-        const classNameMap = {
-            expanded: 'md-drop-target-expanded',
-            root: 'md-drop-target-root',
-            item: 'md-drop-target'
-        };
-
-        element.classList.add(classNameMap[type]);
+    /**
+     * 清除拖拽目标高亮
+     * @private
+     */
+    #clearDropTarget() {
+        if (this.dragTarget) {
+            this.dragTarget.classList.remove('md-drop-target', 'md-drop-target-expanded', 'md-drop-target-root');
+            this.dragTarget = null;
+            this.dragTargetType = null;
+        }
     }
 
     /**
@@ -693,73 +481,53 @@ export class LeftSidebar extends BaseComponent {
     handleDrop(e) {
         e.preventDefault();
 
-        if (!this.draggedItems || this.draggedItems.length === 0 || !this.dragTarget) return;
+        if (!this.draggedItems?.length || !this.dragTarget) return;
 
-        // 根据拖拽目标类型获取目标 ID
         let targetId = null;
-
         if (this.dragTargetType === 'root') {
-            targetId = null; // 根目录
+            targetId = null;
         } else if (this.dragTargetType === 'expanded') {
-            // 使用 dom.js 统一查询
             targetId = dom.getIn(this.dragTarget, '.md-doc-item')?.dataset.docId;
         } else {
             targetId = this.dragTarget.dataset.docId;
         }
 
-        // 验证目标有效性
         if (this.dragTargetType !== 'root' && !targetId) {
-            this.#manageDropTarget(null, null);
+            this.#clearDropTarget();
             return;
         }
 
-        // 批量移动所有选中的文档
+        const documents = this.state.get('documents');
+        const docMap = new Map(documents.map(d => [d.id, d]));
+        
         let anyMoved = false;
         for (const draggedId of this.draggedItems) {
-            // 检查是否拖到自己
-            if (draggedId === targetId) {
-                continue;
-            }
-
+            if (draggedId === targetId) continue;
+            
             // 防止将文件夹拖到自己的子文件夹中
-            if (targetId && this.#isDescendant(draggedId, targetId)) {
-                continue;
+            if (targetId) {
+                let current = docMap.get(targetId);
+                let isDescendant = false;
+                while (current?.parentId) {
+                    if (current.parentId === draggedId) {
+                        isDescendant = true;
+                        break;
+                    }
+                    current = docMap.get(current.parentId);
+                }
+                if (isDescendant) continue;
             }
 
-            const moved = this.state.moveDocument(draggedId, targetId);
-            if (moved) {
+            if (this.state.moveDocument(draggedId, targetId)) {
                 anyMoved = true;
             }
         }
         
-        if (anyMoved) {
-            // 状态已通过 moveDocument 自动更新和持久化
-            if (targetId) this.manageFolderState(targetId, true);
+        if (anyMoved && targetId) {
+            this.manageFolderState(targetId, true);
         }
 
-        this.#manageDropTarget(null, null);
-    }
-
-    /**
-     * 检查一个节点是否是另一个节点的后代
-     * @param {string|null} ancestorId - 祖先节点ID
-     * @param {string} descendantId - 后代节点ID
-     * @returns {boolean}
-     * @private
-     */
-    #isDescendant(ancestorId, descendantId) {
-        if (!ancestorId || ancestorId === descendantId) return false;
-        
-        const documents = this.state.get('documents');
-        const docMap = new Map(documents.map(d => [d.id, d]));
-        let current = docMap.get(descendantId);  // 从 descendantId 开始向上遍历
-        
-        while (current?.parentId) {
-            if (current.parentId === ancestorId) return true;  // 检查是否遇到 ancestorId
-            current = docMap.get(current.parentId);
-        }
-        
-        return false;
+        this.#clearDropTarget();
     }
 
     /**
@@ -767,21 +535,15 @@ export class LeftSidebar extends BaseComponent {
      * @returns {void}
      */
     handleDragEnd() {
-        // 清除所有拖拽项的样式
         if (this.draggedItems) {
             this.draggedItems.forEach(id => {
-                const item = this.#getCachedDocItem(id);
-                item?.classList.remove('md-dragging');
+                this.container.querySelector(`[data-doc-id="${id}"]`)?.classList.remove('md-dragging');
             });
         }
 
-        // 清除状态
-        this.#manageDropTarget(null, null);
+        this.#clearDropTarget();
         document.body.classList.remove('is-dragging-tree');
-        
-        // 重置变量
         this.draggedItems = null;
-        this.treeContainer = null;
     }
 
     // ==================== 文档操作 ====================
@@ -853,19 +615,15 @@ export class LeftSidebar extends BaseComponent {
      * @returns {void}
      */
     createDocument(type = 'file', parentId = null) {
-        // 如果已经有待处理的编辑，先完成它（避免多个文件同时进入重命名）
         if (this.#pendingEdit && this.editingDocId) {
-            // 取消之前的编辑，不保存
             const treeContainer = dom.getById('md-doc-tree')?.element;
             if (treeContainer) {
                 const editingItem = dom.getIn(treeContainer, `[data-doc-id="${this.editingDocId}"]`);
                 if (editingItem?.classList.contains('editing')) {
-                    // 触发 blur 来完成编辑（会取消）
                     const input = dom.getIn(editingItem, '.md-doc-item-input');
-                    if (input) input.blur();
+                    input?.blur();
                 }
             }
-            // 清空待编辑状态
             this.#pendingEdit = null;
         }
 
@@ -879,20 +637,27 @@ export class LeftSidebar extends BaseComponent {
             updatedAt: new Date().toISOString()
         };
 
-        // 清空选中状态，避免创建新文件时多个文件同时被选中
         this.state.clearDocuments({ selection: true });
-
-        // 先标记需要进入编辑模式
         this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
-
-        // 使用 state.addDocument 方法添加文档（支持 silent 选项）
         this.state.addDocument(doc, parentId, { silent: true });
 
-        // 展开所有祖先文件夹，确保新文件可见（优化版：批量更新）
-        this.#expandAncestorFolders(parentId);
+        // 展开所有祖先文件夹
+        if (parentId) {
+            const documents = this.state.get('documents');
+            const docMap = new Map(documents.map(d => [d.id, d]));
+            let currentId = parentId;
+            while (currentId) {
+                const doc = docMap.get(currentId);
+                if (!doc) break;
+                if (doc.type === 'folder') {
+                    this.expandedFolders.add(currentId);
+                }
+                currentId = doc.parentId;
+            }
+        }
 
-        // 手动触发增量渲染（只渲染新增的节点）
-        this.#renderNewItem(doc);
+        // 完全重渲染
+        this.renderTree();
     }
 
     /**
@@ -1108,20 +873,16 @@ export class LeftSidebar extends BaseComponent {
                     <p>暂无文档</p>
                 </div>
             `;
-            
-            // 使用事件委托而不是单独绑定
+
             const emptyState = treeContainer.querySelector('.md-empty-state');
             emptyState?.addEventListener('click', e => {
                 const { action } = e.target.dataset;
                 if (action === 'create-file') this.createDocument('file');
                 else if (action === 'create-folder') this.createDocument('folder');
             });
-
-            this.#clearDomCache();
             return;
         }
 
-        // 完全重建
         const tree = this.state.getDocumentTree();
         const fragment = this.createFragment();
 
@@ -1132,128 +893,39 @@ export class LeftSidebar extends BaseComponent {
         treeContainer.innerHTML = '';
         treeContainer.appendChild(fragment);
 
-        // 清空缓存并增加版本号
-        this.#clearDomCache();
-
-        // 立即重建DOM缓存（批量查询，避免后续多次查询）
-        const items = treeContainer.querySelectorAll('.md-doc-item[data-doc-id]');
-        items.forEach(item => {
-            const { docId } = item.dataset;
-            this.#domCache.set(docId, { element: item, version: this.domCacheVersion });
-        });
-
         // 展开当前文档和选中文档的祖先文件夹
-        if (currentDocId) {
-            this.#expandAncestorFolders(currentDocId);
-        }
-        for (const docId of selectedDocIds) {
-            this.#expandAncestorFolders(docId);
+        const docMap = new Map(documents.map(d => [d.id, d]));
+        const foldersToExpand = new Set();
+        
+        const addAncestors = (docId) => {
+            if (!docId) return;
+            let currentId = docId;
+            while (currentId) {
+                const doc = docMap.get(currentId);
+                if (!doc) break;
+                if (doc.type === 'folder') {
+                    foldersToExpand.add(currentId);
+                }
+                currentId = doc.parentId;
+            }
+        };
+
+        if (currentDocId) addAncestors(currentDocId);
+        selectedDocIds.forEach(addAncestors);
+
+        if (foldersToExpand.size > 0) {
+            requestAnimationFrame(() => {
+                foldersToExpand.forEach(fid => this.manageFolderState(fid, true));
+            });
         }
 
-        // 如果有待处理的编辑操作，延迟执行确保 DOM 就绪
         if (this.#pendingEdit) {
             const pendingEdit = this.#pendingEdit;
             this.#pendingEdit = null;
-
             requestAnimationFrame(() => {
-                this.editDocumentName(
-                    pendingEdit.docId,
-                    pendingEdit.isNewItem,
-                    pendingEdit.shouldSetCurrent
-                );
+                this.editDocumentName(pendingEdit.docId, pendingEdit.isNewItem, pendingEdit.shouldSetCurrent);
             });
         }
-    }
-
-    /**
-     * 增量渲染新项目（性能优化：避免完全重渲染）
-     * @private
-     * @param {Object} doc - 新文档对象
-     */
-    #renderNewItem(doc) {
-        const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer) return;
-
-        const docCount = this.state.get('documents').length;
-
-        // 第一个文档需要完全渲染（移除空状态）
-        if (docCount === 1) {
-            this.renderTree();
-            return;
-        }
-
-        // 获取或创建目标容器
-        const targetContainer = doc.parentId
-            ? this.#getOrCreateChildrenContainer(doc.parentId)
-            : treeContainer;
-
-        if (!targetContainer) {
-            this.renderTree();
-            return;
-        }
-
-        // 构造节点数据（不需要从树中查找，直接用 doc）
-        const node = { ...doc, children: [] };
-        const level = this.#calculateLevel(doc.parentId);
-        const selectedDocIds = this.state.get('selectedDocIds') || [];
-
-        // 渲染并插入新节点
-        const newNodeElement = this.renderTreeNode(node, this.state.get('currentDocId'), level, selectedDocIds);
-        targetContainer.appendChild(newNodeElement);
-
-        // 更新缓存（直接从新节点获取）
-        const item = newNodeElement.querySelector('.md-doc-item');
-        if (item) {
-            this.#domCache.set(doc.id, { element: item, version: this.domCacheVersion });
-        }
-
-        // 处理待编辑状态
-        if (this.#pendingEdit?.docId === doc.id) {
-            const pendingEdit = this.#pendingEdit;
-            this.#pendingEdit = null;
-            requestAnimationFrame(() => {
-                this.editDocumentName(
-                    pendingEdit.docId,
-                    pendingEdit.isNewItem,
-                    pendingEdit.shouldSetCurrent
-                );
-            });
-        }
-    }
-
-    /**
-     * 获取或创建父节点的子容器
-     * @param {string} parentId - 父节点 ID
-     * @returns {Element|null} 子容器元素或 null
-     * @private
-     */
-    #getOrCreateChildrenContainer(parentId) {
-        const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer) return null;
-
-        const parentNode = dom
-            .getIn(treeContainer, `[data-doc-id="${parentId}"]`)
-            ?.closest('.md-tree-node');
-        if (!parentNode) return null;
-
-        let container = dom.getIn(parentNode, '.md-tree-children');
-        if (!container) {
-            container = this.createElement('div', { className: 'md-tree-children' });
-            parentNode.appendChild(container);
-        }
-        return container;
-    }
-
-    /**
-     * 计算节点层级（递归向上）
-     * @param {string} parentId - 父节点 ID
-     * @returns {number} 节点层级
-     * @private
-     */
-    #calculateLevel(parentId) {
-        if (!parentId) return 0;
-        const parent = this.state.get('documents').find(d => d.id === parentId);
-        return parent ? 1 + this.#calculateLevel(parent.parentId) : 0;
     }
 
     /**
@@ -1266,29 +938,20 @@ export class LeftSidebar extends BaseComponent {
      */
     renderTreeNode(node, currentDocId, level, selectedDocIds = []) {
         const isEditing = node.id === this.editingDocId;
-        const isActive = node.id === currentDocId;
-        const isSelected = selectedDocIds.includes(node.id);
+        const isActive = node.id === currentDocId || selectedDocIds.includes(node.id);
         const isFolder = node.type === 'folder';
         const isExpanded = isFolder && this.expandedFolders.has(node.id);
         const hasChildren = isFolder && node.children?.length > 0;
 
-        const nodeContainer = this.createElement('div', {
-            className: 'md-tree-node',
-            dataset: { level }
-        });
+        const nodeContainer = this.createElement('div', { className: 'md-tree-node', dataset: { level } });
 
-        // 优化：使用数组构建类名，避免字符串拼接
         const itemClasses = ['md-doc-item'];
-        // 选中的文件都使用active类显示
-        if (isActive || isSelected) itemClasses.push('active');
+        if (isActive) itemClasses.push('active');
         if (isEditing) itemClasses.push('editing');
 
         const item = this.createElement('div', {
             className: itemClasses.join(' '),
-            dataset: {
-                docId: node.id,
-                docType: node.type || 'file'
-            },
+            dataset: { docId: node.id, docType: node.type || 'file' },
             attributes: { draggable: 'true' }
         });
 
@@ -1299,39 +962,19 @@ export class LeftSidebar extends BaseComponent {
         });
 
         if (isFolder) {
-            const toggleClasses = ['md-tree-toggle'];
-            if (isExpanded) toggleClasses.push('expanded');
-
             const toggle = this.createElement('span', {
-                className: toggleClasses.join(' '),
+                className: isExpanded ? 'md-tree-toggle expanded' : 'md-tree-toggle',
                 dataset: { folderId: node.id },
                 parent: item
             });
-            this.createElement('i', {
-                className: 'codicon codicon-chevron-right',
-                parent: toggle
-            });
+            this.createElement('i', { className: 'codicon codicon-chevron-right', parent: toggle });
         } else {
-            this.createElement('span', {
-                className: 'md-tree-spacer',
-                parent: item
-            });
+            this.createElement('span', { className: 'md-tree-spacer', parent: item });
         }
 
-        const iconSpan = this.createElement('span', {
-            className: 'md-doc-item-icon',
-            parent: item
-        });
-
-        const iconClass = isFolder
-            ? isExpanded
-                ? 'codicon-folder-opened'
-                : 'codicon-folder'
-            : 'codicon-file';
-        this.createElement('i', {
-            className: `codicon ${iconClass}`,
-            parent: iconSpan
-        });
+        const iconSpan = this.createElement('span', { className: 'md-doc-item-icon', parent: item });
+        const iconClass = isFolder ? (isExpanded ? 'codicon-folder-opened' : 'codicon-folder') : 'codicon-file';
+        this.createElement('i', { className: `codicon ${iconClass}`, parent: iconSpan });
 
         if (isEditing) {
             this.createElement('input', {
@@ -1341,67 +984,34 @@ export class LeftSidebar extends BaseComponent {
                 parent: item
             });
         } else {
-            this.createElement('span', {
-                className: 'md-doc-item-name',
-                textContent: node.name,
-                parent: item
-            });
+            this.createElement('span', { className: 'md-doc-item-name', textContent: node.name, parent: item });
         }
 
-        const actions = this.createElement('span', {
-            className: 'md-doc-item-actions',
-            parent: item
-        });
+        const actions = this.createElement('span', { className: 'md-doc-item-actions', parent: item });
 
         if (isFolder) {
-            const newFileBtn = this.createElement('button', {
-                className: 'md-btn md-btn-icon md-btn-xs md-new-file-btn',
-                attributes: {
-                    title: '在此新建文档',
-                    'data-folder-id': node.id
-                },
-                parent: actions
-            });
-            this.createElement('i', {
-                className: 'codicon codicon-new-file',
-                parent: newFileBtn
-            });
-
-            const newFolderBtn = this.createElement('button', {
-                className: 'md-btn md-btn-icon md-btn-xs md-new-folder-btn',
-                attributes: {
-                    title: '在此新建文件夹',
-                    'data-folder-id': node.id
-                },
-                parent: actions
-            });
-            this.createElement('i', {
-                className: 'codicon codicon-new-folder',
-                parent: newFolderBtn
+            ['new-file', 'new-folder'].forEach(type => {
+                const btn = this.createElement('button', {
+                    className: `md-btn md-btn-icon md-btn-xs md-${type}-btn`,
+                    attributes: { title: type === 'new-file' ? '在此新建文档' : '在此新建文件夹', 'data-folder-id': node.id },
+                    parent: actions
+                });
+                this.createElement('i', { className: `codicon codicon-${type}`, parent: btn });
             });
         }
 
         const deleteBtn = this.createElement('button', {
             className: 'md-btn md-btn-icon md-btn-xs md-doc-item-delete',
-            attributes: {
-                title: '删除',
-                'data-doc-id': node.id
-            },
+            attributes: { title: '删除', 'data-doc-id': node.id },
             parent: actions
         });
-        this.createElement('i', {
-            className: 'codicon codicon-trash',
-            parent: deleteBtn
-        });
+        this.createElement('i', { className: 'codicon codicon-trash', parent: deleteBtn });
 
         nodeContainer.appendChild(item);
 
         if (isFolder && hasChildren) {
-            const childrenClasses = ['md-tree-children'];
-            if (!isExpanded) childrenClasses.push('collapsed');
-
             const childrenContainer = this.createElement('div', {
-                className: childrenClasses.join(' ')
+                className: isExpanded ? 'md-tree-children' : 'md-tree-children collapsed'
             });
 
             node.children.forEach(child => {
@@ -1461,8 +1071,7 @@ export class LeftSidebar extends BaseComponent {
             const file = e.target.files?.[0];
             if (!file) return;
 
-            const MAX_FILE_SIZE = 50 * 1024 * 1024;
-            if (file.size > MAX_FILE_SIZE) {
+            if (file.size > 50 * 1024 * 1024) {
                 this.showMessage('文件过大（超过 50MB），无法导入', 'error');
                 input.remove();
                 return;
@@ -1473,22 +1082,12 @@ export class LeftSidebar extends BaseComponent {
             reader.onload = async (event) => {
                 try {
                     const text = event.target?.result;
-                    if (!text || typeof text !== 'string') {
-                        throw new Error('文件读取失败');
-                    }
+                    if (!text || typeof text !== 'string') throw new Error('文件读取失败');
 
                     const data = JSON.parse(text);
+                    if (!Array.isArray(data?.documents)) throw new Error('文件格式无效：缺少文档列表');
+                    if (data.documents.length > 10000) throw new Error('文档数量过多（超过 10000 个），无法导入');
 
-                    if (!Array.isArray(data?.documents)) {
-                        throw new Error('文件格式无效：缺少文档列表');
-                    }
-
-                    const MAX_DOCS = 10000;
-                    if (data.documents.length > MAX_DOCS) {
-                        throw new Error(`文档数量过多（超过 ${MAX_DOCS} 个），无法导入`);
-                    }
-
-                    // 询问导入方式
                     const importMode = await Dialog.show({
                         title: '导入文档',
                         message: `检测到 <strong>${data.documents.length}</strong> 个文档，请选择导入方式：`,
@@ -1507,16 +1106,12 @@ export class LeftSidebar extends BaseComponent {
                         return;
                     }
 
-                    // 执行导入
                     const currentDocs = this.state.get('documents');
-                    const newDocuments = importMode === 'replace'
-                        ? data.documents
-                        : this.#mergeDocuments(currentDocs, data.documents);
+                    const newDocuments = importMode === 'replace' ? data.documents : this.#mergeDocuments(currentDocs, data.documents);
 
                     this.state.importDocuments(newDocuments, 'replace', true);
 
-                    const modeText = importMode === 'replace' ? '替换' : '合并';
-                    this.showMessage(`成功${modeText}导入 ${data.documents.length} 个文档`, 'success');
+                    this.showMessage(`成功${importMode === 'replace' ? '替换' : '合并'}导入 ${data.documents.length} 个文档`, 'success');
                 } catch (error) {
                     this.showMessage(`导入失败：${error.message}`, 'error');
                 } finally {
@@ -1567,21 +1162,10 @@ export class LeftSidebar extends BaseComponent {
      * @returns {void}
      */
     destroy() {
-        // 清理定时器
         clearTimeout(this.clickTimeout);
-
-        // 清空缓存和状态
-        this.#clearDomCache();
-        
-        // 重置拖拽相关状态
-        this.dragTarget = null;
-        this.dragTargetType = null;
+        this.#clearDropTarget();
         this.draggedItems = null;
-        this.treeContainer = null;
-
-        // 移除拖拽状态类
         document.body.classList.remove('is-dragging-tree');
-
         super.destroy?.();
     }
 }
