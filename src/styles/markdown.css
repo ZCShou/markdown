@@ -1101,7 +1101,12 @@ html::-webkit-scrollbar-thumb:hover,
   color: var(--md-text-tertiary);
 }
 
-/* 分隔条 */
+/* ==================== Monaco Editor ==================== */
+#markdown-editor .monaco-editor .margin-view-overlays .current-line-exact-margin {
+  border: none !important;
+}
+
+/* ==================== 分割条 ==================== */
 .markdown-divider {
   position: relative;
   width: 4px;
@@ -1133,7 +1138,7 @@ html::-webkit-scrollbar-thumb:hover,
   background-color: transparent;
 }
 
-/* 预览区域 */
+/* ==================== 预览区域 ==================== */
 .markdown-preview-pane {
   display: flex;
   flex-direction: column;
