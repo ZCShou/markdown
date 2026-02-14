@@ -158,6 +158,7 @@ export class MonacoEditor {
             },
             contextmenu: editorConfig.contextmenu !== false,
             mouseWheelZoom: editorConfig.mouseWheelZoom || false,
+            fixedOverflowWidgets: true,
             multiCursorModifier: editorConfig.multiCursorModifier || 'altKey',
             multiCursorPaste: editorConfig.multiCursorPaste || 'spread',
             accessibilitySupport: editorConfig.accessibilitySupport || 'auto',
