@@ -225,6 +225,89 @@ export class MonacoEditor {
                 { open: '`', close: '`' }
             ]
         });
+
+        // 注册 Markdown 标题折叠范围提供程序
+        this.registerMarkdownFoldingProvider();
+    }
+
+    /**
+     * 注册 Markdown 标题折叠范围提供程序
+     * 支持 # 到 ###### 的标题折叠，以及围栏代码块折叠
+     * @private
+     */
+    registerMarkdownFoldingProvider() {
+        const { FoldingRangeKind } = monaco.languages;
+
+        monaco.languages.registerFoldingRangeProvider('markdown', {
+            provideFoldingRanges: (model) => {
+                const ranges = [];
+                const lines = model.getLinesContent();
+                const lineCount = lines.length;
+                const stack = []; // [line1, level1, line2, level2, ...]
+                let stackLen = 0;
+
+                let fenceStart = null; // 围栏代码块起始行号（1-based），null 表示不在代码块内
+                let fenceChar = null;  // 围栏字符 (` 或 ~)
+
+                for (let i = 0; i < lineCount; i++) {
+                    const line = lines[i];
+                    const len = line.length;
+
+                    // 检查围栏代码块
+                    if (len >= 3 && (line[0] === '`' || line[0] === '~')) {
+                        const c0 = line[0];
+
+                        if (fenceChar === null) {
+                            // 不在代码块内，检查是否是围栏开始
+                            if (line[1] === c0 && line[2] === c0) {
+                                fenceStart = i + 1; // 1-based
+                                fenceChar = c0;
+                                continue;
+                            }
+                        } else if (c0 === fenceChar) {
+                            // 在代码块内，检查是否是匹配的围栏结束
+                            if (line[1] === c0 && line[2] === c0) {
+                                // 添加代码块折叠范围
+                                ranges.push({ start: fenceStart, end: i + 1, kind: FoldingRangeKind.Region });
+                                fenceStart = null;
+                                fenceChar = null;
+                                continue;
+                            }
+                        }
+                    }
+
+                    if (fenceChar !== null) continue;
+
+                    // 检查标题 (1-6个# 后跟空格)
+                    if (len >= 2 && line[0] === '#') {
+                        let level = 1;
+                        while (level < 6 && level < len && line[level] === '#') level++;
+
+                        if (level < len && line[level] === ' ') {
+                            // 弹出所有 >= 当前级别的标题
+                            while (stackLen > 0 && stack[stackLen - 1] >= level) {
+                                const startLine = stack[stackLen - 2];
+                                stackLen -= 2;
+                                if (i + 1 > startLine) {
+                                    ranges.push({ start: startLine, end: i, kind: FoldingRangeKind.Region });
+                                }
+                            }
+                            stack[stackLen++] = i + 1; // 行号从1开始
+                            stack[stackLen++] = level;
+                        }
+                    }
+                }
+
+                // 处理剩余标题
+                for (let j = 0; j < stackLen; j += 2) {
+                    if (lineCount > stack[j]) {
+                        ranges.push({ start: stack[j], end: lineCount, kind: FoldingRangeKind.Region });
+                    }
+                }
+
+                return ranges;
+            }
+        });
     }
 
     /**
