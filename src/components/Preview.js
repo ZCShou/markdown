@@ -1478,27 +1478,45 @@ export class Preview extends BaseComponent {
     /**
      * 更新 Mermaid 主题
      */
-    updateMermaidTheme() {
-        this.#configureMermaid(this.state.get('interface').theme);
+    async updateMermaidTheme() {
+        const theme = this.state.get('interface')?.theme;
+        this.#configureMermaid(theme);
 
-        // 查询所有已渲染的 mermaid 图表
-        const mermaidDivs = dom.getAllIn(this.container, 'div.mermaid[data-mermaid]');
+        // 查询并过滤有效元素
+        const mermaidDivs = Array.from(
+            this.container.querySelectorAll('div.mermaid[data-mermaid]')
+        ).filter(div => div?.isConnected);
+
         if (mermaidDivs.length === 0) return;
 
-        // 重新渲染所有图表
+        // 批量准备重新渲染
         mermaidDivs.forEach(div => {
-            div.classList.remove('mermaid-done');
+            const code = div.getAttribute('data-mermaid');
+            if (!code) return;
+
+            div.textContent = code;
+            div.removeAttribute('data-processed');
+            div.className = 'mermaid mermaid-rendering';
         });
 
-        mermaid.run({ nodes: mermaidDivs }).catch(err => {
+        try {
+            await mermaid.run({ nodes: mermaidDivs });
+            // 标记成功
+            mermaidDivs.forEach(div => {
+                if (div?.isConnected) {
+                    div.classList.replace('mermaid-rendering', 'mermaid-done');
+                }
+            });
+        } catch (err) {
             console.warn('Mermaid 主题切换失败:', err);
             mermaidDivs.forEach(div => {
-                if (!div.classList.contains('mermaid-done')) {
+                if (div?.isConnected) {
+                    div.classList.remove('mermaid-rendering');
                     div.textContent = '主题切换失败: ' + err.message;
                     div.classList.add('render-error');
                 }
             });
-        });
+        }
     }
 
     // ==================== 公式渲染组 ====================
