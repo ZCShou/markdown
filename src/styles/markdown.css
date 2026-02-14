@@ -212,7 +212,6 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   border: 1px solid var(--md-border);
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
   outline: none;
   user-select: none;
 }
