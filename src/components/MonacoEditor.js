@@ -44,7 +44,6 @@ export class MonacoEditor {
      * @type {MonacoEditor|null}
      * @static
      */
-    static active = null;
 
     /**
      * 创建编辑器实例
@@ -54,8 +53,6 @@ export class MonacoEditor {
      * @param {string} [options.placeholder=''] - 占位符文本
      * @param {string} [options.ariaLabel='Markdown editor input'] - ARIA 标签
      * @param {Function} [options.onChange] - 内容变化回调
-     * @param {Function} [options.onSearch] - 搜索触发回调
-     * @param {Function} [options.onEscape] - ESC 键按下回调
      * @param {Object} [options.editorConfig] - 编辑器配置
      * @param {Object} [options.interfaceConfig] - 界面配置
      */
@@ -64,15 +61,6 @@ export class MonacoEditor {
         this.options = options;
         this.editor = null;
         this.disposables = [];
-    }
-
-    /**
-     * 获取当前活动的编辑器实例
-     * @returns {MonacoEditor|null} 活动的编辑器实例
-     * @static
-     */
-    static getActive() {
-        return MonacoEditor.active;
     }
 
     /**
@@ -181,8 +169,6 @@ export class MonacoEditor {
             this.options.onChange?.(this.getValue());
         });
         this.disposables.push(changeListener);
-
-        MonacoEditor.active = this;
     }
 
     /**
@@ -328,10 +314,6 @@ export class MonacoEditor {
             this.editor.dispose();
             this.editor = null;
         }
-
-        if (MonacoEditor.active === this) {
-            MonacoEditor.active = null;
-        }
     }
 
     /**
@@ -468,75 +450,6 @@ export class MonacoEditor {
     }
 
     /**
-     * 获取当前选区范围
-     * @returns {{start: number, end: number}} 选区起始和结束位置
-     * @example
-     * ```javascript
-     * const { start, end } = editor.getSelectionRange();
-     * console.log(`Selected: ${start} to ${end}`);
-     * ```
-     */
-    getSelectionRange() {
-        if (!this.editor) return { start: 0, end: 0 };
-        const selection = this.editor.getSelection();
-        return { start: selection.startLineNumber, end: selection.endLineNumber };
-    }
-
-    /**
-     * 设置选区范围
-     * @param {number} start - 选区起始位置
-     * @param {number} end - 选区结束位置
-     * @param {Object} [options={}] - 选项
-     * @param {boolean} [options.scroll=false] - 是否滚动到选区
-     * @param {boolean} [options.focus=false] - 是否聚焦编辑器
-     * @example
-     * ```javascript
-     * editor.setSelectionRange(10, 20);
-     * editor.setSelectionRange(10, 20, { scroll: true, focus: true });
-     * ```
-     */
-    setSelectionRange(start, end, options = {}) {
-        if (!this.editor) return;
-
-        this.editor.setSelection(
-            monaco.Selection.fromPositions(
-                { lineNumber: start, column: 1 },
-                { lineNumber: end, column: 1 }
-            )
-        );
-
-        if (options.scroll) {
-            this.editor.revealLineInCenter(start);
-        }
-
-        if (options.focus) {
-            this.focus();
-        }
-    }
-
-    /**
-     * 替换指定范围的内容
-     * @param {number} from - 起始位置
-     * @param {number} to - 结束位置
-     * @param {string} text - 替换文本
-     * @example
-     * ```javascript
-     * editor.replaceRange(10, 20, 'new text');
-     * ```
-     */
-    replaceRange(from, to, text) {
-        if (!this.editor) return;
-
-        const range = new monaco.Range(
-            from, 1,
-            to, 1
-        );
-
-        const edits = [{ range, text }];
-        this.editor.executeEdits('replaceRange', edits);
-    }
-
-    /**
      * 获取滚动元素（代理对象，用于同步滚动）
      * 仅提供滚动属性，事件通过 onScroll 回调处理
      * 
@@ -585,18 +498,6 @@ export class MonacoEditor {
     triggerSearch(replace = false) {
         if (!this.editor) return;
         this.editor.trigger('keyboard', 'actions.find');
-    }
-
-    /**
-     * 获取编辑器实例
-     * @returns {monaco.editor.IStandaloneCodeEditor|null} Monaco 编辑器实例
-     * @example
-     * ```javascript
-     * const monacoEditor = editor.getEditorInstance();
-     * ```
-     */
-    getEditorInstance() {
-        return this.editor;
     }
 
     /**

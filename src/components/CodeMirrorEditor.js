@@ -31,9 +31,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import {
     search,
     searchKeymap,
-    openSearchPanel,
-    replaceNext,
-    replaceAll
+    openSearchPanel
 } from '@codemirror/search';
 import {
     bracketMatching,
@@ -97,13 +95,6 @@ const externalUpdate = Annotation.define();
  * ```
  */
 export class CodeMirrorEditor {
-    /**
-     * 当前活动的编辑器实例
-     * @type {CodeMirrorEditor|null}
-     * @static
-     */
-    static active = null;
-
     // 私有字段声明
     #lineDragState = null;
     #globalMouseMoveHandler = null;
@@ -133,15 +124,6 @@ export class CodeMirrorEditor {
         this.highlightActiveLineCompartment = new Compartment();
         this.bracketMatchingCompartment = new Compartment();
         this.highlightGutterCompartment = new Compartment();
-    }
-
-    /**
-     * 获取当前活动的编辑器实例
-     * @returns {CodeMirrorEditor|null} 活动的编辑器实例
-     * @static
-     */
-    static getActive() {
-        return CodeMirrorEditor.active;
     }
 
     /**
@@ -232,8 +214,6 @@ export class CodeMirrorEditor {
             state,
             parent: this.container
         });
-
-        CodeMirrorEditor.active = this;
     }
 
     /**
@@ -252,10 +232,6 @@ export class CodeMirrorEditor {
         if (this.view) {
             this.view.destroy();
             this.view = null;
-        }
-
-        if (CodeMirrorEditor.active === this) {
-            CodeMirrorEditor.active = null;
         }
     }
 
@@ -610,71 +586,6 @@ export class CodeMirrorEditor {
      */
     focus() {
         this.view?.focus();
-    }
-
-    /**
-     * 获取当前选区范围
-     * @returns {{start: number, end: number}} 选区起始和结束位置
-     * @example
-     * ```javascript
-     * const { start, end } = editor.getSelectionRange();
-     * console.log(`Selected: ${start} to ${end}`);
-     * ```
-     */
-    getSelectionRange() {
-        if (!this.view) return { start: 0, end: 0 };
-        const selection = this.view.state.selection.main;
-        return { start: selection.from, end: selection.to };
-    }
-
-    /**
-     * 设置选区范围
-     * @param {number} start - 选区起始位置
-     * @param {number} end - 选区结束位置
-     * @param {Object} [options={}] - 选项
-     * @param {boolean} [options.scroll=false] - 是否滚动到选区
-     * @param {boolean} [options.focus=false] - 是否聚焦编辑器
-     * @example
-     * ```javascript
-     * editor.setSelectionRange(10, 20);
-     * editor.setSelectionRange(10, 20, { scroll: true, focus: true });
-     * ```
-     */
-    setSelectionRange(start, end, options = {}) {
-        if (!this.view) return;
-
-        const effects = options.scroll
-            ? [EditorView.scrollIntoView(start, { y: 'center' })]
-            : [];
-
-        this.view.dispatch({
-            selection: { anchor: start, head: end },
-            effects
-        });
-
-        if (options.focus) {
-            this.focus();
-        }
-    }
-
-    /**
-     * 替换指定范围的内容
-     * @param {number} from - 起始位置
-     * @param {number} to - 结束位置
-     * @param {string} text - 替换文本
-     * @example
-     * ```javascript
-     * editor.replaceRange(10, 20, 'new text');
-     * ```
-     */
-    replaceRange(from, to, text) {
-        if (!this.view) return;
-
-        const selectionEnd = from + text.length;
-        this.view.dispatch({
-            changes: { from, to, insert: text },
-            selection: { anchor: selectionEnd, head: selectionEnd }
-        });
     }
 
     /**
