@@ -704,4 +704,17 @@ export class CodeMirrorEditor {
         scrollDOM.addEventListener('scroll', callback, { passive: true });
         return () => scrollDOM.removeEventListener('scroll', callback);
     }
+
+    /**
+     * 触发搜索
+     * @param {boolean} replace - 是否为替换模式（CodeMirror 搜索面板同时支持搜索和替换）
+     * @example
+     * ```javascript
+     * editor.triggerSearch(); // 打开搜索面板
+     * ```
+     */
+    triggerSearch(replace = false) {
+        if (!this.view) return;
+        openSearchPanel(this.view);
+    }
 }

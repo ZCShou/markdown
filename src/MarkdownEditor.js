@@ -746,6 +746,9 @@ export class MarkdownEditor {
         bindButton('md-toggle-left-sidebar', () => this.state.toggleSidebar('left'));
         bindButton('md-toggle-right-sidebar', () => this.state.toggleSidebar('right'));
 
+        // 搜索按钮
+        bindButton('md-search-toggle-btn', () => this.openSearch());
+
         // 设置按钮
         bindButton('md-settings-btn', () => this.components.settings.open());
 
@@ -778,6 +781,16 @@ export class MarkdownEditor {
         if (this._syncScrollIcon) {
             this._syncScrollIcon.classList.toggle('codicon-sync', enabled);
             this._syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
+        }
+    }
+
+    /**
+     * 打开搜索面板
+     */
+    openSearch() {
+        const editor = this.#getActiveEditor();
+        if (editor && typeof editor.triggerSearch === 'function') {
+            editor.triggerSearch();
         }
     }
 
