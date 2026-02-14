@@ -1525,6 +1525,19 @@ body.is-dragging-tree {
   border-color: var(--md-color-primary);
 }
 
+.md-settings-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--md-text-primary);
+  min-width: 40px;
+  text-align: right;
+}
+
+.md-settings-unit {
+  font-size: 14px;
+  color: var(--md-text-secondary);
+}
+
 /* 开关 */
 .md-switch {
   position: relative;
