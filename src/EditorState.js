@@ -399,11 +399,7 @@ $$
 
         // 界面配置 - 引用默认设置
         interface: {
-            ...EditorState.DEFAULT_SETTINGS.interface,
-            searchReplace: {
-                visible: false,
-                isReplaceMode: false
-            }
+            ...EditorState.DEFAULT_SETTINGS.interface
         },
 
         // 导出配置 - 引用默认设置
@@ -534,11 +530,7 @@ $$
             lastClickedDocId: currentDocId,
             editor: settings.editor,
             interface: {
-                ...settings.interface,
-                searchReplace: {
-                    visible: false,
-                    isReplaceMode: false
-                }
+                ...settings.interface
             },
             export: settings.export
         });
@@ -1091,52 +1083,6 @@ $$
         });
 
         return newValue;
-    }
-
-    // ==================== 搜索替换面板操作 ====================
-
-    /**
-     * 显示搜索替换面板
-     * @param {boolean} [isReplaceMode=false] - 是否为替换模式
-     */
-    showSearchReplace(isReplaceMode = false) {
-        this.#setState({
-            interface: {
-                ...this.#state.interface,
-                searchReplace: {
-                    visible: true,
-                    isReplaceMode
-                }
-            }
-        }, { skipPersist: true }); // 不持久化搜索框状态
-    }
-
-    /**
-     * 隐藏搜索替换面板
-     */
-    hideSearchReplace() {
-        this.#setState({
-            interface: {
-                ...this.#state.interface,
-                searchReplace: {
-                    ...this.#state.interface.searchReplace,
-                    visible: false
-                }
-            }
-        }, { skipPersist: true }); // 不持久化搜索框状态
-    }
-
-    /**
-     * 切换搜索替换面板显示状态
-     * @param {boolean} [isReplaceMode=false] - 显示时是否为替换模式
-     */
-    toggleSearchReplace(isReplaceMode = false) {
-        const isVisible = this.#state.interface.searchReplace?.visible ?? false;
-        if (isVisible) {
-            this.hideSearchReplace();
-        } else {
-            this.showSearchReplace(isReplaceMode);
-        }
     }
 
     // ==================== 导出配置操作 ====================

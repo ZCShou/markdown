@@ -63,10 +63,6 @@
   --md-tree-item-active-text: #1565c0;
   --md-tree-item-hover-bg: rgba(0, 0, 0, 0.04);
 
-  /* 搜索面板 */
-  --md-search-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  --md-search-focus: 0 0 0 2px rgba(33, 150, 243, 0.1);
-
   /* 侧边栏遮罩 */
   --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.5);
 
@@ -122,7 +118,6 @@
   --md-tree-item-active-text: #90caf9;
   --md-tree-item-hover-bg: rgba(255, 255, 255, 0.08);
 
-  --md-search-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.7);
 
   --md-checkbox-border: #3e3e3e;
@@ -892,107 +887,6 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 .status-message.info { background-color: var(--md-color-primary); color: #fff; }
 .status-message.warning { background-color: var(--md-color-warning); color: #fff; }
 
-/* ==================== 搜索面板 ==================== */
-.md-search-panel {
-  position: fixed;
-  top: 48px;
-  right: 20px;
-  z-index: 100;
-  background: var(--md-bg-secondary);
-  border: 1px solid var(--md-border);
-  border-radius: 6px;
-  box-shadow: var(--md-search-shadow);
-  padding: 8px 4px 8px 0;
-  display: none;
-}
-
-.md-search-panel.show {
-  display: block;
-}
-
-.md-search-content {
-  display: flex;
-}
-
-.md-search-form {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.md-search-row, .md-replace-row {
-  display: flex;
-  align-items: center;
-}
-
-.md-replace-row {
-  display: none;
-}
-
-.md-search-panel.replace-mode .md-replace-row {
-  display: flex;
-}
-
-.md-search-panel.replace-mode .md-search-toggle .codicon {
-  transform: rotate(90deg);
-}
-
-.md-input {
-  padding: 6px;
-  border: 1px solid var(--md-border);
-  border-radius: 4px;
-  background: var(--md-bg-secondary);
-  color: var(--md-text-primary);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-}
-
-.md-input:focus {
-  border-color: var(--md-color-primary);
-  box-shadow: var(--md-search-focus);
-}
-
-.md-search-input-wrap, .md-replace-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 60%;
-  margin-right: 4px;
-}
-
-.md-search-options {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-}
-
-.md-search-opt {
-  min-height: 24px !important;
-  height: 24px;
-  min-width: 24px !important;
-  width: 24px;
-  opacity: 0.6;
-  border-radius: 3px;
-}
-
-.md-search-opt.active, .md-search-opt[aria-pressed="true"] {
-  background: rgba(33, 150, 243, 0.15);
-  color: var(--md-color-primary);
-}
-
-.md-search-count {
-  width: 60px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--md-text-secondary);
-  flex-shrink: 0;
-}
-
 /* ==================== 树型结构 ==================== */
 .md-tree-node {
   display: flex;
@@ -1737,16 +1631,6 @@ body.is-dragging-tree {
     visibility: visible;
   }
 
-  .md-search-panel {
-    position: fixed;
-    top: 48px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 95%;
-    max-width: 95%;
-    z-index: 9998;
-  }
-
   .md-settings-dialog {
     width: 95vw;
     height: 90vh;
@@ -1789,7 +1673,6 @@ body.is-dragging-tree {
   .md-sidebar-overlay,
   .status-overlay,
   .code-copy-btn,
-  .md-search-panel,
   .md-settings-overlay {
     display: none !important;
   }

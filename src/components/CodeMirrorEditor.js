@@ -29,6 +29,13 @@ import {
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
+    search,
+    searchKeymap,
+    openSearchPanel,
+    replaceNext,
+    replaceAll
+} from '@codemirror/search';
+import {
     bracketMatching,
     indentUnit,
     syntaxHighlighting,
@@ -110,7 +117,6 @@ export class CodeMirrorEditor {
      * @param {string} [options.placeholder=''] - 占位符文本
      * @param {string} [options.ariaLabel='Markdown editor input'] - ARIA 标签
      * @param {Function} [options.onChange] - 内容变化回调
-     * @param {Function} [options.onSearch] - 搜索触发回调
      * @param {Function} [options.onEscape] - ESC 键按下回调
      * @param {Object} [options.editorConfig] - 编辑器配置
      * @param {Object} [options.interfaceConfig] - 界面配置
@@ -187,6 +193,13 @@ export class CodeMirrorEditor {
                 this.bracketMatchingCompartment.of(
                     this.#createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching)
                 ),
+                // 原生搜索功能
+                search({
+                    caseSensitive: false,
+                    literal: false,
+                    regexp: false,
+                    wholeWord: false
+                }),
                 syntaxHighlighting(customHighlightStyle, { fallback: true }),
                 markdown({
                     codeLanguages: languages
@@ -269,15 +282,15 @@ export class CodeMirrorEditor {
         return [
             {
                 key: 'Mod-f',
-                run: () => {
-                    this.options.onSearch?.(false);
+                run: (view) => {
+                    openSearchPanel(view);
                     return true;
                 }
             },
             {
                 key: 'Mod-h',
-                run: () => {
-                    this.options.onSearch?.(true);
+                run: (view) => {
+                    openSearchPanel(view);
                     return true;
                 }
             },
@@ -290,6 +303,7 @@ export class CodeMirrorEditor {
             ...defaultKeymap,
             ...historyKeymap,
             ...foldKeymap,
+            ...searchKeymap,
             indentWithTab
         ];
     }

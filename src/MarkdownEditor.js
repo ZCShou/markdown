@@ -13,7 +13,6 @@ import { EditorState } from './EditorState.js';
 import { Preview } from './components/Preview.js';
 import { LeftSidebar } from './components/LeftSidebar.js';
 import { RightSidebar } from './components/RightSidebar.js';
-import { SearchReplace } from './components/SearchReplace.js';
 import { CodeMirrorEditor } from './components/CodeMirrorEditor.js';
 import { MonacoEditor } from './components/MonacoEditor.js';
 import { Settings } from './components/Settings.js';
@@ -233,7 +232,6 @@ export class MarkdownEditor {
             placeholder: '在此输入 Markdown 内容...',
             ariaLabel: 'Markdown 编辑器输入区域',
             onChange: this.#handleEditorChange.bind(this),
-            onSearch: this.#handleEditorSearch.bind(this),
             onEscape: this.#handleEditorEscape.bind(this)
         };
     }
@@ -253,25 +251,12 @@ export class MarkdownEditor {
     }
 
     /**
-     * 处理编辑器搜索
-     * @param {boolean} isReplaceMode - 是否为替换模式
-     * @private
-     */
-    #handleEditorSearch(isReplaceMode) {
-        this.state.showSearchReplace(isReplaceMode);
-    }
-
-    /**
      * 处理编辑器 ESC 键
      * @returns {boolean} 是否阻止默认行为
      * @private
      */
     #handleEditorEscape() {
-        const searchReplaceVisible = this.state.get('interface.searchReplace.visible');
-        if (searchReplaceVisible) {
-            this.state.hideSearchReplace();
-            return true;
-        }
+        // 原生搜索面板有自己的 ESC 处理
         return false;
     }
 
@@ -399,8 +384,6 @@ export class MarkdownEditor {
         // 右侧边栏组件（包含目录功能）
         this.components.rightSidebar = new RightSidebar(this.state, 'md-sidebar-right');
 
-        // 搜索替换组件
-        this.components.searchReplace = new SearchReplace(this.state, 'md-search-replace-panel');
 
         // 设置组件（传入 state 以实现状态同步）
         this.components.settings = new Settings(this.state);
@@ -762,9 +745,6 @@ export class MarkdownEditor {
         // 侧边栏切换按钮
         bindButton('md-toggle-left-sidebar', () => this.state.toggleSidebar('left'));
         bindButton('md-toggle-right-sidebar', () => this.state.toggleSidebar('right'));
-
-        // 搜索按钮
-        bindButton('md-search-toggle-btn', () => this.state.showSearchReplace(false));
 
         // 设置按钮
         bindButton('md-settings-btn', () => this.components.settings.open());
