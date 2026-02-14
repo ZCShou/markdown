@@ -601,6 +601,18 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   border-left-width: 2px;
 }
 
+/* 行号区域不显示选中背景色 */
+#markdown-editor .cm-gutters .cm-activeLineGutter {
+  background-color: transparent !important;
+}
+
+/* 折叠符号居中 */
+#markdown-editor .cm-foldGutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Markdown 语法高亮 */
 #markdown-editor .md-link, #markdown-editor .md-url { color: var(--md-markdown-link); }
 #markdown-editor .md-heading { font-weight: bold; }
