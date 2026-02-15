@@ -93,8 +93,6 @@ export class Settings {
             ratioValue: dom.get('#setting-left-ratio-value'),
             leftSidebarInput: dom.get('#setting-left-sidebar-open'),
             rightSidebarInput: dom.get('#setting-right-sidebar-open'),
-            tocSectionInput: dom.get('#setting-section-toc'),
-            exportSectionInput: dom.get('#setting-section-export'),
             syncScrollEnabledInput: dom.get('#setting-sync-scroll-enabled'),
 
             // 导出设置
@@ -115,9 +113,7 @@ export class Settings {
             leftSidebar: dom.get('.md-sidebar-left'),
             rightSidebar: dom.get('.md-sidebar-right'),
             editorSection: dom.get('.md-editor-pane'),
-            previewSection: dom.get('.md-preview-pane'),
-            tocSection: dom.get('.md-sidebar-section-toc'),
-            exportSection: dom.get('.md-sidebar-section-export')
+            previewSection: dom.get('.md-preview-pane')
         };
     }
 
@@ -293,8 +289,6 @@ export class Settings {
         }
         this.#setInputChecked(this.cachedElements.leftSidebarInput, interfaceState.leftSidebarOpen, false);
         this.#setInputChecked(this.cachedElements.rightSidebarInput, interfaceState.rightSidebarOpen, false);
-        this.#setInputChecked(this.cachedElements.tocSectionInput, interfaceState.sections?.toc, true);
-        this.#setInputChecked(this.cachedElements.exportSectionInput, interfaceState.sections?.export, true);
         this.#setInputChecked(this.cachedElements.syncScrollEnabledInput, interfaceState.syncScrollEnabled, true);
 
         // 导出配置
@@ -361,11 +355,7 @@ export class Settings {
             leftRatio: (parseInt(this.cachedElements.leftRatioInput?.value) || 50) / 100,
             leftSidebarOpen: this.cachedElements.leftSidebarInput?.checked || false,
             rightSidebarOpen: this.cachedElements.rightSidebarInput?.checked || false,
-            syncScrollEnabled: this.cachedElements.syncScrollEnabledInput?.checked ?? true,
-            sections: {
-                toc: this.cachedElements.tocSectionInput?.checked ?? true,
-                export: this.cachedElements.exportSectionInput?.checked ?? true
-            }
+            syncScrollEnabled: this.cachedElements.syncScrollEnabledInput?.checked ?? true
         };
 
         // 读取导出配置
@@ -487,14 +477,6 @@ export class Settings {
         // 应用布局比例
         // CSS 已经处理了布局，不需要设置内联样式
         // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
-
-        // 应用侧边栏区块显示状态 - 使用 toggle() 简化
-        if (this.cachedElements.tocSection) {
-            this.cachedElements.tocSection.classList.toggle('hidden', !(interfaceState.sections?.toc ?? true));
-        }
-        if (this.cachedElements.exportSection) {
-            this.cachedElements.exportSection.classList.toggle('hidden', !(interfaceState.sections?.export ?? true));
-        }
     }
 
     /**

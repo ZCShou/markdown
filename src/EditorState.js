@@ -50,11 +50,7 @@ export class EditorState {
             leftRatio: 0.5,
             leftSidebarOpen: false,
             rightSidebarOpen: false,
-            syncScrollEnabled: true,
-            sections: {
-                toc: true,
-                export: true
-            }
+            syncScrollEnabled: true
         },
         export: {
             includeStyle: true,
@@ -1050,20 +1046,6 @@ $$
             leftSidebarOpen: false, 
             rightSidebarOpen: false 
         });
-    }
-
-    /**
-     * 切换区块状态
-     * @param {string} sectionName - 区块名称
-     * @returns {boolean} 新的状态值
-     */
-    toggleSection(sectionName) {
-        const sections = {
-            ...this.#state.interface.sections,
-            [sectionName]: !this.#state.interface.sections[sectionName]
-        };
-        this.updateInterfaceConfig({ sections });
-        return sections[sectionName];
     }
 
     /**

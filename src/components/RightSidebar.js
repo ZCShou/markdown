@@ -30,16 +30,9 @@ export class RightSidebar extends BaseComponent {
     subscribe() {
         // 订阅侧边栏状态
         const unsubscribeSidebar = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
-            const hasOld = !!oldInterface;
-            
             // 更新侧边栏可见性（只在状态变化时）
-            if (!hasOld || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
+            if (!oldInterface || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
                 this.updateVisibility(newInterface.rightSidebarOpen);
-            }
-
-            // 更新区块状态（只在 sections 变化时）
-            if (!hasOld || newInterface.sections !== oldInterface.sections) {
-                this.applySectionStates();
             }
         });
 
@@ -102,7 +95,6 @@ export class RightSidebar extends BaseComponent {
         });
 
         this.setActiveSection(this.activeSection);
-        this.applySectionStates();
     }
 
     // ==================== 侧边栏控制 ====================
@@ -145,45 +137,10 @@ export class RightSidebar extends BaseComponent {
     }
 
     /**
-     * 应用区块状态
-     * @returns {void}
-     */
-    applySectionStates() {
-        const { sections } = this.state.get('interface');
-        let hasActive = false;
-
-        for (const sectionName in sections) {
-            const isEnabled = !!sections[sectionName];
-            const section = dom.getById(`md-${sectionName}-section`)?.element;
-            const tool = this.container.querySelector(`.md-sidebar-tool[data-section="${sectionName}"]`);
-
-            if (section) {
-                section.classList.toggle('hidden', !isEnabled);
-                if (section.classList.contains('is-active') && isEnabled) {
-                    hasActive = true;
-                }
-            }
-            if (tool) {
-                tool.classList.toggle('hidden', !isEnabled);
-            }
-        }
-
-        if (!hasActive) {
-            const nextSection = this.getFirstEnabledSection(sections);
-            if (nextSection) {
-                this.setActiveSection(nextSection);
-            }
-        }
-    }
-
-    /**
      * 设置当前激活区块
      * @param {string} sectionName - 区块名称
      */
     setActiveSection(sectionName) {
-        const { sections } = this.state.get('interface');
-        if (sections && sections[sectionName] === false) return;
-
         this.activeSection = sectionName;
 
         // 一次遍历更新所有工具按钮和区块
@@ -206,22 +163,6 @@ export class RightSidebar extends BaseComponent {
                 section.classList.toggle('is-active', isActive);
             }
         });
-    }
-
-    /**
-     * 获取第一个可用区块
-     * @param {Object} sections - 区块状态
-     * @returns {string|null}
-     */
-    getFirstEnabledSection(sections) {
-        const order = ['toc', 'export'];
-        for (const key of order) {
-            if (sections?.[key]) return key;
-        }
-        for (const key in sections) {
-            if (sections[key]) return key;
-        }
-        return null;
     }
 
     // ==================== 目录功能 ====================
@@ -282,7 +223,6 @@ export class RightSidebar extends BaseComponent {
     render() {
         const interfaceState = this.state.get('interface');
         this.updateVisibility(interfaceState.rightSidebarOpen);
-        this.applySectionStates();
         this.generateTOC();
     }
 
