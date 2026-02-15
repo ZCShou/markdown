@@ -476,7 +476,8 @@ export class Preview extends BaseComponent {
         const codeBlockRanges = [];
 
         // 第一步：提取代码块（包括 mermaid），并记录位置
-        const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+        // 修复：支持更多语言标识符（如 c++、c#），允许可选的空白字符
+        const codeBlockRegex = /```(\S*)[ \t]*\n([\s\S]*?)```/g;
         let match;
         while ((match = codeBlockRegex.exec(newMarkdown)) !== null) {
             const [fullMatch] = match;
