@@ -18,6 +18,7 @@ export class RightSidebar extends BaseComponent {
         super(state, containerId);
         this.side = 'right';
         this.debounceTimer = null;
+        this.activeSection = 'toc';
     }
 
     // ==================== 生命周期管理 ====================
@@ -65,9 +66,9 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     bindEvents() {
-        // 侧边栏区块点击
+        // 侧边栏工具按钮点击
         this.addEventListener(this.container, 'click', e => {
-            this.handleSectionClick(e);
+            this.handleToolClick(e);
         });
 
         // 目录项点击
@@ -99,25 +100,26 @@ export class RightSidebar extends BaseComponent {
                 btn.onclick = () => this.state.triggerExport(type);
             }
         });
+
+        this.setActiveSection(this.activeSection);
+        this.applySectionStates();
     }
 
     // ==================== 侧边栏控制 ====================
 
     /**
-     * 处理区块点击
+     * 处理工具按钮点击
      * @param {MouseEvent} e - 点击事件
      * @returns {void}
      */
-    handleSectionClick(e) {
-        const toggle = e.target.closest('.md-sidebar-section-toggle');
-        const header = e.target.closest('.md-sidebar-section-header');
+    handleToolClick(e) {
+        const toolButton = e.target.closest('.md-sidebar-tool');
+        if (!toolButton) return;
 
-        if (toggle || header) {
-            e.stopPropagation();
-            const sectionToggle = toggle || dom.getIn(header, '.md-sidebar-section-toggle');
-            if (sectionToggle) {
-                this.toggleSection(sectionToggle.getAttribute('data-section'));
-            }
+        e.preventDefault();
+        const sectionName = toolButton.getAttribute('data-section');
+        if (sectionName) {
+            this.setActiveSection(sectionName);
         }
     }
 
@@ -143,30 +145,83 @@ export class RightSidebar extends BaseComponent {
     }
 
     /**
-     * 切换区块状态
-     * @param {string} sectionName - 区块名称
-     * @returns {void}
-     */
-    toggleSection(sectionName) {
-        const isExpanded = this.state.toggleSection(sectionName);
-        const content = dom.getById(`md-${sectionName}-content`)?.element;
-        if (content) {
-            content.classList.toggle('collapsed', !isExpanded);
-        }
-    }
-
-    /**
      * 应用区块状态
      * @returns {void}
      */
     applySectionStates() {
         const { sections } = this.state.get('interface');
+        let hasActive = false;
+
         for (const sectionName in sections) {
-            const content = dom.getById(`md-${sectionName}-content`)?.element;
-            if (content) {
-                content.classList.toggle('collapsed', !sections[sectionName]);
+            const isEnabled = !!sections[sectionName];
+            const section = dom.getById(`md-${sectionName}-section`)?.element;
+            const tool = this.container.querySelector(`.md-sidebar-tool[data-section="${sectionName}"]`);
+
+            if (section) {
+                section.classList.toggle('hidden', !isEnabled);
+                if (section.classList.contains('is-active') && isEnabled) {
+                    hasActive = true;
+                }
+            }
+            if (tool) {
+                tool.classList.toggle('hidden', !isEnabled);
             }
         }
+
+        if (!hasActive) {
+            const nextSection = this.getFirstEnabledSection(sections);
+            if (nextSection) {
+                this.setActiveSection(nextSection);
+            }
+        }
+    }
+
+    /**
+     * 设置当前激活区块
+     * @param {string} sectionName - 区块名称
+     */
+    setActiveSection(sectionName) {
+        const { sections } = this.state.get('interface');
+        if (sections && sections[sectionName] === false) return;
+
+        this.activeSection = sectionName;
+
+        // 一次遍历更新所有工具按钮和区块
+        const tools = this.container.querySelectorAll('.md-sidebar-tool');
+        const sectionElements = this.container.querySelectorAll('.md-sidebar-section');
+        const sectionMap = new Map();
+
+        sectionElements.forEach(el => {
+            sectionMap.set(el.getAttribute('data-section'), el);
+        });
+
+        tools.forEach(button => {
+            const btnSection = button.getAttribute('data-section');
+            const isActive = btnSection === sectionName;
+            button.classList.toggle('active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+
+            const section = sectionMap.get(btnSection);
+            if (section) {
+                section.classList.toggle('is-active', isActive);
+            }
+        });
+    }
+
+    /**
+     * 获取第一个可用区块
+     * @param {Object} sections - 区块状态
+     * @returns {string|null}
+     */
+    getFirstEnabledSection(sections) {
+        const order = ['toc', 'export'];
+        for (const key of order) {
+            if (sections?.[key]) return key;
+        }
+        for (const key in sections) {
+            if (sections[key]) return key;
+        }
+        return null;
     }
 
     // ==================== 目录功能 ====================
@@ -225,17 +280,9 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     render() {
-        // 渲染侧边栏状态
         const interfaceState = this.state.get('interface');
-        const isOpen = interfaceState.rightSidebarOpen;
-        this.updateVisibility(isOpen);
-
-        // 延迟应用区块状态，确保所有组件都已渲染完成
-        requestAnimationFrame(() => {
-            this.applySectionStates();
-        });
-
-        // 渲染目录
+        this.updateVisibility(interfaceState.rightSidebarOpen);
+        this.applySectionStates();
         this.generateTOC();
     }
 

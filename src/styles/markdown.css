@@ -320,6 +320,18 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   padding-left: 8px;
 }
 
+.md-sidebar-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+}
+
+.md-sidebar-tool.active {
+  background-color: var(--md-bg-hover);
+  border-color: var(--md-border);
+}
+
 /* ==================== 侧边栏 ==================== */
 .md-sidebar {
   display: flex;
@@ -380,18 +392,19 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 }
 
 /* ==================== 侧边栏区块 ==================== */
-.md-sidebar-section {
+/* 左侧边栏区块样式（可折叠） */
+.md-sidebar-left .md-sidebar-section {
   display: flex;
   flex-direction: column;
   min-height: 0;
   border-radius: 8px;
 }
 
-.md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) {
+.md-sidebar-left .md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) {
   flex: 0 1 auto;
 }
 
-.md-sidebar-section-header {
+.md-sidebar-left .md-sidebar-section-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -401,14 +414,14 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   margin: 8px;
 }
 
-.md-sidebar-section-title {
+.md-sidebar-left .md-sidebar-section-title {
   font-size: 100%;
   font-weight: 600;
   color: var(--md-text-primary);
   flex: 1;
 }
 
-.md-sidebar-section-toggle {
+.md-sidebar-left .md-sidebar-section-toggle {
   background: none;
   border: none;
   color: var(--md-text-secondary);
@@ -418,46 +431,66 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   align-items: center;
 }
 
-.md-sidebar-section-toggle .codicon {
+.md-sidebar-left .md-sidebar-section-toggle .codicon {
   font-size: 16px;
 }
 
-.md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) .md-sidebar-section-toggle {
+.md-sidebar-left .md-sidebar-section:not(:has(.md-sidebar-section-content.collapsed)) .md-sidebar-section-toggle {
   transform: rotate(90deg);
 }
 
-.md-sidebar-section-content {
+.md-sidebar-left .md-sidebar-section-content {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 280px);
   overflow: hidden;
 }
 
-.md-sidebar-section-content.collapsed {
+.md-sidebar-left .md-sidebar-section-content.collapsed {
   max-height: 0;
   opacity: 0;
   padding: 0;
 }
 
-.md-sidebar-section-content > div {
+.md-sidebar-left .md-sidebar-section-content > div {
   overflow-y: auto;
   max-height: calc(100vh - 150px);
 }
 
+/* 右侧边栏区块样式（标签页切换） */
+.md-sidebar-right .md-sidebar-section {
+  display: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.md-sidebar-right .md-sidebar-section.is-active {
+  display: flex;
+}
+
+.md-sidebar-right .md-sidebar-section-header {
+  display: none;
+}
+
+.md-sidebar-right .md-sidebar-section-content {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.md-sidebar-right .md-sidebar-section-content > div {
+  max-height: none;
+}
+
 /* 按钮组 */
 .md-btn-group {
-  margin: 0 32px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 /* 目录 */
-.md-toc {
-  margin: 0 0 0 32px;
-  padding: 0;
-}
-
 .md-toc-item {
   padding: 6px 0;
   cursor: pointer;
@@ -476,6 +509,14 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 .md-toc-item.level-4 { padding-left: 48px; }
 .md-toc-item.level-5 { padding-left: 64px; }
 .md-toc-item.level-6 { padding-left: 80px; }
+
+/* 空状态 */
+.md-empty-state {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--md-text-tertiary);
+  font-size: 14px;
+}
 
 /* 侧边栏遮罩 */
 .md-sidebar-overlay {

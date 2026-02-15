@@ -195,7 +195,26 @@
             <!-- Right Sidebar - Tools -->
             <aside class="md-sidebar md-sidebar-right" id="md-sidebar-right">
                 <div class="md-sidebar-header">
-                    <h3>工具</h3>
+                    <div class="md-sidebar-tools" role="tablist" aria-label="工具">
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost md-sidebar-tool active"
+                            data-section="toc"
+                            title="目录"
+                            aria-label="目录"
+                            aria-pressed="true"
+                        >
+                            <i class="codicon codicon-list-tree" aria-hidden="true"></i>
+                        </button>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost md-sidebar-tool"
+                            data-section="export"
+                            title="导出"
+                            aria-label="导出"
+                            aria-pressed="false"
+                        >
+                            <i class="codicon codicon-export" aria-hidden="true"></i>
+                        </button>
+                    </div>
                     <button
                         class="md-btn md-btn-icon md-btn-ghost"
                         id="md-close-right-sidebar"
@@ -206,7 +225,11 @@
                 </div>
                 <div class="md-sidebar-content">
                     <!-- TOC Section -->
-                    <div class="md-sidebar-section" id="md-toc-section">
+                    <div
+                        class="md-sidebar-section md-sidebar-section-toc"
+                        id="md-toc-section"
+                        data-section="toc"
+                    >
                         <div class="md-sidebar-section-header">
                             <button
                                 class="md-sidebar-section-toggle"
@@ -225,7 +248,11 @@
                     </div>
 
                     <!-- Export Section -->
-                    <div class="md-sidebar-section" id="md-export-section">
+                    <div
+                        class="md-sidebar-section md-sidebar-section-export"
+                        id="md-export-section"
+                        data-section="export"
+                    >
                         <div class="md-sidebar-section-header">
                             <button
                                 class="md-sidebar-section-toggle"
