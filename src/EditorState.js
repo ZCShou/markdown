@@ -952,28 +952,50 @@ $$
      * @param {string} content - 文档内容
      */
     updateContent(content) {
-        // 只更新 content 状态，不触发 documents 更新
-        // documents 的更新通过防抖保存机制处理，避免每次输入都重新渲染文档列表
+        // 更新 content 状态（触发订阅者）
         this.#setState({ content });
 
-        // 静默更新 documents 数组（不触发订阅者通知）
+        // 同步更新 documents 数组中的内容（静默，不触发订阅者）
         if (this.#state.currentDocId) {
-            const docIndex = this.#state.documents.findIndex(
-                d => d.id === this.#state.currentDocId
-            );
-            if (docIndex !== -1) {
-                this.#state.documents[docIndex].content = content;
-
-                // 延迟更新 updatedAt（2秒），避免每次输入都创建新的 Date 对象
-                if (this.#updateTimestampTimeout) {
-                    clearTimeout(this.#updateTimestampTimeout);
-                }
-                this.#updateTimestampTimeout = setTimeout(() => {
-                    this.#state.documents[docIndex].updatedAt = new Date().toISOString();
-                    this.#updateTimestampTimeout = null;
-                }, 2000);
-            }
+            this.#updateDocumentContent(this.#state.currentDocId, content);
         }
+    }
+
+    /**
+     * 更新文档内容（内部方法，带防抖时间戳更新）
+     * @private
+     * @param {string} docId - 文档ID
+     * @param {string} content - 文档内容
+     */
+    #updateDocumentContent(docId, content) {
+        const documents = this.#state.documents.map(doc =>
+            doc.id === docId ? { ...doc, content } : doc
+        );
+        // 静默更新，避免重复触发订阅者
+        Object.assign(this.#state, { documents });
+
+        // 延迟更新 updatedAt（防抖），避免每次输入都创建新 Date
+        if (this.#updateTimestampTimeout) {
+            clearTimeout(this.#updateTimestampTimeout);
+        }
+        this.#updateTimestampTimeout = setTimeout(() => {
+            this.#updateDocumentTimestamp(docId);
+            this.#updateTimestampTimeout = null;
+        }, 2000);
+    }
+
+    /**
+     * 更新文档时间戳
+     * @private
+     * @param {string} docId - 文档ID
+     */
+    #updateDocumentTimestamp(docId) {
+        const documents = this.#state.documents.map(doc =>
+            doc.id === docId ? { ...doc, updatedAt: new Date().toISOString() } : doc
+        );
+        Object.assign(this.#state, { documents });
+        // 触发持久化
+        this.#persistence.schedule(['documents']);
     }
 
     // ==================== 标题 ====================
@@ -986,6 +1008,20 @@ $$
         this.#setState({ headings });
     }
 
+    // ==================== 配置更新（通用） ====================
+
+    /**
+     * 通用配置更新方法
+     * @private
+     * @param {string} key - 配置键名
+     * @param {Object} config - 配置更新
+     */
+    #updateConfig(key, config) {
+        this.#setState({
+            [key]: { ...this.#state[key], ...config }
+        });
+    }
+
     // ==================== 编辑器配置操作 ====================
 
     /**
@@ -993,12 +1029,7 @@ $$
      * @param {Object} config - 编辑器配置
      */
     updateEditorConfig(config) {
-        this.#setState({
-            editor: {
-                ...this.#state.editor,
-                ...config
-            }
-        });
+        this.#updateConfig('editor', config);
     }
 
     // ==================== 界面配置操作 ====================
@@ -1008,12 +1039,7 @@ $$
      * @param {Object} config - 界面配置
      */
     updateInterfaceConfig(config) {
-        this.#setState({
-            interface: {
-                ...this.#state.interface,
-                ...config
-            }
-        });
+        this.#updateConfig('interface', config);
     }
 
     /**
@@ -1074,12 +1100,7 @@ $$
      * @param {Object} config - 导出配置
      */
     updateExportConfig(config) {
-        this.#setState({
-            export: {
-                ...this.#state.export,
-                ...config
-            }
-        });
+        this.#updateConfig('export', config);
     }
 
     /**
