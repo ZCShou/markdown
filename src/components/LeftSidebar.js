@@ -12,13 +12,10 @@ import { Dialog } from './Dialog.js';
  */
 export class LeftSidebar extends BaseComponent {
     /** @private */
-    #pendingEdit = null; // 待处理的编辑操作 { docId, isNewItem, shouldSetCurrent }
+    #pendingEdit = null;
+    /** @private */
+    #domCache = new Map(); // DOM 元素缓存
 
-    /**
-     * 构造函数
-     * @param state
-     * @param containerId
-     */
     constructor(state, containerId) {
         super(state, containerId);
         this.side = 'left';
@@ -55,10 +52,7 @@ export class LeftSidebar extends BaseComponent {
                 if (key === 'selectedDocIds') {
                     this.updateSelectionState(newValue, oldValue);
                 } else if (key === 'documents') {
-                    const needsFullRender = this.#hasStructuralChanges(newValue, oldValue);
-                    if (needsFullRender) {
-                        this.renderTree();
-                    }
+                    this.renderTree();
                 }
             }
         );
@@ -89,47 +83,47 @@ export class LeftSidebar extends BaseComponent {
         // 工具栏按钮事件
         const newFileBtn = dom.getById('md-new-file')?.element;
         if (newFileBtn) {
-            newFileBtn.onclick = () => {
+            newFileBtn.addEventListener('click', () => {
                 const selectedDocIds = this.state.get('selectedDocIds') || [];
                 const documents = this.state.get('documents');
                 const selectedFolder = selectedDocIds.length > 0
                     ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
                     : null;
                 this.createDocument('file', selectedFolder?.id ?? null);
-            };
+            });
         }
 
         const newFolderBtn = dom.getById('md-new-folder')?.element;
         if (newFolderBtn) {
-            newFolderBtn.onclick = () => {
+            newFolderBtn.addEventListener('click', () => {
                 const selectedDocIds = this.state.get('selectedDocIds') || [];
                 const documents = this.state.get('documents');
                 const selectedFolder = selectedDocIds.length > 0
                     ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
                     : null;
                 this.createDocument('folder', selectedFolder?.id ?? null);
-            };
+            });
         }
 
         const deleteBtn = dom.getById('md-delete-item')?.element;
         if (deleteBtn) {
-            deleteBtn.onclick = () => this.deleteSelectedItems();
+            deleteBtn.addEventListener('click', () => this.deleteSelectedItems());
         }
 
         const closeBtn = dom.getById('md-close-left-sidebar')?.element;
         if (closeBtn) {
-            closeBtn.onclick = () => this.toggle();
+            closeBtn.addEventListener('click', () => this.toggle());
         }
 
         // 文档导入导出按钮
         const importBtn = dom.getById('md-import-docs')?.element;
         if (importBtn) {
-            importBtn.onclick = () => this.importDocuments();
+            importBtn.addEventListener('click', () => this.importDocuments());
         }
 
         const exportBtn = dom.getById('md-export-docs')?.element;
         if (exportBtn) {
-            exportBtn.onclick = () => this.exportDocuments();
+            exportBtn.addEventListener('click', () => this.exportDocuments());
         }
     }
 
@@ -166,70 +160,47 @@ export class LeftSidebar extends BaseComponent {
         }
     }
 
-    // ==================== 文档树状态检测 ====================
+    // ==================== DOM 缓存 ====================
 
-    /**
-     * 检查文档结构是否发生变化（优化版：单次遍历）
-     * @private
-     * @param {Array} newValue - 新文档列表
-     * @param {Array} oldValue - 旧文档列表
-     * @returns {boolean} 是否有结构性变化
-     */
-    #hasStructuralChanges(newValue, oldValue) {
-        // 快速检查：数量不同
-        if (newValue.length !== oldValue.length) {
-            return true;
-        }
+    /** @private */
+    #getDocEl(docId) {
+        const el = this.#domCache.get(docId);
+        return el?.isConnected ? el : null;
+    }
 
-        // 优化：单次遍历构建 Map 并检查
-        const oldMap = new Map();
-        for (const doc of oldValue) {
-            oldMap.set(doc.id, doc);
-        }
-
-        // 检查新文档列表
-        for (const doc of newValue) {
-            const old = oldMap.get(doc.id);
-            if (!old) {
-                // 新增文档
-                return true;
-            }
-            if (old.parentId !== doc.parentId || old.name !== doc.name) {
-                // 结构性变化
-                return true;
-            }
-            // 从 Map 中删除，最后检查是否有剩余（被删除的文档）
-            oldMap.delete(doc.id);
-        }
-
-        // 如果 Map 中还有剩余，说明有文档被删除
-        return oldMap.size > 0;
+    /** @private */
+    #rebuildDomCache() {
+        this.#domCache.clear();
+        const container = document.getElementById('md-doc-tree');
+        container?.querySelectorAll('.md-doc-item').forEach(el => {
+            const id = el.dataset.docId;
+            if (id) this.#domCache.set(id, el);
+        });
     }
 
     // ==================== 选择状态管理 ====================
 
     /**
-     * 更新多选状态（局部更新）
+     * 更新多选状态（局部更新 + DOM 缓存优化）
      * @param {Array} newSelectedIds - 新选中的文档ID列表
      * @param {Array} oldSelectedIds - 旧选中的文档ID列表
      */
     updateSelectionState(newSelectedIds = [], oldSelectedIds = []) {
-        const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer || (newSelectedIds.length === 0 && oldSelectedIds.length === 0)) return;
+        if (newSelectedIds.length === 0 && oldSelectedIds.length === 0) return;
 
         const newSet = new Set(newSelectedIds);
         const oldSet = new Set(oldSelectedIds);
 
-        // 批量更新DOM
+        // 批量更新DOM（使用缓存）
         requestAnimationFrame(() => {
             for (const docId of oldSet) {
                 if (!newSet.has(docId)) {
-                    treeContainer.querySelector(`[data-doc-id="${docId}"]`)?.classList.remove('active');
+                    this.#getDocEl(docId)?.classList.remove('active');
                 }
             }
             for (const docId of newSet) {
                 if (!oldSet.has(docId)) {
-                    treeContainer.querySelector(`[data-doc-id="${docId}"]`)?.classList.add('active');
+                    this.#getDocEl(docId)?.classList.add('active');
                 }
             }
         });
@@ -577,13 +548,24 @@ export class LeftSidebar extends BaseComponent {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
-        // 使用递归函数快速计算子项数量
-        const countChildren = parentId => {
-            const children = this.state.getDocumentTree(parentId);
-            let count = children.length;
-            for (const child of children) {
-                if (child.type === 'folder') {
-                    count += countChildren(child.id);
+        // 使用迭代方式计算子项数量（避免深层递归栈溢出）
+        const countChildren = rootId => {
+            let count = 0;
+            const stack = [rootId];
+            const visited = new Set();
+            
+            while (stack.length > 0) {
+                const currentId = stack.pop();
+                if (visited.has(currentId)) continue;
+                visited.add(currentId);
+                
+                const children = this.state.getDocumentTree(currentId);
+                count += children.length;
+                
+                for (const child of children) {
+                    if (child.type === 'folder') {
+                        stack.push(child.id);
+                    }
                 }
             }
             return count;
@@ -647,12 +629,12 @@ export class LeftSidebar extends BaseComponent {
             const docMap = new Map(documents.map(d => [d.id, d]));
             let currentId = parentId;
             while (currentId) {
-                const doc = docMap.get(currentId);
-                if (!doc) break;
-                if (doc.type === 'folder') {
+                const d = docMap.get(currentId);
+                if (!d) break;
+                if (d.type === 'folder') {
                     this.expandedFolders.add(currentId);
                 }
-                currentId = doc.parentId;
+                currentId = d.parentId;
             }
         }
 
@@ -868,6 +850,7 @@ export class LeftSidebar extends BaseComponent {
         const selectedDocIds = this.state.get('selectedDocIds') || [];
 
         if (documents.length === 0) {
+            this.#domCache.clear();
             treeContainer.innerHTML = `
                 <div class="md-empty-state">
                     <p>暂无文档</p>
@@ -893,6 +876,9 @@ export class LeftSidebar extends BaseComponent {
         treeContainer.innerHTML = '';
         treeContainer.appendChild(fragment);
 
+        // 重建 DOM 缓存
+        this.#rebuildDomCache();
+
         // 展开当前文档和选中文档的祖先文件夹
         const docMap = new Map(documents.map(d => [d.id, d]));
         const foldersToExpand = new Set();
@@ -901,12 +887,12 @@ export class LeftSidebar extends BaseComponent {
             if (!docId) return;
             let currentId = docId;
             while (currentId) {
-                const doc = docMap.get(currentId);
-                if (!doc) break;
-                if (doc.type === 'folder') {
+                const d = docMap.get(currentId);
+                if (!d) break;
+                if (d.type === 'folder') {
                     foldersToExpand.add(currentId);
                 }
-                currentId = doc.parentId;
+                currentId = d.parentId;
             }
         };
 
@@ -1067,7 +1053,7 @@ export class LeftSidebar extends BaseComponent {
         input.type = 'file';
         input.accept = '.json,application/json';
 
-        input.onchange = (e) => {
+        input.onchange = async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
 
@@ -1077,68 +1063,50 @@ export class LeftSidebar extends BaseComponent {
                 return;
             }
 
-            const reader = new FileReader();
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                if (!Array.isArray(data?.documents)) throw new Error('文件格式无效');
+                if (data.documents.length > 10000) throw new Error('文档数量过多');
 
-            reader.onload = async (event) => {
-                try {
-                    const text = event.target?.result;
-                    if (!text || typeof text !== 'string') throw new Error('文件读取失败');
+                const importMode = await Dialog.show({
+                    title: '导入文档',
+                    message: `检测到 <strong>${data.documents.length}</strong> 个文档，请选择导入方式：`,
+                    type: 'info',
+                    buttons: [
+                        { text: '合并', value: 'merge', type: 'primary' },
+                        { text: '替换', value: 'replace', type: 'danger' }
+                    ],
+                    closeOnOverlay: true,
+                    closeOnEscape: true
+                });
 
-                    const data = JSON.parse(text);
-                    if (!Array.isArray(data?.documents)) throw new Error('文件格式无效：缺少文档列表');
-                    if (data.documents.length > 10000) throw new Error('文档数量过多（超过 10000 个），无法导入');
-
-                    const importMode = await Dialog.show({
-                        title: '导入文档',
-                        message: `检测到 <strong>${data.documents.length}</strong> 个文档，请选择导入方式：`,
-                        type: 'info',
-                        buttons: [
-                            { text: '合并', value: 'merge', type: 'primary' },
-                            { text: '替换', value: 'replace', type: 'danger' }
-                        ],
-                        closeOnOverlay: true,
-                        closeOnEscape: true
-                    });
-
-                    if (!importMode) {
-                        this.showMessage('导入已取消', 'info');
-                        input.remove();
-                        return;
-                    }
-
-                    const currentDocs = this.state.get('documents');
-                    const newDocuments = importMode === 'replace' ? data.documents : this.#mergeDocuments(currentDocs, data.documents);
-
-                    this.state.importDocuments(newDocuments, 'replace', true);
-
-                    this.showMessage(`成功${importMode === 'replace' ? '替换' : '合并'}导入 ${data.documents.length} 个文档`, 'success');
-                } catch (error) {
-                    this.showMessage(`导入失败：${error.message}`, 'error');
-                } finally {
+                if (!importMode) {
+                    this.showMessage('导入已取消', 'info');
                     input.remove();
+                    return;
                 }
-            };
 
-            reader.onerror = () => {
-                this.showMessage('文件读取失败', 'error');
+                const currentDocs = this.state.get('documents');
+                const newDocuments = importMode === 'replace'
+                    ? data.documents
+                    : this.#mergeDocuments(currentDocs, data.documents);
+
+                this.state.importDocuments(newDocuments, 'replace', true);
+                this.showMessage(`成功${importMode === 'replace' ? '替换' : '合并'}导入 ${data.documents.length} 个文档`, 'success');
+            } catch (error) {
+                this.showMessage(`导入失败：${error.message}`, 'error');
+            } finally {
                 input.remove();
-            };
-
-            reader.readAsText(file);
+            }
         };
 
         input.click();
     }
 
-    /**
-     * 合并文档列表
-     * @private
-     * @param {Array} currentDocs - 当前文档
-     * @param {Array} importDocs - 导入文档
-     * @returns {Array} 合并后的文档
-     */
+    /** @private */
     #mergeDocuments(currentDocs, importDocs) {
-        const docMap = new Map(currentDocs.map(doc => [doc.id, doc]));
+        const docMap = new Map(currentDocs.map(d => [d.id, d]));
         let addedCount = 0;
 
         for (const doc of importDocs) {
@@ -1148,23 +1116,17 @@ export class LeftSidebar extends BaseComponent {
             }
         }
 
-        if (addedCount === 0) {
-            this.showMessage('所有文档已存在，无需导入', 'info');
-        }
-
+        if (addedCount === 0) this.showMessage('所有文档已存在，无需导入', 'info');
         return Array.from(docMap.values());
     }
 
     // ==================== 资源清理 ====================
 
-    /**
-     * 清理组件资源
-     * @returns {void}
-     */
     destroy() {
         clearTimeout(this.clickTimeout);
         this.#clearDropTarget();
         this.draggedItems = null;
+        this.#domCache.clear();
         document.body.classList.remove('is-dragging-tree');
         super.destroy?.();
     }
