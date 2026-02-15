@@ -35,16 +35,18 @@ export class Settings {
         this.state = state;
         this.overlay = null;
         this.dialog = null;
-        this.currentSection = 'basic';
+        this.currentSection = 'interface';
 
         // DOM 元素缓存
         this.cachedElements = null;
-
-        // ESC 键监听器缓存（用于清理）
-        this.escapeHandler = null;
+        // 导航项缓存
+        this.navItems = null;
+        // 设置区域缓存
+        this.sectionElements = null;
 
         // 系统主题变化监听器（用于清理）
         this.colorSchemeMatcher = null;
+        this.themeChangeHandler = null;
     }
 
     /**
@@ -57,6 +59,10 @@ export class Settings {
 
         // 缓存 DOM 元素
         this.cacheElements();
+
+        // 缓存导航项和设置区域
+        this.navItems = dom.getAll('.md-settings-nav-item');
+        this.sectionElements = dom.getAll('.md-settings-section');
 
         // 绑定事件
         this.bindEvents();
@@ -106,14 +112,9 @@ export class Settings {
             pdfFooterLeftInput: dom.get('#setting-pdf-footer-left'),
             pdfFooterCenterInput: dom.get('#setting-pdf-footer-center'),
             pdfFooterRightInput: dom.get('#setting-pdf-footer-right'),
-            
-            // 应用元素
-            editorElement: dom.get('#markdown-editor'),
-            container: dom.get('.md-container'),
-            leftSidebar: dom.get('.md-sidebar-left'),
-            rightSidebar: dom.get('.md-sidebar-right'),
-            editorSection: dom.get('.md-editor-pane'),
-            previewSection: dom.get('.md-preview-pane')
+
+            // 编辑器元素（用于字体设置）
+            editorElement: dom.get('#markdown-editor')
         };
     }
 
@@ -136,17 +137,8 @@ export class Settings {
             });
         }
 
-        // ESC 键关闭 - 缓存处理器以便后续清理
-        this.escapeHandler = (e) => {
-            if (e.key === 'Escape' && this.overlay?.classList.contains('show')) {
-                this.close();
-            }
-        };
-        document.addEventListener('keydown', this.escapeHandler);
-
-        // 导航项点击
-        const navItems = dom.getAll('.md-settings-nav-item');
-        navItems.forEach(item => {
+        // 导航项点击 - 使用缓存的元素
+        this.navItems?.forEach(item => {
             item.addEventListener('click', () => {
                 const { section } = item.dataset;
                 this.switchSection(section);
@@ -186,22 +178,11 @@ export class Settings {
      * 清理事件监听器
      */
     cleanup() {
-        // 移除 ESC 键监听器
-        if (this.escapeHandler) {
-            document.removeEventListener('keydown', this.escapeHandler);
-            this.escapeHandler = null;
-        }
-
         // 移除系统主题监听器
-        if (this.colorSchemeMatcher) {
-            this.colorSchemeMatcher.onchange = null;
+        if (this.colorSchemeMatcher && this.themeChangeHandler) {
+            this.colorSchemeMatcher.removeEventListener('change', this.themeChangeHandler);
             this.colorSchemeMatcher = null;
-        }
-
-        // 取消状态订阅
-        if (this.stateUnsubscribe) {
-            this.stateUnsubscribe();
-            this.stateUnsubscribe = null;
+            this.themeChangeHandler = null;
         }
     }
 
@@ -211,13 +192,6 @@ export class Settings {
     open() {
         this.overlay?.classList.add('show');
         this.loadStateToUI();
-        
-        // 订阅状态变化，只在对话框打开时监听
-        if (!this.stateUnsubscribe) {
-            this.stateUnsubscribe = this.state.subscribe(() => {
-                this.loadStateToUI();
-            });
-        }
     }
 
     /**
@@ -225,12 +199,6 @@ export class Settings {
      */
     close() {
         this.overlay?.classList.remove('show');
-        
-        // 取消订阅，避免不必要的更新
-        if (this.stateUnsubscribe) {
-            this.stateUnsubscribe();
-            this.stateUnsubscribe = null;
-        }
     }
 
     /**
@@ -238,18 +206,14 @@ export class Settings {
      * @param {string} section - 区域名称
      */
     switchSection(section) {
-        // 更新导航项状态 - 只更新当前和新的活动项
-        const navItems = dom.getAll('.md-settings-nav-item');
-        navItems.forEach(item => {
-            const isActive = item.dataset.section === section;
-            item.classList.toggle('active', isActive);
+        // 更新导航项状态 - 使用缓存的元素
+        this.navItems?.forEach(item => {
+            item.classList.toggle('active', item.dataset.section === section);
         });
 
-        // 更新内容区域显示 - 只更新当前和新的活动区域
-        const sections = dom.getAll('.md-settings-section');
-        sections.forEach(sec => {
-            const isActive = sec.id === `settings-${section}`;
-            sec.classList.toggle('active', isActive);
+        // 更新内容区域显示 - 使用缓存的元素
+        this.sectionElements?.forEach(sec => {
+            sec.classList.toggle('active', sec.id === `settings-${section}`);
         });
 
         this.currentSection = section;
@@ -388,10 +352,10 @@ export class Settings {
         this.state.updateInterfaceConfig(interfaceConfig);
         this.state.updateExportConfig(exportConfig);
 
-        // 应用设置
-        this.applySettings();
+        // 应用主题（其他设置由 state 订阅者自动处理）
+        this.applyTheme(interfaceConfig.theme);
 
-        // 显示保存成功提示（使用状态驱动）
+        // 显示保存成功提示
         this.state.showNotification('设置已保存', 'success');
 
         // 关闭对话框
@@ -426,13 +390,13 @@ export class Settings {
     }
 
     /**
-     * 应用设置到编辑器
+     * 应用设置到编辑器（仅初始化时调用）
      */
     applySettings() {
         const editor = this.state.get('editor') || {};
         const interfaceState = this.state.get('interface') || {};
 
-        // 应用字体大小 - 使用缓存的元素
+        // 应用字体大小
         if (this.cachedElements?.editorElement) {
             if (editor.fontSize != null) {
                 this.cachedElements.editorElement.style.fontSize = `${editor.fontSize}px`;
@@ -444,39 +408,6 @@ export class Settings {
 
         // 应用主题
         this.applyTheme(interfaceState.theme ?? 'auto');
-
-        // 应用界面设置
-        this.applyInterfaceSettings();
-    }
-
-    /**
-     * 应用界面设置
-     */
-    applyInterfaceSettings() {
-        if (!this.cachedElements) return;
-
-        const interfaceState = this.state.get('interface') || {};
-
-        // 应用布局模式 - 使用缓存的元素
-        if (this.cachedElements.container) {
-            const { container } = this.cachedElements;
-            // 移除所有布局类
-            container.classList.remove('layout-both', 'layout-editor-only', 'layout-preview-only');
-            // 添加当前布局类
-            container.classList.add(interfaceState.layout ?? 'layout-both');
-        }
-
-        // 应用侧边栏状态 - 使用 toggle() 简化
-        if (this.cachedElements.leftSidebar) {
-            this.cachedElements.leftSidebar.classList.toggle('open', interfaceState.leftSidebarOpen ?? false);
-        }
-        if (this.cachedElements.rightSidebar) {
-            this.cachedElements.rightSidebar.classList.toggle('open', interfaceState.rightSidebarOpen ?? false);
-        }
-
-        // 应用布局比例
-        // CSS 已经处理了布局，不需要设置内联样式
-        // 移除内联样式设置，让 CSS 的 flex: 1 自动适应
     }
 
     /**
@@ -484,12 +415,13 @@ export class Settings {
      */
     watchSystemTheme() {
         this.colorSchemeMatcher = window.matchMedia('(prefers-color-scheme: dark)');
-        this.colorSchemeMatcher.addEventListener('change', () => {
+        this.themeChangeHandler = () => {
             const interfaceState = this.state.get('interface');
             if (interfaceState?.theme === 'auto') {
                 this.applyTheme('auto');
             }
-        });
+        };
+        this.colorSchemeMatcher.addEventListener('change', this.themeChangeHandler);
     }
 
     /**
