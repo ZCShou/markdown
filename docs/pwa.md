@@ -23,7 +23,7 @@ VitePWA({
 
 ```json
 {
-  "name": "Markdown Editor",
+  "name": "Markdown",
   "short_name": "Markdown",
   "display": "standalone",
   "theme_color": "#1e88e5",
