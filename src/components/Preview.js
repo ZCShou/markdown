@@ -10,6 +10,59 @@ import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
 
+// Prism 语言懒加载映射
+const LANG_MAP = {
+    javascript: () => import('prismjs/components/prism-javascript'),
+    js: () => import('prismjs/components/prism-javascript'),
+    typescript: () => import('prismjs/components/prism-typescript'),
+    ts: () => import('prismjs/components/prism-typescript'),
+    python: () => import('prismjs/components/prism-python'),
+    java: () => import('prismjs/components/prism-java'),
+    c: () => import('prismjs/components/prism-c'),
+    cpp: () => import('prismjs/components/prism-cpp'),
+    csharp: () => import('prismjs/components/prism-csharp'),
+    go: () => import('prismjs/components/prism-go'),
+    rust: () => import('prismjs/components/prism-rust'),
+    ruby: () => import('prismjs/components/prism-ruby'),
+    swift: () => import('prismjs/components/prism-swift'),
+    kotlin: () => import('prismjs/components/prism-kotlin'),
+    scala: () => import('prismjs/components/prism-scala'),
+    sql: () => import('prismjs/components/prism-sql'),
+    bash: () => import('prismjs/components/prism-bash'),
+    shell: () => import('prismjs/components/prism-bash'),
+    json: () => import('prismjs/components/prism-json'),
+    yaml: () => import('prismjs/components/prism-yaml'),
+    toml: () => import('prismjs/components/prism-toml'),
+    html: () => import('prismjs/components/prism-markup'),
+    xml: () => import('prismjs/components/prism-markup'),
+    markup: () => import('prismjs/components/prism-markup'),
+    markdown: () => import('prismjs/components/prism-markdown'),
+    jsx: () => import('prismjs/components/prism-jsx'),
+    tsx: () => import('prismjs/components/prism-tsx'),
+    docker: () => import('prismjs/components/prism-docker'),
+    makefile: () => import('prismjs/components/prism-makefile'),
+    nginx: () => import('prismjs/components/prism-nginx'),
+    perl: () => import('prismjs/components/prism-perl'),
+    lua: () => import('prismjs/components/prism-lua'),
+    r: () => import('prismjs/components/prism-r'),
+    matlab: () => import('prismjs/components/prism-matlab'),
+    groovy: () => import('prismjs/components/prism-groovy')
+};
+
+const loadedLangs = new Set(['css', 'clike']); // Prism 内置
+
+async function loadLanguage(lang) {
+    const key = lang?.toLowerCase();
+    if (!key || loadedLangs.has(key) || !LANG_MAP[key]) return true;
+    try {
+        await LANG_MAP[key]();
+        loadedLangs.add(key);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 /**
  *
  */
@@ -1170,18 +1223,20 @@ export class Preview extends BaseComponent {
      * @param block
      * @private
      */
-    #highlightSingleBlock(block) {
-        // 🔥 优化：提前标记为已高亮，防止并发重复渲染
+    async #highlightSingleBlock(block) {
         if (block.classList.contains('prism-highlighted')) {
             return;
         }
         block.classList.add('prism-highlighted');
 
         try {
+            // 从 class 中提取语言（如 language-javascript）
+            const langClass = [...block.classList].find(c => c.startsWith('language-'));
+            const lang = langClass?.replace('language-', '');
+            await loadLanguage(lang);
             Prism.highlightElement(block);
         } catch (err) {
             console.warn('代码高亮失败:', err);
-            // 类已在开始时添加，这里无需重复添加
         }
     }
 
