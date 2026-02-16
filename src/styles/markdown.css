@@ -1567,6 +1567,7 @@ body.is-dragging-tree {
 }
 
 .md-settings-control input[type="number"],
+.md-settings-control input[type="text"],
 .md-settings-control select {
   padding: 6px 12px;
   border: 1px solid var(--md-border);
@@ -1579,6 +1580,7 @@ body.is-dragging-tree {
 }
 
 .md-settings-control input[type="number"]:focus,
+.md-settings-control input[type="text"]:focus,
 .md-settings-control select:focus {
   border-color: var(--md-color-primary);
 }
@@ -1595,14 +1597,6 @@ body.is-dragging-tree {
 .md-settings-control input[type="number"]:focus::-webkit-inner-spin-button,
 .md-settings-control input[type="number"]:focus::-webkit-outer-spin-button {
   opacity: 0.6;
-}
-
-[data-mode='dark'] .md-settings-control input[type="number"]:hover::-webkit-inner-spin-button,
-[data-mode='dark'] .md-settings-control input[type="number"]:hover::-webkit-outer-spin-button,
-[data-mode='dark'] .md-settings-control input[type="number"]:focus::-webkit-inner-spin-button,
-[data-mode='dark'] .md-settings-control input[type="number"]:focus::-webkit-outer-spin-button {
-  filter: invert(1);
-  opacity: 0.7;
 }
 
 .md-settings-value {
