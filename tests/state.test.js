@@ -24,7 +24,7 @@ describe('EditorState - 状态管理器测试', () => {
             expect(state.get('editor')).toBeDefined();
             expect(state.get('interface')).toBeDefined();
             expect(state.get('export')).toBeDefined();
-            expect(state.get('editor').fontSize).toBe(14);
+            expect(state.get('editor').fontSize).toBe(16);
             expect(state.get('interface').theme).toBe('light');
             expect(state.get('interface').layout).toBe('layout-both');
         });
@@ -42,7 +42,7 @@ describe('EditorState - 状态管理器测试', () => {
 
         it('应该获取嵌套对象的值', () => {
             const editor = state.get('editor');
-            expect(editor.fontSize).toBe(14);
+            expect(editor.fontSize).toBe(16);
             expect(editor.lineHeight).toBe(1.6);
         });
     });

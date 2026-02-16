@@ -305,7 +305,7 @@ export class CodeMirrorEditor {
                     this.#lineDragState = {
                         isDragging: true,
                         startLineNum: view.state.doc.lineAt(line.from).number,
-                        view: view
+                        view
                     };
 
                     // 选中整行
@@ -624,7 +624,7 @@ export class CodeMirrorEditor {
      * editor.triggerSearch(); // 打开搜索面板
      * ```
      */
-    triggerSearch(replace = false) {
+    triggerSearch(_replace = false) {
         if (!this.view) return;
         openSearchPanel(this.view);
     }

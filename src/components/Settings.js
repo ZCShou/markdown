@@ -300,7 +300,7 @@ export class Settings {
 
         const editorConfig = {
             type: this.cachedElements.editorTypeSelect?.value || 'codemirror',
-            fontSize: fontSize,
+            fontSize,
             lineHeight: parseFloat(this.cachedElements.lineHeightInput?.value) || 1.6,
             autoSave: this.cachedElements.autoSaveInput?.checked || false,
             insertSpaces: this.cachedElements.insertSpacesInput?.checked ?? true,
@@ -398,7 +398,7 @@ export class Settings {
 
         // 应用字体大小
         if (this.cachedElements?.editorElement) {
-            if (editor.fontSize != null) {
+            if (editor.fontSize !== null && editor.fontSize !== undefined) {
                 this.cachedElements.editorElement.style.fontSize = `${editor.fontSize}px`;
             } else {
                 this.cachedElements.editorElement.style.fontSize = '';

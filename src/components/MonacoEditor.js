@@ -496,7 +496,7 @@ export class MonacoEditor {
      * editor.triggerSearch(true);  // 替换
      * ```
      */
-    triggerSearch(replace = false) {
+    triggerSearch(_replace = false) {
         if (!this.editor) return;
         this.editor.trigger('keyboard', 'actions.find');
     }
@@ -521,7 +521,7 @@ export class MonacoEditor {
          * @returns {Worker} Worker 实例
          */
         self.MonacoEnvironment = {
-            getWorker: function(_workerId, _label) {
+            getWorker(_workerId, _label) {
                 return new EditorWorker();
             }
         };

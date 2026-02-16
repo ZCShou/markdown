@@ -218,8 +218,12 @@ export class LeftSidebar extends BaseComponent {
         const currentlyExpanded = this.expandedFolders.has(folderId);
         
         if (finalExpanded === currentlyExpanded) return;
-        
-        finalExpanded ? this.expandedFolders.add(folderId) : this.expandedFolders.delete(folderId);
+
+        if (finalExpanded) {
+            this.expandedFolders.add(folderId);
+        } else {
+            this.expandedFolders.delete(folderId);
+        }
 
         const treeContainer = dom.getById('md-doc-tree')?.element;
         if (!treeContainer) return;
@@ -454,7 +458,7 @@ export class LeftSidebar extends BaseComponent {
 
         if (!this.draggedItems?.length || !this.dragTarget) return;
 
-        let targetId = null;
+        let targetId;
         if (this.dragTargetType === 'root') {
             targetId = null;
         } else if (this.dragTargetType === 'expanded') {
@@ -764,9 +768,9 @@ export class LeftSidebar extends BaseComponent {
             return;
         }
 
-        let docIdsToDelete = [];
-        let message = '';
-        let title = '';
+        let docIdsToDelete;
+        let message;
+        let title;
 
         if (selectedDocIds.length > 0) {
             // 有选中项：删除选中的文件
