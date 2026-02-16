@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // ESM 模式下获取 __dirname 的替代方案
 const __filename = fileURLToPath(import.meta.url);
@@ -18,6 +19,16 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
+    plugins: [
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.svg'],
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10 MB
+        }
+      })
+    ],
     server: {
       port: 3000,
       host: '0.0.0.0',
