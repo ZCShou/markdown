@@ -1585,7 +1585,15 @@ body.is-dragging-tree {
   border-color: var(--md-color-primary);
 }
 
-/* number input spinner 按钮默认隐藏，hover/focus 时显示 */
+/* number input spinner 按钮 */
+.md-settings-control input[type="number"] {
+  color-scheme: light;
+}
+
+[data-mode='dark'] .md-settings-control input[type="number"] {
+  color-scheme: dark;
+}
+
 .md-settings-control input[type="number"]::-webkit-inner-spin-button,
 .md-settings-control input[type="number"]::-webkit-outer-spin-button {
   opacity: 0;
