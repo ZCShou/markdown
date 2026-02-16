@@ -14,6 +14,8 @@ jobs:
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -35,12 +37,14 @@ jobs:
             - name: Generate release notes
               id: release_notes
               run: |
-                  # 获取自上一个 tag 之后的 commits
-                  PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+                  # 获取当前 tag
+                  CURRENT_TAG=${{ github.ref_name }}
+                  # 获取上一个 tag（排除当前 tag）
+                  PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1)
                   if [ -z "$PREV_TAG" ]; then
                       echo "notes=Initial release" >> $GITHUB_OUTPUT
                   else
-                      NOTES=$(git log --pretty=format:"- %s" ${PREV_TAG}..HEAD | head -20)
+                      NOTES=$(git log --pretty=format:"- %s" ${PREV_TAG}..${CURRENT_TAG} | head -20)
                       echo "notes<<EOF" >> $GITHUB_OUTPUT
                       echo "$NOTES" >> $GITHUB_OUTPUT
                       echo "EOF" >> $GITHUB_OUTPUT
@@ -55,11 +59,6 @@ jobs:
 
                       ### 📦 变更内容
                       ${{ steps.release_notes.outputs.notes }}
-
-                      ### 📥 下载
-                      - 下载下方附件中的 `markdown-editor-${{ github.ref_name }}.zip` 文件
-                      - 解压到任意目录
-                      - 在浏览器中打开 `index.html` 即可使用
 
                       ### ✨ 功能特性
                       - 实时 Markdown 预览
