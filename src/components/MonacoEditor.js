@@ -238,11 +238,11 @@ export class MonacoEditor {
 
                 for (let i = 0; i < lineCount; i++) {
                     const line = lines[i];
-                    const len = line.length;
+                    const { length: len } = line;
 
                     // 检查围栏代码块
                     if (len >= 3 && (line[0] === '`' || line[0] === '~')) {
-                        const c0 = line[0];
+                        const [c0] = line;
 
                         if (fenceChar === null) {
                             // 不在代码块内，检查是否是围栏开始
@@ -395,7 +395,7 @@ export class MonacoEditor {
      * @private
      */
     resolveDarkMode(interfaceConfig = {}) {
-        const theme = interfaceConfig.theme;
+        const { theme } = interfaceConfig;
         if (theme === 'dark') return true;
         if (theme === 'light') return false;
 
@@ -457,7 +457,7 @@ export class MonacoEditor {
      * @returns {Object|null} 滚动代理对象
      */
     getScrollElement() {
-        const editor = this.editor;
+        const { editor } = this;
         if (!editor) return null;
 
         return {

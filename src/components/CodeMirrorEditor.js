@@ -350,7 +350,7 @@ export class CodeMirrorEditor {
             if (dragState.rafId) return;
 
             dragState.rafId = requestAnimationFrame(() => {
-                const view = dragState.view;
+                const { view } = dragState;
                 // 根据鼠标坐标获取对应的文档位置
                 const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
 
@@ -528,7 +528,7 @@ export class CodeMirrorEditor {
      * @private
      */
     resolveDarkMode(interfaceConfig = {}) {
-        const theme = interfaceConfig.theme;
+        const { theme } = interfaceConfig;
         if (theme === 'dark') return true;
         if (theme === 'light') return false;
 
