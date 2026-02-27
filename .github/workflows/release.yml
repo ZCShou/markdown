@@ -8,6 +8,11 @@ on:
 permissions:
     contents: write
 
+# 确保同一 tag 只有一个工作流运行
+concurrency:
+    group: release-${{ github.ref_name }}
+    cancel-in-progress: false
+
 jobs:
     release:
         permissions:
@@ -73,6 +78,7 @@ jobs:
               uses: tauri-apps/tauri-action@v0
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  NODE_OPTIONS: --max-old-space-size=4096
               with:
                   tagName: ${{ github.ref_name }}
                   releaseName: 'Markdown Editor ${{ github.ref_name }}'
