@@ -24,9 +24,29 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg'],
+        manifest: {
+          name: 'Markdown',
+          short_name: 'Markdown',
+          description: '功能强大的在线 Markdown 编辑器',
+          start_url: './',
+          display: 'standalone',
+          background_color: '#ffffff',
+          theme_color: '#1e88e5',
+          icons: [
+            {
+              src: 'favicon.svg',
+              sizes: 'any',
+              type: 'image/svg+xml',
+              purpose: 'any maskable'
+            }
+          ]
+        },
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10 MB
+        },
+        devOptions: {
+          enabled: false // 开发模式下禁用 PWA，避免生成 dev-dist 目录
         }
       })
     ],
