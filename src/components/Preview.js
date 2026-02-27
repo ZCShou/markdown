@@ -529,8 +529,8 @@ export class Preview extends BaseComponent {
         const codeBlockRanges = [];
 
         // 第一步：提取代码块（包括 mermaid），并记录位置
-        // 修复：支持更多语言标识符（如 c++、c#），允许可选的空白字符
-        const codeBlockRegex = /```(\S*)[ \t]*\n([\s\S]*?)```/g;
+        // 修复：支持更多语言标识符（如 c++、c#），允许可选的空白字符和换行
+        const codeBlockRegex = /```(\S*)[ \t]*\r?\n?([\s\S]*?)```/g;
         let match;
         while ((match = codeBlockRegex.exec(newMarkdown)) !== null) {
             const [fullMatch] = match;
@@ -554,11 +554,20 @@ export class Preview extends BaseComponent {
         }
 
         // 第一步半：提取行内代码块位置（用于排除数学公式解析）
+        // 注意：必须排除已被代码块覆盖的区域，避免匹配到代码块标记中的反引号
         const inlineCodeRegex = /`([^`]+)`/g;
         while ((match = inlineCodeRegex.exec(newMarkdown)) !== null) {
             const startIndex = match.index;
             const endIndex = startIndex + match[0].length;
-            codeBlockRanges.push({ start: startIndex, end: endIndex });
+            
+            // 检查这个行内代码是否在代码块内，如果是就跳过
+            const alreadyInCodeBlock = codeBlockRanges.some(
+                range => startIndex >= range.start && startIndex < range.end
+            );
+            
+            if (!alreadyInCodeBlock) {
+                codeBlockRanges.push({ start: startIndex, end: endIndex });
+            }
         }
 
         // 辅助函数：检查位置是否在任何代码块内
