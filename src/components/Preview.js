@@ -537,7 +537,7 @@ export class Preview extends BaseComponent {
             const startIndex = match.index;
             const endIndex = startIndex + fullMatch.length;
 
-            // 记录代码块位置范围（用于排除标题提取）
+            // 记录代码块位置范围（用于排除标题提取和数学公式）
             codeBlockRanges.push({ start: startIndex, end: endIndex });
 
             const [, lang, content] = match;
@@ -553,9 +553,29 @@ export class Preview extends BaseComponent {
             }
         }
 
-        // 第二步：提取数学公式（块级和行内）
+        // 第一步半：提取行内代码块位置（用于排除数学公式解析）
+        const inlineCodeRegex = /`([^`]+)`/g;
+        while ((match = inlineCodeRegex.exec(newMarkdown)) !== null) {
+            const startIndex = match.index;
+            const endIndex = startIndex + match[0].length;
+            codeBlockRanges.push({ start: startIndex, end: endIndex });
+        }
+
+        // 辅助函数：检查位置是否在任何代码块内
+        const isInAnyCodeBlock = (index) => codeBlockRanges.some(
+            range => index >= range.start && index < range.end
+        );
+
+        // 第二步：提取数学公式（块级和行内），排除代码块内的
         const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
         while ((match = mathRegex.exec(newMarkdown)) !== null) {
+            const matchIndex = match.index;
+
+            // 跳过代码块内的数学公式标记
+            if (isInAnyCodeBlock(matchIndex)) {
+                continue;
+            }
+
             const [, blockMath, inlineMath] = match;
             if (blockMath !== undefined) {
                 const hash = this.#generateSimpleHash(blockMath.trim());
@@ -684,10 +704,58 @@ export class Preview extends BaseComponent {
             const supSubBlocks = [];
             const strikeBlocks = [];
 
+            // 预处理：找出所有代码块和行内代码的位置，用于排除数学公式匹配
+            // 使用单次扫描收集所有代码块位置，然后排序并合并重叠范围
+            const codeRanges = [];
+            const codeRegex = /```[\s\S]*?```|`[^`]+`/g;
+            let codeMatch;
+            while ((codeMatch = codeRegex.exec(markdown)) !== null) {
+                codeRanges.push({ start: codeMatch.index, end: codeMatch.index + codeMatch[0].length });
+            }
+
+            // 性能优化：排序并合并重叠/相邻的范围，减少检查次数
+            if (codeRanges.length > 1) {
+                codeRanges.sort((a, b) => a.start - b.start);
+                const merged = [codeRanges[0]];
+                for (let i = 1; i < codeRanges.length; i++) {
+                    const last = merged[merged.length - 1];
+                    const curr = codeRanges[i];
+                    // 如果当前范围与上一个重叠或相邻，合并
+                    if (curr.start <= last.end) {
+                        last.end = Math.max(last.end, curr.end);
+                    } else {
+                        merged.push(curr);
+                    }
+                }
+                codeRanges.length = 0;
+                codeRanges.push(...merged);
+            }
+
+            // 性能优化：使用二分查找检查位置是否在代码块内
+            const isInCode = (index) => {
+                let left = 0, right = codeRanges.length - 1;
+                while (left <= right) {
+                    const mid = (left + right) >>> 1;
+                    const range = codeRanges[mid];
+                    if (index < range.start) {
+                        right = mid - 1;
+                    } else if (index >= range.end) {
+                        left = mid + 1;
+                    } else {
+                        return true; // 在范围内
+                    }
+                }
+                return false;
+            };
+
             // 性能优化：按优先级处理，避免符号冲突
             const processedMarkdown = markdown
-                // 第一步：保护数学公式（公式中可能包含 ^ 和 ~）
-                .replace(/\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g, (match, block, inline) => {
+                // 第一步：保护数学公式（公式中可能包含 ^ 和 ~），排除代码块内的
+                .replace(/\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g, (match, block, inline, offset) => {
+                    // 如果匹配在代码块内，不处理
+                    if (isInCode(offset)) {
+                        return match;
+                    }
                     const latex = block !== undefined ? block : inline;
                     const displayMode = block !== undefined;
                     mathBlocks.push({ latex, displayMode });
