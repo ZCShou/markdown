@@ -23,35 +23,37 @@
 ### 核心特性
 
 1. **状态驱动 UI**：采用观察者模式，实现状态与 UI 的自动同步
-2. **组件化架构**：基于 BaseComponent 的组件继承体系
-3. **模块化设计**：ESM 模块系统，清晰的职责分离
-4. **自动持久化**：集成 PersistenceManager，实现状态自动保存
-5. **实时预览**：Markdown 到 HTML 的实时转换
-6. **语法高亮**：支持 30+ 种编程语言的代码高亮
-7. **扩展功能**：数学公式（KaTeX）、流程图（Mermaid）
-8. **搜索替换**：类似 VSCode 的搜索替换界面
-9. **设置管理**：完整的编辑器和界面设置系统
+2. **状态不可变性**：`get()` 方法返回深拷贝，防止直接修改状态
+3. **事件钩子系统**：提供 `on/off/emit` API，支持生命周期扩展
+4. **组件化架构**：基于 BaseComponent 的组件继承体系
+5. **双编辑器支持**：CodeMirror 6 和 Monaco 编辑器可切换
+6. **自动持久化**：集成 PersistenceManager，实现状态自动保存
+7. **实时预览**：Markdown 到 HTML 的实时转换
+8. **语法高亮**：支持 30+ 种编程语言的代码高亮
+9. **扩展功能**：数学公式（KaTeX）、流程图（Mermaid）
+10. **导出功能**：支持 HTML、Markdown、PDF 导出
+11. **桌面应用**：支持 Tauri 打包为桌面应用
+12. **全局错误处理**：应用入口错误边界，降级 UI 显示
 
 ### 项目结构
 
 ```
 markdown-editor/
 ├── src/
-│   ├── main.js                 # 应用入口
+│   ├── main.js                 # 应用入口（含全局错误边界）
+│   ├── MarkdownEditor.js       # 编辑器主控制器
+│   ├── EditorState.js          # 状态管理器（含事件钩子系统）
+│   ├── StoreManager.js         # 存储管理器
+│   ├── PersistenceManager.js   # 持久化管理器
 │   ├── components/             # UI 组件
 │   │   ├── BaseComponent.js   # 组件基类
 │   │   ├── LeftSidebar.js     # 左侧边栏（文档树）
-│   │   ├── RightSidebar.js    # 右侧边栏（目录）
-│   │   ├── Editor.js          # 编辑器
-│   │   ├── Preview.js         # 预览
+│   │   ├── RightSidebar.js    # 右侧边栏（目录/导出）
+│   │   ├── CodeMirrorEditor.js # CodeMirror 编辑器
+│   │   ├── MonacoEditor.js    # Monaco 编辑器
+│   │   ├── Preview.js         # 预览（含导出功能）
 │   │   ├── Dialog.js          # 对话框
-│   │   ├── SearchReplace.js   # 搜索替换
 │   │   └── Settings.js        # 设置管理
-│   ├── modules/               # 核心模块
-│   │   ├── markdown.js        # 编辑器主控制器
-│   │   ├── state.js           # 状态管理器
-│   │   ├── store.js           # 存储管理器
-│   │   └── persistence.js     # 持久化管理器
 │   ├── utils/                 # 工具函数
 │   │   ├── dom.js             # DOM 统一管理
 │   │   └── helpers.js         # 辅助函数
@@ -59,6 +61,10 @@ markdown-editor/
 │       └── markdown.css       # 主样式
 ├── public/                    # 静态资源
 │   └── manifest.json         # PWA 配置
+├── tauri/                     # Tauri 桌面应用配置
+│   ├── src/main.rs           # Rust 入口
+│   ├── Cargo.toml            # Rust 依赖
+│   └── tauri.conf.json       # Tauri 配置
 ├── docs/                      # 文档
 ├── tests/                     # 测试文件
 ├── vite.config.js            # Vite 配置
@@ -72,7 +78,7 @@ markdown-editor/
 
 ### 构建工具
 
-**Vite 5.0**
+**Vite 7.0**
 - 快速的冷启动
 - 即时的热模块替换（HMR）
 - 基于 Rollup 的优化构建
@@ -82,11 +88,13 @@ markdown-editor/
 
 | 库名 | 版本 | 用途 |
 |------|------|------|
-| **marked** | ^12.0.2 | Markdown 解析器 |
-| **dompurify** | ^3.1.7 | XSS 防护 |
-| **prismjs** | ^1.29.0 | 代码语法高亮 |
-| **mermaid** | ^10.9.0 | 流程图/时序图渲染 |
-| **katex** | ^0.16.27 | 数学公式渲染 |
+| **marked** | ^17.0.2 | Markdown 解析器 |
+| **dompurify** | ^3.3.1 | XSS 防护 |
+| **prismjs** | ^1.30.0 | 代码语法高亮 |
+| **mermaid** | ^11.12.2 | 流程图/时序图渲染 |
+| **katex** | ^0.16.28 | 数学公式渲染 |
+| **monaco-editor** | ^0.55.1 | Monaco 代码编辑器 |
+| **@codemirror/*** | ^6.x | CodeMirror 6 编辑器 |
 | **@vscode/codicons** | ^0.0.44 | VS Code 图标库 |
 
 ### 开发依赖
@@ -94,12 +102,13 @@ markdown-editor/
 | 库名 | 版本 | 用途 |
 |------|------|------|
 | **terser** | ^5.46.0 | 代码压缩 |
-| **vite** | ^5.0.0 | 构建工具 |
+| **vite** | ^7.3.1 | 构建工具 |
 | **vitest** | ^4.0.18 | 单元测试框架 |
 | **@vitest/coverage-v8** | ^4.0.18 | 代码覆盖率 |
-| **jsdom** | ^27.4.0 | DOM 测试环境 |
-| **eslint** | ^9.39.2 | 代码检查 |
+| **jsdom** | ^28.0.0 | DOM 测试环境 |
+| **eslint** | ^10.0.0 | 代码检查 |
 | **prettier** | ^3.8.1 | 代码格式化 |
+| **@tauri-apps/cli** | ^2.10.0 | Tauri 桌面应用 |
 
 ---
 
@@ -119,16 +128,16 @@ graph TB
     
     subgraph "组件层"
         C[LeftSidebar<br/>左侧边栏]
-        D[Editor<br/>编辑器]
-        E[Preview<br/>预览]
+        D1[CodeMirrorEditor<br/>CodeMirror编辑器]
+        D2[MonacoEditor<br/>Monaco编辑器]
+        E[Preview<br/>预览/导出]
         F[RightSidebar<br/>右侧边栏]
         G[Dialog<br/>对话框]
-        H[SearchReplace<br/>搜索替换]
         I[Settings<br/>设置管理]
     end
     
     subgraph "状态管理层"
-        K[EditorState<br/>状态管理器]
+        K[EditorState<br/>状态管理器+事件钩子]
     end
     
     subgraph "持久化层"
@@ -144,36 +153,34 @@ graph TB
     
     A --> B
     B --> C
-    B --> D
+    B --> D1
+    B --> D2
     B --> E
     B --> F
     B --> G
-    B --> H
     B --> I
-    B --> J
     
     C --> K
-    D --> K
+    D1 --> K
+    D2 --> K
     E --> K
     F --> K
     G --> K
     I --> K
-    J --> K
     
     K --> L
     L --> M
     M --> N
     
     C --> O
-    D --> O
+    D1 --> O
+    D2 --> O
     E --> O
     F --> O
     G --> O
     I --> O
-    J --> O
     
     C --> P
-    D --> P
     E --> P
     
     style K fill:#e1f5ff
@@ -206,22 +213,26 @@ sequenceDiagram
 
 **2. 组件继承模式**
 
-所有 UI 组件继承自 BaseComponent：
+主要 UI 组件继承自 BaseComponent：
 
 ```mermaid
 graph TD
     A[BaseComponent<br/>基类] --> B[LeftSidebar]
-    A --> C[Editor]
-    A --> D[Preview]
-    A --> E[RightSidebar]
-    A --> F[Dialog]
+    A --> C[Preview]
+    A --> D[RightSidebar]
+    A --> E[Settings]
     
-    A -.提供.-> G[状态订阅]
-    A -.提供.-> H[事件管理]
-    A -.提供.-> I[DOM 操作]
-    A -.提供.-> J[错误处理]
+    F[独立组件] --> G[CodeMirrorEditor]
+    F --> H[MonacoEditor]
+    F --> I[Dialog<br/>静态方法]
+    
+    A -.提供.-> J[状态订阅]
+    A -.提供.-> K[事件管理]
+    A -.提供.-> L[DOM 操作]
+    A -.提供.-> M[错误处理]
     
     style A fill:#e1f5ff
+    style F fill:#fff0f0
 ```
 
 **3. 单向数据流**
@@ -370,10 +381,18 @@ export class EditorState {
     }
 
     /**
-     * 获取单个状态值
+     * 获取单个状态值（返回深拷贝以保证不可变性）
      */
     get(key) {
-        return this.#state[key];
+        const value = this.#state[key];
+        if (value === null || value === undefined || typeof value !== 'object') {
+            return value;
+        }
+        try {
+            return structuredClone(value);
+        } catch {
+            return JSON.parse(JSON.stringify(value));
+        }
     }
 
     /**
@@ -414,6 +433,82 @@ export class EditorState {
             });
         };
     }
+
+    // ==================== 事件钩子系统 ====================
+
+    /**
+     * 注册事件钩子
+     * @param {string} event - 事件名称
+     * @param {Function} callback - 回调函数
+     * @returns {Function} 取消注册的函数
+     */
+    on(event, callback) {
+        if (!this.#hooks.has(event)) {
+            this.#hooks.set(event, new Set());
+        }
+        this.#hooks.get(event).add(callback);
+        return () => this.off(event, callback);
+    }
+
+    /**
+     * 触发事件钩子
+     * @param {string} event - 事件名称
+     * @param {*} data - 传递给钩子的数据
+     * @returns {*} 处理后的数据
+     */
+    emit(event, data) {
+        const callbacks = this.#hooks.get(event);
+        if (!callbacks) return data;
+        
+        let result = data;
+        for (const callback of callbacks) {
+            result = callback(result, event);
+        }
+        return result;
+    }
+}
+
+/**
+ * 支持的事件钩子类型
+ */
+EditorState.HOOK_EVENTS = {
+    // 文档相关
+    'document:beforeSave': '文档保存前',
+    'document:afterSave': '文档保存后',
+    'document:beforeCreate': '文档创建前',
+    'document:afterCreate': '文档创建后',
+    'document:beforeDelete': '文档删除前',
+    'document:afterDelete': '文档删除后',
+    // 内容相关
+    'content:beforeChange': '内容变更前',
+    'content:afterChange': '内容变更后',
+    // 渲染相关
+    'render:beforeRender': '渲染前',
+    'render:afterRender': '渲染后',
+    // 导出相关
+    'export:beforeExport': '导出前',
+    'export:afterExport': '导出后',
+    // 状态相关
+    'state:beforeChange': '状态变更前',
+    'state:afterChange': '状态变更后'
+};
+```
+
+**事件钩子使用示例**：
+
+```javascript
+// 注册钩子
+const unsubscribe = state.on('document:beforeSave', (doc) => {
+    console.log('即将保存:', doc.title);
+    return { ...doc, savedAt: Date.now() }; // 可修改数据
+});
+
+// 触发钩子
+const processedDoc = state.emit('document:beforeSave', doc);
+
+// 取消注册
+unsubscribe();
+```
 
     /**
      * 通知监听器（私有方法）
@@ -1111,28 +1206,25 @@ export class BaseComponent {
 ```mermaid
 graph TD
     A[BaseComponent] --> B[LeftSidebar]
-    A --> C[Editor]
-    A --> D[Preview]
-    A --> E[RightSidebar]
-    A --> F[Dialog]
-    A --> G[SearchReplace]
+    A --> C[Preview]
+    A --> D[RightSidebar]
+    A --> E[Settings]
     
-    H[Settings] -.独立组件.-> I[UI 交互<br/>状态同步]
+    F[独立组件] --> G[CodeMirrorEditor]
+    F --> H[MonacoEditor]
+    F --> I[Dialog<br/>静态方法]
     
     B --> J[文档管理<br/>树型渲染<br/>拖拽排序]
-    C --> K[文本编辑<br/>语法高亮<br/>快捷键]
-    D --> L[Markdown 渲染<br/>代码高亮<br/>图表渲染]
-    E --> N[侧边栏<br/>区块管理<br/>折叠展开]
-    F --> O[目录生成<br/>滚动同步<br/>导航]
-    G --> P[对话框<br/>确认操作<br/>表单输入]
-    H --> Q[搜索替换<br/>正则支持<br/>批量操作]
+    C --> K[Markdown 渲染<br/>代码高亮<br/>导出功能]
+    D --> L[侧边栏<br/>目录/导出区块<br/>折叠展开]
+    E --> M[设置面板<br/>配置管理<br/>实时预览]
+    G --> N[CodeMirror 6<br/>文本编辑<br/>语法高亮]
+    H --> O[Monaco Editor<br/>智能提示<br/>高级编辑]
     
     style A fill:#e1f5ff
+    style F fill:#fff0f0
     style B fill:#fff4e1
     style C fill:#e8f5e9
-    style D fill:#f3e5f5
-    style H fill:#fff0f5
-    style I fill:#f0f5ff
 ```
 
 ### 组件生命周期
@@ -1153,118 +1245,6 @@ graph LR
 ```
 
 ### 主要组件说明
-
-#### SearchReplace（搜索替换组件）
-
-**职责**：
-- 提供类似 VSCode 的搜索替换界面
-- 支持搜索和替换模式切换
-- 支持正则表达式、大小写敏感、全词匹配
-- 实时高亮匹配结果
-- 批量替换功能
-
-**核心功能**：
-
-```javascript
-export class SearchReplace extends BaseComponent {
-    constructor(state, containerId) {
-        super(state, containerId);
-        this.isReplaceMode = false;
-        this.currentMatchIndex = -1;
-        this.matches = [];
-        this.searchTerm = '';
-        this.replaceTerm = '';
-        this.caseSensitive = false;
-        this.regexMode = false;
-        this.wholeWord = false;
-    }
-
-    /**
-     * 执行搜索
-     */
-    performSearch() {
-        const content = this.state.content;
-        if (!this.searchTerm || !content) {
-            this.matches = [];
-            this.updateMatchCount();
-            return;
-        }
-
-        // 构建正则表达式
-        let regex;
-        try {
-            const flags = this.caseSensitive ? 'g' : 'gi';
-            const pattern = this.wholeWord ? `\\b${this.searchTerm}\\b` : this.searchTerm;
-            regex = new RegExp(pattern, flags);
-        } catch (error) {
-            this.showMessage('正则表达式错误', 'error');
-            return;
-        }
-
-        // 查找所有匹配
-        this.matches = [];
-        let match;
-        while ((match = regex.exec(content)) !== null) {
-            this.matches.push({
-                index: match.index,
-                text: match[0],
-                length: match[0].length
-            });
-        }
-
-        this.currentMatchIndex = this.matches.length > 0 ? 0 : -1;
-        this.highlightMatches();
-        this.updateMatchCount();
-    }
-
-    /**
-     * 查找下一个
-     */
-    findNext() {
-        if (this.matches.length === 0) return;
-        this.currentMatchIndex = (this.currentMatchIndex + 1) % this.matches.length;
-        this.highlightMatches();
-    }
-
-    /**
-     * 替换当前匹配
-     */
-    replaceOne() {
-        if (this.currentMatchIndex === -1) return;
-
-        const match = this.matches[this.currentMatchIndex];
-        const content = this.state.content;
-        const before = content.substring(0, match.index);
-        const after = content.substring(match.index + match.length);
-        const newContent = before + this.replaceTerm + after;
-
-        this.state.setState({ content: newContent });
-        this.performSearch();
-    }
-
-    /**
-     * 替换所有匹配
-     */
-    replaceAll() {
-        if (this.matches.length === 0) return;
-
-        let content = this.state.content;
-        let count = 0;
-
-        for (let i = this.matches.length - 1; i >= 0; i--) {
-            const match = this.matches[i];
-            const before = content.substring(0, match.index);
-            const after = content.substring(match.index + match.length);
-            content = before + this.replaceTerm + after;
-            count++;
-        }
-
-        this.state.setState({ content });
-        this.performSearch();
-        this.showMessage(`已替换 ${count} 处`, 'success');
-    }
-}
-```
 
 #### Settings（设置组件）
 
@@ -2345,14 +2325,21 @@ async renderMermaidCharts() {
 
 ---
 
-**文档版本**：2.0.0  
-**最后更新**：2026-01-27  
+**文档版本**：2.1.0  
+**最后更新**：2026-02-27  
 **维护者**：Markdown Editor Team
 
 ### 更新日志
 
+**v2.1.0** (2026-02-27)
+- 新增事件钩子系统（on/off/emit API）
+- 状态不可变性：get() 返回深拷贝
+- 全局错误边界和降级 UI
+- 支持 CodeMirror 6 和 Monaco 编辑器切换
+- 更新依赖版本（Vite 7, marked 17, mermaid 11）
+- 更新架构文档以匹配实际代码结构
+
 **v2.0.0** (2026-01-27)
-- 新增 SearchReplace 组件（搜索替换功能）
 - 新增 Settings 组件（设置管理）
 - 新增 PersistenceManager（持久化管理器）
 - StoreManager 增加异步存储队列

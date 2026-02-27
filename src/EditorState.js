@@ -375,10 +375,40 @@ i\\hbar \\frac{\\partial}{\\partial t}\\Psi(x,t) = \\hat{H}\\Psi(x,t)
 $$
 `;
 
+    /**
+     * 事件钩子类型定义
+     * @static
+     * @type {Object}
+     */
+    static HOOK_EVENTS = {
+        // 文档相关
+        'document:beforeSave': '文档保存前',
+        'document:afterSave': '文档保存后',
+        'document:beforeCreate': '文档创建前',
+        'document:afterCreate': '文档创建后',
+        'document:beforeDelete': '文档删除前',
+        'document:afterDelete': '文档删除后',
+        // 内容相关
+        'content:beforeChange': '内容变更前',
+        'content:afterChange': '内容变更后',
+        // 渲染相关
+        'render:beforeRender': '渲染前',
+        'render:afterRender': '渲染后',
+        // 导出相关
+        'export:beforeExport': '导出前',
+        'export:afterExport': '导出后',
+        // 状态相关
+        'state:beforeChange': '状态变更前',
+        'state:afterChange': '状态变更后'
+    };
+
     // ==================== 私有字段 ====================
 
     /** @private */
     #updateTimestampTimeout = null;
+
+    /** @type {Map<string, Set<Function>>} 事件钩子注册表 */
+    #hooks = new Map();
 
     /** @type {Object} 核心状态对象 */
     #state = {
@@ -418,14 +448,91 @@ $$
     /** @private */
     #persistence = new PersistenceManager(() => this.#state);
 
+    // ==================== 事件钩子系统 ====================
+
     /**
-     * 获取单个状态值
+     * 注册事件钩子
+     * @param {string} event - 事件名称，参见 HOOK_EVENTS
+     * @param {Function} callback - 回调函数，接收 data 参数，可修改并返回
+     * @returns {Function} 取消注册的函数
+     */
+    on(event, callback) {
+        if (!EditorState.HOOK_EVENTS[event]) {
+            console.warn(`Unknown hook event: ${event}`);
+        }
+        if (typeof callback !== 'function') {
+            throw new TypeError('Callback must be a function');
+        }
+
+        if (!this.#hooks.has(event)) {
+            this.#hooks.set(event, new Set());
+        }
+        this.#hooks.get(event).add(callback);
+
+        // 返回取消注册函数
+        return () => this.off(event, callback);
+    }
+
+    /**
+     * 取消注册事件钩子
+     * @param {string} event - 事件名称
+     * @param {Function} callback - 要移除的回调函数
+     */
+    off(event, callback) {
+        const callbacks = this.#hooks.get(event);
+        if (callbacks) {
+            callbacks.delete(callback);
+        }
+    }
+
+    /**
+     * 触发事件钩子
+     * @param {string} event - 事件名称
+     * @param {*} data - 传递给钩子的数据
+     * @returns {*} 处理后的数据（可能被钩子修改）
+     */
+    emit(event, data) {
+        const callbacks = this.#hooks.get(event);
+        if (!callbacks || callbacks.size === 0) {
+            return data;
+        }
+
+        let result = data;
+        for (const callback of callbacks) {
+            try {
+                result = callback(result, event);
+            } catch (error) {
+                console.error(`Hook error for event "${event}":`, error);
+            }
+        }
+        return result;
+    }
+
+    // ==================== 状态访问 ====================
+
+    /**
+     * 获取单个状态值（返回深拷贝以保证不可变性）
      * @template T
      * @param {string} key - 状态键
-     * @returns {T} 状态值
+     * @returns {T} 状态值的深拷贝
      */
     get(key) {
-        return this.#state[key];
+        const value = this.#state[key];
+        // 对于 null、undefined 或原始值直接返回
+        if (value === null || value === undefined) {
+            return value;
+        }
+        if (typeof value !== 'object') {
+            return value;
+        }
+        // 使用 structuredClone 进行深拷贝（现代浏览器支持）
+        // 降级方案：JSON.parse(JSON.stringify())
+        try {
+            return structuredClone(value);
+        } catch {
+            // 对于无法克隆的对象（如包含函数），返回 JSON 深拷贝
+            return JSON.parse(JSON.stringify(value));
+        }
     }
 
     /**
