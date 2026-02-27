@@ -17,11 +17,53 @@ import { CodeMirrorEditor } from './components/CodeMirrorEditor.js';
 import { MonacoEditor } from './components/MonacoEditor.js';
 import { Settings } from './components/Settings.js';
 import { dom } from './utils/dom.js';
+import { applyTheme } from './utils/theme.js';
 
 /**
  *
  */
 export class MarkdownEditor {
+    // ==================== 私有字段 ====================
+
+    /** @type {number|null} resize 定时器 ID */
+    #resizeTimeout = null;
+
+    /** @type {number|null} 拖拽 rAF ID */
+    #dragRafId = null;
+
+    /** @type {Element|null} 同步滚动图标元素 */
+    #syncScrollIcon = null;
+
+    /** @type {number|null} 编辑器输入防抖定时器 */
+    #editorInputTimer = null;
+
+    /** @type {Function|null} 编辑器状态订阅取消函数 */
+    #editorStateUnsubscribe = null;
+
+    /** @type {Function|null} 编辑器配置订阅取消函数 */
+    #editorConfigUnsubscribe = null;
+
+    /** @type {Function|null} 同步滚动内容订阅取消函数 */
+    #syncScrollContentUnsubscribe = null;
+
+    /** @type {Function|null} 同步滚动编辑器滚动订阅取消函数 */
+    #syncScrollEditorScrollUnsubscribe = null;
+
+    /** @type {Function|null} 分隔条界面配置订阅取消函数 */
+    #dividerInterfaceUnsubscribe = null;
+
+    /** @type {ResizeObserver|null} 同步滚动 ResizeObserver */
+    #syncScrollResizeObserver = null;
+
+    /** @type {Element|null} 同步滚动预览元素 */
+    #syncScrollPreview = null;
+
+    /** @type {Function|null} 同步滚动预览处理器 */
+    #syncScrollPreviewHandler = null;
+
+    /** @type {Function|null} 分隔条清理函数 */
+    #dividerCleanup = null;
+
     // ==================== 配置常量 ====================
 
     /**
@@ -107,15 +149,6 @@ export class MarkdownEditor {
         /** @type {Object} 组件实例 */
         this.components = {};
 
-        /** @type {number|null} resize 定时器 ID */
-        this._resizeTimeout = null;
-
-        /** @type {number|null} 拖拽 rAF ID */
-        this._dragRafId = null;
-
-        /** @type {Element|null} 同步滚动图标元素 */
-        this._syncScrollIcon = null;
-
         /** @type {CodeMirrorEditor|null} CodeMirror 实例 */
         this.codeMirrorEditor = null;
 
@@ -124,21 +157,6 @@ export class MarkdownEditor {
 
         /** @type {string} 当前编辑器类型 */
         this.currentEditorType = 'codemirror';
-
-        /** @type {number|null} 编辑器输入防抖定时器 */
-        this._editorInputTimer = null;
-
-        /** @type {Function|null} 编辑器状态订阅取消函数 */
-        this._editorStateUnsubscribe = null;
-
-        /** @type {Function|null} 编辑器配置订阅取消函数 */
-        this._editorConfigUnsubscribe = null;
-
-        /** @type {Function|null} 同步滚动内容订阅取消函数 */
-        this._syncScrollContentUnsubscribe = null;
-
-        /** @type {Function|null} 同步滚动编辑器滚动订阅取消函数 */
-        this._syncScrollEditorScrollUnsubscribe = null;
     }
 
     // ==================== 工具函数 ====================
@@ -211,10 +229,10 @@ export class MarkdownEditor {
      * @private
      */
     #handleEditorChange(content) {
-        if (this._editorInputTimer) {
-            clearTimeout(this._editorInputTimer);
+        if (this.#editorInputTimer) {
+            clearTimeout(this.#editorInputTimer);
         }
-        this._editorInputTimer = setTimeout(() => {
+        this.#editorInputTimer = setTimeout(() => {
             this.state.updateContent(content);
         }, MarkdownEditor.DEBOUNCE_DELAY.UPDATE);
     }
@@ -401,7 +419,7 @@ export class MarkdownEditor {
         resizeObserver.observe(previewWrapper);
 
         // 内容变化时更新高度（使用新的订阅名称避免冲突）
-        this._syncScrollContentUnsubscribe = this.state.subscribeTo(
+        this.#syncScrollContentUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
             () => requestAnimationFrame(() => heights = updateScrollHeights())
         );
@@ -422,7 +440,7 @@ export class MarkdownEditor {
         };
 
         // 编辑器滚动 -> 预览（使用新的订阅名称避免冲突）
-        this._syncScrollEditorScrollUnsubscribe = editorInstance.onScroll(() => {
+        this.#syncScrollEditorScrollUnsubscribe = editorInstance.onScroll(() => {
             handleScroll(editor, previewWrapper, heights.editor, heights.preview);
         });
 
@@ -433,9 +451,9 @@ export class MarkdownEditor {
         previewWrapper.addEventListener('scroll', previewScrollHandler, { passive: true });
 
         // 保存引用
-        this._syncScrollResizeObserver = resizeObserver;
-        this._syncScrollPreview = previewWrapper;
-        this._syncScrollPreviewHandler = previewScrollHandler;
+        this.#syncScrollResizeObserver = resizeObserver;
+        this.#syncScrollPreview = previewWrapper;
+        this.#syncScrollPreviewHandler = previewScrollHandler;
     }
 
     /**
@@ -443,22 +461,22 @@ export class MarkdownEditor {
      * @private
      */
     #cleanupSyncScroll() {
-        if (this._syncScrollResizeObserver) {
-            this._syncScrollResizeObserver.disconnect();
-            this._syncScrollResizeObserver = null;
+        if (this.#syncScrollResizeObserver) {
+            this.#syncScrollResizeObserver.disconnect();
+            this.#syncScrollResizeObserver = null;
         }
-        if (this._syncScrollContentUnsubscribe) {
-            this._syncScrollContentUnsubscribe();
-            this._syncScrollContentUnsubscribe = null;
+        if (this.#syncScrollContentUnsubscribe) {
+            this.#syncScrollContentUnsubscribe();
+            this.#syncScrollContentUnsubscribe = null;
         }
-        if (this._syncScrollEditorScrollUnsubscribe) {
-            this._syncScrollEditorScrollUnsubscribe();
-            this._syncScrollEditorScrollUnsubscribe = null;
+        if (this.#syncScrollEditorScrollUnsubscribe) {
+            this.#syncScrollEditorScrollUnsubscribe();
+            this.#syncScrollEditorScrollUnsubscribe = null;
         }
-        if (this._syncScrollPreview && this._syncScrollPreviewHandler) {
-            this._syncScrollPreview.removeEventListener('scroll', this._syncScrollPreviewHandler);
-            this._syncScrollPreview = null;
-            this._syncScrollPreviewHandler = null;
+        if (this.#syncScrollPreview && this.#syncScrollPreviewHandler) {
+            this.#syncScrollPreview.removeEventListener('scroll', this.#syncScrollPreviewHandler);
+            this.#syncScrollPreview = null;
+            this.#syncScrollPreviewHandler = null;
         }
     }
 
@@ -517,7 +535,7 @@ export class MarkdownEditor {
         }
 
         // 监听 layout/sidebars 变化
-        this.state.subscribeTo('interface', () => recalculateSplitRatio());
+        this.#dividerInterfaceUnsubscribe = this.state.subscribeTo('interface', () => recalculateSplitRatio());
 
         // 悬停样式（仅视觉）
         divider.addEventListener('mouseenter', () => {
@@ -531,7 +549,7 @@ export class MarkdownEditor {
         divider.addEventListener('dblclick', () => updateSplitRatio(0.5));
 
         // Pointer Events + rAF throttling. Use instance property for RAF id so it can be cancelled.
-        this._dragRafId = null;
+        this.#dragRafId = null;
 
         // Cache container rect/width on pointerdown and on resize to avoid repeated layout reads
         let cachedContainerRect = null;
@@ -539,14 +557,14 @@ export class MarkdownEditor {
 
         const onPointerMove = (e) => {
             if (!this.isDragging) return;
-            if (this._dragRafId) return;
-            this._dragRafId = requestAnimationFrame(() => {
+            if (this.#dragRafId) return;
+            this.#dragRafId = requestAnimationFrame(() => {
                 const rect = cachedContainerRect || container.getBoundingClientRect();
                 const containerWidth = rect.width;
                 const dividerWidth = cachedDividerWidth || divider.offsetWidth;
                 const availableWidth = Math.max(0, containerWidth - dividerWidth);
                 if (availableWidth <= 0) {
-                    this._dragRafId = null;
+                    this.#dragRafId = null;
                     return;
                 }
 
@@ -560,7 +578,7 @@ export class MarkdownEditor {
                 const ratio = left / availableWidth;
                 updateSplitRatio(ratio);
 
-                this._dragRafId = null;
+                this.#dragRafId = null;
             });
         };
 
@@ -571,9 +589,9 @@ export class MarkdownEditor {
             document.body.classList.remove('is-dragging');
             container.classList.remove('is-resizing');
 
-            if (this._dragRafId) {
-                cancelAnimationFrame(this._dragRafId);
-                this._dragRafId = null;
+            if (this.#dragRafId) {
+                cancelAnimationFrame(this.#dragRafId);
+                this.#dragRafId = null;
             }
 
             updateSplitRatio(this.lastLeftRatio);
@@ -617,8 +635,8 @@ export class MarkdownEditor {
         divider.addEventListener('pointerdown', onPointerDown);
 
         const onResize = () => {
-            if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
-            this._resizeTimeout = setTimeout(() => {
+            if (this.#resizeTimeout) clearTimeout(this.#resizeTimeout);
+            this.#resizeTimeout = setTimeout(() => {
                 // Clear cached rect so next pointermove recalculates
                 cachedContainerRect = null;
                 cachedDividerWidth = divider.offsetWidth;
@@ -629,7 +647,7 @@ export class MarkdownEditor {
         window.addEventListener('resize', onResize);
 
         // Save cleanup handles so destroy() can remove listeners
-        this._dividerCleanup = () => {
+        this.#dividerCleanup = () => {
             divider.removeEventListener('pointerdown', onPointerDown);
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', endDrag);
@@ -645,14 +663,7 @@ export class MarkdownEditor {
      * @param mode
      */
     applyTheme(mode) {
-        const html = document.documentElement;
-        html.dataset.mode = mode;
-
-        // 更新主题颜色
-        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-        if (themeColorMeta) {
-            themeColorMeta.content = mode === 'dark' ? '#1e1e1e' : '#f0f0f0';
-        }
+        applyTheme(mode);
     }
 
     /**
@@ -729,7 +740,7 @@ export class MarkdownEditor {
         const syncScrollButton = dom.getById('md-sync-scroll')?.element;
         if (syncScrollButton) {
             // 保存同步滚动图标引用
-            this._syncScrollIcon = dom.getIn(syncScrollButton, '.codicon');
+            this.#syncScrollIcon = dom.getIn(syncScrollButton, '.codicon');
             
             syncScrollButton.onclick = () => {
                 this.syncScrollEnabled = !this.syncScrollEnabled;
@@ -747,9 +758,9 @@ export class MarkdownEditor {
      * @param {boolean} enabled - 是否启用同步滚动
      */
     updateSyncScrollIcon(enabled) {
-        if (this._syncScrollIcon) {
-            this._syncScrollIcon.classList.toggle('codicon-sync', enabled);
-            this._syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
+        if (this.#syncScrollIcon) {
+            this.#syncScrollIcon.classList.toggle('codicon-sync', enabled);
+            this.#syncScrollIcon.classList.toggle('codicon-sync-ignored', !enabled);
         }
     }
 
@@ -792,7 +803,7 @@ export class MarkdownEditor {
      */
     #subscribe() {
         // 同步内容到编辑器
-        this._editorStateUnsubscribe = this.state.subscribeTo(
+        this.#editorStateUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
             () => {
                 this.#getActiveEditor()?.setValue(this.state.get('content') || '', { emitUpdate: false });
@@ -800,7 +811,7 @@ export class MarkdownEditor {
         );
 
         // 同步编辑器配置到编辑器
-        this._editorConfigUnsubscribe = this.state.subscribeTo('editor', (newEditor) => {
+        this.#editorConfigUnsubscribe = this.state.subscribeTo('editor', (newEditor) => {
             this.#getActiveEditor()?.updateConfig(newEditor, this.state.get('interface'));
 
             // 如果编辑器类型变化，切换编辑器
@@ -849,25 +860,30 @@ export class MarkdownEditor {
      */
     destroy() {
         // 清理定时器
-        if (this._editorInputTimer) {
-            clearTimeout(this._editorInputTimer);
-            this._editorInputTimer = null;
+        if (this.#editorInputTimer) {
+            clearTimeout(this.#editorInputTimer);
+            this.#editorInputTimer = null;
         }
 
-        if (this._resizeTimeout) {
-            clearTimeout(this._resizeTimeout);
-            this._resizeTimeout = null;
+        if (this.#resizeTimeout) {
+            clearTimeout(this.#resizeTimeout);
+            this.#resizeTimeout = null;
         }
 
         // 清理状态订阅
-        if (this._editorStateUnsubscribe) {
-            this._editorStateUnsubscribe();
-            this._editorStateUnsubscribe = null;
+        if (this.#editorStateUnsubscribe) {
+            this.#editorStateUnsubscribe();
+            this.#editorStateUnsubscribe = null;
         }
 
-        if (this._editorConfigUnsubscribe) {
-            this._editorConfigUnsubscribe();
-            this._editorConfigUnsubscribe = null;
+        if (this.#editorConfigUnsubscribe) {
+            this.#editorConfigUnsubscribe();
+            this.#editorConfigUnsubscribe = null;
+        }
+
+        if (this.#dividerInterfaceUnsubscribe) {
+            this.#dividerInterfaceUnsubscribe();
+            this.#dividerInterfaceUnsubscribe = null;
         }
 
         // 清理编辑器
@@ -877,22 +893,22 @@ export class MarkdownEditor {
         this.#cleanupSyncScroll();
 
         // 清理 DOM 引用
-        this._syncScrollIcon = null;
+        this.#syncScrollIcon = null;
 
         // 清理拖拽 rAF
-        if (this._dragRafId) {
-            cancelAnimationFrame(this._dragRafId);
-            this._dragRafId = null;
+        if (this.#dragRafId) {
+            cancelAnimationFrame(this.#dragRafId);
+            this.#dragRafId = null;
         }
 
         // 移除分隔条相关事件监听
-        if (this._dividerCleanup) {
+        if (this.#dividerCleanup) {
             try {
-                this._dividerCleanup();
+                this.#dividerCleanup();
             } catch (err) {
                 console.error('Error cleaning up divider:', err);
             }
-            this._dividerCleanup = null;
+            this.#dividerCleanup = null;
         }
 
         // 清理组件

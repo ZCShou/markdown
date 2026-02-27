@@ -17,6 +17,7 @@
  */
 
 import { EditorState, Compartment, Annotation } from '@codemirror/state';
+import { resolveDarkMode } from '../utils/theme.js';
 import {
     EditorView,
     keymap,
@@ -528,11 +529,7 @@ export class CodeMirrorEditor {
      * @private
      */
     resolveDarkMode(interfaceConfig = {}) {
-        const { theme } = interfaceConfig;
-        if (theme === 'dark') return true;
-        if (theme === 'light') return false;
-
-        return document.documentElement.getAttribute('data-mode') === 'dark';
+        return resolveDarkMode(interfaceConfig);
     }
 
     /**

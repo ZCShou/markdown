@@ -18,6 +18,7 @@
 
 import * as monaco from 'monaco-editor';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import { resolveDarkMode } from '../utils/theme.js';
 
 /**
  * Monaco 编辑器包装类
@@ -395,11 +396,7 @@ export class MonacoEditor {
      * @private
      */
     resolveDarkMode(interfaceConfig = {}) {
-        const { theme } = interfaceConfig;
-        if (theme === 'dark') return true;
-        if (theme === 'light') return false;
-
-        return document.documentElement.getAttribute('data-mode') === 'dark';
+        return resolveDarkMode(interfaceConfig);
     }
 
     /**

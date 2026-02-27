@@ -88,7 +88,8 @@
 
   --md-color-primary: #42a5f5;
 
-  --md-code-bg: #2d2d2d;
+  --md-code-bg: #1a1a1a;
+  --md-code-bg-inline: rgba(255, 255, 255, 0.12);
   --md-code-text: #e0e0e0;
   --md-markdown-bg: #1e1e1e;
   --md-markdown-text: #e0e0e0;

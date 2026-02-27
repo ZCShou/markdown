@@ -377,38 +377,13 @@ $$
 
     /**
      * 事件钩子类型定义
-     * @static
-     * @type {Object}
+     * @deprecated 这个系统当前未被使用，已删除相关代码
      */
-    static HOOK_EVENTS = {
-        // 文档相关
-        'document:beforeSave': '文档保存前',
-        'document:afterSave': '文档保存后',
-        'document:beforeCreate': '文档创建前',
-        'document:afterCreate': '文档创建后',
-        'document:beforeDelete': '文档删除前',
-        'document:afterDelete': '文档删除后',
-        // 内容相关
-        'content:beforeChange': '内容变更前',
-        'content:afterChange': '内容变更后',
-        // 渲染相关
-        'render:beforeRender': '渲染前',
-        'render:afterRender': '渲染后',
-        // 导出相关
-        'export:beforeExport': '导出前',
-        'export:afterExport': '导出后',
-        // 状态相关
-        'state:beforeChange': '状态变更前',
-        'state:afterChange': '状态变更后'
-    };
 
     // ==================== 私有字段 ====================
 
     /** @private */
     #updateTimestampTimeout = null;
-
-    /** @type {Map<string, Set<Function>>} 事件钩子注册表 */
-    #hooks = new Map();
 
     /** @type {Object} 核心状态对象 */
     #state = {
@@ -447,66 +422,6 @@ $$
 
     /** @private */
     #persistence = new PersistenceManager(() => this.#state);
-
-    // ==================== 事件钩子系统 ====================
-
-    /**
-     * 注册事件钩子
-     * @param {string} event - 事件名称，参见 HOOK_EVENTS
-     * @param {Function} callback - 回调函数，接收 data 参数，可修改并返回
-     * @returns {Function} 取消注册的函数
-     */
-    on(event, callback) {
-        if (!EditorState.HOOK_EVENTS[event]) {
-            console.warn(`Unknown hook event: ${event}`);
-        }
-        if (typeof callback !== 'function') {
-            throw new TypeError('Callback must be a function');
-        }
-
-        if (!this.#hooks.has(event)) {
-            this.#hooks.set(event, new Set());
-        }
-        this.#hooks.get(event).add(callback);
-
-        // 返回取消注册函数
-        return () => this.off(event, callback);
-    }
-
-    /**
-     * 取消注册事件钩子
-     * @param {string} event - 事件名称
-     * @param {Function} callback - 要移除的回调函数
-     */
-    off(event, callback) {
-        const callbacks = this.#hooks.get(event);
-        if (callbacks) {
-            callbacks.delete(callback);
-        }
-    }
-
-    /**
-     * 触发事件钩子
-     * @param {string} event - 事件名称
-     * @param {*} data - 传递给钩子的数据
-     * @returns {*} 处理后的数据（可能被钩子修改）
-     */
-    emit(event, data) {
-        const callbacks = this.#hooks.get(event);
-        if (!callbacks || callbacks.size === 0) {
-            return data;
-        }
-
-        let result = data;
-        for (const callback of callbacks) {
-            try {
-                result = callback(result, event);
-            } catch (error) {
-                console.error(`Hook error for event "${event}":`, error);
-            }
-        }
-        return result;
-    }
 
     // ==================== 状态访问 ====================
 
@@ -1057,12 +972,13 @@ $$
     /**
      * 更新当前文档内容
      * @param {string} content - 文档内容
+     * @description content 状态用于 UI 响应，实际持久化通过 documents 数组完成
      */
     updateContent(content) {
-        // 更新 content 状态（触发订阅者）
-        this.#setState({ content });
+        // 更新 content 状态（触发订阅者，用于 UI 响应）
+        this.#setState({ content }, { skipPersist: true });
 
-        // 同步更新 documents 数组中的内容（静默，不触发订阅者）
+        // 同步更新 documents 数组中的内容并触发持久化
         if (this.#state.currentDocId) {
             this.#updateDocumentContent(this.#state.currentDocId, content);
         }
