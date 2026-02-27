@@ -778,11 +778,12 @@ export class MarkdownEditor {
 
     /**
      * 初始化
+     * @returns {Promise<void>}
      */
-    init() {
+    async init() {
         if (this.isInitialized) return;
 
-        this.state.init();
+        await this.state.init();
 
         this.initComponents();
         this.applyTheme(this.state.get('interface').theme);

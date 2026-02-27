@@ -16,8 +16,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('初始化', () => {
-        it('应该初始化默认状态', () => {
-            state.init();
+        it('应该初始化默认状态', async () => {
+            await state.init();
 
             expect(state.get('content')).toBeTruthy();
             expect(state.get('documents')).toEqual([]);
@@ -31,8 +31,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('状态获取', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该获取特定键的值', () => {
@@ -48,8 +48,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('内容更新', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该更新内容', () => {
@@ -60,8 +60,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('订阅机制', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该支持全局订阅', () => {
@@ -109,6 +109,10 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('文档操作', () => {
+        beforeEach(async () => {
+            await state.init();
+        });
+
         it('应该添加文档', () => {
             const doc = { id: '1', name: 'Test', content: 'Content', type: 'file' };
 
@@ -161,8 +165,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('UI 状态管理', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该更新界面配置', () => {
@@ -197,8 +201,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('销毁', () => {
-        it('应该清除所有监听器', () => {
-            state.init();
+        it('应该清除所有监听器', async () => {
+            await state.init();
             const listener = vi.fn();
             state.subscribe(listener);
 
@@ -212,8 +216,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('文档树操作', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该获取文档树', () => {
@@ -233,8 +237,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('文档选择', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该选择单个文档', () => {
@@ -267,8 +271,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('标题管理', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该更新标题', () => {
@@ -284,8 +288,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('导出功能', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该触发HTML导出', () => {
@@ -317,8 +321,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('通知系统', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该显示成功通知', () => {
@@ -359,8 +363,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('错误处理', () => {
-        beforeEach(() => {
-            state.init();
+        beforeEach(async () => {
+            await state.init();
         });
 
         it('应该处理不存在的文档更新', () => {
@@ -394,7 +398,8 @@ describe('EditorState - 状态管理器测试', () => {
     });
 
     describe('持久化集成', () => {
-        it('应该启动持久化', () => {
+        it('应该启动持久化', async () => {
+            await state.init();
             expect(() => {
                 state.startPersistence();
             }).not.toThrow();

@@ -36,9 +36,9 @@ export class PersistenceManager {
      * @description 简化持久化逻辑，content 的持久化由 EditorState 内部处理
      */
     static PERSIST_HANDLERS = {
-        documents: (state) => StoreManager.saveDocuments(state.documents),
-        currentDocId: (state) => StoreManager.saveCurrentDocId(state.currentDocId),
-        settings: (state) => StoreManager.saveSettings({
+        documents: async (state) => StoreManager.saveDocuments(state.documents),
+        currentDocId: async (state) => StoreManager.saveCurrentDocId(state.currentDocId),
+        settings: async (state) => StoreManager.saveSettings({
             editor: state.editor,
             interface: state.interface,
             export: state.export
@@ -173,7 +173,7 @@ export class PersistenceManager {
      * @private
      * @param {Array<string>} keys - 要持久化的键
      */
-    #persistKeys(keys) {
+    async #persistKeys(keys) {
         const state = this.#stateRef();
         if (!state) return;
 
@@ -199,7 +199,7 @@ export class PersistenceManager {
             try {
                 const handler = PersistenceManager.PERSIST_HANDLERS[handlerKey];
                 if (handler) {
-                    handler(state);
+                    await handler(state);
                 }
             } catch (error) {
                 console.warn(`[PersistenceManager] 持久化失败 (${handlerKey}):`, error);

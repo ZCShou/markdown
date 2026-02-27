@@ -498,13 +498,18 @@ $$
     // ==================== 初始化和生命周期 ====================
 
     /**
-     * 初始化状态（从 localStorage 加载，不触发监听器和持久化）
+     * 初始化状态（从 IndexedDB 加载，不触发监听器和持久化）
      * 在内部处理所有初始化逻辑，包括选择当前文档
+     * @returns {Promise<void>}
      */
-    init() {
-        const documents = StoreManager.loadDocuments();
-        const savedDocId = StoreManager.loadCurrentDocId();
-        const savedSettings = StoreManager.loadSettings();
+    async init() {
+        // 初始化 IndexedDB 并迁移旧数据
+        await StoreManager.init();
+        await StoreManager.migrateFromLocalStorage();
+
+        const documents = await StoreManager.loadDocuments();
+        const savedDocId = await StoreManager.loadCurrentDocId();
+        const savedSettings = await StoreManager.loadSettings();
 
         // 合并保存的设置和默认设置
         const settings = savedSettings ? {

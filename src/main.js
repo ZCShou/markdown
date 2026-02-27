@@ -53,13 +53,13 @@ function showErrorFallback(error) {
 
 /**
  * 初始化应用并启动 Markdown 编辑器
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function initApp() {
+async function initApp() {
     try {
         // 初始化 Markdown 编辑器
         const editor = new MarkdownEditor();
-        editor.init();
+        await editor.init();
 
         // 显示页面内容
         document.body.classList.add('loaded');
