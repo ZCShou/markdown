@@ -896,9 +896,15 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 }
 
 /* 任务列表项：移除列表标记，调整缩进使文本与普通列表项对齐 */
-.markdown-body li:has(input[type='checkbox']) {
+/* 仅对无序列表中的任务列表项移除标记，有序列表保留数字序号 */
+.markdown-body ul li:has(input[type='checkbox']) {
   list-style-type: none;
   margin-left: -1.25em;
+  padding-left: 0.25em;
+}
+
+/* 有序列表中的任务列表项：保留序号，调整 checkbox 位置 */
+.markdown-body ol li:has(input[type='checkbox']) {
   padding-left: 0.25em;
 }
 
