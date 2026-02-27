@@ -142,7 +142,7 @@ export class MonacoEditor {
             renderLineHighlightOnlyWhenFocus: editorConfig.renderLineHighlightOnlyWhenFocus || false,
             highlightActiveIndentGuide: editorConfig.highlightActiveIndentGuide !== false,
             scrollbar: {
-                useShadows: editorConfig.scrollbarUseShadows !== false,
+                useShadows: editorConfig.scrollbarUseShadows === true,
                 verticalScrollbarSize: editorConfig.verticalScrollbarSize || 14,
                 horizontalScrollbarSize: editorConfig.horizontalScrollbarSize || 14,
                 vertical: editorConfig.verticalScrollbarSize || 'auto',
