@@ -19,11 +19,11 @@ export class PersistenceManager {
      * 默认持久化配置
      * @static
      * @type {Object}
-     * @description content 不再通过 PersistenceManager 持久化，由 EditorState 内部处理
      */
     static DEFAULT_CONFIG = {
         documents: { debounce: 300 },
         currentDocId: { immediate: true },
+        // editor/interface/export 统一合并为 settings 存储
         editor: { debounce: 300 },
         interface: { debounce: 300 },
         export: { debounce: 300 }
@@ -33,7 +33,6 @@ export class PersistenceManager {
      * 持久化处理器映射
      * @static
      * @type {Object}
-     * @description 简化持久化逻辑，content 的持久化由 EditorState 内部处理
      */
     static PERSIST_HANDLERS = {
         documents: async (state) => StoreManager.saveDocuments(state.documents),

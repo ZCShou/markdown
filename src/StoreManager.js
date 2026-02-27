@@ -81,7 +81,7 @@ function openDatabase() {
 }
 
 /**
- * 苷数据存储项
+ * 保存数据存储项
  * @param {string} key - 键名
  * @param {*} value - 值
  * @returns {Promise<{success: boolean, error?: string}>}
@@ -160,14 +160,8 @@ export class StoreManager {
      * @param {Array} documents - 文档列表
      * @returns {Promise<{success: boolean, error?: string}>} 保存结果
      */
-    static async saveDocuments(documents) {
-        try {
-            return await setData(KEYS.DOCUMENTS, documents);
-        } catch (e) {
-            const errorMsg = '保存文档列表失败';
-            console.warn(`${errorMsg}:`, e);
-            return { success: false, error: errorMsg };
-        }
+    static saveDocuments(documents) {
+        return setData(KEYS.DOCUMENTS, documents);
     }
 
     /**
@@ -175,20 +169,13 @@ export class StoreManager {
      * @returns {Promise<Array>} 文档列表
      */
     static async loadDocuments() {
-        try {
-            const documents = await getData(KEYS.DOCUMENTS);
-            if (!documents) return [];
-
-            // 验证数据格式
-            if (!Array.isArray(documents)) {
-                console.warn('文档列表格式错误，已重置');
-                return [];
-            }
-            return documents;
-        } catch (e) {
-            console.warn('加载文档列表失败:', e);
+        const documents = await getData(KEYS.DOCUMENTS);
+        if (!documents) return [];
+        if (!Array.isArray(documents)) {
+            console.warn('文档列表格式错误，已重置');
             return [];
         }
+        return documents;
     }
 
     /**
@@ -196,14 +183,8 @@ export class StoreManager {
      * @param {string} docId - 文档 ID
      * @returns {Promise<{success: boolean, error?: string}>} 保存结果
      */
-    static async saveCurrentDocId(docId) {
-        try {
-            return await setData(KEYS.CURRENT_DOC_ID, docId);
-        } catch (e) {
-            const errorMsg = '保存当前文档 ID 失败';
-            console.warn(`${errorMsg}:`, e);
-            return { success: false, error: errorMsg };
-        }
+    static saveCurrentDocId(docId) {
+        return setData(KEYS.CURRENT_DOC_ID, docId);
     }
 
     /**
@@ -211,13 +192,8 @@ export class StoreManager {
      * @returns {Promise<string|null>} 文档 ID，如果不存在则返回 null
      */
     static async loadCurrentDocId() {
-        try {
-            const saved = await getData(KEYS.CURRENT_DOC_ID);
-            return saved || null;
-        } catch (e) {
-            console.warn('加载当前文档 ID 失败:', e);
-            return null;
-        }
+        const saved = await getData(KEYS.CURRENT_DOC_ID);
+        return saved || null;
     }
 
     // ==================== 统一设置存储 ====================
@@ -225,29 +201,18 @@ export class StoreManager {
     /**
      * 保存统一设置
      * @param {Object} settings - 设置对象
-     * @returns {Promise<boolean>} 是否成功
+     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
      */
-    static async saveSettings(settings) {
-        try {
-            const result = await setData(KEYS.SETTINGS, settings);
-            return result.success;
-        } catch (e) {
-            console.warn('保存设置失败:', e);
-            return false;
-        }
+    static saveSettings(settings) {
+        return setData(KEYS.SETTINGS, settings);
     }
 
     /**
      * 加载统一设置
      * @returns {Promise<Object|null>} 设置对象，失败返回 null
      */
-    static async loadSettings() {
-        try {
-            return await getData(KEYS.SETTINGS);
-        } catch (e) {
-            console.warn('加载设置失败:', e);
-            return null;
-        }
+    static loadSettings() {
+        return getData(KEYS.SETTINGS);
     }
 
     // ==================== 数据迁移 ====================

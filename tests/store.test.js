@@ -101,7 +101,7 @@ describe('StoreManager - 存储管理器测试', () => {
         it('应该成功保存设置', async () => {
             const result = await StoreManager.saveSettings(mockSettings);
 
-            expect(result).toBe(true);
+            expect(result.success).toBe(true);
             const saved = await StoreManager.loadSettings();
             expect(saved).toEqual(mockSettings);
         });
