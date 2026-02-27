@@ -46,4 +46,8 @@ yarn.lock
 auto-imports.d.ts
 components.d.ts
 
+# Tauri
+tauri/target/
+tauri/gen/schemas/
+
 
