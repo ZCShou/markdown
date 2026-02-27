@@ -88,12 +88,13 @@ export class MonacoEditor {
         // 注册 Markdown 语言
         this.registerMarkdownLanguage();
 
-        // 创建编辑器
+        // 创建编辑器（精简配置，适合 Markdown 编辑）
         this.editor = monaco.editor.create(this.container, {
             value: this.options.initialValue || '',
             language: 'markdown',
             theme: isDark ? 'vs-dark' : 'vs',
             automaticLayout: true,
+            // 基础编辑
             fontSize: editorConfig.fontSize || 14,
             lineHeight: editorConfig.lineHeight || 1.6,
             fontFamily: editorConfig.fontFamily || "'Fira Code', 'Consolas', 'Monaco', monospace",
@@ -102,67 +103,65 @@ export class MonacoEditor {
             letterSpacing: editorConfig.letterSpacing || 0,
             wordWrap: editorConfig.lineWrapping !== false ? 'on' : 'off',
             lineNumbers: editorConfig.lineNumbers !== false ? 'on' : 'off',
-            minimap: { enabled: editorConfig.minimap !== false },
-            scrollBeyondLastLine: editorConfig.scrollBeyondLastLine !== false,
-            smoothScrolling: editorConfig.smoothScrolling !== false,
-            cursorBlinking: editorConfig.cursorBlinking || 'blink',
-            cursorSmoothCaretAnimation: editorConfig.cursorSmoothCaretAnimation || 'off',
-            cursorStyle: editorConfig.cursorStyle || 'line',
-            cursorWidth: editorConfig.cursorWidth || 2,
+            // 禁用高级特性（Markdown 编辑器不需要）
+            minimap: { enabled: false }, // 禁用缩略图
+            scrollBeyondLastLine: false,
+            smoothScrolling: false,
+            // 光标
+            cursorBlinking: 'blink',
+            cursorStyle: 'line',
+            cursorWidth: 2,
+            // 缩进
             tabSize: editorConfig.tabSize || 4,
             insertSpaces: editorConfig.insertSpaces !== false,
-            detectIndentation: editorConfig.detectIndentation !== false,
-            trimAutoWhitespace: editorConfig.trimAutoWhitespace !== false,
-            formatOnPaste: editorConfig.formatOnPaste || false,
-            formatOnType: editorConfig.formatOnType || false,
-            autoClosingBrackets: editorConfig.autoClosingBrackets !== false ? 'always' : 'never',
-            autoClosingQuotes: editorConfig.autoClosingQuotes !== false ? 'always' : 'never',
-            autoSurround: editorConfig.autoSurround !== false ? 'languageDefined' : 'never',
-            suggestOnTriggerCharacters: editorConfig.suggestOnTriggerCharacters !== false,
-            quickSuggestions: editorConfig.quickSuggestions !== false ? {
-                other: true,
-                comments: false,
-                strings: false
-            } : false,
-            acceptSuggestionOnCommitCharacter: editorConfig.acceptSuggestionOnCommitCharacter !== false,
-            acceptSuggestionOnEnter: editorConfig.acceptSuggestionOnEnter || 'on',
-            wordBasedSuggestions: editorConfig.wordBasedSuggestions !== false,
-            parameterHints: { enabled: editorConfig.parameterHints !== false },
-            folding: editorConfig.folding !== false,
-            foldingStrategy: editorConfig.foldingStrategy || 'auto',
-            showFoldingControls: editorConfig.showFoldingControls || 'mouseover',
-            matchBrackets: editorConfig.matchBrackets !== false ? 'always' : 'never',
-            bracketPairColorization: { enabled: editorConfig.bracketPairColorization !== false },
+            detectIndentation: false,
+            // 禁用智能提示（Markdown 不需要）
+            suggestOnTriggerCharacters: false,
+            quickSuggestions: false,
+            wordBasedSuggestions: 'off',
+            parameterHints: { enabled: false },
+            // 禁用自动配对（Markdown 中较少使用）
+            autoClosingBrackets: 'never',
+            autoClosingQuotes: 'never',
+            autoSurround: 'never',
+            // 简化括号相关
+            matchBrackets: 'never',
+            bracketPairColorization: { enabled: false },
             guides: {
-                bracketPairs: editorConfig.bracketPairs !== false,
-                indentation: editorConfig.indentationGuides !== false
+                bracketPairs: false,
+                indentation: false
             },
-            renderWhitespace: editorConfig.renderWhitespace || 'selection',
-            renderControlCharacters: editorConfig.renderControlCharacters !== false,
-            renderLineHighlight: editorConfig.renderLineHighlight || 'all',
-            renderLineHighlightOnlyWhenFocus: editorConfig.renderLineHighlightOnlyWhenFocus || false,
-            highlightActiveIndentGuide: editorConfig.highlightActiveIndentGuide !== false,
+            // 禁用格式化
+            formatOnPaste: false,
+            formatOnType: false,
+            trimAutoWhitespace: false,
+            // 渲染选项
+            renderWhitespace: 'selection',
+            renderControlCharacters: false,
+            renderLineHighlight: 'line',
+            // 禁用 Unicode 高亮警告（中文项目不需要）
+            unicodeHighlight: {
+                ambiguousCharacters: false,
+                invisibleCharacters: false,
+                nonBasicASCII: false
+            },
+            // 代码折叠（保留，Markdown 标题折叠有用）
+            folding: true,
+            foldingStrategy: 'auto',
+            showFoldingControls: 'mouseover',
+            // 滚动条
             scrollbar: {
-                useShadows: editorConfig.scrollbarUseShadows === true,
-                verticalScrollbarSize: editorConfig.verticalScrollbarSize || 14,
-                horizontalScrollbarSize: editorConfig.horizontalScrollbarSize || 14,
-                vertical: editorConfig.verticalScrollbarSize || 'auto',
-                horizontal: editorConfig.horizontalScrollbarSize || 'auto'
+                useShadows: false,
+                verticalScrollbarSize: 12,
+                horizontalScrollbarSize: 12,
+                vertical: 'auto',
+                horizontal: 'auto'
             },
-            padding: {
-                top: editorConfig.paddingTop || 0,
-                bottom: editorConfig.paddingBottom || 0
-            },
-            find: {
-                autoFindInSelection: editorConfig.autoFindInSelection || 'never',
-                seedSearchStringFromSelection: editorConfig.seedSearchStringFromSelection !== false
-            },
-            contextmenu: editorConfig.contextmenu !== false,
-            mouseWheelZoom: editorConfig.mouseWheelZoom || false,
+            padding: { top: 8, bottom: 8 },
+            // 其他
+            contextmenu: false, // 禁用右键菜单（使用浏览器默认）
             fixedOverflowWidgets: true,
-            multiCursorModifier: editorConfig.multiCursorModifier || 'altKey',
-            multiCursorPaste: editorConfig.multiCursorPaste || 'spread',
-            accessibilitySupport: editorConfig.accessibilitySupport || 'auto',
+            accessibilitySupport: 'auto',
             ariaLabel: this.options.ariaLabel || 'Markdown editor input'
         });
 
@@ -330,8 +329,6 @@ export class MonacoEditor {
      * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
      * @param {boolean} [editorConfig.lineWrapping=true] - 是否自动换行
      * @param {boolean} [editorConfig.folding=true] - 是否启用代码折叠
-     * @param {boolean} [editorConfig.matchBrackets=true] - 是否匹配括号
-     * @param {boolean} [editorConfig.minimap=true] - 是否显示缩略图
      * @param {Object} [interfaceConfig={}] - 界面配置
      * @param {string} [interfaceConfig.theme] - 主题模式 ('dark' | 'light' | 'auto')
      *
@@ -354,7 +351,7 @@ export class MonacoEditor {
         // 更新主题
         monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
 
-        // 更新编辑器选项
+        // 更新编辑器选项（只更新支持的选项）
         const options = {};
 
         if (editorConfig.fontSize !== undefined) {
@@ -371,12 +368,6 @@ export class MonacoEditor {
         }
         if (editorConfig.folding !== undefined) {
             options.folding = editorConfig.folding;
-        }
-        if (editorConfig.matchBrackets !== undefined) {
-            options.matchBrackets = editorConfig.matchBrackets ? 'always' : 'never';
-        }
-        if (editorConfig.minimap !== undefined) {
-            options.minimap = { enabled: editorConfig.minimap };
         }
         if (editorConfig.tabSize !== undefined) {
             options.tabSize = editorConfig.tabSize;
