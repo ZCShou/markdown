@@ -343,9 +343,10 @@ export class LeftSidebar extends BaseComponent {
         const selectedDocIds = this.state.get('selectedDocIds') || [];
         
         this.draggedItems = selectedDocIds.includes(docId) ? [...selectedDocIds] : [docId];
+        this.draggedSet = new Set(this.draggedItems);
         
         this.draggedItems.forEach(id => {
-            this.container.querySelector(`[data-doc-id="${id}"]`)?.classList.add('md-dragging');
+            this.#getDocEl(id)?.classList.add('md-dragging');
         });
         
         e.dataTransfer.effectAllowed = 'move';
@@ -379,7 +380,7 @@ export class LeftSidebar extends BaseComponent {
             return;
         }
 
-        if (this.draggedItems?.includes(targetItem.dataset.docId)) {
+        if (this.draggedSet?.has(targetItem.dataset.docId)) {
             this.#clearDropTarget();
             return;
         }
@@ -399,15 +400,22 @@ export class LeftSidebar extends BaseComponent {
             return;
         }
 
-        // 检查是否在展开的文件夹内
+        // 检查是否在展开的文件夹内，同时排除正在被拖拽的文件夹
         let current = targetNode.parentElement;
         while (current && current !== treeContainer) {
             if (current.classList.contains('md-tree-children') && !current.classList.contains('collapsed')) {
                 const folderNode = current.parentElement;
-                if (folderNode?.classList.contains('md-tree-node') && 
-                    dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder') {
-                    this.#setDropTarget(folderNode, 'expanded');
-                    return;
+                if (folderNode?.classList.contains('md-tree-node')) {
+                    const folderItem = dom.getIn(folderNode, '.md-doc-item');
+                    if (folderItem?.dataset.docType === 'folder') {
+                        // 若该文件夹本身正在被拖拽，不作为有效落点
+                        if (this.draggedSet?.has(folderItem.dataset.docId)) {
+                            this.#clearDropTarget();
+                            return;
+                        }
+                        this.#setDropTarget(folderNode, 'expanded');
+                        return;
+                    }
                 }
             }
             current = current.parentElement;
@@ -473,10 +481,26 @@ export class LeftSidebar extends BaseComponent {
 
         const documents = this.state.get('documents');
         const docMap = new Map(documents.map(d => [d.id, d]));
-        
+        // 复用 handleDragStart 已建好的 Set，无需重复构建
+        const draggedSet = this.draggedSet ?? new Set(this.draggedItems);
+
+        // 只移动顶层条目：跳过祖先链中已包含在拖拽集合内的项，
+        // 以便子项随父项自动迁移，保留原有目录层次结构。
+        const isAncestorDragged = (docId) => {
+            let current = docMap.get(docMap.get(docId)?.parentId);
+            while (current) {
+                if (draggedSet.has(current.id)) return true;
+                current = docMap.get(current.parentId);
+            }
+            return false;
+        };
+
         let anyMoved = false;
         for (const draggedId of this.draggedItems) {
             if (draggedId === targetId) continue;
+
+            // 跳过其祖先已在拖拽集合中的项（它们会随父节点一起迁移）
+            if (isAncestorDragged(draggedId)) continue;
             
             // 防止将文件夹拖到自己的子文件夹中
             if (targetId) {
@@ -511,13 +535,14 @@ export class LeftSidebar extends BaseComponent {
     handleDragEnd() {
         if (this.draggedItems) {
             this.draggedItems.forEach(id => {
-                this.container.querySelector(`[data-doc-id="${id}"]`)?.classList.remove('md-dragging');
+                this.#getDocEl(id)?.classList.remove('md-dragging');
             });
         }
 
         this.#clearDropTarget();
         document.body.classList.remove('is-dragging-tree');
         this.draggedItems = null;
+        this.draggedSet = null;
     }
 
     // ==================== 文档操作 ====================
@@ -847,6 +872,22 @@ export class LeftSidebar extends BaseComponent {
             return;
         }
 
+        // 在构建 DOM 之前，将当前文档和选中文档的祖先文件夹合并到 expandedFolders，
+        // 避免先渲染折叠状态、再展开时产生闪烁。
+        const docMap = new Map(documents.map(d => [d.id, d]));
+        const addAncestors = (docId) => {
+            if (!docId) return;
+            let currentId = docId;
+            while (currentId) {
+                const d = docMap.get(currentId);
+                if (!d) break;
+                if (d.type === 'folder') this.expandedFolders.add(currentId);
+                currentId = d.parentId;
+            }
+        };
+        if (currentDocId) addAncestors(currentDocId);
+        selectedDocIds.forEach(addAncestors);
+
         const tree = this.state.getDocumentTree();
         const fragment = this.createFragment();
         // 提前构建 Set，避免 renderTreeNode 内部 O(n) 的 includes() 扫描
@@ -861,32 +902,6 @@ export class LeftSidebar extends BaseComponent {
 
         // 重建 DOM 缓存
         this.#rebuildDomCache();
-
-        // 展开当前文档和选中文档的祖先文件夹
-        const docMap = new Map(documents.map(d => [d.id, d]));
-        const foldersToExpand = new Set();
-        
-        const addAncestors = (docId) => {
-            if (!docId) return;
-            let currentId = docId;
-            while (currentId) {
-                const d = docMap.get(currentId);
-                if (!d) break;
-                if (d.type === 'folder') {
-                    foldersToExpand.add(currentId);
-                }
-                currentId = d.parentId;
-            }
-        };
-
-        if (currentDocId) addAncestors(currentDocId);
-        selectedDocIds.forEach(addAncestors);
-
-        if (foldersToExpand.size > 0) {
-            requestAnimationFrame(() => {
-                foldersToExpand.forEach(fid => this.manageFolderState(fid, true));
-            });
-        }
 
         if (this.#pendingEdit) {
             const pendingEdit = this.#pendingEdit;
@@ -1018,7 +1033,10 @@ export class LeftSidebar extends BaseComponent {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `markdown-docs-${new Date().toLocaleDateString()}.json`;
+            a.style.display = 'none';
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
 
             setTimeout(() => URL.revokeObjectURL(a.href), 100);
 
@@ -1109,6 +1127,7 @@ export class LeftSidebar extends BaseComponent {
         clearTimeout(this.clickTimeout);
         this.#clearDropTarget();
         this.draggedItems = null;
+        this.draggedSet = null;
         this.#domCache.clear();
         document.body.classList.remove('is-dragging-tree');
         super.destroy?.();
