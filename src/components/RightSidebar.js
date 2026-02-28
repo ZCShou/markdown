@@ -203,15 +203,12 @@ export class RightSidebar extends BaseComponent {
     }
 
     /**
-     * 滚动到指定标题
+     * 滚动到指定标题（委托给 Preview 处理，确保懒加载元素先渲染）
      * @param {string} headingId - 标题 ID
      * @returns {void}
      */
     scrollToHeading(headingId) {
-        const heading = document.getElementById(headingId);
-        if (heading) {
-            heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        this.state.triggerScrollToHeading(headingId);
     }
 
     // ==================== 渲染相关 ====================

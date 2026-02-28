@@ -1149,6 +1149,23 @@ $$
         }
     }
 
+    /**
+     * 触发跳转到指定标题（事件驱动）
+     * @param {string} headingId - 标题元素 ID
+     */
+    triggerScrollToHeading(headingId) {
+        const listeners = this.#listeners.get('scroll:heading');
+        if (listeners) {
+            listeners.forEach(listener => {
+                try {
+                    listener(headingId);
+                } catch (error) {
+                    console.error('ScrollToHeading listener error:', error);
+                }
+            });
+        }
+    }
+
     // ==================== 通知状态 ====================
 
     /**

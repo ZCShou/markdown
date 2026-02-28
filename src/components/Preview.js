@@ -248,8 +248,17 @@ export class Preview extends BaseComponent {
             }
         );
 
+        // 订阅来自 RightSidebar / 其他组件的标题跳转请求
+        const unsubscribeScroll = this.state.subscribeTo(
+            'scroll:heading',
+            headingId => this.#doScrollToHeading(headingId)
+        );
+
         // 保存取消订阅函数
-        this.unsubscribe = unsubscribeContent;
+        this.unsubscribe = () => {
+            unsubscribeContent();
+            unsubscribeScroll();
+        };
     }
 
     /**
@@ -297,7 +306,7 @@ export class Preview extends BaseComponent {
                 // 处理内部锚点链接（以 # 开头）
                 if (href.startsWith('#')) {
                     e.preventDefault();
-                    this.#handleInternalLink(href);
+                    this.#doScrollToHeading(decodeURIComponent(href.slice(1)));
                     return;
                 }
 
@@ -324,35 +333,86 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 处理内部链接跳转
-     * @param {string} href - 链接的 href 属性值（如 #heading-1）
+     * 跳转到指定标题，跳转前先稳定布局：
+     * - 数学公式 / 代码高亮：同步处理，无论位置
+     * - Mermaid：仅等待目标标题之前的图表渲染完成（影响目标位置）；
+     *            目标之后的图表异步渲染，不阻塞跳转
+     * @param {string} headingId - 标题元素 ID
      * @private
      */
-    #handleInternalLink(href) {
-        // 移除 # 号并解码（处理中文等特殊字符）
-        const targetId = decodeURIComponent(href.slice(1));
+    async #doScrollToHeading(headingId) {
+        const observer = this.#intersectionObserver;
 
-        // 使用 getElementById 查找目标元素（更安全，支持特殊字符）
-        // 先在容器内查找，如果找不到再在整个文档中查找
-        let targetElement = this.container.querySelector(`[id="${CSS.escape(targetId)}"]`);
-
-        // 如果在容器内找不到，尝试在整个文档中查找
-        if (!targetElement) {
-            targetElement = document.getElementById(targetId);
+        // 1. 同步渲染所有待处理的数学公式（KaTeX 同步执行）
+        if (this.#pendingMathBlocks.size > 0) {
+            const batch = [...this.#pendingMathBlocks];
+            this.#pendingMathBlocks.clear();
+            batch.forEach(el => {
+                if (!el.isConnected) return;
+                if (observer) observer.unobserve(el);
+                el.classList.remove('math-pending');
+                this.#renderSingleMath(el);
+            });
         }
 
-        if (targetElement) {
-            // 平滑滚动到目标元素
-            targetElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
+        // 2. 同步启动所有待处理代码块高亮（异步但极快，不影响布局高度）
+        if (this.#pendingCodeBlocks.size > 0) {
+            const batch = [...this.#pendingCodeBlocks];
+            this.#pendingCodeBlocks.clear();
+            batch.forEach(el => {
+                if (!el.isConnected) return;
+                if (observer) observer.unobserve(el);
+                el.classList.remove('code-pending');
+                this.#highlightSingleBlock(el);
+            });
+        }
+
+        // 3. Mermaid：按位置分流，只等待目标前方的图表
+        //    目标后方的图表不影响目标的 offsetTop，无需阻塞
+        if (this.#pendingMermaidBlocks.size > 0) {
+            // 标题元素已在 DOM 中（renderMarkdown 写入 id），可直接查找
+            const target = this.container.querySelector(`[id="${CSS.escape(headingId)}"]`);
+            const batch = [...this.#pendingMermaidBlocks];
+            this.#pendingMermaidBlocks.clear();
+
+            const before = [];
+            const after  = [];
+            batch.forEach(el => {
+                if (!el.isConnected) return;
+                if (observer) observer.unobserve(el);
+                el.classList.remove('mermaid-pending');
+                // DOCUMENT_POSITION_FOLLOWING(4)：el 在 target 之后
+                const isAfter = target &&
+                    (target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+                (isAfter ? after : before).push(el);
             });
 
-            // 更新 URL hash（不触发页面跳转）
-            history.replaceState(null, null, href);
-        } else {
-            console.warn(`未找到目标元素: ${targetId}`);
+            // 目标之后的图表：异步渲染，不阻塞
+            if (after.length) this.#runMermaid(after);
+
+            // 目标之前的图表：必须等待完成，否则目标 offsetTop 不准确
+            // 3s 超时保底，避免复杂图表长时间阻塞
+            if (before.length) {
+                const timeout = new Promise(resolve => setTimeout(resolve, 3000));
+                await Promise.race([this.#runMermaid(before), timeout]);
+            }
         }
+
+        // 4. 等待两帧确保 reflow 完成，布局高度稳定
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        // 5. 查找目标并滚动
+        const target =
+            this.container.querySelector(`[id="${CSS.escape(headingId)}"]`) ??
+            document.getElementById(headingId);
+
+        if (!target) {
+            console.warn(`未找到标题元素: ${headingId}`);
+            return;
+        }
+
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, null, `#${headingId}`);
     }
 
     // ==================== 渲染入口 ====================
@@ -426,6 +486,9 @@ export class Preview extends BaseComponent {
             headings: []
         };
 
+        // 切换文档时立即清空标题，避免新文档无标题时旧目录残留
+        this.state.updateHeadings([]);
+
         // 切换文档时立即同步渲染，无延迟
         const content = doc.content || '';
 
@@ -467,20 +530,38 @@ export class Preview extends BaseComponent {
         // 完全没变，跳过
         if (markdown === this.#lastRenderedData.markdown) return;
 
-        // 渲染 Markdown 为 HTML
-        const html = this.renderMarkdown(markdown);
+        // 渲染 Markdown 为 HTML，同时提取标题数据（唯一提取点）
+        const { html, headings: renderedHeadings } = this.renderMarkdown(markdown);
 
-        // 如果标题有变化，更新 state（让 TOC 能获取到最新数据）
-        if (changes.changedHeadingsData) {
-            this.#updateHeadingsSync(changes.newHeadings, changes.changedHeadingsData);
-        }
+        // 标题变化检测（与缓存比较，形状相同：{id, level, textContent}）
+        const oldHeadings = this.#lastRenderedData.headings;
+        const headingsChanged =
+            oldHeadings.length !== renderedHeadings.length ||
+            renderedHeadings.some(
+                (h, i) => oldHeadings[i]?.id !== h.id ||
+                           oldHeadings[i]?.level !== h.level ||
+                           oldHeadings[i]?.textContent !== h.textContent
+            );
+
+        // 同步更新缓存（在 DOM 更新前，避免 rAF 窗口期内的脏读）
+        this.#lastRenderedData = {
+            markdown,
+            codeBlocks: changes.newCodeBlocks,
+            mermaidBlocks: changes.newMermaidBlocks,
+            mathBlocks: changes.newMathBlocks,
+            headings: renderedHeadings
+        };
 
         // 智能更新 DOM，同时收集需要处理的元素
         const elementsToProcess = this.#updateDOM(html, changes);
 
+        // 标题有变化时直接推送，无需 DOM 查询
+        if (headingsChanged) {
+            this.state.updateHeadings(renderedHeadings);
+        }
+
         // 延迟处理元素（避免阻塞主线程）
         requestAnimationFrame(() => {
-            // 直接使用已收集的元素，避免重复 DOM 查询
             if (elementsToProcess) {
                 if (elementsToProcess.pendingCodeBlocks.length > 0) {
                     this.#highlightCode(elementsToProcess.pendingCodeBlocks);
@@ -498,15 +579,6 @@ export class Preview extends BaseComponent {
                     this.#addCopyButtons(elementsToProcess.pendingCopyBtn);
                 }
             }
-
-            // 更新缓存
-            this.#lastRenderedData = {
-                markdown,
-                codeBlocks: changes.newCodeBlocks,
-                mermaidBlocks: changes.newMermaidBlocks,
-                mathBlocks: changes.newMathBlocks,
-                headings: changes.newHeadings
-            };
         });
     }
 
@@ -523,7 +595,6 @@ export class Preview extends BaseComponent {
         const codeBlocks = new Map();
         const mermaidBlocks = new Map();
         const mathBlocks = new Map();
-        const headings = [];
 
         let codeIndex = 0, mermaidIndex = 0, mathIndex = 0;
         const codeBlockRanges = [];
@@ -605,41 +676,18 @@ export class Preview extends BaseComponent {
             }
         }
 
-        // 第三步：提取标题（排除代码块内的）
-        const headingRegex = /^(#{1,6})\s+(.+)$/gm;
-        while ((match = headingRegex.exec(newMarkdown)) !== null) {
-            const matchIndex = match.index;
-            const [, hashes, headingText] = match;
-
-            // 检查标题是否在代码块内
-            const isInCodeBlock = codeBlockRanges.some(
-                range => matchIndex >= range.start && matchIndex < range.end
-            );
-
-            // 只提取代码块外的标题
-            if (!isInCodeBlock) {
-                headings.push({
-                    level: hashes.length,
-                    text: headingText
-                });
-            }
-        }
-
         // 比较变化，并记录具体哪些元素发生了变化
         const changedCodeBlocks = this.#findChangedMapEntries(oldData.codeBlocks, codeBlocks);
         const changedMermaidBlocks = this.#findChangedMapEntries(oldData.mermaidBlocks, mermaidBlocks);
         const changedMathBlocks = this.#findChangedMapEntries(oldData.mathBlocks, mathBlocks);
-        const changedHeadingsData = this.#getChangedHeadingsData(oldData.headings, headings);
 
         return {
             newCodeBlocks: codeBlocks,
             newMermaidBlocks: mermaidBlocks,
             newMathBlocks: mathBlocks,
-            newHeadings: headings,
             changedCodeBlocks,
             changedMermaidBlocks,
-            changedMathBlocks,
-            changedHeadingsData
+            changedMathBlocks
         };
     }
 
@@ -708,6 +756,7 @@ export class Preview extends BaseComponent {
      * @returns {string} HTML 字符串
      */
     renderMarkdown(markdown) {
+        const renderedHeadings = []; // 在此处收集，作为唯一提取点
         try {
             const mathBlocks = [];
             const supSubBlocks = [];
@@ -796,15 +845,15 @@ export class Preview extends BaseComponent {
                     gfm: true
                 });
 
-                // 手动添加标题 ID（在解析后处理）
-                // 匹配包含任意内容的标题标签（包括 HTML 标签）
+                // 添加标题 ID 并同步提取标题数据（唯一提取点，避免后续 DOM 查询）
                 let headingIndex = 0;
-                html = html.replace(/<h([1-6])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, text) => {
-                    // 如果已经有 id 属性，不重复添加
-                    if (attrs.includes('id=')) {
-                        return match;
-                    }
-                    return `<h${level}${attrs} id="heading-${headingIndex++}">${text}</h${level}>`;
+                html = html.replace(/<h([1-6])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, inner) => {
+                    if (attrs.includes('id=')) return match;
+                    const id = `heading-${headingIndex++}`;
+                    // 剥离行内 HTML 标签，获得纯文本用于 TOC 显示
+                    const textContent = inner.replace(/<[^>]+>/g, '');
+                    renderedHeadings.push({ id, level: +level, textContent });
+                    return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
                 });
             } else {
                 html = this.escapeHtml(processedMarkdown);
@@ -861,10 +910,10 @@ export class Preview extends BaseComponent {
                 return `<img${attrs} data-load-status="pending">`;
             });
 
-            return html;
+            return { html, headings: renderedHeadings };
         } catch (e) {
             console.warn('Markdown 渲染失败:', e);
-            return this.escapeHtml(markdown);
+            return { html: this.escapeHtml(markdown), headings: [] };
         }
     }
 
@@ -933,7 +982,6 @@ export class Preview extends BaseComponent {
         // 首次渲染，使用 innerHTML（性能更好）
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
-            this.#updateHeadingIds();
             // 返回需要处理的元素
             return this.#collectElementsToProcess();
         }
@@ -945,7 +993,6 @@ export class Preview extends BaseComponent {
             changes.changedMathBlocks.size;
         if (allChanged) {
             this.container.innerHTML = newHTML;
-            this.#updateHeadingIds();
             // 返回需要处理的元素
             return this.#collectElementsToProcess();
         }
@@ -973,10 +1020,6 @@ export class Preview extends BaseComponent {
             this.container.appendChild(fragment);
         }
 
-        // 更新标题 ID
-        if (changes.changedHeadingsData) {
-            this.#updateHeadingIds();
-        }
 
         // 返回需要处理的元素
         return this.#collectElementsToProcess();
@@ -1123,107 +1166,6 @@ export class Preview extends BaseComponent {
                 newEl.replaceWith(oldEl); // 直接移动，保留已渲染的 KaTeX DOM
             }
         });
-    }
-
-    // ==================== 标题渲染组 ====================
-    /**
-     * 获取发生变化的标题数据（用于增量更新）
-     * @param {Array} oldHeadings - 旧的标题数组
-     * @param {Array} newHeadings - 新的标题数组
-     * @returns {Map<number, Object>} 发生变化的标题数据映射（索引 -> 标题数据）
-     * @private
-     */
-    #getChangedHeadingsData(oldHeadings, newHeadings) {
-        const changed = new Map();
-
-        // 如果长度不同，所有标题都算变化
-        if (oldHeadings.length !== newHeadings.length) {
-            for (let i = 0; i < newHeadings.length; i++) {
-                const { level, text } = newHeadings[i];
-                changed.set(i, {
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + i,
-                    level
-                });
-            }
-            return changed;
-        }
-
-        // 逐个比较标题
-        for (let i = 0; i < newHeadings.length; i++) {
-            const oldHeading = oldHeadings[i];
-            const newHeading = newHeadings[i];
-
-            // 如果旧标题不存在，或者 level/text 发生变化
-            if (!oldHeading ||
-                oldHeading.level !== newHeading.level ||
-                oldHeading.text !== newHeading.text) {
-                const { level, text } = newHeading;
-                changed.set(i, {
-                    tagName: 'H' + level,
-                    textContent: text,
-                    id: 'heading-' + i,
-                    level
-                });
-            }
-        }
-
-        return changed;
-    }
-
-    /**
-     * 更新标题 ID（优化版：批量设置减少重排）
-     * @private
-     */
-    #updateHeadingIds() {
-        // 使用 dom.js 统一查询
-        const headings = dom.getAllIn(this.container, 'h1, h2, h3, h4, h5, h6');
-        const stateHeadings = this.state.get('headings');
-
-        // 批量收集需要更新的元素
-        const updates = [];
-        headings.forEach((heading, index) => {
-            if (stateHeadings[index]?.id && heading.id !== stateHeadings[index].id) {
-                updates.push({ element: heading, id: stateHeadings[index].id });
-            }
-        });
-
-        // 批量应用更新
-        if (updates.length > 0) {
-            requestAnimationFrame(() => {
-                updates.forEach(({ element, id }) => {
-                    element.id = id;
-                });
-            });
-        }
-    }
-
-    /**
-     * 同步更新标题数据（在 DOM 渲染前）
-     * @param {Array} headings - 新的标题数组
-     * @param {Map<number, Object>} changedHeadingsData - 发生变化的标题数据映射
-     * @private
-     */
-    #updateHeadingsSync(headings, changedHeadingsData) {
-        // 全量更新：所有标题都变了
-        if (changedHeadingsData.size === headings.length) {
-            const headingsArray = Array.from({ length: headings.length }, (_, i) =>
-                changedHeadingsData.get(i)
-            );
-            this.state.updateHeadings(headingsArray);
-            return;
-        }
-
-        // 增量更新：只更新发生变化的标题
-        const currentHeadings = this.state.get('headings') || [];
-        const updatedHeadings = [...currentHeadings];
-
-        changedHeadingsData.forEach((headingData, index) => {
-            updatedHeadings[index] = headingData;
-        });
-
-        this.state.updateHeadings(updatedHeadings);
     }
 
     // ==================== 代码块渲染组 ====================
