@@ -333,86 +333,103 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 跳转到指定标题，跳转前先稳定布局：
-     * - 数学公式 / 代码高亮：同步处理，无论位置
-     * - Mermaid：仅等待目标标题之前的图表渲染完成（影响目标位置）；
-     *            目标之后的图表异步渲染，不阻塞跳转
-     * @param {string} headingId - 标题元素 ID
+     * 跳转到指定标题，跳转前先稳定布局。
+     * - 数学公式：一次 querySelectorAll 覆盖所有渲染路径（pending Set + rAF batch）
+     * - Mermaid：目标前方的必须等待完成，目标后方的 fire-and-forget
+     * - 代码高亮：不改变元素高度，无需处理
+     * @param {string} headingId
      * @private
      */
     async #doScrollToHeading(headingId) {
         const observer = this.#intersectionObserver;
+        const target = this.container.querySelector(`[id="${CSS.escape(headingId)}"]`);
+        // el 在 target 之后时返回 true；target 不存在则视为全部在"之前"
+        const isAfter = el => target && !!(target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-        // 1. 同步渲染所有待处理的数学公式（KaTeX 同步执行）
-        if (this.#pendingMathBlocks.size > 0) {
-            const batch = [...this.#pendingMathBlocks];
-            this.#pendingMathBlocks.clear();
-            batch.forEach(el => {
-                if (!el.isConnected) return;
-                if (observer) observer.unobserve(el);
+        // ── 1. 数学公式：同步渲染所有未完成的公式 ──────────────────────────
+        // 一次查询同时覆盖 pending Set（离屏）和 rAF-batch（可见但尚未完成）两条路径
+        this.container
+            .querySelectorAll('.math-block:not(.math-rendered), .math-inline:not(.math-rendered)')
+            .forEach(el => {
+                observer?.unobserve(el);
+                this.#pendingMathBlocks.delete(el);
                 el.classList.remove('math-pending');
                 this.#renderSingleMath(el);
             });
-        }
 
-        // 2. 同步启动所有待处理代码块高亮（异步但极快，不影响布局高度）
-        if (this.#pendingCodeBlocks.size > 0) {
-            const batch = [...this.#pendingCodeBlocks];
-            this.#pendingCodeBlocks.clear();
-            batch.forEach(el => {
-                if (!el.isConnected) return;
-                if (observer) observer.unobserve(el);
-                el.classList.remove('code-pending');
-                this.#highlightSingleBlock(el);
-            });
-        }
-
-        // 3. Mermaid：按位置分流，只等待目标前方的图表
-        //    目标后方的图表不影响目标的 offsetTop，无需阻塞
+        // ── 2. Mermaid pending：按位置分流 ──────────────────────────────────
         if (this.#pendingMermaidBlocks.size > 0) {
-            // 标题元素已在 DOM 中（renderMarkdown 写入 id），可直接查找
-            const target = this.container.querySelector(`[id="${CSS.escape(headingId)}"]`);
-            const batch = [...this.#pendingMermaidBlocks];
-            this.#pendingMermaidBlocks.clear();
-
-            const before = [];
-            const after  = [];
-            batch.forEach(el => {
-                if (!el.isConnected) return;
-                if (observer) observer.unobserve(el);
+            const before = [], after = [];
+            for (const el of this.#pendingMermaidBlocks) {
+                if (!el.isConnected) continue;
+                observer?.unobserve(el);
                 el.classList.remove('mermaid-pending');
-                // DOCUMENT_POSITION_FOLLOWING(4)：el 在 target 之后
-                const isAfter = target &&
-                    (target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
-                (isAfter ? after : before).push(el);
-            });
-
-            // 目标之后的图表：异步渲染，不阻塞
-            if (after.length) this.#runMermaid(after);
-
-            // 目标之前的图表：必须等待完成，否则目标 offsetTop 不准确
-            // 3s 超时保底，避免复杂图表长时间阻塞
+                (isAfter(el) ? after : before).push(el);
+            }
+            this.#pendingMermaidBlocks.clear();
+            if (after.length) this.#runMermaid(after);                        // fire-and-forget
             if (before.length) {
-                const timeout = new Promise(resolve => setTimeout(resolve, 3000));
-                await Promise.race([this.#runMermaid(before), timeout]);
+                await Promise.race([
+                    this.#runMermaid(before),
+                    new Promise(r => setTimeout(r, 3000))                      // 超时保底
+                ]);
             }
         }
 
-        // 4. 等待两帧确保 reflow 完成，布局高度稳定
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-        // 5. 查找目标并滚动
-        const target =
-            this.container.querySelector(`[id="${CSS.escape(headingId)}"]`) ??
-            document.getElementById(headingId);
-
-        if (!target) {
-            console.warn(`未找到标题元素: ${headingId}`);
-            return;
+        // ── 3. Mermaid rendering：等待目标前方已在渲染中的图表完成 ───────────
+        // （由 IntersectionObserver 或直接渲染触发，无法取消，只能轮询）
+        const renderingBefore = [...this.container.querySelectorAll('div.mermaid.mermaid-rendering')]
+            .filter(el => !isAfter(el));
+        if (renderingBefore.length) {
+            await Promise.race([
+                new Promise(resolve => {
+                    const check = () =>
+                        renderingBefore.some(el => el.isConnected && el.classList.contains('mermaid-rendering'))
+                            ? requestAnimationFrame(check) : resolve();
+                    requestAnimationFrame(check);
+                }),
+                new Promise(r => setTimeout(r, 3000))
+            ]);
         }
 
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // ── 4. 等两帧确保 reflow 完成 ────────────────────────────────────────
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // ── 5. 滚动（钳位 scrollTop，避免内容不足时底部出现空白）───────────
+        const finalTarget =
+            this.container.querySelector(`[id="${CSS.escape(headingId)}"]`) ??
+            document.getElementById(headingId);
+        if (!finalTarget) { console.warn(`未找到标题元素: ${headingId}`); return; }
+
+        const scrollEl = this.#getScrollContainer(finalTarget);
+        if (scrollEl) {
+            const top = finalTarget.getBoundingClientRect().top
+                - scrollEl.getBoundingClientRect().top
+                + scrollEl.scrollTop - 16;
+            scrollEl.scrollTo({
+                top: Math.min(Math.max(0, top), scrollEl.scrollHeight - scrollEl.clientHeight),
+                behavior: 'smooth'
+            });
+        } else {
+            finalTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         history.replaceState(null, null, `#${headingId}`);
+    }
+
+    /**
+     * 找到元素最近的可滚动祖先容器
+     * @param {Element} el
+     * @returns {Element|null}
+     * @private
+     */
+    #getScrollContainer(el) {
+        let node = el.parentElement;
+        while (node && node !== document.body) {
+            const ov = getComputedStyle(node).overflowY;
+            if ((ov === 'auto' || ov === 'scroll') && node.scrollHeight > node.clientHeight) return node;
+            node = node.parentElement;
+        }
+        return null;
     }
 
     // ==================== 渲染入口 ====================
