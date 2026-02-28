@@ -16,6 +16,7 @@ import { RightSidebar } from './components/RightSidebar.js';
 import { CodeMirrorEditor } from './components/CodeMirrorEditor.js';
 import { MonacoEditor } from './components/MonacoEditor.js';
 import { Settings } from './components/Settings.js';
+import { Exporter } from './components/Exporter.js';
 import { dom } from './utils/dom.js';
 import { applyTheme } from './utils/theme.js';
 
@@ -371,6 +372,8 @@ export class MarkdownEditor {
         // 右侧边栏组件（包含目录功能）
         this.components.rightSidebar = new RightSidebar(this.state, 'md-sidebar-right');
 
+        // 导出组件（独立于 Preview，直接订阅导出事件）
+        this.components.exporter = new Exporter(this.state, 'markdown-preview');
 
         // 设置组件（传入 state 以实现状态同步）
         this.components.settings = new Settings(this.state);
