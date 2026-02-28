@@ -105,8 +105,6 @@ export class Preview extends BaseComponent {
     #scrollWrapper = null;
     /** @private 程序化滚动期间暂停 scroll spy，避免覆盖点击高亮 */
     #suppressScrollSpy = false;
-    /** @private 恢复 scroll spy 的 setTimeout 句柄 */
-    #resumeScrollSpyTimer = null;
 
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
@@ -369,22 +367,19 @@ export class Preview extends BaseComponent {
      * @private
      */
     async #doScrollToHeading(headingId) {
-        // 取消上一次滚动的 spy 恢复计时器
-        if (this.#resumeScrollSpyTimer) {
-            clearTimeout(this.#resumeScrollSpyTimer);
-            this.#resumeScrollSpyTimer = null;
+        // 取消上一次可能残留的 spy rAF
+        if (this.#scrollSpyRaf) {
+            cancelAnimationFrame(this.#scrollSpyRaf);
+            this.#scrollSpyRaf = null;
         }
-
-        // 立即暂停 scroll spy，避免 async 等待期间产生错误高亮
+        // 全程暂停 scroll spy，避免 async 等待期间产生错误高亮
         this.#suppressScrollSpy = true;
 
         const observer = this.#intersectionObserver;
         const target = this.container.querySelector(`[id="${CSS.escape(headingId)}"]`);
-        // el 在 target 之后时返回 true；target 不存在则视为全部在"之前"
         const isAfter = el => target && !!(target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-        // ── 1. 数学公式：同步渲染所有未完成的公式 ──────────────────────────
-        // 一次查询同时覆盖 pending Set（离屏）和 rAF-batch（可见但尚未完成）两条路径
+        // ── 1. 数学公式：一次查询覆盖 pending Set + rAF-batch 两条路径 ────────
         this.container
             .querySelectorAll('.math-block:not(.math-rendered), .math-inline:not(.math-rendered)')
             .forEach(el => {
@@ -394,7 +389,7 @@ export class Preview extends BaseComponent {
                 this.#renderSingleMath(el);
             });
 
-        // ── 2. Mermaid pending：按位置分流 ──────────────────────────────────
+        // ── 2. Mermaid pending：按位置分流，目标前必须等待，目标后 fire-and-forget ──
         if (this.#pendingMermaidBlocks.size > 0) {
             const before = [], after = [];
             for (const el of this.#pendingMermaidBlocks) {
@@ -404,17 +399,13 @@ export class Preview extends BaseComponent {
                 (isAfter(el) ? after : before).push(el);
             }
             this.#pendingMermaidBlocks.clear();
-            if (after.length) this.#runMermaid(after);                        // fire-and-forget
+            if (after.length) this.#runMermaid(after);
             if (before.length) {
-                await Promise.race([
-                    this.#runMermaid(before),
-                    new Promise(r => setTimeout(r, 3000))                      // 超时保底
-                ]);
+                await Promise.race([this.#runMermaid(before), new Promise(r => setTimeout(r, 3000))]);
             }
         }
 
-        // ── 3. Mermaid rendering：等待目标前方已在渲染中的图表完成 ───────────
-        // （由 IntersectionObserver 或直接渲染触发，无法取消，只能轮询）
+        // ── 3. Mermaid rendering：轮询等待目标前方已在渲染中的图表完成 ─────────
         const renderingBefore = [...this.container.querySelectorAll('div.mermaid.mermaid-rendering')]
             .filter(el => !isAfter(el));
         if (renderingBefore.length) {
@@ -429,15 +420,19 @@ export class Preview extends BaseComponent {
             ]);
         }
 
-        // ── 4. 等两帧确保 reflow 完成，然后刷新标题偏移缓存 ────────────────
+        // ── 4. 等两帧确保 reflow 完成，刷新标题偏移缓存 ─────────────────────
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        this.#cacheHeadingOffsets(); // Mermaid/数学渲染可能改变了高度，必须重新缓存
+        this.#cacheHeadingOffsets();
 
-        // ── 5. 滚动（钳位 scrollTop，避免内容不足时底部出现空白）───────────
+        // ── 5. 计算目标位置并执行滚动，await scrollend 后继续 ────────────────
         const finalTarget =
             this.container.querySelector(`[id="${CSS.escape(headingId)}"]`) ??
             document.getElementById(headingId);
-        if (!finalTarget) { console.warn(`未找到标题元素: ${headingId}`); this.#suppressScrollSpy = false; return; }
+        if (!finalTarget) {
+            console.warn(`未找到标题元素: ${headingId}`);
+            this.#suppressScrollSpy = false;
+            return;
+        }
 
         const scrollEl = this.#getScrollContainer(finalTarget);
         if (scrollEl) {
@@ -446,49 +441,37 @@ export class Preview extends BaseComponent {
                 + scrollEl.scrollTop - 16;
             const clampedTop = Math.min(Math.max(0, top), scrollEl.scrollHeight - scrollEl.clientHeight);
 
-            // 滚动完成后：取消残留的 spy rAF，刷新缓存，再次明确设置点击的标题。
-            // 延迟 50ms 再解除抑制，吸收 scrollend 后浏览器还会触发的残留 scroll 事件。
-            const resume = () => {
-                // 取消另一个触发路径（scrollend 已触发则取消 fallback，反之亦然）
-                clearTimeout(this.#resumeScrollSpyTimer);
-                this.#resumeScrollSpyTimer = null;
-                if (this.#scrollSpyRaf) {
-                    cancelAnimationFrame(this.#scrollSpyRaf);
-                    this.#scrollSpyRaf = null;
-                }
-                this.#cacheHeadingOffsets();
-                // 立即重申高亮
-                this.#activeHeadingId = headingId;
-                this.state.updateActiveHeading(headingId);
-                // 延迟解除抑制，让残留 scroll 事件 rAF 自然过期
-                this.#resumeScrollSpyTimer = setTimeout(() => {
-                    this.#resumeScrollSpyTimer = null;
-                    this.#suppressScrollSpy = false;
-                }, 100);
-            };
-            scrollEl.addEventListener('scrollend', resume, { once: true });
-            // fallback：若浏览器不支持 scrollend，1500ms 后兜底
-            this.#resumeScrollSpyTimer = setTimeout(() => {
-                scrollEl.removeEventListener('scrollend', resume);
-                resume();
-            }, 1500);
-
-            scrollEl.scrollTo({ top: clampedTop, behavior: 'smooth' });
+            // 顺序等待：scrollend + 1500ms fallback，无嵌套回调
+            await new Promise(resolve => {
+                let settled = false;
+                const finish = () => { if (!settled) { settled = true; clearTimeout(fb); resolve(); } };
+                const fb = setTimeout(finish, 1500);
+                scrollEl.addEventListener('scrollend', finish, { once: true });
+                scrollEl.scrollTo({ top: clampedTop, behavior: 'smooth' });
+            });
         } else {
             finalTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // 无滚动容器时直接恢复（无法监听 scrollend）
-            this.#resumeScrollSpyTimer = setTimeout(() => {
-                this.#resumeScrollSpyTimer = null;
-                if (this.#scrollSpyRaf) {
-                    cancelAnimationFrame(this.#scrollSpyRaf);
-                    this.#scrollSpyRaf = null;
-                }
-                this.#cacheHeadingOffsets();
-                this.#activeHeadingId = headingId;
-                this.state.updateActiveHeading(headingId);
-                setTimeout(() => { this.#suppressScrollSpy = false; }, 100);
-            }, 1500);
+            await new Promise(r => setTimeout(r, 800));
         }
+
+        // ── 6. 滚动结束：消除残留 rAF、刷新缓存、重申高亮、解除抑制 ──────────
+        if (this.#scrollSpyRaf) {
+            cancelAnimationFrame(this.#scrollSpyRaf);
+            this.#scrollSpyRaf = null;
+        }
+        this.#cacheHeadingOffsets(); // 滚动稳定后重新采样
+        this.#activeHeadingId = headingId;
+        this.state.updateActiveHeading(headingId);
+
+        // 再等一个 rAF，吸收 scrollend 前最后一帧可能排队的 scroll 事件，然后解除抑制
+        requestAnimationFrame(() => {
+            if (this.#scrollSpyRaf) {
+                cancelAnimationFrame(this.#scrollSpyRaf);
+                this.#scrollSpyRaf = null;
+            }
+            this.#suppressScrollSpy = false;
+        });
+
         history.replaceState(null, null, `#${headingId}`);
     }
 
@@ -501,9 +484,10 @@ export class Preview extends BaseComponent {
         if (!this.#scrollWrapper) return;
         const wrapperTop = this.#scrollWrapper.getBoundingClientRect().top;
         const scrollTop  = this.#scrollWrapper.scrollTop;
+        // Math.floor 消除亚像素浮点误差，确保 spy 阈值能准确命中缓存值
         this.#headingOffsets = Array.from(
             this.container.querySelectorAll('[id^="heading-"]'),
-            h => ({ id: h.id, top: h.getBoundingClientRect().top - wrapperTop + scrollTop })
+            h => ({ id: h.id, top: Math.floor(h.getBoundingClientRect().top - wrapperTop + scrollTop) })
         );
     }
 
@@ -1807,10 +1791,10 @@ export class Preview extends BaseComponent {
             this.renderTimeout = null;
         }
 
-        // 清理 scroll spy 恢复定时器
-        if (this.#resumeScrollSpyTimer) {
-            clearTimeout(this.#resumeScrollSpyTimer);
-            this.#resumeScrollSpyTimer = null;
+        // 清理 scroll spy 残留 rAF
+        if (this.#scrollSpyRaf) {
+            cancelAnimationFrame(this.#scrollSpyRaf);
+            this.#scrollSpyRaf = null;
         }
 
         // 清理 IntersectionObserver
