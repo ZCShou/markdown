@@ -739,9 +739,11 @@ export class LeftSidebar extends BaseComponent {
             item.classList.remove('editing');
             item.draggable = true;
 
-            // 如果需要，设置为当前文档
+            // 如果需要，设置为当前文档并直接标记高亮
+            // （订阅未覆盖 currentDocId，不会自动重渲染）
             if (shouldSetCurrent && isNewItem) {
                 this.state.setCurrentDocument(docId);
+                item.classList.add('active');
             }
         };
 
@@ -887,6 +889,8 @@ export class LeftSidebar extends BaseComponent {
         };
         if (currentDocId) addAncestors(currentDocId);
         selectedDocIds.forEach(addAncestors);
+        // 若有待命的重命名项（新建文件/文件夹），也提前展开其父文件夹
+        if (this.#pendingEdit) addAncestors(this.#pendingEdit.docId);
 
         const tree = this.state.getDocumentTree();
         const fragment = this.createFragment();
