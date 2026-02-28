@@ -493,16 +493,26 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 
 /* 目录 */
 .md-toc-item {
-  padding: 6px 0;
+  display: flex;
+  align-items: center;
+  padding: 4px 4px;
+  border-radius: 4px;
   cursor: pointer;
   color: var(--md-text-primary);
-  white-space: normal;
-  word-wrap: break-word;
 }
 
-.md-toc-item:hover,
+.md-toc-item:hover:not(.active) {
+  background-color: var(--md-tree-item-hover-bg);
+}
+
 .md-toc-item.active {
-  color: var(--md-color-primary);
+  background-color: var(--md-tree-item-active-bg);
+  color: var(--md-tree-item-active-text);
+}
+
+/* 折叠后隐藏子项 */
+.md-toc-item.toc-hidden {
+  display: none;
 }
 
 .md-toc-item.level-1 { font-weight: 600; }
@@ -511,6 +521,50 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
 .md-toc-item.level-4 { padding-left: 48px; }
 .md-toc-item.level-5 { padding-left: 64px; }
 .md-toc-item.level-6 { padding-left: 80px; }
+
+/* 折叠切换按钮 */
+.md-toc-toggle {
+  flex-shrink: 0;
+  width: 16px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  cursor: pointer;
+  border-radius: 2px;
+  color: var(--md-text-secondary);
+  transition: transform 0.15s;
+  /* 默认隐藏，仅鼠标悬停时显示 */
+  visibility: hidden;
+}
+
+/* 鼠标进入 TOC 容器时显示所有折叠图标 */
+#md-toc:hover .md-toc-toggle {
+  visibility: visible;
+}
+
+.md-toc-toggle .codicon {
+  font-size: 13px;
+}
+
+/* 展开时 chevron 朝下，折叠时 chevron 朝右（默认） */
+.md-toc-item:not(.collapsed) .md-toc-toggle {
+  transform: rotate(90deg);
+}
+
+/* 无子项的 toggle 占位但不可见 */
+.md-toc-item:not(.has-children) .md-toc-toggle {
+  cursor: default;
+}
+
+/* 目录文本 */
+.md-toc-text {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-wrap: break-word;
+}
 
 /* 空状态 */
 .md-empty-state {

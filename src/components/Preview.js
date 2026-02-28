@@ -103,6 +103,10 @@ export class Preview extends BaseComponent {
     #headingOffsets = [];
     /** @private 预览区滚动容器引用（避免滚动时重复 getElementById） */
     #scrollWrapper = null;
+    /** @private 程序化滚动期间暂停 scroll spy，避免覆盖点击高亮 */
+    #suppressScrollSpy = false;
+    /** @private 恢复 scroll spy 的 setTimeout 句柄 */
+    #resumeScrollSpyTimer = null;
 
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
@@ -365,6 +369,15 @@ export class Preview extends BaseComponent {
      * @private
      */
     async #doScrollToHeading(headingId) {
+        // 取消上一次滚动的 spy 恢复计时器
+        if (this.#resumeScrollSpyTimer) {
+            clearTimeout(this.#resumeScrollSpyTimer);
+            this.#resumeScrollSpyTimer = null;
+        }
+
+        // 立即暂停 scroll spy，避免 async 等待期间产生错误高亮
+        this.#suppressScrollSpy = true;
+
         const observer = this.#intersectionObserver;
         const target = this.container.querySelector(`[id="${CSS.escape(headingId)}"]`);
         // el 在 target 之后时返回 true；target 不存在则视为全部在"之前"
@@ -416,26 +429,65 @@ export class Preview extends BaseComponent {
             ]);
         }
 
-        // ── 4. 等两帧确保 reflow 完成 ────────────────────────────────────────
+        // ── 4. 等两帧确保 reflow 完成，然后刷新标题偏移缓存 ────────────────
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        this.#cacheHeadingOffsets(); // Mermaid/数学渲染可能改变了高度，必须重新缓存
 
         // ── 5. 滚动（钳位 scrollTop，避免内容不足时底部出现空白）───────────
         const finalTarget =
             this.container.querySelector(`[id="${CSS.escape(headingId)}"]`) ??
             document.getElementById(headingId);
-        if (!finalTarget) { console.warn(`未找到标题元素: ${headingId}`); return; }
+        if (!finalTarget) { console.warn(`未找到标题元素: ${headingId}`); this.#suppressScrollSpy = false; return; }
 
         const scrollEl = this.#getScrollContainer(finalTarget);
         if (scrollEl) {
             const top = finalTarget.getBoundingClientRect().top
                 - scrollEl.getBoundingClientRect().top
                 + scrollEl.scrollTop - 16;
-            scrollEl.scrollTo({
-                top: Math.min(Math.max(0, top), scrollEl.scrollHeight - scrollEl.clientHeight),
-                behavior: 'smooth'
-            });
+            const clampedTop = Math.min(Math.max(0, top), scrollEl.scrollHeight - scrollEl.clientHeight);
+
+            // 滚动完成后：取消残留的 spy rAF，刷新缓存，再次明确设置点击的标题。
+            // 延迟 50ms 再解除抑制，吸收 scrollend 后浏览器还会触发的残留 scroll 事件。
+            const resume = () => {
+                // 取消另一个触发路径（scrollend 已触发则取消 fallback，反之亦然）
+                clearTimeout(this.#resumeScrollSpyTimer);
+                this.#resumeScrollSpyTimer = null;
+                if (this.#scrollSpyRaf) {
+                    cancelAnimationFrame(this.#scrollSpyRaf);
+                    this.#scrollSpyRaf = null;
+                }
+                this.#cacheHeadingOffsets();
+                // 立即重申高亮
+                this.#activeHeadingId = headingId;
+                this.state.updateActiveHeading(headingId);
+                // 延迟解除抑制，让残留 scroll 事件 rAF 自然过期
+                this.#resumeScrollSpyTimer = setTimeout(() => {
+                    this.#resumeScrollSpyTimer = null;
+                    this.#suppressScrollSpy = false;
+                }, 100);
+            };
+            scrollEl.addEventListener('scrollend', resume, { once: true });
+            // fallback：若浏览器不支持 scrollend，1500ms 后兜底
+            this.#resumeScrollSpyTimer = setTimeout(() => {
+                scrollEl.removeEventListener('scrollend', resume);
+                resume();
+            }, 1500);
+
+            scrollEl.scrollTo({ top: clampedTop, behavior: 'smooth' });
         } else {
             finalTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // 无滚动容器时直接恢复（无法监听 scrollend）
+            this.#resumeScrollSpyTimer = setTimeout(() => {
+                this.#resumeScrollSpyTimer = null;
+                if (this.#scrollSpyRaf) {
+                    cancelAnimationFrame(this.#scrollSpyRaf);
+                    this.#scrollSpyRaf = null;
+                }
+                this.#cacheHeadingOffsets();
+                this.#activeHeadingId = headingId;
+                this.state.updateActiveHeading(headingId);
+                setTimeout(() => { this.#suppressScrollSpy = false; }, 100);
+            }, 1500);
         }
         history.replaceState(null, null, `#${headingId}`);
     }
@@ -461,9 +513,10 @@ export class Preview extends BaseComponent {
      */
     #runScrollSpy() {
         if (!this.#headingOffsets.length || !this.#scrollWrapper) return;
+        if (this.#suppressScrollSpy) return; // 程序化滚动期间暂停
 
-        // 激活线 = 容器已滚动距离 + 80px 偏移
-        const threshold = this.#scrollWrapper.scrollTop + 80;
+        // 激活线 = 容器已滚动距离 + 16px（与 #doScrollToHeading 的滚动偏移保持一致）
+        const threshold = this.#scrollWrapper.scrollTop + 16;
 
         // 二分查找最后一个 top <= threshold 的标题
         let lo = 0, hi = this.#headingOffsets.length - 1, activeId = null;
@@ -1752,6 +1805,12 @@ export class Preview extends BaseComponent {
         if (this.renderTimeout) {
             clearTimeout(this.renderTimeout);
             this.renderTimeout = null;
+        }
+
+        // 清理 scroll spy 恢复定时器
+        if (this.#resumeScrollSpyTimer) {
+            clearTimeout(this.#resumeScrollSpyTimer);
+            this.#resumeScrollSpyTimer = null;
         }
 
         // 清理 IntersectionObserver

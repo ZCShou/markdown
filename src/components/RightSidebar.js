@@ -14,10 +14,12 @@ export class RightSidebar extends BaseComponent {
      * @param state
      * @param containerId
      */
+    /** @private 已折叠的标题 ID 集合 */
+    #collapsedHeadings = new Set();
+
     constructor(state, containerId) {
         super(state, containerId);
         this.side = 'right';
-        this.debounceTimer = null;
         this.activeSection = 'toc';
     }
 
@@ -36,15 +38,9 @@ export class RightSidebar extends BaseComponent {
             }
         });
 
-        // 订阅标题数据变化，生成目录（使用防抖）
+        // 订阅标题数据变化，生成目录
         const unsubscribeTOC = this.state.subscribeTo('headings', () => {
-            if (this.debounceTimer) {
-                clearTimeout(this.debounceTimer);
-            }
-            this.debounceTimer = setTimeout(() => {
-                this.debounceTimer = null;
-                this.generateTOC();
-            }, 150);
+            this.generateTOC();
         });
 
         // 订阅滚动高亮标题变化
@@ -75,13 +71,23 @@ export class RightSidebar extends BaseComponent {
         const tocContainer = dom.getById('md-toc')?.element;
         if (tocContainer) {
             tocContainer.addEventListener('click', e => {
+                // 点击折叠按钮 — 切换折叠，不触发跳转
+                const toggle = e.target.closest('.md-toc-toggle');
+                if (toggle) {
+                    const item = toggle.closest('.md-toc-item');
+                    if (item?.dataset.headingId && item.classList.contains('has-children')) {
+                        this.#toggleHeadingCollapse(item.dataset.headingId);
+                    }
+                    return;
+                }
+
+                // 点击目录文本 — 立即高亮并跳转到对应标题
                 const item = e.target.closest('.md-toc-item');
                 if (!item) return;
-
-                const {
-                    dataset: { headingId }
-                } = item;
+                const { dataset: { headingId } } = item;
                 if (headingId) {
+                    // 立即高亮，无需等待滚动完成
+                    this.state.updateActiveHeading(headingId);
                     this.scrollToHeading(headingId);
                 }
             });
@@ -189,26 +195,53 @@ export class RightSidebar extends BaseComponent {
             return;
         }
 
-        const fragment = document.createDocumentFragment();
+        // 单次遍历：计算 hasChildren + 折叠可见性，拼接 HTML 字符串
+        // 用 innerHTML 一次性写入，避免逐行 createElement 的开销
+        const collapseStack = [];
+        const parts = [];
 
         for (let i = 0; i < headings.length; i++) {
-            const heading = headings[i];
-            const headingId = heading.id || `heading-${i}`;
-            const level = heading.level || +heading.tagName.substring(1);
-            const text = heading.textContent || '';
+            const h = headings[i];
+            const id = h.id || `heading-${i}`;
+            const level = h.level || +h.tagName.substring(1);
+            const nextLevel = i + 1 < headings.length
+                ? (headings[i + 1].level || +headings[i + 1].tagName.substring(1))
+                : 0;
+            const hasChildren = nextLevel > level;
 
-            const item = document.createElement('div');
-            item.className = `md-toc-item level-${level}`;
-            item.dataset.headingId = headingId;
-            item.textContent = text;
+            // 折叠可见性（栈算法）
+            while (collapseStack.length && collapseStack[collapseStack.length - 1] >= level) {
+                collapseStack.pop();
+            }
+            const hidden = collapseStack.length > 0;
+            const isCollapsed = hasChildren && this.#collapsedHeadings.has(id);
+            if (isCollapsed) collapseStack.push(level);
 
-            fragment.appendChild(item);
+            // 安全转义文本
+            const text = (h.textContent || '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            const cls = [
+                'md-toc-item', `level-${level}`,
+                hasChildren ? 'has-children' : '',
+                isCollapsed  ? 'collapsed'    : '',
+                hidden       ? 'toc-hidden'   : '',
+            ].filter(Boolean).join(' ');
+
+            const chevron = hasChildren
+                ? '<i class="codicon codicon-chevron-right"></i>'
+                : '';
+
+            parts.push(
+                `<div class="${cls}" data-heading-id="${id}" data-level="${level}">` +
+                `<span class="md-toc-toggle">${chevron}</span>` +
+                `<span class="md-toc-text">${text}</span></div>`
+            );
         }
 
-        tocContainer.innerHTML = '';
-        tocContainer.appendChild(fragment);
+        tocContainer.innerHTML = parts.join('');
 
-        // TOC DOM 重建后重新应用当前激活项（原 active 类已随旧 DOM 被清除）
+        // 重建后重新应用激活项
         this.#updateActiveTocItem(this.state.get('activeHeadingId'));
     }
 
@@ -219,6 +252,51 @@ export class RightSidebar extends BaseComponent {
      */
     scrollToHeading(headingId) {
         this.state.triggerScrollToHeading(headingId);
+    }
+
+    /**
+     * 对 items 数组应用折叠可见性（栈算法，支持多级嵌套折叠）。
+     * 每次 generateTOC 或切换折叠后调用。
+     * @param {HTMLElement[]} items
+     * @private
+     */
+    #applyCollapsedState(items) {
+        // collapseStack 存放当前「正在折叠」的祖先级别
+        const collapseStack = [];
+        for (const item of items) {
+            const level = +item.dataset.level;
+            const id = item.dataset.headingId;
+
+            // 弹出已结束的折叠区间（当前 level <= 栈顶 level，说明已跳出该折叠区间）
+            while (collapseStack.length && collapseStack[collapseStack.length - 1] >= level) {
+                collapseStack.pop();
+            }
+
+            // 位于折叠区间内 → 隐藏
+            item.classList.toggle('toc-hidden', collapseStack.length > 0);
+
+            // 本节点也是折叠状态且有子项 → 入栈
+            const isCollapsed = this.#collapsedHeadings.has(id) && item.classList.contains('has-children');
+            item.classList.toggle('collapsed', isCollapsed);
+            if (isCollapsed) collapseStack.push(level);
+        }
+    }
+
+    /**
+     * 切换标题折叠/展开状态，并立即更新 TOC 可见性。
+     * @param {string} headingId
+     * @private
+     */
+    #toggleHeadingCollapse(headingId) {
+        if (this.#collapsedHeadings.has(headingId)) {
+            this.#collapsedHeadings.delete(headingId);
+        } else {
+            this.#collapsedHeadings.add(headingId);
+        }
+        const toc = document.getElementById('md-toc');
+        if (toc) {
+            this.#applyCollapsedState([...toc.querySelectorAll('.md-toc-item')]);
+        }
     }
 
     /**
@@ -263,10 +341,6 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     destroy() {
-        if (this.debounceTimer) {
-            clearTimeout(this.debounceTimer);
-            this.debounceTimer = null;
-        }
         super.destroy();
     }
 }
