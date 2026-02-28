@@ -84,24 +84,14 @@ export class LeftSidebar extends BaseComponent {
         const newFileBtn = dom.getById('md-new-file')?.element;
         if (newFileBtn) {
             newFileBtn.addEventListener('click', () => {
-                const selectedDocIds = this.state.get('selectedDocIds') || [];
-                const documents = this.state.get('documents');
-                const selectedFolder = selectedDocIds.length > 0
-                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                    : null;
-                this.createDocument('file', selectedFolder?.id ?? null);
+                this.createDocument('file', this.#getSelectedFolder()?.id ?? null);
             });
         }
 
         const newFolderBtn = dom.getById('md-new-folder')?.element;
         if (newFolderBtn) {
             newFolderBtn.addEventListener('click', () => {
-                const selectedDocIds = this.state.get('selectedDocIds') || [];
-                const documents = this.state.get('documents');
-                const selectedFolder = selectedDocIds.length > 0
-                    ? documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder')
-                    : null;
-                this.createDocument('folder', selectedFolder?.id ?? null);
+                this.createDocument('folder', this.#getSelectedFolder()?.id ?? null);
             });
         }
 
@@ -161,6 +151,18 @@ export class LeftSidebar extends BaseComponent {
     }
 
     // ==================== DOM 缓存 ====================
+
+    /**
+     * 获取当前第一个选中的文件夹文档
+     * @private
+     * @returns {Object|null}
+     */
+    #getSelectedFolder() {
+        const selectedDocIds = this.state.get('selectedDocIds') || [];
+        if (selectedDocIds.length === 0) return null;
+        const documents = this.state.get('documents');
+        return documents.find(d => d.id === selectedDocIds[0] && d.type === 'folder') ?? null;
+    }
 
     /** @private */
     #getDocEl(docId) {
@@ -225,10 +227,7 @@ export class LeftSidebar extends BaseComponent {
             this.expandedFolders.delete(folderId);
         }
 
-        const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer) return;
-
-        const item = treeContainer.querySelector(`[data-doc-id="${folderId}"]`);
+        const item = this.#getDocEl(folderId);
         if (!item) return;
 
         const toggle = dom.getIn(item, '.md-tree-toggle');
@@ -552,24 +551,24 @@ export class LeftSidebar extends BaseComponent {
         const doc = this.state.get('documents').find(d => d.id === docId);
         if (!doc) return;
 
-        // 使用迭代方式计算子项数量（避免深层递归栈溢出）
+        // 使用迭代方式计算子项数量（一次性构建 parentId→children Map，避免重复扫描）
         const countChildren = rootId => {
+            const allDocs = this.state.get('documents');
+            const childrenMap = new Map();
+            for (const d of allDocs) {
+                const pid = d.parentId ?? null;
+                if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+                childrenMap.get(pid).push(d);
+            }
+
             let count = 0;
             const stack = [rootId];
-            const visited = new Set();
-            
             while (stack.length > 0) {
                 const currentId = stack.pop();
-                if (visited.has(currentId)) continue;
-                visited.add(currentId);
-                
-                const children = this.state.getDocumentTree(currentId);
+                const children = childrenMap.get(currentId) ?? [];
                 count += children.length;
-                
                 for (const child of children) {
-                    if (child.type === 'folder') {
-                        stack.push(child.id);
-                    }
+                    if (child.type === 'folder') stack.push(child.id);
                 }
             }
             return count;
@@ -627,22 +626,7 @@ export class LeftSidebar extends BaseComponent {
         this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
         this.state.addDocument(doc, parentId, { silent: true });
 
-        // 展开所有祖先文件夹
-        if (parentId) {
-            const documents = this.state.get('documents');
-            const docMap = new Map(documents.map(d => [d.id, d]));
-            let currentId = parentId;
-            while (currentId) {
-                const d = docMap.get(currentId);
-                if (!d) break;
-                if (d.type === 'folder') {
-                    this.expandedFolders.add(currentId);
-                }
-                currentId = d.parentId;
-            }
-        }
-
-        // 完全重渲染
+        // 完全重渲染（renderTree 内部会自动展开祖先文件夹）
         this.renderTree();
     }
 
@@ -796,15 +780,8 @@ export class LeftSidebar extends BaseComponent {
         }
 
         // 使用批量删除方法（性能优化：一次性处理所有删除）
+        // deleteDocuments 内部负责清理 currentDocId，无需在此重复检查
         this.state.deleteDocuments(docIdsToDelete, { silent: true });
-        // 状态已自动持久化（即使使用 silent 选项）
-
-        // 如果删除了当前文档，清空内容
-        const currentDocId = this.state.get('currentDocId');
-        if (currentDocId && !this.state.get('documents').find(d => d.id === currentDocId)) {
-            this.state.clearDocuments({ current: true });
-            // content 状态会自动持久化
-        }
 
         // 清空选中状态
         this.state.clearDocuments({ selection: true });
@@ -872,9 +849,11 @@ export class LeftSidebar extends BaseComponent {
 
         const tree = this.state.getDocumentTree();
         const fragment = this.createFragment();
+        // 提前构建 Set，避免 renderTreeNode 内部 O(n) 的 includes() 扫描
+        const selectedDocIdSet = new Set(selectedDocIds);
 
         tree.forEach(node => {
-            fragment.appendChild(this.renderTreeNode(node, currentDocId, 0, selectedDocIds));
+            fragment.appendChild(this.renderTreeNode(node, currentDocId, 0, selectedDocIdSet));
         });
 
         treeContainer.innerHTML = '';
@@ -923,12 +902,12 @@ export class LeftSidebar extends BaseComponent {
      * @param {Object} node - 节点数据
      * @param {string|null} currentDocId - 当前文档 ID
      * @param {number} level - 深度层级
-     * @param {Array} selectedDocIds - 选中的文档ID列表
+     * @param {Set<string>} selectedDocIds - 选中的文档ID集合
      * @returns {Element} 渲染的节点容器
      */
-    renderTreeNode(node, currentDocId, level, selectedDocIds = []) {
+    renderTreeNode(node, currentDocId, level, selectedDocIds = new Set()) {
         const isEditing = node.id === this.editingDocId;
-        const isActive = node.id === currentDocId || selectedDocIds.includes(node.id);
+        const isActive = node.id === currentDocId || selectedDocIds.has(node.id);
         const isFolder = node.type === 'folder';
         const isExpanded = isFolder && this.expandedFolders.has(node.id);
         const hasChildren = isFolder && node.children?.length > 0;
@@ -1005,7 +984,7 @@ export class LeftSidebar extends BaseComponent {
             });
 
             node.children.forEach(child => {
-                childrenContainer.appendChild(this.renderTreeNode(child, currentDocId, level + 1, selectedDocIds));
+                childrenContainer.appendChild(this.renderTreeNode(child, currentDocId, level + 1, selectedDocIds)); // Set 直接向下传递
             });
 
             nodeContainer.appendChild(childrenContainer);
