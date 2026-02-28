@@ -93,10 +93,6 @@ export class Preview extends BaseComponent {
     /** @private 待处理的数学公式块 */
     #pendingMathBlocks = new Set();
 
-    /** @private 延迟渲染定时器 */
-    #codeHighlightTimer = null;
-    #mathRenderTimer = null;
-
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
 
@@ -193,15 +189,15 @@ export class Preview extends BaseComponent {
                         const element = entry.target;
 
                         // 处理代码高亮
-                        if (element.tagName === 'CODE' &&
-                            this.#pendingCodeBlocks.has(element) &&
+                        if (element.classList.contains('code-pending') &&
                             !element.classList.contains('prism-highlighted')) {
                             this.#pendingCodeBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
+                            element.classList.remove('code-pending');
                             this.#highlightSingleBlock(element);
                         }
 
-                        // 处理 Mermaid 渲染 —— 收集到批次，不逐个调用 mermaid.run
+                        // 处理 Mermaid 渲染 —— 收集到批次，一次性 mermaid.run
                         if (element.classList.contains('mermaid-pending') &&
                             !element.classList.contains('mermaid-done') &&
                             !element.classList.contains('mermaid-rendering')) {
@@ -216,6 +212,7 @@ export class Preview extends BaseComponent {
                             !element.classList.contains('math-rendered')) {
                             this.#pendingMathBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
+                            element.classList.remove('math-pending');
                             this.#renderSingleMath(element);
                         }
                     }
@@ -448,16 +445,6 @@ export class Preview extends BaseComponent {
      * @private
      */
     #clearAllPendingTasks() {
-        // 清理定时器
-        if (this.#codeHighlightTimer) {
-            clearTimeout(this.#codeHighlightTimer);
-            this.#codeHighlightTimer = null;
-        }
-        if (this.#mathRenderTimer) {
-            clearTimeout(this.#mathRenderTimer);
-            this.#mathRenderTimer = null;
-        }
-
         // 清理待处理集合
         this.#pendingCodeBlocks.clear();
         this.#pendingMermaidBlocks.clear();
@@ -473,18 +460,6 @@ export class Preview extends BaseComponent {
         this.#pendingMermaidBlocks.clear();
         this.#pendingCodeBlocks.clear();
         this.#pendingMathBlocks.clear();
-
-        // 取消代码高亮定时器
-        if (this.#codeHighlightTimer) {
-            clearTimeout(this.#codeHighlightTimer);
-            this.#codeHighlightTimer = null;
-        }
-
-        // 取消数学公式渲染定时器
-        if (this.#mathRenderTimer) {
-            clearTimeout(this.#mathRenderTimer);
-            this.#mathRenderTimer = null;
-        }
 
         // 检测变化
         const changes = this.#detectChanges(markdown);
@@ -1096,21 +1071,12 @@ export class Preview extends BaseComponent {
 
             // 只有当旧元素存在且未发生变化时才保留
             if (oldWrapper && !changes.changedCodeBlocks.has(compositeKey)) {
-                // 🔥 修复：确定要替换的元素（可能是 code-block-wrapper 或 pre）
+                // 直接移动旧元素（保留所有事件监听器，无需克隆和重新绑定）
                 const newPre = newEl.parentElement;
                 const newWrapper = newPre?.parentElement?.classList.contains('code-block-wrapper')
                     ? newPre.parentElement
                     : newPre;
-                
-                // 克隆整个 code-block-wrapper（包含复制按钮）
-                const clonedWrapper = oldWrapper.cloneNode(true);
-                newWrapper.replaceWith(clonedWrapper);
-                
-                // 🔥 重要：为克隆的复制按钮重新添加事件监听器
-                const clonedBtn = clonedWrapper.querySelector('.code-copy-btn');
-                if (clonedBtn) {
-                    this.#attachCopyButtonHandler(clonedBtn, clonedWrapper.querySelector('pre code'));
-                }
+                newWrapper.replaceWith(oldWrapper);
             }
         });
 
@@ -1154,7 +1120,7 @@ export class Preview extends BaseComponent {
 
             // 只有当旧元素存在且未发生变化时才保留
             if (oldEl && !changes.changedMathBlocks.has(compositeKey)) {
-                newEl.replaceWith(oldEl.cloneNode(true));
+                newEl.replaceWith(oldEl); // 直接移动，保留已渲染的 KaTeX DOM
             }
         });
     }
@@ -1279,50 +1245,17 @@ export class Preview extends BaseComponent {
         // 分离可见和不可见元素
         const { visible, invisible } = this.#partitionByVisibility(blocks);
 
-        // 立即高亮可见元素
-        visible.forEach(block => {
-            if (!block.classList.contains('prism-highlighted')) {
-                this.#highlightSingleBlock(block);
-            }
-        });
+        // 可见块也走 batch 路径，通过 requestIdleCallback 分帧渲染，避免大量块卡顿首帧
+        if (visible.length > 0) {
+            this.#highlightCodeBatch(visible);
+        }
 
-        // 监听不可见元素
+        // 监听不可见元素，IntersectionObserver 按需延迟渲染
         invisible.forEach(block => {
+            block.classList.add('code-pending');
             this.#pendingCodeBlocks.add(block);
             this.#intersectionObserver.observe(block);
         });
-
-        // 延迟渲染剩余的代码块（类似 Mermaid 的 1 秒延迟）
-        if (invisible.length > 0) {
-            if (this.#codeHighlightTimer) {
-                clearTimeout(this.#codeHighlightTimer);
-            }
-            this.#codeHighlightTimer = setTimeout(() => {
-                const pending = Array.from(this.#pendingCodeBlocks);
-                const validPending = [];
-
-                // 过滤有效元素并清理无效元素
-                pending.forEach(block => {
-                    if (block.isConnected && !block.classList.contains('prism-highlighted')) {
-                        validPending.push(block);
-                    } else {
-                        this.#pendingCodeBlocks.delete(block);
-                    }
-                });
-
-                if (validPending.length > 0) {
-                    this.#highlightCodeBatch(validPending);
-                    validPending.forEach(block => {
-                        this.#pendingCodeBlocks.delete(block);
-                        if (this.#intersectionObserver) {
-                            this.#intersectionObserver.unobserve(block);
-                        }
-                    });
-                }
-
-                this.#codeHighlightTimer = null;
-            }, 1000);
-        }
     }
 
     /**
@@ -1534,10 +1467,14 @@ export class Preview extends BaseComponent {
      */
     #renderMermaid(codeBlocks) {
         if (!codeBlocks.length) return;
-        if (this.container.offsetParent === null) return;
 
         const divs = codeBlocks.map(c => this.#prepareMermaidDiv(c)).filter(Boolean);
         if (!divs.length) return;
+
+        if (!this.#intersectionObserver) {
+            this.#runMermaid(divs);
+            return;
+        }
 
         const { visible, invisible } = this.#partitionByVisibility(divs);
 
@@ -1673,50 +1610,17 @@ export class Preview extends BaseComponent {
         // 分离可见和不可见元素
         const { visible, invisible } = this.#partitionByVisibility(elementsToRender);
 
-        // 立即渲染可见公式
-        visible.forEach(el => {
-            this.#renderSingleMath(el);
-        });
+        // 可见公式也走 batch 路径，通过 requestIdleCallback 分帧渲染，避免大量公式卡顿首帧
+        if (visible.length > 0) {
+            this.#renderMathBatch(visible);
+        }
 
-        // 监听不可见公式
+        // 监听不可见公式，IntersectionObserver 按需延迟渲染
         invisible.forEach(el => {
             el.classList.add('math-pending');
             this.#pendingMathBlocks.add(el);
             this.#intersectionObserver.observe(el);
         });
-
-        // 延迟渲染剩余的公式（类似代码块和 Mermaid 的 1 秒延迟）
-        if (invisible.length > 0) {
-            if (this.#mathRenderTimer) {
-                clearTimeout(this.#mathRenderTimer);
-            }
-            this.#mathRenderTimer = setTimeout(() => {
-                const pending = Array.from(this.#pendingMathBlocks);
-                const validPending = [];
-
-                // 过滤有效元素并清理无效元素
-                pending.forEach(el => {
-                    if (el.isConnected && !el.classList.contains('math-rendered')) {
-                        validPending.push(el);
-                    } else {
-                        this.#pendingMathBlocks.delete(el);
-                    }
-                });
-
-                if (validPending.length > 0) {
-                    this.#renderMathBatch(validPending);
-                    validPending.forEach(el => {
-                        el.classList.remove('math-pending');
-                        this.#pendingMathBlocks.delete(el);
-                        if (this.#intersectionObserver) {
-                            this.#intersectionObserver.unobserve(el);
-                        }
-                    });
-                }
-
-                this.#mathRenderTimer = null;
-            }, 1000);
-        }
     }
 
     /**
@@ -1814,18 +1718,6 @@ export class Preview extends BaseComponent {
         if (this.renderTimeout) {
             clearTimeout(this.renderTimeout);
             this.renderTimeout = null;
-        }
-
-        // 清理代码高亮定时器
-        if (this.#codeHighlightTimer) {
-            clearTimeout(this.#codeHighlightTimer);
-            this.#codeHighlightTimer = null;
-        }
-
-        // 清理数学公式渲染定时器
-        if (this.#mathRenderTimer) {
-            clearTimeout(this.#mathRenderTimer);
-            this.#mathRenderTimer = null;
         }
 
         // 清理 IntersectionObserver
