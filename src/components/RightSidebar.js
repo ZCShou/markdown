@@ -47,10 +47,17 @@ export class RightSidebar extends BaseComponent {
             }, 150);
         });
 
+        // 订阅滚动高亮标题变化
+        const unsubscribeActiveHeading = this.state.subscribeTo(
+            'activeHeadingId',
+            headingId => this.#updateActiveTocItem(headingId)
+        );
+
         // 合并取消订阅函数
         this.unsubscribe = () => {
             unsubscribeSidebar();
             unsubscribeTOC();
+            unsubscribeActiveHeading();
         };
     }
 
@@ -200,6 +207,9 @@ export class RightSidebar extends BaseComponent {
 
         tocContainer.innerHTML = '';
         tocContainer.appendChild(fragment);
+
+        // TOC DOM 重建后重新应用当前激活项（原 active 类已随旧 DOM 被清除）
+        this.#updateActiveTocItem(this.state.get('activeHeadingId'));
     }
 
     /**
@@ -209,6 +219,29 @@ export class RightSidebar extends BaseComponent {
      */
     scrollToHeading(headingId) {
         this.state.triggerScrollToHeading(headingId);
+    }
+
+    /**
+     * 更新 TOC 中当前激活的标题项
+     * @param {string|null} headingId
+     * @private
+     */
+    #updateActiveTocItem(headingId) {
+        const toc = document.getElementById('md-toc');
+        if (!toc) return;
+
+        // 移除旧的高亮
+        toc.querySelector('.md-toc-item.active')?.classList.remove('active');
+
+        if (!headingId) return;
+
+        // 添加新的高亮，并确保该项在 TOC 侧边栏内可见
+        const item = toc.querySelector(`.md-toc-item[data-heading-id="${headingId}"]`);
+        if (item) {
+            item.classList.add('active');
+            // 使用 instant 避免滚动时触发多个竞争的 smooth 动画
+            item.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+        }
     }
 
     // ==================== 渲染相关 ====================

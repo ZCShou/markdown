@@ -409,6 +409,7 @@ $$
         // 渲染状态
         isRenderingMermaid: false,
         headings: [], // 标题数据，用于目录生成
+        activeHeadingId: null, // 当前滚动高亮的标题 ID
 
         // 通知状态
         notification: null // { message, type, timestamp }
@@ -1034,6 +1035,14 @@ $$
      */
     updateHeadings(headings) {
         this.#setState({ headings });
+    }
+
+    /**
+     * 更新当前滚动高亮的标题 ID
+     * @param {string|null} headingId
+     */
+    updateActiveHeading(headingId) {
+        this.#setState({ activeHeadingId: headingId }, { skipPersist: true });
     }
 
     // ==================== 配置更新（通用） ====================

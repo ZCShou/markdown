@@ -93,6 +93,17 @@ export class Preview extends BaseComponent {
     /** @private 待处理的数学公式块 */
     #pendingMathBlocks = new Set();
 
+    /** @private 当前高亮的标题 ID */
+    #activeHeadingId = null;
+    /** @private scroll spy 的 rAF 句柄 */
+    #scrollSpyRaf = null;
+    /** @private scroll 事件处理器引用（用于 removeEventListener） */
+    #scrollHandler = null;
+    /** @private 缓存的标题偏移量数组，避免滚动时重复 getBoundingClientRect */
+    #headingOffsets = [];
+    /** @private 预览区滚动容器引用（避免滚动时重复 getElementById） */
+    #scrollWrapper = null;
+
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
 
@@ -265,6 +276,19 @@ export class Preview extends BaseComponent {
      * 绑定事件
      */
     bindEvents() {
+        // 滚动监听：驱动 TOC 高亮（rAF 节流，passive 不阻塞滚动）
+        this.#scrollWrapper = document.getElementById('md-preview-wrapper');
+        if (this.#scrollWrapper) {
+            this.#scrollHandler = () => {
+                if (this.#scrollSpyRaf) return;
+                this.#scrollSpyRaf = requestAnimationFrame(() => {
+                    this.#scrollSpyRaf = null;
+                    this.#runScrollSpy();
+                });
+            };
+            this.#scrollWrapper.addEventListener('scroll', this.#scrollHandler, { passive: true });
+        }
+
         // 图片加载成功处理
         this.addEventListener(
             this.container,
@@ -417,6 +441,49 @@ export class Preview extends BaseComponent {
     }
 
     /**
+     * 在 DOM 更新后缓存所有标题相对于滚动容器的偏移量。
+     * 一次性 getBoundingClientRect，之后滚动时只读 scrollTop（无布局触发）。
+     * @private
+     */
+    #cacheHeadingOffsets() {
+        if (!this.#scrollWrapper) return;
+        const wrapperTop = this.#scrollWrapper.getBoundingClientRect().top;
+        const scrollTop  = this.#scrollWrapper.scrollTop;
+        this.#headingOffsets = Array.from(
+            this.container.querySelectorAll('[id^="heading-"]'),
+            h => ({ id: h.id, top: h.getBoundingClientRect().top - wrapperTop + scrollTop })
+        );
+    }
+
+    /**
+     * 滚动侦测：对缓存的偏移量做二分查找，零 DOM 读取，O(log n)。
+     * @private
+     */
+    #runScrollSpy() {
+        if (!this.#headingOffsets.length || !this.#scrollWrapper) return;
+
+        // 激活线 = 容器已滚动距离 + 80px 偏移
+        const threshold = this.#scrollWrapper.scrollTop + 80;
+
+        // 二分查找最后一个 top <= threshold 的标题
+        let lo = 0, hi = this.#headingOffsets.length - 1, activeId = null;
+        while (lo <= hi) {
+            const mid = (lo + hi) >>> 1;
+            if (this.#headingOffsets[mid].top <= threshold) {
+                activeId = this.#headingOffsets[mid].id;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+
+        if (activeId !== this.#activeHeadingId) {
+            this.#activeHeadingId = activeId;
+            this.state.updateActiveHeading(activeId);
+        }
+    }
+
+    /**
      * 找到元素最近的可滚动祖先容器
      * @param {Element} el
      * @returns {Element|null}
@@ -490,6 +557,11 @@ export class Preview extends BaseComponent {
 
         // 🔥 关键：增加版本号，使旧的异步渲染失效
         this.#renderVersion++;
+
+        // 切换文档时重置滚动高亮状态
+        this.#activeHeadingId = null;
+        this.#headingOffsets = [];
+        this.state.updateActiveHeading(null);
 
         // 清理所有待处理集合和定时器
         this.#clearAllPendingTasks();
@@ -579,6 +651,9 @@ export class Preview extends BaseComponent {
 
         // 延迟处理元素（避免阻塞主线程）
         requestAnimationFrame(() => {
+            // 缓存标题偏移量，并初始化滚动高亮（渲染后 DOM 已稳定，一次性读取 getBoundingClientRect）
+            this.#cacheHeadingOffsets();
+            this.#runScrollSpy();
             if (elementsToProcess) {
                 if (elementsToProcess.pendingCodeBlocks.length > 0) {
                     this.#highlightCode(elementsToProcess.pendingCodeBlocks);
@@ -1683,6 +1758,17 @@ export class Preview extends BaseComponent {
         if (this.#intersectionObserver) {
             this.#intersectionObserver.disconnect();
             this.#intersectionObserver = null;
+        }
+
+        // 清理滚动侦测
+        if (this.#scrollWrapper && this.#scrollHandler) {
+            this.#scrollWrapper.removeEventListener('scroll', this.#scrollHandler);
+            this.#scrollWrapper = null;
+            this.#scrollHandler = null;
+        }
+        if (this.#scrollSpyRaf) {
+            cancelAnimationFrame(this.#scrollSpyRaf);
+            this.#scrollSpyRaf = null;
         }
 
         // 清理待处理集合

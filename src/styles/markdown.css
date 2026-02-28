@@ -500,7 +500,8 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   word-wrap: break-word;
 }
 
-.md-toc-item:hover {
+.md-toc-item:hover,
+.md-toc-item.active {
   color: var(--md-color-primary);
 }
 
