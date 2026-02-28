@@ -94,7 +94,6 @@ export class Preview extends BaseComponent {
     #pendingMathBlocks = new Set();
 
     /** @private 延迟渲染定时器 */
-    #mermaidRenderTimer = null;
     #codeHighlightTimer = null;
     #mathRenderTimer = null;
 
@@ -186,12 +185,14 @@ export class Preview extends BaseComponent {
 
         this.#intersectionObserver = new IntersectionObserver(
             entries => {
+                // 收集本批次中所有需要渲染的 mermaid 元素，一次性批量提交
+                const mermaidBatch = [];
+
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const element = entry.target;
 
                         // 处理代码高亮
-                        // 🔥 优化：先检查是否已在处理中，避免重复
                         if (element.tagName === 'CODE' &&
                             this.#pendingCodeBlocks.has(element) &&
                             !element.classList.contains('prism-highlighted')) {
@@ -200,18 +201,17 @@ export class Preview extends BaseComponent {
                             this.#highlightSingleBlock(element);
                         }
 
-                        // 处理 Mermaid 渲染
-                        // 🔥 优化：先检查是否已在处理中，避免重复
+                        // 处理 Mermaid 渲染 —— 收集到批次，不逐个调用 mermaid.run
                         if (element.classList.contains('mermaid-pending') &&
                             !element.classList.contains('mermaid-done') &&
                             !element.classList.contains('mermaid-rendering')) {
                             this.#pendingMermaidBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
-                            this.#renderSingleMermaidDiv(element);
+                            element.classList.remove('mermaid-pending');
+                            mermaidBatch.push(element);
                         }
 
                         // 处理数学公式渲染
-                        // 🔥 优化：先检查是否已在处理中，避免重复
                         if (element.classList.contains('math-pending') &&
                             !element.classList.contains('math-rendered')) {
                             this.#pendingMathBlocks.delete(element);
@@ -220,6 +220,9 @@ export class Preview extends BaseComponent {
                         }
                     }
                 });
+
+                // 单次 mermaid.run 批量渲染所有本轮变为可见的图表
+                if (mermaidBatch.length) this.#runMermaid(mermaidBatch);
             },
             {
                 root: null,
@@ -446,10 +449,6 @@ export class Preview extends BaseComponent {
      */
     #clearAllPendingTasks() {
         // 清理定时器
-        if (this.#mermaidRenderTimer) {
-            clearTimeout(this.#mermaidRenderTimer);
-            this.#mermaidRenderTimer = null;
-        }
         if (this.#codeHighlightTimer) {
             clearTimeout(this.#codeHighlightTimer);
             this.#codeHighlightTimer = null;
@@ -474,12 +473,6 @@ export class Preview extends BaseComponent {
         this.#pendingMermaidBlocks.clear();
         this.#pendingCodeBlocks.clear();
         this.#pendingMathBlocks.clear();
-
-        // 取消旧定时器，避免重复执行
-        if (this.#mermaidRenderTimer) {
-            clearTimeout(this.#mermaidRenderTimer);
-            this.#mermaidRenderTimer = null;
-        }
 
         // 取消代码高亮定时器
         if (this.#codeHighlightTimer) {
@@ -519,6 +512,9 @@ export class Preview extends BaseComponent {
                 }
                 if (elementsToProcess.pendingMermaidBlocks.length > 0) {
                     this.#renderMermaid(elementsToProcess.pendingMermaidBlocks);
+                }
+                if (elementsToProcess.pendingMermaidTransitions?.length > 0) {
+                    this.#renderMermaidTransitions(elementsToProcess.pendingMermaidTransitions);
                 }
                 if (elementsToProcess.pendingMathElements.length > 0) {
                     this.#renderMath(elementsToProcess.pendingMathElements);
@@ -936,9 +932,16 @@ export class Preview extends BaseComponent {
             }
         });
 
+        // 🔥 收集过渡中的 mermaid 图表（已有旧 SVG 但需要渲染新内容）
+        const pendingMermaidTransitions = dom.getAllIn(
+            this.container,
+            'div.mermaid.mermaid-transition[data-mermaid-new]'
+        );
+
         return {
             pendingCodeBlocks,
             pendingMermaidBlocks,
+            pendingMermaidTransitions,
             pendingMathElements,
             pendingCopyBtn
         };
@@ -1034,15 +1037,16 @@ export class Preview extends BaseComponent {
             maps.code.set(compositeKey, wrapper);
         });
 
-        // 收集 Mermaid 图表（存储引用）
+        // 收集 Mermaid 图表（存储引用），同时建立按位置索引的映射（避免后续 regex）
+        maps.mermaidByIndex = new Map();
         const mermaidBlocks = dom.getAllIn(this.container, 'div.mermaid[data-mermaid]');
         mermaidBlocks.forEach((el, index) => {
             const text = el.getAttribute('data-mermaid');
             if (text) {
                 const hash = this.#generateSimpleHash(text);
-                // 🔥 修复：使用复合键（哈希 + 索引）
                 const compositeKey = `${hash}_idx_${index}`;
                 maps.mermaid.set(compositeKey, el);
+                maps.mermaidByIndex.set(index, el);
             }
         });
 
@@ -1110,19 +1114,31 @@ export class Preview extends BaseComponent {
             }
         });
 
-        // 保留未变化的 Mermaid 图表
-        // 🔥 优化：使用 changedMermaidBlocks 集合精确判断哪些图表发生了变化
+        // 保留未变化的 Mermaid 图表（直接移动元素，避免深克隆 SVG 树）
+        const mermaidByIndex = oldElements.mermaidByIndex;
+
         newMermaidBlocks.forEach((newEl, index) => {
             const text = newEl.textContent.trim();
             const hash = this.#generateSimpleHash(text);
             const compositeKey = `${hash}_idx_${index}`;
             const oldDiv = oldElements.mermaid.get(compositeKey);
 
-            // 只有当旧元素存在、未发生变化且已完成渲染时才保留
             if (oldDiv &&
                 !changes.changedMermaidBlocks.has(compositeKey) &&
                 oldDiv.classList.contains('mermaid-done')) {
-                newEl.parentElement.replaceWith(oldDiv.cloneNode(true));
+                // 直接移动（transplant）旧元素，避免 cloneNode(true) 深克隆 SVG
+                newEl.parentElement.replaceWith(oldDiv);
+            } else if (changes.changedMermaidBlocks.has(compositeKey)) {
+                // 过渡替换：旧 SVG 保持可见直到新图渲染完成
+                const oldDivByIdx = mermaidByIndex?.get(index);
+                if (oldDivByIdx && oldDivByIdx.classList.contains('mermaid-done')) {
+                    // 直接移动旧元素作为占位符（无需克隆）
+                    oldDivByIdx.setAttribute('data-mermaid-new', text);
+                    oldDivByIdx.setAttribute('data-mermaid', text);
+                    oldDivByIdx.classList.add('mermaid-transition');
+                    newEl.parentElement.replaceWith(oldDivByIdx);
+                }
+                // 若无旧 div，则保留 <pre>，走正常渲染路径
             }
         });
 
@@ -1452,232 +1468,182 @@ export class Preview extends BaseComponent {
     }
 
     // ==================== Mermaid 渲染组 ====================
-    /**
-     * 渲染 Mermaid 图表
-     * @param {Array<Element>} mermaidBlocks - Mermaid 代码块数组 (<code> 元素)
-     * @private
-     */
-    #renderMermaid(mermaidBlocks) {
-        if (typeof mermaid === 'undefined' || mermaidBlocks.length === 0) return;
-        if (this.container.offsetParent === null) return;
-
-        const blocks = Array.from(mermaidBlocks);
-
-        // 先将 code 块转换为 mermaid div
-        const mermaidDivs = [];
-        blocks.forEach(block => {
-            const div = this.#prepareMermaidDiv(block);
-            if (div) mermaidDivs.push(div);
-        });
-
-        if (mermaidDivs.length === 0) return;
-
-        // 分离可见和不可见元素
-        const { visible, invisible } = this.#partitionByVisibility(mermaidDivs);
-
-        // 🔥 优化：批量渲染可见图表，而不是逐个渲染
-        const visibleToRender = visible.filter(div => !div.classList.contains('mermaid-done'));
-        if (visibleToRender.length > 0) {
-            this.#renderMermaidBatch(visibleToRender);
-        }
-
-        // 监听不可见图表
-        invisible.forEach(div => {
-            div.classList.add('mermaid-pending');
-            this.#pendingMermaidBlocks.add(div);
-            this.#intersectionObserver.observe(div);
-        });
-
-        // 延迟渲染剩余的 Mermaid
-        if (invisible.length > 0) {
-            if (this.#mermaidRenderTimer) {
-                clearTimeout(this.#mermaidRenderTimer);
-            }
-            this.#mermaidRenderTimer = setTimeout(() => {
-                const pending = Array.from(this.#pendingMermaidBlocks);
-                const validPending = [];
-
-                // 过滤有效元素并清理无效元素
-                pending.forEach(div => {
-                    // 🔥 优化：同时过滤已完成和正在渲染的
-                    if (div.isConnected &&
-                        !div.classList.contains('mermaid-done') &&
-                        !div.classList.contains('mermaid-rendering')) {
-                        validPending.push(div);
-                    } else {
-                        this.#pendingMermaidBlocks.delete(div);
-                    }
-                });
-
-                if (validPending.length > 0) {
-                    this.#renderMermaidBatch(validPending);
-                    validPending.forEach(div => {
-                        div.classList.remove('mermaid-pending');
-                        this.#pendingMermaidBlocks.delete(div);
-                        if (this.#intersectionObserver) {
-                            this.#intersectionObserver.unobserve(div);
-                        }
-                    });
-                }
-
-                this.#mermaidRenderTimer = null;
-            }, 1000);
-        }
-    }
 
     /**
-     * 准备 Mermaid div（将 code 块转换为 div）
-     * @param {Element} codeBlock - <code class="language-mermaid"> 元素
-     * @returns {Element|null} mermaid div 元素
+     * 将 <code class="language-mermaid"> 转换为 <div class="mermaid"> 并插入 DOM
+     * @param {Element} codeBlock
+     * @returns {Element|null}
      * @private
      */
     #prepareMermaidDiv(codeBlock) {
         const code = codeBlock.textContent.trim();
         if (!code) return null;
-
-        const preElement = codeBlock.parentElement;
-        if (!preElement?.parentNode) return null;
-
-        // 如果已经是 mermaid div，跳过
-        if (preElement.classList.contains('mermaid')) {
-            return preElement;
-        }
-
-        // 创建 mermaid div 并替换 pre
-        const mermaidDiv = document.createElement('div');
-        mermaidDiv.className = 'mermaid';
-        mermaidDiv.textContent = code;
-        mermaidDiv.setAttribute('data-mermaid', code);
-
-        preElement.parentNode.replaceChild(mermaidDiv, preElement);
-        return mermaidDiv;
+        const pre = codeBlock.parentElement;
+        if (!pre?.parentNode) return null;
+        if (pre.classList.contains('mermaid')) return pre;
+        const div = document.createElement('div');
+        div.className = 'mermaid';
+        div.textContent = code;
+        div.setAttribute('data-mermaid', code);
+        pre.parentNode.replaceChild(div, pre);
+        return div;
     }
 
     /**
-     * 渲染单个 Mermaid 图表
-     * @param {Element} mermaidDiv - mermaid div 元素
-     * @private
-     */
-    #renderSingleMermaidDiv(mermaidDiv) {
-        // 检查是否已渲染
-        if (mermaidDiv.classList.contains('mermaid-done')) {
-            return;
-        }
-
-        // 🔥 优化：只标记为渲染中，不标记为已完成
-        mermaidDiv.classList.add('mermaid-rendering');
-
-        mermaid.run({ nodes: [mermaidDiv] })
-            .then(() => {
-                // 🔥 成功后才标记为完成
-                mermaidDiv.classList.remove('mermaid-rendering');
-                mermaidDiv.classList.add('mermaid-done');
-            })
-            .catch(err => {
-                console.warn('Mermaid 渲染失败:', err);
-                mermaidDiv.textContent = '图表渲染失败: ' + err.message;
-                mermaidDiv.classList.remove('mermaid-rendering');
-                mermaidDiv.classList.add('render-error');
-            });
-    }
-
-    /**
-     * 批量渲染 Mermaid 图表
-     * @param {Array<Element>} mermaidDivs - mermaid div 元素数组
+     * 核心渲染方法：批量执行 mermaid.run 并管理状态
+     * @param {Element[]} nodes - 待渲染的 div.mermaid 元素（可含屏幕外元素）
      * @returns {Promise<void>}
      * @private
      */
-    async #renderMermaidBatch(mermaidDivs) {
-        // 🔥 修复：过滤掉已渲染、正在渲染或已断开连接的元素
-        const containers = mermaidDivs.filter(div => {
-            // 检查元素是否连接到 DOM
-            if (!div.isConnected) return false;
-            // 检查元素是否在我们的容器内
-            if (!this.container.contains(div)) return false;
-            // 检查是否已渲染或正在渲染
-            if (div.classList.contains('mermaid-done') ||
-                div.classList.contains('mermaid-rendering')) return false;
-            return true;
-        });
+    async #runMermaid(nodes) {
+        const pending = nodes.filter(div =>
+            div.isConnected &&
+            !div.classList.contains('mermaid-done') &&
+            !div.classList.contains('mermaid-rendering')
+        );
+        if (!pending.length) return;
 
-        if (containers.length === 0) return;
-
-        // 清除旧状态
-        containers.forEach(div => {
+        pending.forEach(div => {
             div.classList.remove('mermaid-pending', 'render-error');
             div.classList.add('mermaid-rendering');
         });
 
         try {
-            // 🔥 优化：单次批量调用，而不是逐个调用
-            await mermaid.run({ nodes: containers });
-
-            // 🔥 修复：再次检查元素是否还在 DOM 中且在我们的容器内
-            containers.forEach(div => {
-                if (div.isConnected && this.container.contains(div)) {
-                    div.classList.remove('mermaid-rendering');
-                    div.classList.add('mermaid-done');
-                } else {
-                    // 元素已被移除，清理状态
-                    div.classList.remove('mermaid-rendering');
-                }
+            await mermaid.run({ nodes: pending });
+            pending.forEach(div => {
+                div.classList.remove('mermaid-rendering');
+                if (div.isConnected) div.classList.add('mermaid-done');
             });
         } catch (err) {
-            console.warn('Mermaid 批量渲染失败:', err);
-            containers.forEach(div => {
-                // 只为仍然存在的元素显示错误
-                if (div.isConnected && this.container.contains(div)) {
-                    div.classList.remove('mermaid-rendering');
-                    if (!div.classList.contains('mermaid-done')) {
-                        div.textContent = '图表渲染失败: ' + err.message;
-                        div.classList.add('render-error');
-                    }
+            console.warn('Mermaid 渲染失败:', err);
+            pending.forEach(div => {
+                div.classList.remove('mermaid-rendering');
+                if (div.isConnected && !div.classList.contains('mermaid-done')) {
+                    div.textContent = '图表渲染失败: ' + err.message;
+                    div.classList.add('render-error');
                 }
             });
         }
     }
 
     /**
-     * 更新 Mermaid 主题
+     * 渲染新出现的 Mermaid 代码块（<code> 元素）
+     * 可见块立即渲染，不可见块交给 IntersectionObserver 延迟处理
+     * @param {Element[]} codeBlocks - language-mermaid 的 <code> 元素数组
+     * @private
      */
-    async updateMermaidTheme() {
-        const theme = this.state.get('interface')?.theme;
-        this.#configureMermaid(theme);
+    #renderMermaid(codeBlocks) {
+        if (!codeBlocks.length) return;
+        if (this.container.offsetParent === null) return;
 
-        // 查询并过滤有效元素
-        const mermaidDivs = Array.from(
-            this.container.querySelectorAll('div.mermaid[data-mermaid]')
-        ).filter(div => div?.isConnected);
+        const divs = codeBlocks.map(c => this.#prepareMermaidDiv(c)).filter(Boolean);
+        if (!divs.length) return;
 
-        if (mermaidDivs.length === 0) return;
+        const { visible, invisible } = this.#partitionByVisibility(divs);
 
-        // 批量准备重新渲染
-        mermaidDivs.forEach(div => {
-            const code = div.getAttribute('data-mermaid');
-            if (!code) return;
+        const toRender = visible.filter(d => !d.classList.contains('mermaid-done'));
+        if (toRender.length) this.#runMermaid(toRender);
 
-            div.textContent = code;
-            div.removeAttribute('data-processed');
-            div.className = 'mermaid mermaid-rendering';
+        invisible.forEach(div => {
+            div.classList.add('mermaid-pending');
+            this.#pendingMermaidBlocks.add(div);
+            if (this.#intersectionObserver) this.#intersectionObserver.observe(div);
         });
+    }
+
+    /**
+     * 过渡渲染：旧 SVG 保持可见，离屏渲染新图后原地替换内容，消除闪烁
+     * @param {Element[]} transitionDivs - 带 data-mermaid-new 的 div.mermaid 元素
+     * @private
+     */
+    async #renderMermaidTransitions(transitionDivs) {
+        if (!transitionDivs.length) return;
+
+        const offscreen = document.createElement('div');
+        offscreen.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;';
+        document.body.appendChild(offscreen);
+
+        const targets = transitionDivs.map(placeholder => {
+            const code = placeholder.getAttribute('data-mermaid-new');
+            if (!code) return null;
+            const temp = document.createElement('div');
+            temp.className = 'mermaid';
+            temp.textContent = code;
+            offscreen.appendChild(temp);
+            return { placeholder, temp, code };
+        }).filter(Boolean);
+
+        if (!targets.length) { offscreen.remove(); return; }
 
         try {
-            await mermaid.run({ nodes: mermaidDivs });
-            // 标记成功
-            mermaidDivs.forEach(div => {
-                if (div?.isConnected) {
-                    div.classList.replace('mermaid-rendering', 'mermaid-done');
-                }
+            await mermaid.run({ nodes: targets.map(t => t.temp) });
+            targets.forEach(({ placeholder, temp, code }) => {
+                if (!placeholder.isConnected || !this.container.contains(placeholder)) return;
+                placeholder.innerHTML = temp.innerHTML;
+                placeholder.setAttribute('data-mermaid', code);
+                placeholder.removeAttribute('data-mermaid-new');
+                placeholder.removeAttribute('data-processed');
+                placeholder.classList.remove('mermaid-transition', 'mermaid-rendering');
+                placeholder.classList.add('mermaid-done');
+            });
+        } catch (err) {
+            console.warn('Mermaid 过渡渲染失败:', err);
+            targets.forEach(({ placeholder }) => {
+                if (!placeholder.isConnected) return;
+                placeholder.removeAttribute('data-mermaid-new');
+                placeholder.classList.remove('mermaid-transition', 'mermaid-rendering', 'mermaid-done');
+                placeholder.textContent = '图表渲染失败: ' + err.message;
+                placeholder.classList.add('render-error');
+            });
+        } finally {
+            offscreen.remove();
+        }
+    }
+
+    /**
+     * 切换主题时重新渲染所有 Mermaid 图表
+     */
+    async updateMermaidTheme() {
+        this.#configureMermaid(this.state.get('interface')?.theme);
+
+        const divs = Array.from(this.container.querySelectorAll('div.mermaid[data-mermaid]'))
+            .filter(div => div.isConnected);
+        if (!divs.length) return;
+
+        // 离屏渲染新主题，渲染完成后原地替换，避免闪烁
+        const offscreen = document.createElement('div');
+        offscreen.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;';
+        document.body.appendChild(offscreen);
+
+        const targets = divs.map(div => {
+            const code = div.getAttribute('data-mermaid');
+            if (!code) return null;
+            const temp = document.createElement('div');
+            temp.className = 'mermaid';
+            temp.textContent = code;
+            offscreen.appendChild(temp);
+            return { div, temp, code };
+        }).filter(Boolean);
+
+        try {
+            await mermaid.run({ nodes: targets.map(t => t.temp) });
+            targets.forEach(({ div, temp }) => {
+                if (!div.isConnected) return;
+                div.innerHTML = temp.innerHTML;
+                div.removeAttribute('data-processed');
+                div.classList.remove('mermaid-rendering', 'mermaid-pending', 'render-error');
+                div.classList.add('mermaid-done');
             });
         } catch (err) {
             console.warn('Mermaid 主题切换失败:', err);
-            mermaidDivs.forEach(div => {
-                if (div?.isConnected) {
-                    div.classList.remove('mermaid-rendering');
-                    div.textContent = '主题切换失败: ' + err.message;
-                    div.classList.add('render-error');
-                }
+            targets.forEach(({ div, code }) => {
+                if (!div.isConnected) return;
+                div.textContent = '图表渲染失败: ' + err.message;
+                div.classList.remove('mermaid-done', 'mermaid-rendering');
+                div.classList.add('render-error');
             });
+        } finally {
+            offscreen.remove();
         }
     }
 
@@ -1848,12 +1814,6 @@ export class Preview extends BaseComponent {
         if (this.renderTimeout) {
             clearTimeout(this.renderTimeout);
             this.renderTimeout = null;
-        }
-
-        // 清理 Mermaid 渲染定时器
-        if (this.#mermaidRenderTimer) {
-            clearTimeout(this.#mermaidRenderTimer);
-            this.#mermaidRenderTimer = null;
         }
 
         // 清理代码高亮定时器
