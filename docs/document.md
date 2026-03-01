@@ -3,10 +3,11 @@
 ## 📋 目录
 
 - [概述](#概述)
+- [组件结构](#组件结构)
 - [文档树型结构](#文档树型结构)
 - [状态管理机制](#状态管理机制)
 - [核心功能实现](#核心功能实现)
-  - [1. 文档树渲染（LeftSidebar）](#1-文档树渲染leftsidebar)
+  - [1. 文档树渲染](#1-文档树渲染)
   - [2. 文档创建](#2-文档创建)
   - [3. 多选功能](#3-多选功能)
   - [4. 文档删除](#4-文档删除)
@@ -46,6 +47,47 @@ LeftSidebar 继承自 BaseComponent 基类，遵循状态驱动 UI 的设计模�
 - **EditorState**：状态管理器，管理文档列表、当前文档状态和选中状态，自动持久化
 - **DOM 工具（dom.js）**：统一的 DOM 元素访问接口（`getById`、`getIn`、`app.overlay` 等）
 - **Dialog**：对话框组件，用于确认操作和选择
+
+---
+
+## 组件结构
+
+### 私有字段
+
+```javascript
+export class LeftSidebar extends BaseComponent {
+    /** @private 待处理的编辑操作 */
+    #pendingEdit = null;
+    
+    /** @private DOM 元素缓存 */
+    #domCache = new Map();
+}
+```
+
+### 公共字段
+
+```javascript
+side = 'left';                      // 侧边栏方向
+editingDocId = null;                // 当前正在编辑的文档 ID
+draggedItems = null;                // 当前拖拽的项 ID 数组
+draggedSet = null;                  // 拖拽项 ID 的 Set（用于 O(1) 查找）
+dragTarget = null;                  // 拖拽目标元素
+dragTargetType = null;              // 拖拽目标类型
+clickTimeout = null;                // 单击延迟定时器
+lastDragOverTime = 0;               // 上次 dragover 时间戳（用于节流）
+expandedFolders = new Set();        // 展开的文件夹 ID 集合
+```
+
+### 字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `#pendingEdit` | `Object\|null` | 待处理的编辑操作，格式：`{ docId, isNewItem, shouldSetCurrent }` |
+| `#domCache` | `Map<string, Element>` | 文档 ID 到 DOM 元素的缓存映射 |
+| `editingDocId` | `string\|null` | 当前处于编辑模式的文档 ID |
+| `draggedItems` | `Array<string>\|null` | 被拖拽的文档 ID 数组 |
+| `draggedSet` | `Set<string>\|null` | 被拖拽文档 ID 的 Set，用于快速查找 |
+| `expandedFolders` | `Set<string>` | 已展开文件夹的 ID 集合 |
 
 ---
 
@@ -205,9 +247,9 @@ subscribe() {
 
 ## 核心功能实现
 
-### 1. 文档树渲染（LeftSidebar）
+### 1. 文档树渲染
 
-文档树渲染（LeftSidebar）是 LeftSidebar 组件的核心功能，负责将扁平的文档数组转换为可视化的树型结构。
+文档树渲染是 LeftSidebar 组件的核心功能，负责将扁平的文档数组转换为可视化的树型结构。
 
 #### 1.1 渲染流程
 
@@ -226,7 +268,7 @@ render() {
 }
 ```
 
-**文档树渲染**：
+**文档树渲染（优化版）**：
 ```javascript
 renderTree() {
     const treeContainer = dom.getById('md-doc-tree')?.element;
@@ -246,11 +288,29 @@ renderTree() {
         return;
     }
 
+    // 🔥 在构建 DOM 之前，提前展开祖先文件夹，避免闪烁
+    const docMap = new Map(documents.map(d => [d.id, d]));
+    const addAncestors = (docId) => {
+        if (!docId) return;
+        let currentId = docId;
+        while (currentId) {
+            const d = docMap.get(currentId);
+            if (!d) break;
+            if (d.type === 'folder') this.expandedFolders.add(currentId);
+            currentId = d.parentId;
+        }
+    };
+    if (currentDocId) addAncestors(currentDocId);
+    selectedDocIds.forEach(addAncestors);
+    if (this.#pendingEdit) addAncestors(this.#pendingEdit.docId);
+
     const tree = this.state.getDocumentTree();
     const fragment = this.createFragment();
+    // 🔥 提前构建 Set，避免 renderTreeNode 内部 O(n) 的 includes() 扫描
+    const selectedDocIdSet = new Set(selectedDocIds);
 
     tree.forEach(node => {
-        fragment.appendChild(this.renderTreeNode(node, currentDocId, 0, selectedDocIds));
+        fragment.appendChild(this.renderTreeNode(node, currentDocId, 0, selectedDocIdSet));
     });
 
     treeContainer.innerHTML = '';
@@ -258,16 +318,26 @@ renderTree() {
 
     // 重建 DOM 缓存
     this.#rebuildDomCache();
+
+    // 处理待编辑项
+    if (this.#pendingEdit) {
+        const pendingEdit = this.#pendingEdit;
+        this.#pendingEdit = null;
+        requestAnimationFrame(() => {
+            this.editDocumentName(pendingEdit.docId, pendingEdit.isNewItem, pendingEdit.shouldSetCurrent);
+        });
+    }
 }
 ```
 
 #### 1.2 树节点渲染
 
-**递归渲染算法**：
+**递归渲染算法（使用 Set 优化）**：
 ```javascript
-renderTreeNode(node, currentDocId, level, selectedDocIds = []) {
+renderTreeNode(node, currentDocId, level, selectedDocIds = new Set()) {
     const isEditing = node.id === this.editingDocId;
-    const isActive = node.id === currentDocId || selectedDocIds.includes(node.id);
+    // 🔥 使用 Set.has() 代替 Array.includes()，O(1) vs O(n)
+    const isActive = node.id === currentDocId || selectedDocIds.has(node.id);
     const isFolder = node.type === 'folder';
     const isExpanded = isFolder && this.expandedFolders.has(node.id);
     const hasChildren = isFolder && node.children?.length > 0;
@@ -290,13 +360,13 @@ renderTreeNode(node, currentDocId, level, selectedDocIds = []) {
     // 添加缩进、展开按钮、图标、名称、操作按钮
     // ... (省略详细的 DOM 创建代码)
 
-    // 递归渲染子节点
+    // 递归渲染子节点，Set 直接向下传递
     if (isFolder && hasChildren) {
         const childrenContainer = this.createElement('div', {
             className: isExpanded ? 'md-tree-children' : 'md-tree-children collapsed'
         });
 
-        node.children.forEach((child) => {
+        node.children.forEach(child => {
             childrenContainer.appendChild(this.renderTreeNode(child, currentDocId, level + 1, selectedDocIds));
         });
 
@@ -690,7 +760,7 @@ handleDragStart(e) {
 }
 ```
 
-**批量移动**：
+**批量移动（优化版）**：
 ```javascript
 handleDrop(e) {
     e.preventDefault();
@@ -707,7 +777,6 @@ handleDrop(e) {
         targetId = this.dragTarget.dataset.docId;
     }
 
-    // 检查是否拖到自己
     if (this.dragTargetType !== 'root' && !targetId) {
         this.#clearDropTarget();
         return;
@@ -715,11 +784,26 @@ handleDrop(e) {
 
     const documents = this.state.get('documents');
     const docMap = new Map(documents.map(d => [d.id, d]));
-    
-    // 批量移动所有选中的文档
+    // 🔥 复用 handleDragStart 已建好的 Set，无需重复构建
+    const draggedSet = this.draggedSet ?? new Set(this.draggedItems);
+
+    // 🔥 只移动顶层条目：跳过祖先链中已包含在拖拽集合内的项
+    // 以便子项随父项自动迁移，保留原有目录层次结构
+    const isAncestorDragged = (docId) => {
+        let current = docMap.get(docMap.get(docId)?.parentId);
+        while (current) {
+            if (draggedSet.has(current.id)) return true;
+            current = docMap.get(current.parentId);
+        }
+        return false;
+    };
+
     let anyMoved = false;
     for (const draggedId of this.draggedItems) {
         if (draggedId === targetId) continue;
+
+        // 🔥 跳过其祖先已在拖拽集合中的项（它们会随父节点一起迁移）
+        if (isAncestorDragged(draggedId)) continue;
         
         // 防止将文件夹拖到自己的子文件夹中
         if (targetId) {
@@ -883,30 +967,30 @@ deleteDocuments(docIds, options = {}) {
 
 #### 4.4 单个删除实现
 
-**计算所有子项（使用栈遍历）**：
+**计算所有子项（优化的 Map 构建方式）**：
 ```javascript
 async deleteDocument(docId) {
     const doc = this.state.get('documents').find(d => d.id === docId);
     if (!doc) return;
 
-    // 使用迭代方式计算子项数量（避免深层递归栈溢出）
+    // 🔥 使用迭代方式计算子项数量（一次性构建 parentId→children Map，避免重复扫描）
     const countChildren = rootId => {
+        const allDocs = this.state.get('documents');
+        const childrenMap = new Map();
+        for (const d of allDocs) {
+            const pid = d.parentId ?? null;
+            if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+            childrenMap.get(pid).push(d);
+        }
+
         let count = 0;
         const stack = [rootId];
-        const visited = new Set();
-        
         while (stack.length > 0) {
             const currentId = stack.pop();
-            if (visited.has(currentId)) continue;
-            visited.add(currentId);
-            
-            const children = this.state.getDocumentTree(currentId);
+            const children = childrenMap.get(currentId) ?? [];
             count += children.length;
-            
             for (const child of children) {
-                if (child.type === 'folder') {
-                    stack.push(child.id);
-                }
+                if (child.type === 'folder') stack.push(child.id);
             }
         }
         return count;
@@ -1174,8 +1258,8 @@ handleDragOver(e) {
         return;
     }
 
-    // 检查是否在拖动自己
-    if (this.draggedItems?.includes(targetItem.dataset.docId)) {
+    // 检查是否在拖动自己（使用 Set 进行 O(1) 查找）
+    if (this.draggedSet?.has(targetItem.dataset.docId)) {
         this.#clearDropTarget();
         return;
     }
@@ -1201,10 +1285,17 @@ handleDragOver(e) {
     while (current && current !== treeContainer) {
         if (current.classList.contains('md-tree-children') && !current.classList.contains('collapsed')) {
             const folderNode = current.parentElement;
-            if (folderNode?.classList.contains('md-tree-node') && 
-                dom.getIn(folderNode, '.md-doc-item')?.dataset.docType === 'folder') {
-                this.#setDropTarget(folderNode, 'expanded');
-                return;
+            if (folderNode?.classList.contains('md-tree-node')) {
+                const folderItem = dom.getIn(folderNode, '.md-doc-item');
+                if (folderItem?.dataset.docType === 'folder') {
+                    // 🔥 若该文件夹本身正在被拖拽，不作为有效落点
+                    if (this.draggedSet?.has(folderItem.dataset.docId)) {
+                        this.#clearDropTarget();
+                        return;
+                    }
+                    this.#setDropTarget(folderNode, 'expanded');
+                    return;
+                }
             }
         }
         current = current.parentElement;
@@ -1358,12 +1449,13 @@ createDocument(type = 'file', parentId = null) {
 **拖拽状态**：
 ```javascript
 draggedItems = null;      // 当前拖拽的项 ID 数组（支持多选）
+draggedSet = null;        // 拖拽项 ID 的 Set（用于 O(1) 查找，复用避免重复构建）
 dragTarget = null;        // 拖拽目标元素
 dragTargetType = null;    // 拖拽目标类型
 lastDragOverTime = 0;     // 用于节流的时间戳
 ```
 
-**拖拽开始**：
+**拖拽开始（支持多选）**：
 ```javascript
 handleDragStart(e) {
     const item = e.target.closest('.md-doc-item');
@@ -1375,11 +1467,13 @@ handleDragStart(e) {
     const { docId } = item.dataset;
     const selectedDocIds = this.state.get('selectedDocIds') || [];
     
-    // 支持多选拖拽
+    // 🔥 支持多选拖拽：如果拖动的项在选中列表中，拖动所有选中项
     this.draggedItems = selectedDocIds.includes(docId) ? [...selectedDocIds] : [docId];
+    // 🔥 复用 Set 用于 O(1) 查找，避免后续重复构建
+    this.draggedSet = new Set(this.draggedItems);
     
     this.draggedItems.forEach(id => {
-        this.container.querySelector(`[data-doc-id="${id}"]`)?.classList.add('md-dragging');
+        this.#getDocEl(id)?.classList.add('md-dragging');
     });
     
     e.dataTransfer.effectAllowed = 'move';
@@ -1393,13 +1487,14 @@ handleDragStart(e) {
 handleDragEnd() {
     if (this.draggedItems) {
         this.draggedItems.forEach(id => {
-            this.container.querySelector(`[data-doc-id="${id}"]`)?.classList.remove('md-dragging');
+            this.#getDocEl(id)?.classList.remove('md-dragging');
         });
     }
 
     this.#clearDropTarget();
     document.body.classList.remove('is-dragging-tree');
     this.draggedItems = null;
+    this.draggedSet = null;  // 🔥 清理 Set
 }
 ```
 
@@ -1603,57 +1698,50 @@ handleDragOver(e) {
 **核心思想**：优化关键算法的时间复杂度。
 
 **实现方式**：
-- **删除操作**：使用栈遍历替代递归，时间复杂度从 O(n × d) 降到 O(n)
+- **删除操作**：使用栈遍历替代递归，一次性构建 `childrenMap`，时间复杂度从 O(n × d) 降到 O(n)
 - **批量删除**：使用 `deleteDocuments` 方法一次性处理多个文档删除
 - **DOM 缓存**：使用 `isConnected` 验证缓存有效性
 - **点击空闲位置**：避免不必要的空数组创建
+- **Set 查找优化**：使用 `draggedSet` 和 `selectedDocIdSet` 替代数组 `includes()`，O(1) vs O(n)
 
 **代码实现**：
 ```javascript
-// 删除操作优化（栈遍历）
-#collectDescendants(docId, toDelete) {
-    const stack = [docId];
+// 删除操作优化（一次性构建 childrenMap）
+const countChildren = rootId => {
+    const allDocs = this.state.get('documents');
+    // 🔥 一次性构建 parentId → children Map，避免重复扫描
+    const childrenMap = new Map();
+    for (const d of allDocs) {
+        const pid = d.parentId ?? null;
+        if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+        childrenMap.get(pid).push(d);
+    }
 
+    let count = 0;
+    const stack = [rootId];
     while (stack.length > 0) {
         const currentId = stack.pop();
-        
-        // 查找所有子项
-        for (const doc of this.#state.documents) {
-            if (doc.parentId === currentId && !toDelete.has(doc.id)) {
-                toDelete.add(doc.id);
-                stack.push(doc.id);
-            }
+        const children = childrenMap.get(currentId) ?? [];
+        count += children.length;
+        for (const child of children) {
+            if (child.type === 'folder') stack.push(child.id);
         }
     }
+    return count;
+};
+
+// Set 查找优化
+// renderTree 中提前构建 Set
+const selectedDocIdSet = new Set(selectedDocIds);
+
+// renderTreeNode 中使用 Set.has() 代替 Array.includes()
+const isActive = node.id === currentDocId || selectedDocIdSet.has(node.id);  // O(1)
+
+// 拖拽中使用 Set 进行快速查找
+if (this.draggedSet?.has(targetItem.dataset.docId)) {  // O(1)
+    this.#clearDropTarget();
+    return;
 }
-
-// 批量删除优化
-deleteDocuments(docIds, options = {}) {
-    if (!docIds || docIds.length === 0) return;
-
-    const toDelete = new Set(docIds);
-    
-    // 收集所有子项
-    for (const docId of docIds) {
-        this.#collectDescendants(docId, toDelete);
-    }
-
-    const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
-    const currentDocId = toDelete.has(this.#state.currentDocId) ? null : this.#state.currentDocId;
-    this.setState({ documents, currentDocId }, options);
-}
-
-// 点击空闲位置优化
-handleClick(e) {
-    // ... 其他逻辑 ...
-    
-    // 优化：避免创建空数组
-    const selectedDocIds = this.state.get('selectedDocIds');
-    if (selectedDocIds && selectedDocIds.length > 0) {
-        this.state.clearDocuments({ selection: true });
-    }
-}
-```
 
 **性能对比**：
 
@@ -1680,6 +1768,7 @@ destroy() {
     clearTimeout(this.clickTimeout);
     this.#clearDropTarget();
     this.draggedItems = null;
+    this.draggedSet = null;  // 🔥 清理 Set
     this.#domCache.clear();
     document.body.classList.remove('is-dragging-tree');
     super.destroy?.();
@@ -1833,23 +1922,28 @@ LeftSidebar 组件是 Markdown 编辑器的文档管理核心，它通过以下�
 - **智能交互**：点击空闲位置清空选中，提升用户体验
 - **DOM 缓存**：使用 `isConnected` 验证缓存有效性
 - **导入导出**：支持合并/替换两种导入模式
+- **Set 查找优化**：使用 Set 替代数组 includes()，O(1) vs O(n)
+- **提前展开祖先**：渲染前展开祖先文件夹，避免闪烁
+- **祖先跳过优化**：批量移动时跳过祖先已在拖拽集合中的项
 
 ### 主要方法
 
 | 方法名 | 说明 |
 |--------|------|
 | `render()` | 渲染整体布局和文档树 |
-| `renderTree()` | 专门渲染文档树 |
-| `renderTreeNode()` | 递归渲染单个树节点 |
+| `renderTree()` | 专门渲染文档树（含提前展开祖先优化） |
+| `renderTreeNode()` | 递归渲染单个树节点（使用 Set 优化查找） |
 | `createDocument(type, parentId)` | 创建新文档或文件夹 |
 | `editDocumentName(docId, isNewItem, shouldSetCurrent)` | 编辑文档名称 |
-| `deleteDocument(docId)` | 删除单个文档 |
+| `deleteDocument(docId)` | 删除单个文档（含优化的 childrenMap） |
 | `deleteSelectedItems()` | 删除选中的或所有文档 |
 | `openDocument(docId)` | 打开文档 |
 | `manageFolderState(folderId, expanded)` | 管理文件夹展开状态 |
 | `exportDocuments()` | 导出所有文档 |
 | `importDocuments()` | 导入文档 |
-| `handleDragStart/Over/Drop/End` | 拖拽事件处理 |
+| `handleDragStart/Over/Drop/End` | 拖拽事件处理（含 draggedSet 优化） |
+| `#getDocEl(docId)` | 获取缓存的 DOM 元素（带 isConnected 验证） |
+| `#rebuildDomCache()` | 重建 DOM 缓存 |
 
 ### 性能指标
 
@@ -1860,5 +1954,13 @@ LeftSidebar 组件是 Markdown 编辑器的文档管理核心，它通过以下�
 | 拖拽响应 | <16ms | 60fps 流畅体验（50ms 节流） |
 | 内存占用 | <5MB | DOM 缓存优化 |
 | 缓存有效性 | 100% | `isConnected` 验证 |
+| Set 查找 | O(1) | 替代数组 includes() |
+| 祖先跳过 | 自动 | 批量移动保留层次结构 |
 
 这些优化策略使得 LeftSidebar 组件能够高效地管理大规模文档，同时保持良好的用户体验。树型结构、分离渲染和状态驱动 UI 是核心，它们通过智能变化检测、DOM 缓存和批量更新，实现了显著的性能提升。
+
+---
+
+**文档版本**：3.0.0  
+**最后更新**：2026-03-01  
+**维护者**：Markdown Editor Team
