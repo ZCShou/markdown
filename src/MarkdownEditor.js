@@ -667,6 +667,8 @@ export class MarkdownEditor {
      */
     applyTheme(mode) {
         applyTheme(mode);
+        // 同步更新 Monaco 编辑器主题（CSS 变量由 applyTheme 更新，Monaco 需单独通知）
+        this.monacoEditor?.applyTheme(mode);
     }
 
     /**

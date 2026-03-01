@@ -344,6 +344,16 @@ export class MonacoEditor {
      * });
      * ```
      */
+    /**
+     * 仅更新编辑器主题，供外部主题切换时调用（轻量，无需传入完整配置）
+     * @param {string} mode - 主题模式 ('dark' | 'light' | 'auto')
+     */
+    applyTheme(mode) {
+        if (!this.editor) return;
+        const isDark = resolveDarkMode({ theme: mode });
+        monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+    }
+
     updateConfig(editorConfig = {}, interfaceConfig = {}) {
         if (!this.editor) return;
 
