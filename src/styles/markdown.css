@@ -1830,6 +1830,20 @@ body.is-dragging-tree {
   height: auto;
 }
 
+/*
+  暗色模式：invert(1) 反转明暗，hue-rotate(180deg) 把色相转回原位，
+  净效果是「黑白互换、饱和色保留色相」。
+  节点填充用中灰调（~75% 亮度），invert 后约 25% 暗灰，与背景有明显对比。
+*/
+[data-mode='dark'] .markdown-body .mermaid svg {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Mermaid 有时会在 SVG 内注入背景 rect，一并设透明 */
+[data-mode='dark'] .markdown-body .mermaid svg > rect:first-child {
+  fill: transparent !important;
+}
+
 /* 字体平滑，与正文保持一致 */
 .markdown-body .mermaid svg text,
 .markdown-body .mermaid svg tspan {

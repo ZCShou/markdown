@@ -155,7 +155,7 @@ export class Preview extends BaseComponent {
      */
     initMermaid() {
         if (this.mermaidInitialized) return;
-        this.#configureMermaid(this.state.get('interface').theme);
+        this.#configureMermaid();
         this.mermaidInitialized = true;
     }
 
@@ -164,61 +164,37 @@ export class Preview extends BaseComponent {
      * @param theme
      * @private
      */
-    #configureMermaid(theme) {
-        const isDark = theme === 'dark';
-
-        // 明亮主题：以中性灰为主，单一浅蓝点缀，简洁克制
-        const lightVars = {
-            background: '#ffffff',
-            primaryColor: '#eef2f7',
-            primaryTextColor: '#24292e',
-            primaryBorderColor: '#c8d0da',
-            lineColor: '#8b949e',
-            secondaryColor: '#f3f4f6',
-            secondaryTextColor: '#24292e',
-            secondaryBorderColor: '#c8d0da',
-            tertiaryColor: '#f3f4f6',
-            tertiaryTextColor: '#24292e',
-            tertiaryBorderColor: '#c8d0da',
-            mainBkg: '#eef2f7',
-            nodeBorder: '#c8d0da',
-            clusterBkg: '#f9fafb',
-            clusterBorder: '#dde1e7',
-            titleColor: '#24292e',
-            edgeLabelBackground: '#f9fafb',
-            noteBkgColor: '#fafafa',
-            noteTextColor: '#57606a',
-            noteBorderColor: '#c8d0da'
-        };
-
-        // 暗色主题：与编辑器深色背景融合，低对比度中性色
-        const darkVars = {
-            background: '#1e1e1e',
-            primaryColor: '#2a2d35',
-            primaryTextColor: '#c9d1d9',
-            primaryBorderColor: '#444c56',
-            lineColor: '#6e7681',
-            secondaryColor: '#22262e',
-            secondaryTextColor: '#c9d1d9',
-            secondaryBorderColor: '#444c56',
-            tertiaryColor: '#22262e',
-            tertiaryTextColor: '#c9d1d9',
-            tertiaryBorderColor: '#444c56',
-            mainBkg: '#2a2d35',
-            nodeBorder: '#444c56',
-            clusterBkg: '#161b22',
-            clusterBorder: '#30363d',
-            titleColor: '#e6edf3',
-            edgeLabelBackground: '#22262e',
-            noteBkgColor: '#22262e',
-            noteTextColor: '#8b949e',
-            noteBorderColor: '#444c56'
-        };
-
+    #configureMermaid() {
+        // 始终以亮色主题渲染 SVG，暗色模式由 CSS filter 处理。
+        // 这样用户在图中手写的 color/fill 等字面值在明暗主题下都能保持可读性，
+        // 因为 invert(1) hue-rotate(180deg) 只反转明暗，不破坏色相。
         mermaid.initialize({
             startOnLoad: false,
-            theme: isDark ? 'dark' : 'default',
-            themeVariables: isDark ? darkVars : lightVars,
+            theme: 'default',
+            themeVariables: {
+                // background 设为 transparent：避免暗色模式下 invert 后变成纯黑覆盖容器
+                background: 'transparent',
+                // 节点填充用中灰调（~75% 亮度），invert 后约 25% 暗灰，与 #1e1e1e 背景有明显区分
+                primaryColor: '#c2c8d2',
+                primaryTextColor: '#1a1f2c',
+                primaryBorderColor: '#8d97a5',
+                lineColor: '#6b7280',
+                secondaryColor: '#c8cdd6',
+                secondaryTextColor: '#1a1f2c',
+                secondaryBorderColor: '#8d97a5',
+                tertiaryColor: '#c8cdd6',
+                tertiaryTextColor: '#1a1f2c',
+                tertiaryBorderColor: '#8d97a5',
+                mainBkg: '#c2c8d2',
+                nodeBorder: '#8d97a5',
+                clusterBkg: '#dde0e5',
+                clusterBorder: '#b0b8c4',
+                titleColor: '#1a1f2c',
+                edgeLabelBackground: 'transparent',
+                noteBkgColor: '#dde0e5',
+                noteTextColor: '#3d4452',
+                noteBorderColor: '#b0b8c4'
+            },
             securityLevel: 'loose',
             logLevel: 'error',
             // 🔥 性能优化配置
@@ -294,16 +270,14 @@ export class Preview extends BaseComponent {
      * 订阅状态变化
      */
     subscribe() {
-        // 订阅内容、当前文档和主题变化
+        // 订阅内容和当前文档变化（主题变化由 CSS filter 处理，无需重渲染）
         const unsubscribeContent = this.state.subscribeTo(
-            ['content', 'currentDocId', 'theme'],
+            ['content', 'currentDocId'],
             (newValue, oldValue, key) => {
                 if (key === 'content') {
                     this.updatePreview();
                 } else if (key === 'currentDocId') {
                     this.forceUpdatePreview();
-                } else if (key === 'theme') {
-                    this.updateMermaidTheme();
                 }
             }
         );
@@ -1676,53 +1650,6 @@ export class Preview extends BaseComponent {
                 placeholder.classList.remove('mermaid-transition', 'mermaid-rendering', 'mermaid-done');
                 placeholder.textContent = '图表渲染失败: ' + err.message;
                 placeholder.classList.add('render-error');
-            });
-        } finally {
-            offscreen.remove();
-        }
-    }
-
-    /**
-     * 切换主题时重新渲染所有 Mermaid 图表
-     */
-    async updateMermaidTheme() {
-        this.#configureMermaid(this.state.get('interface')?.theme);
-
-        const divs = Array.from(this.container.querySelectorAll('div.mermaid[data-mermaid]'))
-            .filter(div => div.isConnected);
-        if (!divs.length) return;
-
-        // 离屏渲染新主题，渲染完成后原地替换，避免闪烁
-        const offscreen = document.createElement('div');
-        offscreen.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;';
-        document.body.appendChild(offscreen);
-
-        const targets = divs.map(div => {
-            const code = div.getAttribute('data-mermaid');
-            if (!code) return null;
-            const temp = document.createElement('div');
-            temp.className = 'mermaid';
-            temp.textContent = code;
-            offscreen.appendChild(temp);
-            return { div, temp, code };
-        }).filter(Boolean);
-
-        try {
-            await mermaid.run({ nodes: targets.map(t => t.temp) });
-            targets.forEach(({ div, temp }) => {
-                if (!div.isConnected) return;
-                div.innerHTML = temp.innerHTML;
-                div.removeAttribute('data-processed');
-                div.classList.remove('mermaid-rendering', 'mermaid-pending', 'render-error');
-                div.classList.add('mermaid-done');
-            });
-        } catch (err) {
-            console.warn('Mermaid 主题切换失败:', err);
-            targets.forEach(({ div, code }) => {
-                if (!div.isConnected) return;
-                div.textContent = '图表渲染失败: ' + err.message;
-                div.classList.remove('mermaid-done', 'mermaid-rendering');
-                div.classList.add('render-error');
             });
         } finally {
             offscreen.remove();
