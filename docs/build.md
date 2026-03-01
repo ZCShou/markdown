@@ -30,7 +30,7 @@
 
 ## 构建工具
 
-### Vite 5.0
+### Vite 7.0
 
 **核心特性**：
 
@@ -38,6 +38,7 @@
 - **即时热更新**：基于 ESM 的 HMR，无论项目大小都保持快速
 - **优化的构建**：使用 Rollup 进行生产构建，输出高度优化的静态资源
 - **丰富的生态**：支持 TypeScript、JSX、CSS 预处理器等
+- **PWA 支持**：通过 vite-plugin-pwa 实现渐进式 Web 应用
 
 **为什么选择 Vite**：
 
@@ -61,6 +62,9 @@ graph LR
 |------|------|------|
 | **Terser** | ^5.46.0 | JavaScript 代码压缩和混淆 |
 | **Rollup** | (内置) | 模块打包器，Vite 生产构建使用 |
+| **Vitest** | ^4.0.18 | 单元测试框架 |
+| **vite-plugin-pwa** | ^1.2.0 | PWA 渐进式 Web 应用支持 |
+| **Tauri CLI** | ^2.10.0 | 桌面应用打包工具 |
 
 ---
 
@@ -74,6 +78,7 @@ graph LR
 import { defineConfig, loadEnv } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // ESM 模式下获取 __dirname 的替代方案
 const __filename = fileURLToPath(import.meta.url);
@@ -85,13 +90,45 @@ const __dirname = dirname(__filename);
  * @returns {import('vite').UserConfig}
  */
 export default defineConfig(({ mode }) => {
-  // 使用 Vite 约定的 VITE_* 环境变量；未设置时退回根路径
+  // 使用 Vite 约定的 VITE_* 环境变量
+  // Tauri 和 Web 部署都使用根路径，由服务器/协议处理
   const env = loadEnv(mode, process.cwd(), 'VITE_');
-  const base = env.VITE_BASE_URL || '/markdown/';
+  const base = env.VITE_BASE_URL || '/';
 
   return {
-    // 基础路径
     base,
+    
+    // PWA 插件配置
+    plugins: [
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.svg'],
+        manifest: {
+          name: 'Markdown',
+          short_name: 'Markdown',
+          description: '功能强大的在线 Markdown 编辑器',
+          start_url: './',
+          display: 'standalone',
+          background_color: '#ffffff',
+          theme_color: '#1e88e5',
+          icons: [
+            {
+              src: 'favicon.svg',
+              sizes: 'any',
+              type: 'image/svg+xml',
+              purpose: 'any maskable'
+            }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10 MB
+        },
+        devOptions: {
+          enabled: false // 开发模式下禁用 PWA
+        }
+      })
+    ],
     
     // 开发服务器配置
     server: {
@@ -148,17 +185,46 @@ export default defineConfig(({ mode }) => {
 #### 1. 基础路径（base）
 
 ```javascript
-base: env.VITE_BASE_URL || '/markdown/'
+base: env.VITE_BASE_URL || '/'
 ```
 
 **作用**：设置应用的基础路径，用于部署到非根目录。
 
 **示例**：
 - 本地开发：`/`
+- Tauri 桌面应用：`/`
 - GitHub Pages：`/repo-name/`
-- 自定义子路径：`/markdown/`
+- 自定义子路径：通过 `VITE_BASE_URL` 环境变量配置
 
-#### 2. 开发服务器（server）
+#### 2. PWA 插件（VitePWA）
+
+```javascript
+plugins: [
+  VitePWA({
+    registerType: 'autoUpdate',
+    includeAssets: ['favicon.svg'],
+    manifest: { /* PWA 配置 */ },
+    workbox: { /* 缓存策略 */ }
+  })
+]
+```
+
+**功能**：
+- **自动更新**：检测到新版本时自动更新 Service Worker
+- **离线支持**：缓存静态资源，支持离线访问
+- **安装支持**：可将应用安装到桌面
+- **资源预缓存**：自动缓存 JS、CSS、HTML、图片等资源
+
+**Workbox 配置**：
+
+```javascript
+workbox: {
+  globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+  maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10 MB
+}
+```
+
+#### 3. 开发服务器（server）
 
 ```javascript
 server: {
@@ -168,7 +234,7 @@ server: {
 }
 ```
 
-#### 3. 构建配置（build）
+#### 4. 构建配置（build）
 
 ```javascript
 build: {
@@ -183,7 +249,7 @@ build: {
 }
 ```
 
-#### 4. 代码分割（manualChunks）
+#### 5. 代码分割（manualChunks）
 
 ```javascript
 rollupOptions: {
@@ -202,7 +268,7 @@ rollupOptions: {
 - **prism-vendor**：代码高亮库
 - **mermaid-vendor**：流程图渲染库
 
-#### 5. 路径别名（alias）
+#### 6. 路径别名（alias）
 
 ```javascript
 resolve: {
@@ -466,10 +532,76 @@ graph LR
 npm run dev
 ```
 
+### NPM 脚本
+
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 启动开发服务器 |
+| `npm run build` | 生产构建 |
+| `npm run preview` | 预览构建产物 |
+| `npm run test` | 运行测试（监听模式） |
+| `npm run test:run` | 运行测试（单次执行） |
+| `npm run test:coverage` | 运行测试并生成覆盖率报告 |
+| `npm run lint` | 代码检查 |
+| `npm run format` | 代码格式化 |
+| `npm run check` | 检查代码并运行测试 |
+| `npm run tauri:dev` | Tauri 开发模式 |
+| `npm run tauri:build` | Tauri 生产构建 |
+
+### 测试框架
+
+本项目使用 **Vitest 4.0** 作为测试框架，提供快速的单元测试支持。
+
+**配置文件**：`vitest.config.js`
+
+```javascript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.js'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/**/*.js'],
+      exclude: ['src/main.js']
+    }
+  }
+});
+```
+
+**运行测试**：
+
+```bash
+# 监听模式
+npm run test
+
+# 单次执行
+npm run test:run
+
+# 生成覆盖率报告
+npm run test:coverage
+```
+
+**测试输出**：
+
+```
+ ✓ tests/helpers.test.js (12 tests)
+ ✓ tests/state.test.js (15 tests)
+ ✓ tests/store.test.js (18 tests)
+ ✓ tests/persistence.test.js (10 tests)
+
+ Test Files  4 passed (4)
+      Tests  55 passed (55)
+   Duration  2.34s
+```
+
 **输出**：
 
 ```
-  VITE v5.0.0  ready in 234 ms
+  VITE v7.3.1  ready in 234 ms
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://192.168.1.100:3000/
@@ -532,8 +664,18 @@ server: {
 
 ```bash
 # .env
-VITE_BASE_URL=/markdown/
+VITE_BASE_URL=/
 VITE_API_URL=https://api.example.com
+```
+
+**环境特定配置**：
+
+```bash
+# .env.development
+VITE_BASE_URL=/
+
+# .env.production
+VITE_BASE_URL=/
 ```
 
 **使用**：
@@ -585,7 +727,7 @@ npm run build
 **输出**：
 
 ```
-vite v5.0.0 building for production...
+vite v7.3.1 building for production...
 ✓ 234 modules transformed.
 dist/index.html                   0.48 kB
 dist/assets/index-[hash].css      12.34 kB
@@ -690,6 +832,10 @@ export default defineConfig({
 ```
 dist/
 ├── index.html                    # 入口 HTML
+├── favicon.svg                   # 网站图标
+├── manifest.webmanifest          # PWA 清单
+├── sw.js                         # Service Worker
+├── workbox-*.js                  # Workbox 脚本
 ├── assets/                       # 静态资源
 │   ├── index-[hash].css         # 主样式
 │   ├── index-[hash].js          # 主脚本
@@ -930,6 +1076,43 @@ npm install --save-dev gh-pages
 npm run deploy
 ```
 
+#### 5. PWA 部署注意事项
+
+**HTTPS 要求**：
+
+PWA 必须通过 HTTPS 提供服务（localhost 除外）。
+
+**Service Worker 配置**：
+
+```nginx
+# Nginx 配置 - Service Worker 缓存策略
+location /sw.js {
+    add_header Cache-Control "no-cache";
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    expires off;
+    access_log off;
+}
+```
+
+**Manifest 配置**：
+
+确保 `manifest.webmanifest` 的 MIME 类型正确：
+
+```nginx
+# Nginx 配置
+types {
+    application/manifest+json webmanifest;
+}
+```
+
+**PWA 功能验证**：
+
+1. Chrome DevTools → Application → Service Workers
+2. 检查 Manifest 解析是否正确
+3. 测试离线功能
+4. 验证安装提示
+
 #### 4. AWS S3 + CloudFront
 
 **部署脚本**：
@@ -1070,6 +1253,146 @@ services:
       - "80:80"
     restart: unless-stopped
 ```
+
+### Tauri 桌面应用部署
+
+本项目支持使用 Tauri 打包为桌面应用，支持 Windows、macOS 和 Linux。
+
+#### 1. 环境准备
+
+**系统要求**：
+
+| 平台 | 要求 |
+|------|------|
+| **Windows** | Microsoft Visual Studio C++ Build Tools |
+| **macOS** | Xcode Command Line Tools (`xcode-select --install`) |
+| **Linux** | `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev` |
+
+**安装 Rust**：
+
+```bash
+# 安装 Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 验证安装
+rustc --version
+cargo --version
+```
+
+#### 2. 开发模式
+
+**启动开发服务器**：
+
+```bash
+npm run tauri:dev
+```
+
+**输出**：
+
+```
+        Info Watching /path/to/tauri for changes...
+   Compiling markdown v1.0.0
+    Finished dev [unoptimized + debuginfo] target(s)
+     Running `target/debug/markdown`
+```
+
+#### 3. 生产构建
+
+**构建命令**：
+
+```bash
+npm run tauri:build
+```
+
+**输出目录**：
+
+```
+tauri/target/release/
+├── bundle/
+│   ├── msi/                    # Windows 安装包
+│   │   └── Markdown_1.0.0_x64.msi
+│   ├── nsis/                   # Windows NSIS 安装包
+│   │   └── Markdown_1.0.0_x64-setup.exe
+│   ├── dmg/                    # macOS DMG
+│   │   └── Markdown_1.0.0_x64.dmg
+│   ├── app/                    # macOS App
+│   │   └── Markdown.app
+│   ├── deb/                    # Linux DEB
+│   │   └── markdown-editor_1.0.0_amd64.deb
+│   └── appimage/               # Linux AppImage
+│       └── markdown-editor_1.0.0_amd64.AppImage
+└── markdown.exe                # Windows 可执行文件
+```
+
+#### 4. Tauri 配置
+
+**配置文件**：`tauri/tauri.conf.json`
+
+```json
+{
+  "productName": "Markdown",
+  "version": "1.0.0",
+  "identifier": "com.markdown.editor",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3000",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Markdown Editor",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}
+```
+
+#### 5. NPM 脚本
+
+```json
+{
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  }
+}
+```
+
+#### 6. 自动更新（可选）
+
+**配置更新服务器**：
+
+```json
+// tauri.conf.json
+{
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": ["https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}"],
+      "pubkey": "YOUR_PUBLIC_KEY"
+    }
+  }
+}
+```
+
+**优势**：
+- 原生桌面应用体验
+- 自动更新支持
+- 跨平台支持
+- 小体积（相比 Electron）
+- 系统集成（文件关联、托盘等）
 
 ---
 
@@ -1447,21 +1770,25 @@ worker.postMessage(data);
    - 使用 HMR 提升开发效率
    - 配置路径别名简化导入
    - 使用环境变量管理配置
+   - 使用 Vitest 进行单元测试
 
 2. **生产构建**：
    - 启用代码分割减少包体积
    - 使用 Source Maps 方便调试
    - 配置合理的缓存策略
+   - 启用 PWA 支持离线访问
 
 3. **部署方案**：
    - 选择合适的部署平台
    - 配置 SPA 路由支持
    - 启用 Gzip 压缩
+   - 使用 Tauri 打包桌面应用
 
 4. **性能优化**：
    - 分析构建产物
    - 优化加载顺序
    - 监控运行时性能
+   - 利用 PWA 缓存策略
 
 ### 检查清单
 
@@ -1469,24 +1796,41 @@ worker.postMessage(data);
 - [ ] 检查环境变量配置
 - [ ] 更新依赖版本
 - [ ] 清理无用代码
+- [ ] 运行单元测试 (`npm run test:run`)
 
 **构建时**：
 - [ ] 启用代码分割
 - [ ] 配置 Source Maps
 - [ ] 优化压缩选项
+- [ ] 生成 PWA 资源
 
 **部署前**：
 - [ ] 测试构建产物
 - [ ] 检查资源路径
 - [ ] 配置缓存策略
+- [ ] 验证 PWA 功能（可选）
 
-**部署后**：
-- [ ] 验证功能正常
-- [ ] 监控性能指标
-- [ ] 配置错误追踪
+**桌面应用构建**：
+- [ ] 安装 Rust 环境
+- [ ] 配置 Tauri 设置
+- [ ] 测试各平台构建
+- [ ] 签名和公证（macOS）
 
 ---
 
-**文档版本**：1.0.0  
-**最后更新**：2026-01-24  
+**文档版本**：2.0.0  
+**最后更新**：2026-03-01  
 **维护者**：Markdown Editor Team
+
+### 更新日志
+
+**v2.0.0** (2026-03-01)
+- 更新 Vite 版本至 7.3.1
+- 新增 PWA 插件配置文档
+- 新增 Tauri 桌面应用部署指南
+- 更新基础路径配置说明
+- 新增测试相关命令（test:run, test:coverage）
+- 更新依赖版本信息
+
+**v1.0.0** (2026-01-24)
+- 初始版本
