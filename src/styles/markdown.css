@@ -1844,6 +1844,10 @@ body.is-dragging-tree {
   fill: transparent !important;
 }
 
+.markdown-body .mermaid .edgeLabel foreignObject > div {
+  background: transparent !important;
+}
+
 /* 字体平滑，与正文保持一致 */
 .markdown-body .mermaid svg text,
 .markdown-body .mermaid svg tspan {
