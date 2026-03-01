@@ -68,15 +68,7 @@ export class EditorState {
         },
         export: {
             includeStyle: true,
-            codeHighlight: true,
-            pdfSize: 'A4',
-            pdfMargin: 'default',
-            pdfHeaderLeft: '',
-            pdfHeaderCenter: '{title}',
-            pdfHeaderRight: '',
-            pdfFooterLeft: '',
-            pdfFooterCenter: '',
-            pdfFooterRight: '{page} / {pages}'
+            codeHighlight: true
         }
     };
 
@@ -1172,6 +1164,43 @@ $$
                     listener(type);
                 } catch (error) {
                     console.error('Export listener error:', error);
+                }
+            });
+        }
+    }
+
+    /**
+     * 触发导出准备（事件驱动）
+     * Preview 收到后强制完整渲染，完成后调用 triggerExportReady
+     * @param {string} type - 导出类型：'html' | 'pdf'
+     */
+    triggerExportPrepare(type) {
+        const listeners = this.#listeners.get('export:prepare');
+        if (listeners) {
+            listeners.forEach(listener => {
+                try {
+                    listener(type);
+                } catch (error) {
+                    console.error('ExportPrepare listener error:', error);
+                }
+            });
+        }
+    }
+
+    /**
+     * 触发导出就绪（事件驱动）
+     * Preview 完整渲染后调用，将渲染好的 HTML 快照传给 Exporter
+     * @param {string} type - 导出类型：'html' | 'pdf'
+     * @param {string} html - 完整渲染后的容器 innerHTML
+     */
+    triggerExportReady(type, html) {
+        const listeners = this.#listeners.get('export:ready');
+        if (listeners) {
+            listeners.forEach(listener => {
+                try {
+                    listener(type, html);
+                } catch (error) {
+                    console.error('ExportReady listener error:', error);
                 }
             });
         }

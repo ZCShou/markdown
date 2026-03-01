@@ -148,6 +148,13 @@ export class Preview extends BaseComponent {
         super.init();
         this.initMermaid();
         this.#initIntersectionObserver();
+
+        // 订阅导出准备事件：强制完整渲染后通知 Exporter
+        this.state.subscribeTo('export:prepare', async (type) => {
+            await this.#renderAllForExport();
+            const html = this.container?.innerHTML ?? '';
+            this.state.triggerExportReady(type, html);
+        });
     }
 
     /**
@@ -428,18 +435,8 @@ export class Preview extends BaseComponent {
         const isAfter = el => target && !!(target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
 
         // ── 1. 数学公式：一次查询覆盖 pending Set + rAF-batch 两条路径 ────────
-        let needsReflow = false;
-        if (this.#pendingMathBlocks.size > 0) {
-            needsReflow = true;
-            this.container
-                .querySelectorAll('.math-block:not(.math-rendered), .math-inline:not(.math-rendered)')
-                .forEach(el => {
-                    observer?.unobserve(el);
-                    this.#pendingMathBlocks.delete(el);
-                    el.classList.remove('math-pending');
-                    this.#renderSingleMath(el);
-                });
-        }
+        const mathFlushed = this.#flushPendingMath();
+        let needsReflow = mathFlushed;
 
         // ── 2. Mermaid pending：按位置分流，目标前必须等待，目标后 fire-and-forget ──
         if (this.#pendingMermaidBlocks.size > 0) {
@@ -464,15 +461,7 @@ export class Preview extends BaseComponent {
             .filter(el => !isAfter(el));
         if (renderingBefore.length) {
             needsReflow = true;
-            await Promise.race([
-                new Promise(resolve => {
-                    const check = () =>
-                        renderingBefore.some(el => el.isConnected && el.classList.contains('mermaid-rendering'))
-                            ? requestAnimationFrame(check) : resolve();
-                    requestAnimationFrame(check);
-                }),
-                new Promise(r => setTimeout(r, 3000))
-            ]);
+            await this.#awaitMermaidRendering(renderingBefore, 3000);
             if (myVersion !== this.#scrollToHeadingVersion) return;
         }
 
@@ -680,6 +669,98 @@ export class Preview extends BaseComponent {
         // 立即渲染
         this.renderContent(content);
         this.#lastRenderedContent = content;
+    }
+
+    /**
+     * 导出前强制完整渲染所有待处理元素（代码高亮、Mermaid、数学公式）
+     * 对应 IntersectionObserver 的懒渲染，导出时需一次性渲染所有内容，不论是否可见
+     * @private
+     */
+    async #renderAllForExport() {
+        const observer = this.#intersectionObserver;
+
+        // ── 1. 数学公式：覆盖 pending Set + rAF-batch 两条路径 ───
+        this.#flushPendingMath();
+
+        // ── 2. 代码高亮 ──────────────────────────────────────────
+        if (this.#pendingCodeBlocks.size > 0) {
+            const blocks = [...this.#pendingCodeBlocks];
+            this.#pendingCodeBlocks.clear();
+            for (const el of blocks) {
+                if (!el.isConnected) continue;
+                observer?.unobserve(el);
+                el.classList.remove('code-pending');
+                this.#highlightSingleBlock(el);
+            }
+        }
+
+        // ── 3. Mermaid（全部等待完成）────────────────────────────
+        if (this.#pendingMermaidBlocks.size > 0) {
+            const nodes = [];
+            for (const el of this.#pendingMermaidBlocks) {
+                if (!el.isConnected) continue;
+                observer?.unobserve(el);
+                el.classList.remove('mermaid-pending');
+                nodes.push(el);
+            }
+            this.#pendingMermaidBlocks.clear();
+            if (nodes.length) {
+                await Promise.race([
+                    this.#runMermaid(nodes),
+                    new Promise(r => setTimeout(r, 5000))
+                ]);
+            }
+        }
+
+        // ── 4. 等待已在渲染中的 Mermaid 图表完成 ─────────────────
+        await this.#awaitMermaidRendering(undefined, 5000);
+
+        // ── 5. 等待一帧确保 DOM 更新完毕 ─────────────────────────
+        await new Promise(r => requestAnimationFrame(r));
+    }
+
+    /**
+     * 强制渲染所有待处理数学公式。
+     * 使用 querySelectorAll 而非仅检查 #pendingMathBlocks，
+     * 确保同时覆盖 pending Set 和 rAF-batch 两条路径中的未渲染元素。
+     * @returns {boolean} 是否有公式被处理
+     * @private
+     */
+    #flushPendingMath() {
+        const elements = this.container.querySelectorAll(
+            '.math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
+        );
+        if (!elements.length) return false;
+        const observer = this.#intersectionObserver;
+        elements.forEach(el => {
+            observer?.unobserve(el);
+            this.#pendingMathBlocks.delete(el);
+            el.classList.remove('math-pending');
+            this.#renderSingleMath(el);
+        });
+        return true;
+    }
+
+    /**
+     * 轮询等待指定 mermaid 元素渲染完成。
+     * @param {Element[]} [nodes] - 要等待的元素；省略时查询容器内所有 mermaid-rendering 元素
+     * @param {number} [timeout=3000] - 最大等待毫秒数
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #awaitMermaidRendering(nodes, timeout = 3000) {
+        const pending = nodes ?? [...(this.container?.querySelectorAll('div.mermaid.mermaid-rendering') ?? [])];
+        if (!pending.length) return;
+        await Promise.race([
+            new Promise(resolve => {
+                const check = () =>
+                    pending.some(el => el.isConnected && el.classList.contains('mermaid-rendering'))
+                        ? requestAnimationFrame(check)
+                        : resolve();
+                requestAnimationFrame(check);
+            }),
+            new Promise(r => setTimeout(r, timeout))
+        ]);
     }
 
     /**

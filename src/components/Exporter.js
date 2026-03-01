@@ -4,6 +4,9 @@
  * 直接订阅 export:trigger 事件，独立于 Preview 组件
  */
 export class Exporter {
+    /** @type {Function|null} */
+    #unsubscribeReady = null;
+
     /**
      * @param {Object} state - 状态管理器
      * @param {string} previewContainerId - 预览容器元素 ID
@@ -12,26 +15,41 @@ export class Exporter {
         this.state = state;
         this.previewContainerId = previewContainerId;
         this.unsubscribe = null;
+        this.#unsubscribeReady = null;
     }
 
     /**
      * 初始化组件，订阅导出事件
+     *
+     * 通信流程（通过 EditorState 解耦）：
+     *   1. export:trigger  → Exporter 收到请求
+     *      - Markdown 直接导出（不依赖渲染 DOM）
+     *      - HTML / PDF 先触发 export:prepare，等待 Preview 完整渲染
+     *   2. export:prepare  → Preview 收到，强制渲染全部待处理元素
+     *      渲染完成后触发 export:ready 并附带 HTML 快照
+     *   3. export:ready    → Exporter 收到，执行实际的导出逻辑
      */
     init() {
-        // 订阅导出事件
+        // 阶段 1：收到导出请求
         this.unsubscribe = this.state.subscribeTo('export:trigger', (type) => {
-            switch (type) {
-                case 'html':
-                    this.exportHTML();
-                    break;
-                case 'md':
-                    this.exportMarkdown();
-                    break;
-                case 'pdf':
-                    this.exportPDF();
-                    break;
-                default:
-                    console.warn('Unknown export type:', type);
+            if (type === 'md') {
+                // Markdown 导出不依赖渲染结果，直接执行
+                this.exportMarkdown();
+            } else if (type === 'html' || type === 'pdf') {
+                // 需要完整渲染的 HTML：先请求 Preview 完整渲染
+                this.#showMessage('正在准备导出...', 'info');
+                this.state.triggerExportPrepare(type);
+            } else {
+                console.warn('Unknown export type:', type);
+            }
+        });
+
+        // 阶段 3：Preview 完整渲染后，执行实际导出
+        this.#unsubscribeReady = this.state.subscribeTo('export:ready', (type, html) => {
+            if (type === 'html') {
+                this.exportHTML(html);
+            } else if (type === 'pdf') {
+                this.exportPDF(html);
             }
         });
     }
@@ -58,18 +76,18 @@ export class Exporter {
     // ==================== 公共方法 ====================
 
     /**
-     * 导出为 HTML（直接使用渲染好的内容）
+     * 导出为 HTML
+     * @param {string} rawHtml - Preview 完整渲染后的容器 innerHTML
      * @returns {void}
      */
-    exportHTML() {
-        const container = this.#getPreviewContainer();
-        if (!container) {
-            this.#showMessage('预览容器未找到', 'error');
+    exportHTML(rawHtml) {
+        if (!rawHtml) {
+            this.#showMessage('预览内容为空', 'error');
             return;
         }
 
-        // 直接获取预览容器中已经渲染好的 HTML
-        let html = container.innerHTML;
+        // 使用传入的已渲染 HTML
+        let html = rawHtml;
 
         // 清理不需要的属性和类
         html = this.#cleanHtml(html);
@@ -83,6 +101,7 @@ export class Exporter {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Markdown 导出</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css">
 <style>
 ${this.#getCommonStyles()}
 /* ==================== 响应式 ==================== */
@@ -137,220 +156,76 @@ ${html}
     }
 
     /**
-     * 导出为 PDF（使用新窗口打印，保持渲染样式）
+     * 导出为 PDF（在当前页面内通过隐藏 iframe 触发打印，无需弹窗权限）
+     * @param {string} rawHtml - Preview 完整渲染后的容器 innerHTML
      * @returns {void}
      */
-    exportPDF() {
+    exportPDF(rawHtml) {
+        if (!rawHtml) {
+            this.#showMessage('预览内容为空', 'warning');
+            return;
+        }
         const content = this.state.get('content');
         if (!content) {
             this.#showMessage('没有内容可导出', 'warning');
             return;
         }
 
-        // 获取导出配置
-        const exportConfig = this.state.get('export') || {};
-        const pdfSize = exportConfig.pdfSize || 'A4';
-        const pdfMargin = exportConfig.pdfMargin || 'default';
-        // 页眉配置
-        const headerLeft = exportConfig.pdfHeaderLeft || '';
-        const headerCenter = exportConfig.pdfHeaderCenter || '';
-        const headerRight = exportConfig.pdfHeaderRight || '';
-        // 页脚配置
-        const footerLeft = exportConfig.pdfFooterLeft || '';
-        const footerCenter = exportConfig.pdfFooterCenter || '';
-        const footerRight = exportConfig.pdfFooterRight || '';
+        // 固定默认值
+        const pdfSize = 'A4';
+        const pageSize = '210mm 297mm';
 
-        // 页面尺寸映射（mm）
-        const pageSizeMap = {
-            'A4': '210mm 297mm',
-            'Letter': '8.5in 11in',
-            'Legal': '8.5in 14in'
-        };
-
-        // 页边距映射 - 增加额外的页眉页脚空间
-        const marginMap = {
-            'default': { top: '2.5cm', bottom: '2.5cm', left: '1.5cm', right: '1.5cm' },
-            'narrow': { top: '2cm', bottom: '2cm', left: '1cm', right: '1cm' },
-            'wide': { top: '3cm', bottom: '3cm', left: '2.5cm', right: '2.5cm' }
-        };
-
-        // 获取预览容器
-        const container = this.#getPreviewContainer();
-        if (!container) {
-            this.#showMessage('预览容器未找到', 'error');
-            return;
-        }
-
-        // 获取预览容器中已经渲染好的 HTML
-        let html = this.#cleanHtml(container.innerHTML);
+        // 使用传入的已渲染 HTML
+        let html = this.#cleanHtml(rawHtml);
 
         // 获取当前主题
         const isDark = this.state.get('interface')?.theme === 'dark';
 
-        // 获取文档标题（从第一个标题或默认值）
+        // 获取文档标题
         const titleMatch = content.match(/^#\s+(.+)$/m);
         const docTitle = titleMatch ? titleMatch[1].trim() : 'Markdown 文档';
-        const currentDate = new Date().toLocaleDateString('zh-CN');
-
-        const margins = marginMap[pdfMargin];
-
-        // 判断是否有页眉或页脚
-        const hasHeader = headerLeft || headerCenter || headerRight;
-        const hasFooter = footerLeft || footerCenter || footerRight;
-
-        // 处理模板占位符
-        const processTemplate = (template) => {
-            if (!template) return '';
-            return template
-                .replace(/{title}/g, docTitle)
-                .replace(/{date}/g, currentDate)
-                .replace(/{page}/g, '<span class="pdf-page-current">-</span>')
-                .replace(/{pages}/g, '<span class="pdf-page-total">-</span>');
-        };
-
-        // 生成页眉 HTML
-        const headerHtml = hasHeader ? `
-<div class="pdf-header">
-    <div class="pdf-header-left">${processTemplate(headerLeft)}</div>
-    <div class="pdf-header-center">${processTemplate(headerCenter)}</div>
-    <div class="pdf-header-right">${processTemplate(headerRight)}</div>
-</div>` : '';
-
-        // 生成页脚 HTML
-        const footerHtml = hasFooter ? `
-<div class="pdf-footer">
-    <div class="pdf-footer-left">${processTemplate(footerLeft)}</div>
-    <div class="pdf-footer-center">${processTemplate(footerCenter)}</div>
-    <div class="pdf-footer-right">${processTemplate(footerRight)}</div>
-</div>` : '';
-
-        // 页眉页脚屏幕样式
-        const headerFooterScreenStyles = `
-.pdf-header, .pdf-footer {
-    display: none;
-}
-`;
-
-        // 页眉页脚打印样式
-        const headerFooterPrintStyles = (hasHeader || hasFooter) ? `
-/* 页眉 - 在页边距区域内显示 */
-.pdf-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1.5cm;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 9pt;
-    color: #333;
-    padding: 0 2cm;
-    box-sizing: border-box;
-}
-
-.pdf-header-left {
-    flex: 1;
-    text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pdf-header-center {
-    flex: 1;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pdf-header-right {
-    flex: 1;
-    text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* 页脚 - 在页边距区域内显示 */
-.pdf-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 1.5cm;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 9pt;
-    color: #333;
-    padding: 0 2cm;
-    box-sizing: border-box;
-}
-
-.pdf-footer-left {
-    flex: 1;
-    text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pdf-footer-center {
-    flex: 1;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pdf-footer-right {
-    flex: 1;
-    text-align: right;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* 页码样式 */
-.pdf-page-current, .pdf-page-total {
-    display: inline-block;
-    min-width: 1.5em;
-    text-align: center;
-}
-` : '';
-
-        // 计算实际的 @page margin，当有页眉页脚时增加边距
-        const actualMarginTop = hasHeader ? '2cm' : margins.top;
-        const actualMarginBottom = hasFooter ? '2cm' : margins.bottom;
 
         const fullHtml = `<!DOCTYPE html>
 <html lang="zh-CN"${isDark ? ' data-mode="dark"' : ''}>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${docTitle} - PDF 导出</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css">
 <style>
 ${this.#getCommonStyles()}
-/* 页眉页脚屏幕样式 */
-${headerFooterScreenStyles}
+
+/* ==================== PDF 页面布局 ==================== */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+
+body {
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.markdown-body {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #fff;
+  color: #000;
+}
 
 /* ==================== 打印样式 ==================== */
 @media print {
   @page {
-    size: ${pageSizeMap[pdfSize]};
-    margin: ${actualMarginTop} ${margins.right} ${actualMarginBottom} ${margins.left};
+    size: ${pageSize};
+    margin: 25mm 15mm 25mm 15mm;
   }
-${headerFooterPrintStyles}
-  html, body {
-    background: #fff !important;
-  }
+
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
 
   .markdown-body {
     max-width: 100%;
     box-shadow: none;
-    padding: 20px;
+    padding: 0;
     border-radius: 0;
     background-color: #fff !important;
     color: #000 !important;
@@ -361,14 +236,10 @@ ${headerFooterPrintStyles}
     color: #000 !important;
     page-break-after: avoid;
   }
-
   .markdown-body h1 { border-bottom-color: #ccc; }
   .markdown-body h2 { border-bottom-color: #ccc; }
 
-  .markdown-body a {
-    color: #000 !important;
-  }
-
+  .markdown-body a { color: #000 !important; }
   .markdown-body a[href^='http']::after {
     content: ' (' attr(href) ')';
     font-size: 0.8em;
@@ -382,138 +253,60 @@ ${headerFooterPrintStyles}
     word-wrap: break-word;
     page-break-inside: avoid;
   }
+  .markdown-body code { background-color: #f0f0f0; color: #333 !important; }
+  .markdown-body blockquote { border-left-color: #ccc; color: #555; page-break-inside: avoid; }
+  .markdown-body table { page-break-inside: avoid; }
+  .markdown-body th { background-color: #e0e0e0 !important; }
+  .markdown-body tr { border-top-color: #ccc; background-color: #fff !important; }
+  .markdown-body tr:nth-child(2n) { background-color: #f5f5f5 !important; }
+  .markdown-body img { max-width: 100% !important; page-break-inside: avoid; }
+  .markdown-body .mermaid { background-color: #fff !important; border-color: #ddd; page-break-inside: avoid; }
 
-  .markdown-body code {
-    background-color: #f0f0f0;
-    color: #333 !important;
-  }
+  .code-copy-btn { display: none !important; }
 
-  .markdown-body blockquote {
-    border-left-color: #ccc;
-    color: #555;
-    page-break-inside: avoid;
-  }
-
-  .markdown-body table {
-    page-break-inside: avoid;
-  }
-
-  .markdown-body th {
-    background-color: #e0e0e0 !important;
-  }
-
-  .markdown-body tr {
-    border-top-color: #ccc;
-    background-color: #fff !important;
-  }
-
-  .markdown-body tr:nth-child(2n) {
-    background-color: #f5f5f5 !important;
-  }
-
-  .markdown-body img {
-    max-width: 100% !important;
-    page-break-inside: avoid;
-  }
-
-  .markdown-body .mermaid {
-    background-color: #fff !important;
-    border-color: #ddd;
-    page-break-inside: avoid;
-  }
-
-  .code-copy-btn {
-    display: none !important;
-  }
-
-  /* 页码样式 - 使用 CSS 计数器 */
-  .pdf-page-current::before {
-    content: counter(page);
-  }
-  
-  .pdf-page-total {
-    /* 总页数通过 JavaScript 设置 */
-  }
-
-  /* 隐藏代码高亮的打印背景 */
-  code[class*='language-'],
-  pre[class*='language-'] {
-    text-shadow: none !important;
-  }
+  code[class*='language-'], pre[class*='language-'] { text-shadow: none !important; }
 }
 </style>
 </head>
 <body>
-${headerHtml}
-${footerHtml}
 <div class="markdown-body">
 ${html}
 </div>
-<script>
-(function() {
-    // 页面边距配置（由导出设置决定）
-    var marginTopCm = ${hasHeader ? 2 : parseFloat(margins.top)};
-    var marginBottomCm = ${hasFooter ? 2 : parseFloat(margins.bottom)};
-
-    // 估算总页数
-    function estimatePageCount() {
-        var content = document.querySelector('.markdown-body');
-        if (!content) return 1;
-        
-        // 获取页面尺寸
-        var pageHeightMm = '${pdfSize}' === 'A4' ? 297 : ('${pdfSize}' === 'Letter' ? 279 : 356);
-        var marginTopMm = marginTopCm * 10;
-        var marginBottomMm = marginBottomCm * 10;
-        var usableHeightMm = pageHeightMm - marginTopMm - marginBottomMm - 20; // 额外减去内容 padding
-        
-        // 转换为像素（96dpi，1mm ≈ 3.78px）
-        var usableHeightPx = usableHeightMm * 3.78;
-        var contentHeightPx = content.scrollHeight;
-        
-        var pageCount = Math.ceil(contentHeightPx / usableHeightPx);
-        return Math.max(1, pageCount);
-    }
-
-    // 更新页码显示
-    function updatePageNumbers() {
-        var totalPages = estimatePageCount();
-        
-        // 更新总页数
-        var totalElements = document.querySelectorAll('.pdf-page-total');
-        totalElements.forEach(function(el) {
-            el.textContent = totalPages;
-        });
-    }
-
-    // 监听打印前事件
-    window.addEventListener('beforeprint', function() {
-        updatePageNumbers();
-    });
-
-    // 页面加载完成后自动触发打印
-    window.onload = function() {
-        updatePageNumbers();
-        setTimeout(function() {
-            window.print();
-        }, 500);
-    };
-})();
-</script>
 </body>
 </html>`;
 
-        // 打开新窗口
-        const printWindow = window.open('', '_blank', 'width=900,height=650');
-        if (!printWindow) {
-            this.#showMessage('无法打开打印窗口，请检查浏览器弹窗设置', 'error');
-            return;
-        }
+        // ── 使用隐藏 iframe + Blob URL 触发打印（doc.write 不能可靠触发 load 事件）──
+        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
 
-        // 写入内容
-        printWindow.document.write(fullHtml);
-        printWindow.document.close();
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;';
+        document.body.appendChild(iframe);
 
-        this.#showMessage('请在打印对话框中选择"另存为 PDF"，并关闭浏览器页眉页脚选项', 'info');
+        // 打印后移除 iframe 并释放 Blob URL
+        const cleanup = () => {
+            URL.revokeObjectURL(blobUrl);
+            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        };
+
+        iframe.addEventListener('load', () => {
+            const iframeWin = iframe.contentWindow;
+            // afterprint：打印对话框关闭后清理
+            iframeWin.addEventListener('afterprint', cleanup, { once: true });
+            // 60 秒兜底清理（防止 afterprint 不触发）
+            const fallback = setTimeout(cleanup, 60_000);
+            iframeWin.addEventListener('afterprint', () => clearTimeout(fallback), { once: true });
+
+            const doPrint = () => iframeWin.print();
+            // 等待字体加载，最多 3 秒超时避免 CDN 慢/被屏蔽时永久挂起
+            const fontsReady = iframeWin.document.fonts?.ready ?? Promise.resolve();
+            Promise.race([fontsReady, new Promise(r => setTimeout(r, 3000))]).then(doPrint);
+        }, { once: true });
+
+        iframe.src = blobUrl;
+
+        this.#showMessage('请在打印对话框中选择"另存为 PDF"', 'info');
     }
 
     // ==================== 私有方法 ====================
@@ -555,6 +348,7 @@ ${html}
   --md-border-light: #dfe2e5;
   --md-color-primary: #2196f3;
   --md-color-success: #4caf50;
+  --md-color-danger: #f44336;
   --md-code-bg: #f3f4f6;
   --md-code-bg-inline: rgba(0, 0, 0, 0.06);
   --md-code-text: #24292e;
@@ -586,8 +380,8 @@ ${html}
   --md-border: #3e3e3e;
   --md-border-light: #3e3e3e;
   --md-color-primary: #42a5f5;
-  --md-code-bg: #2d2d2d;
-  --md-code-bg-inline: rgba(255, 255, 255, 0.1);
+  --md-code-bg: #1a1a1a;
+  --md-code-bg-inline: rgba(255, 255, 255, 0.12);
   --md-code-text: #e0e0e0;
   --md-markdown-bg: #1e1e1e;
   --md-markdown-text: #e0e0e0;
@@ -678,15 +472,20 @@ body {
   margin-top: 0.25em;
 }
 
-.markdown-body li:has(input[type='checkbox']) {
+.markdown-body ul li:has(input[type='checkbox']) {
   list-style-type: none;
   margin-left: -1.25em;
   padding-left: 0.25em;
 }
 
+/* 有序列表中的任务列表项：保留序号，调整 checkbox 位置 */
+.markdown-body ol li:has(input[type='checkbox']) {
+  padding-left: 0.25em;
+}
+
 .markdown-body code {
   padding: 0.2em 0.4em;
-  font-size: 85%;
+  font-size: 100%;
   background-color: var(--md-code-bg-inline);
   border-radius: 3px;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -843,6 +642,35 @@ body {
   height: auto;
 }
 
+/* 暗色模式：invert 反转明暗，hue-rotate 把色相转回原位 */
+[data-mode='dark'] .markdown-body .mermaid svg {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+[data-mode='dark'] .markdown-body .mermaid svg > rect:first-child {
+  fill: transparent !important;
+}
+
+.markdown-body .mermaid .edgeLabel foreignObject > div {
+  background: transparent !important;
+}
+
+.markdown-body .mermaid svg text,
+.markdown-body .mermaid svg tspan {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.markdown-body .mermaid.render-error {
+  color: var(--md-color-danger);
+  background: rgba(244, 67, 54, 0.04);
+  border-color: rgba(244, 67, 54, 0.3);
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.875em;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+}
+
 /* ==================== 数学公式 ==================== */
 .markdown-body .math-block {
   display: block;
@@ -952,6 +780,10 @@ pre[class*='language-'] {
         if (this.unsubscribe) {
             this.unsubscribe();
             this.unsubscribe = null;
+        }
+        if (this.#unsubscribeReady) {
+            this.#unsubscribeReady();
+            this.#unsubscribeReady = null;
         }
     }
 }
