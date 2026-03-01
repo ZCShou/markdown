@@ -1199,20 +1199,6 @@ export class Preview extends BaseComponent {
         // 在新 HTML 中保留未变化的元素
         this.#preserveUnchangedElements(tempDiv, oldElements, changes);
 
-        // 对 tempDiv 中仍未高亮的代码块（真正新增的块）同步高亮并添加复制按钮
-        if (typeof Prism !== 'undefined') {
-            const toHighlight = Array.from(
-                tempDiv.querySelectorAll('pre code[class*="language-"]:not(.prism-highlighted):not(.language-mermaid)')
-            );
-            if (toHighlight.length > 0) {
-                toHighlight.forEach(el => {
-                    Prism.highlightElement(el);
-                    el.classList.add('prism-highlighted');
-                });
-                this.#addCopyButtons(toHighlight.map(el => el.parentElement).filter(Boolean));
-            }
-        }
-
         // 更新 DOM - 使用 replaceChildren 减少重排
         if (this.container.replaceChildren) {
             this.container.replaceChildren(...tempDiv.childNodes);
