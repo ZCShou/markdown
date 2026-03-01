@@ -710,6 +710,9 @@ export class Preview extends BaseComponent {
                 if (elementsToProcess.pendingMermaidTransitions?.length > 0) {
                     this.#renderMermaidTransitions(elementsToProcess.pendingMermaidTransitions);
                 }
+                if (elementsToProcess.pendingMathTransitions?.length > 0) {
+                    this.#renderMathTransitions(elementsToProcess.pendingMathTransitions);
+                }
                 if (elementsToProcess.pendingMathElements.length > 0) {
                     this.#renderMath(elementsToProcess.pendingMathElements);
                 }
@@ -1100,10 +1103,17 @@ export class Preview extends BaseComponent {
             'div.mermaid.mermaid-transition[data-mermaid-new]'
         );
 
+        // 🔥 收集过渡中的 block math（已有旧 KaTeX DOM 但需要重新渲染新公式）
+        const pendingMathTransitions = dom.getAllIn(
+            this.container,
+            '.math-block.math-transition[data-latex-new]'
+        );
+
         return {
             pendingCodeBlocks,
             pendingMermaidBlocks,
             pendingMermaidTransitions,
+            pendingMathTransitions,
             pendingMathElements,
             pendingCopyBtn
         };
@@ -1206,7 +1216,8 @@ export class Preview extends BaseComponent {
             }
         });
 
-        // 收集数学公式（存储引用）
+        // 收集数学公式（存储引用），同时建立按位置索引的映射（用于 block math 过渡渲染）
+        maps.mathByIndex = new Map();
         const mathBlocks = dom.getAllIn(
             this.container,
             '.math-block[data-latex], .math-inline[data-latex]'
@@ -1218,6 +1229,7 @@ export class Preview extends BaseComponent {
                 // 🔥 修复：使用复合键（哈希 + 索引）
                 const compositeKey = `${hash}_idx_${index}`;
                 maps.math.set(compositeKey, el);
+                maps.mathByIndex.set(index, el);
             }
         });
 
@@ -1302,6 +1314,14 @@ export class Preview extends BaseComponent {
             // 只有当旧元素存在且未发生变化时才保留
             if (oldEl && !changes.changedMathBlocks.has(compositeKey)) {
                 newEl.replaceWith(oldEl); // 直接移动，保留已渲染的 KaTeX DOM
+            } else if (changes.changedMathBlocks.has(compositeKey) && newEl.classList.contains('math-block')) {
+                // 过渡替换：block math 变化时保留旧渲染内容作占位，消除内容消失的闪烁
+                const oldElByIdx = oldElements.mathByIndex?.get(index);
+                if (oldElByIdx && oldElByIdx.classList.contains('math-rendered')) {
+                    oldElByIdx.setAttribute('data-latex-new', latex);
+                    oldElByIdx.classList.add('math-transition');
+                    newEl.replaceWith(oldElByIdx);
+                }
             }
         });
     }
@@ -1665,6 +1685,29 @@ export class Preview extends BaseComponent {
     }
 
     // ==================== 公式渲染组 ====================
+    /**
+     * 过渡渲染：block math 内容变化时，旧 KaTeX DOM 保持可见，原地重渲染后替换内容，消除闪烁
+     * @param {Element[]} transitionElements - 带 data-latex-new 的 .math-block 元素
+     * @private
+     */
+    #renderMathTransitions(transitionElements) {
+        if (!transitionElements.length) return;
+
+        transitionElements.forEach(placeholder => {
+            if (!placeholder.isConnected || !this.container.contains(placeholder)) return;
+            const newLatex = placeholder.getAttribute('data-latex-new');
+            if (!newLatex) return;
+
+            // 更新 data-latex 为新值，清理过渡标记
+            placeholder.setAttribute('data-latex', newLatex);
+            placeholder.removeAttribute('data-latex-new');
+            placeholder.classList.remove('math-transition', 'math-rendered');
+
+            // KaTeX 同步渲染，原地替换内容，无闪烁
+            this.#renderSingleMath(placeholder);
+        });
+    }
+
     /**
      * 渲染数学公式（优化版：增量渲染 + 可见性优化）
      * @param {Array<Element>} mathElements - 数学公式元素数组（已过滤未渲染的）
