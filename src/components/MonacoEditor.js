@@ -159,7 +159,7 @@ export class MonacoEditor {
             },
             padding: { top: 8, bottom: 8 },
             // 其他
-            contextmenu: false, // 禁用右键菜单（使用浏览器默认）
+            contextmenu: true, // 启用右键菜单（使用浏览器默认）
             fixedOverflowWidgets: true,
             accessibilitySupport: 'auto',
             ariaLabel: this.options.ariaLabel || 'Markdown editor input'
