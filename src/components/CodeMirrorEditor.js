@@ -26,7 +26,8 @@ import {
     drawSelection,
     highlightActiveLine,
     rectangularSelection,
-    placeholder
+    placeholder,
+    highlightWhitespace
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
@@ -124,7 +125,7 @@ export class CodeMirrorEditor {
         this.lineWrappingCompartment = new Compartment();
         this.highlightActiveLineCompartment = new Compartment();
         this.bracketMatchingCompartment = new Compartment();
-        this.highlightGutterCompartment = new Compartment();
+        this.highlightWhitespaceCompartment = new Compartment();
     }
 
     /**
@@ -150,16 +151,14 @@ export class CodeMirrorEditor {
         if (!this.container || this.view) return;
 
         const editorConfig = this.options.editorConfig || {};
+        const codemirrorConfig = editorConfig.codemirror || {};
         const interfaceConfig = this.options.interfaceConfig || {};
         const isDark = this.resolveDarkMode(interfaceConfig);
 
         const state = EditorState.create({
             doc: this.options.initialValue || '',
             extensions: [
-                this.lineNumbersCompartment.of(this.createLineNumbersExtension(editorConfig)),
-                this.highlightGutterCompartment.of(
-                    this.#createExtensionIfEnabled(editorConfig?.highlightGutter, highlightActiveLineGutter)
-                ),
+                this.lineNumbersCompartment.of(this.createLineNumbersExtension(codemirrorConfig)),
                 foldGutter({
                     markerDOM: open => {
                         const icon = document.createElement('span');
@@ -171,10 +170,10 @@ export class CodeMirrorEditor {
                 drawSelection({ drawRangeCursor: true }),
                 rectangularSelection(),
                 this.highlightActiveLineCompartment.of(
-                    this.#createExtensionIfEnabled(editorConfig?.highlightActiveLine, highlightActiveLine)
+                    this.createHighlightActiveLineExtension(editorConfig)
                 ),
                 this.bracketMatchingCompartment.of(
-                    this.#createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching)
+                    this.#createExtensionIfEnabled(codemirrorConfig?.bracketMatching, bracketMatching)
                 ),
                 // 原生搜索功能
                 search({
@@ -188,7 +187,10 @@ export class CodeMirrorEditor {
                     codeLanguages: languages
                 }),
                 this.lineWrappingCompartment.of(
-                    this.#createExtensionIfEnabled(editorConfig?.lineWrapping, EditorView.lineWrapping)
+                    this.#createExtensionIfEnabled(editorConfig?.wordWrap, EditorView.lineWrapping)
+                ),
+                this.highlightWhitespaceCompartment.of(
+                    this.createWhitespaceExtension(codemirrorConfig)
                 ),
                 placeholder(this.options.placeholder || ''),
                 EditorView.contentAttributes.of({
@@ -289,13 +291,13 @@ export class CodeMirrorEditor {
      * 创建行号扩展
      * 支持点击行号选中整行，拖动行号选中多行
      * 拖动时即使鼠标离开行号区域，只要不释放鼠标左键，选择仍然有效
-     * @param {Object} editorConfig - 编辑器配置
-     * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
+     * @param {Object} codemirrorConfig - CodeMirror 配置
+     * @param {boolean} [codemirrorConfig.lineNumbers=true] - 是否显示行号
      * @returns {import('@codemirror/state').Extension} 行号扩展
      * @private
      */
-    createLineNumbersExtension(editorConfig) {
-        if (editorConfig?.lineNumbers === false) return [];
+    createLineNumbersExtension(codemirrorConfig) {
+        if (codemirrorConfig?.lineNumbers === false) return [];
 
         return lineNumbers({
             domEventHandlers: {
@@ -434,6 +436,34 @@ export class CodeMirrorEditor {
     }
 
     /**
+     * 创建高亮当前行扩展（包括行内容和行号）
+     * @param {Object} editorConfig - 编辑器配置
+     * @param {boolean} [editorConfig.highlightActiveLine=true] - 是否高亮当前行
+     * @returns {import('@codemirror/view').Extension} 高亮扩展数组
+     * @private
+     */
+    createHighlightActiveLineExtension(editorConfig) {
+        if (editorConfig?.highlightActiveLine === false) return [];
+        // 同时高亮当前行内容和行号
+        return [highlightActiveLine(), highlightActiveLineGutter()];
+    }
+
+    /**
+     * 创建空白符显示扩展
+     * @param {Object} codemirrorConfig - CodeMirror 配置
+     * @param {boolean} [codemirrorConfig.renderWhitespace=false] - 是否显示空白符
+     * @returns {import('@codemirror/view').Extension} 空白符显示扩展
+     * @private
+     */
+    createWhitespaceExtension(codemirrorConfig) {
+        // CodeMirror 的 highlightWhitespace 只支持开/关
+        if (codemirrorConfig?.renderWhitespace === true) {
+            return highlightWhitespace();
+        }
+        return [];
+    }
+
+    /**
      * 创建主题扩展
      * 动态配置字号和行高，其他样式通过 CSS 实现
      * @param {Object} editorConfig - 编辑器配置
@@ -474,11 +504,7 @@ export class CodeMirrorEditor {
      * @param {boolean} [editorConfig.insertSpaces=true] - 是否使用空格缩进
      * @param {number} [editorConfig.fontSize=16] - 字号（像素）
      * @param {number} [editorConfig.lineHeight=1.6] - 行高
-     * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
-     * @param {boolean} [editorConfig.lineWrapping=true] - 是否自动换行
-     * @param {boolean} [editorConfig.highlightActiveLine=true] - 是否高亮当前行
-     * @param {boolean} [editorConfig.bracketMatching=true] - 是否匹配括号
-     * @param {boolean} [editorConfig.highlightGutter=true] - 是否高亮当前行号
+     * @param {Object} [editorConfig.codemirror] - CodeMirror 特有设置
      * @param {Object} [interfaceConfig={}] - 界面配置
      * @param {string} [interfaceConfig.theme] - 主题模式 ('dark' | 'light' | 'auto')
      *
@@ -487,7 +513,10 @@ export class CodeMirrorEditor {
      * editor.updateConfig({
      *   fontSize: 18,
      *   lineHeight: 1.8,
-     *   lineNumbers: true
+     *   codemirror: {
+     *     lineNumbers: true,
+     *     renderWhitespace: true
+     *   }
      * }, {
      *   theme: 'dark'
      * });
@@ -496,6 +525,7 @@ export class CodeMirrorEditor {
     updateConfig(editorConfig = {}, interfaceConfig = {}) {
         if (!this.view) return;
 
+        const codemirrorConfig = editorConfig.codemirror || {};
         const isDark = this.resolveDarkMode(interfaceConfig);
         this.view.dispatch({
             effects: [
@@ -504,18 +534,18 @@ export class CodeMirrorEditor {
                 ),
                 this.indentCompartment.reconfigure(this.createIndentExtension(editorConfig)),
                 this.themeCompartment.reconfigure(this.createThemeExtension(editorConfig, isDark)),
-                this.lineNumbersCompartment.reconfigure(this.createLineNumbersExtension(editorConfig)),
+                this.lineNumbersCompartment.reconfigure(this.createLineNumbersExtension(codemirrorConfig)),
                 this.lineWrappingCompartment.reconfigure(
-                    this.#createExtensionIfEnabled(editorConfig?.lineWrapping, EditorView.lineWrapping)
+                    this.#createExtensionIfEnabled(editorConfig?.wordWrap, EditorView.lineWrapping)
                 ),
                 this.highlightActiveLineCompartment.reconfigure(
-                    this.#createExtensionIfEnabled(editorConfig?.highlightActiveLine, highlightActiveLine)
+                    this.createHighlightActiveLineExtension(editorConfig)
                 ),
                 this.bracketMatchingCompartment.reconfigure(
-                    this.#createExtensionIfEnabled(editorConfig?.bracketMatching, bracketMatching)
+                    this.#createExtensionIfEnabled(codemirrorConfig?.bracketMatching, bracketMatching)
                 ),
-                this.highlightGutterCompartment.reconfigure(
-                    this.#createExtensionIfEnabled(editorConfig?.highlightGutter, highlightActiveLineGutter)
+                this.highlightWhitespaceCompartment.reconfigure(
+                    this.createWhitespaceExtension(codemirrorConfig)
                 )
             ]
         });

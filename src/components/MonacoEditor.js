@@ -79,6 +79,7 @@ export class MonacoEditor {
         if (!this.container || this.editor) return;
 
         const editorConfig = this.options.editorConfig || {};
+        const monacoConfig = editorConfig.monaco || {};
         const interfaceConfig = this.options.interfaceConfig || {};
         const isDark = this.resolveDarkMode(interfaceConfig);
 
@@ -94,24 +95,23 @@ export class MonacoEditor {
             language: 'markdown',
             theme: isDark ? 'vs-dark' : 'vs',
             automaticLayout: true,
-            // 基础编辑
+            // 基础编辑（通用设置）
             fontSize: editorConfig.fontSize || 14,
             lineHeight: editorConfig.lineHeight || 1.6,
             fontFamily: editorConfig.fontFamily || "'Fira Code', 'Consolas', 'Monaco', monospace",
             fontLigatures: editorConfig.fontLigatures || false,
             fontWeight: editorConfig.fontWeight || 'normal',
             letterSpacing: editorConfig.letterSpacing || 0,
-            wordWrap: editorConfig.lineWrapping !== false ? 'on' : 'off',
-            lineNumbers: editorConfig.lineNumbers !== false ? 'on' : 'off',
-            // 禁用高级特性（Markdown 编辑器不需要）
-            minimap: { enabled: false }, // 禁用缩略图
+            // Monaco 特有设置
+            wordWrap: editorConfig.wordWrap !== false ? 'on' : 'off',
+            minimap: { enabled: monacoConfig.minimap !== false },
             scrollBeyondLastLine: false,
-            smoothScrolling: false,
+            smoothScrolling: monacoConfig.smoothScrolling !== false,
             // 光标
-            cursorBlinking: 'blink',
+            cursorBlinking: monacoConfig.cursorBlinking || 'smooth',
             cursorStyle: 'line',
             cursorWidth: 2,
-            // 缩进
+            // 缩进（通用设置）
             tabSize: editorConfig.tabSize || 4,
             insertSpaces: editorConfig.insertSpaces !== false,
             detectIndentation: false,
@@ -126,7 +126,7 @@ export class MonacoEditor {
             autoSurround: 'never',
             // 简化括号相关
             matchBrackets: 'never',
-            bracketPairColorization: { enabled: false },
+            bracketPairColorization: { enabled: monacoConfig.bracketPairColorization !== false },
             guides: {
                 bracketPairs: false,
                 indentation: false
@@ -136,9 +136,9 @@ export class MonacoEditor {
             formatOnType: false,
             trimAutoWhitespace: false,
             // 渲染选项
-            renderWhitespace: 'selection',
+            renderWhitespace: monacoConfig.renderWhitespace || 'selection',
             renderControlCharacters: false,
-            renderLineHighlight: 'line',
+            renderLineHighlight: editorConfig.highlightActiveLine !== false ? 'all' : 'gutter',
             // 禁用 Unicode 高亮警告（中文项目不需要）
             unicodeHighlight: {
                 ambiguousCharacters: false,
@@ -326,9 +326,7 @@ export class MonacoEditor {
      * @param {boolean} [editorConfig.insertSpaces=true] - 是否使用空格缩进
      * @param {number} [editorConfig.fontSize=14] - 字号（像素）
      * @param {number} [editorConfig.lineHeight=1.6] - 行高
-     * @param {boolean} [editorConfig.lineNumbers=true] - 是否显示行号
-     * @param {boolean} [editorConfig.lineWrapping=true] - 是否自动换行
-     * @param {boolean} [editorConfig.folding=true] - 是否启用代码折叠
+     * @param {Object} [editorConfig.monaco] - Monaco 特有设置
      * @param {Object} [interfaceConfig={}] - 界面配置
      * @param {string} [interfaceConfig.theme] - 主题模式 ('dark' | 'light' | 'auto')
      *
@@ -337,7 +335,10 @@ export class MonacoEditor {
      * editor.updateConfig({
      *   fontSize: 18,
      *   lineHeight: 1.8,
-     *   lineNumbers: true
+     *   monaco: {
+     *     minimap: true,
+     *     renderWhitespace: 'all'
+     *   }
      * }, {
      *   theme: 'dark'
      * });
@@ -346,6 +347,7 @@ export class MonacoEditor {
     updateConfig(editorConfig = {}, interfaceConfig = {}) {
         if (!this.editor) return;
 
+        const monacoConfig = editorConfig.monaco || {};
         const isDark = this.resolveDarkMode(interfaceConfig);
 
         // 更新主题
@@ -354,26 +356,41 @@ export class MonacoEditor {
         // 更新编辑器选项（只更新支持的选项）
         const options = {};
 
+        // 通用设置
         if (editorConfig.fontSize !== undefined) {
             options.fontSize = editorConfig.fontSize;
         }
         if (editorConfig.lineHeight !== undefined) {
             options.lineHeight = editorConfig.lineHeight;
         }
-        if (editorConfig.lineNumbers !== undefined) {
-            options.lineNumbers = editorConfig.lineNumbers ? 'on' : 'off';
-        }
-        if (editorConfig.lineWrapping !== undefined) {
-            options.wordWrap = editorConfig.lineWrapping ? 'on' : 'off';
-        }
-        if (editorConfig.folding !== undefined) {
-            options.folding = editorConfig.folding;
-        }
         if (editorConfig.tabSize !== undefined) {
             options.tabSize = editorConfig.tabSize;
         }
         if (editorConfig.insertSpaces !== undefined) {
             options.insertSpaces = editorConfig.insertSpaces;
+        }
+
+        // Monaco 特有设置
+        if (monacoConfig.minimap !== undefined) {
+            options.minimap = { enabled: monacoConfig.minimap };
+        }
+        if (editorConfig.wordWrap !== undefined) {
+            options.wordWrap = editorConfig.wordWrap ? 'on' : 'off';
+        }
+        if (editorConfig.highlightActiveLine !== undefined) {
+            options.renderLineHighlight = editorConfig.highlightActiveLine ? 'all' : 'gutter';
+        }
+        if (monacoConfig.bracketPairColorization !== undefined) {
+            options.bracketPairColorization = { enabled: monacoConfig.bracketPairColorization };
+        }
+        if (monacoConfig.cursorBlinking !== undefined) {
+            options.cursorBlinking = monacoConfig.cursorBlinking;
+        }
+        if (monacoConfig.smoothScrolling !== undefined) {
+            options.smoothScrolling = monacoConfig.smoothScrolling;
+        }
+        if (monacoConfig.renderWhitespace !== undefined) {
+            options.renderWhitespace = monacoConfig.renderWhitespace;
         }
 
         this.editor.updateOptions(options);

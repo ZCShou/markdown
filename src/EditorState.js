@@ -32,17 +32,31 @@ export class EditorState {
      */
     static DEFAULT_SETTINGS = {
         editor: {
+            // 通用设置（适用于所有编辑器）
             type: 'monaco', // 编辑器类型: 'codemirror' | 'monaco'
             fontSize: 16,
             lineHeight: 1.6,
             autoSave: true,
             insertSpaces: true,
             tabSize: 4,
-            lineNumbers: true,
-            lineWrapping: true,
+            wordWrap: true,
             highlightActiveLine: true,
-            bracketMatching: true,
-            highlightGutter: true
+
+            // CodeMirror 特有设置
+            codemirror: {
+                lineNumbers: true,
+                bracketMatching: true,
+                renderWhitespace: false // CodeMirror 只支持开/关
+            },
+
+            // Monaco 特有设置
+            monaco: {
+                minimap: true,
+                bracketPairColorization: true,
+                cursorBlinking: 'smooth',
+                smoothScrolling: true,
+                renderWhitespace: 'selection' // Monaco 支持完整选项
+            }
         },
         interface: {
             theme: 'light',
@@ -513,7 +527,13 @@ $$
 
         // 合并保存的设置和默认设置
         const settings = savedSettings ? {
-            editor: { ...EditorState.DEFAULT_SETTINGS.editor, ...savedSettings.editor },
+            editor: {
+                ...EditorState.DEFAULT_SETTINGS.editor,
+                ...savedSettings.editor,
+                // 深度合并嵌套的编辑器特定设置
+                codemirror: { ...EditorState.DEFAULT_SETTINGS.editor.codemirror, ...savedSettings.editor?.codemirror },
+                monaco: { ...EditorState.DEFAULT_SETTINGS.editor.monaco, ...savedSettings.editor?.monaco }
+            },
             interface: { ...EditorState.DEFAULT_SETTINGS.interface, ...savedSettings.interface },
             export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
         } : {
