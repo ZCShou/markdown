@@ -165,23 +165,68 @@ export class Preview extends BaseComponent {
      * @private
      */
     #configureMermaid(theme) {
+        const isDark = theme === 'dark';
+
+        // 明亮主题：以中性灰为主，单一浅蓝点缀，简洁克制
+        const lightVars = {
+            background: '#ffffff',
+            primaryColor: '#eef2f7',
+            primaryTextColor: '#24292e',
+            primaryBorderColor: '#c8d0da',
+            lineColor: '#8b949e',
+            secondaryColor: '#f3f4f6',
+            secondaryTextColor: '#24292e',
+            secondaryBorderColor: '#c8d0da',
+            tertiaryColor: '#f3f4f6',
+            tertiaryTextColor: '#24292e',
+            tertiaryBorderColor: '#c8d0da',
+            mainBkg: '#eef2f7',
+            nodeBorder: '#c8d0da',
+            clusterBkg: '#f9fafb',
+            clusterBorder: '#dde1e7',
+            titleColor: '#24292e',
+            edgeLabelBackground: '#f9fafb',
+            noteBkgColor: '#fafafa',
+            noteTextColor: '#57606a',
+            noteBorderColor: '#c8d0da'
+        };
+
+        // 暗色主题：与编辑器深色背景融合，低对比度中性色
+        const darkVars = {
+            background: '#1e1e1e',
+            primaryColor: '#2a2d35',
+            primaryTextColor: '#c9d1d9',
+            primaryBorderColor: '#444c56',
+            lineColor: '#6e7681',
+            secondaryColor: '#22262e',
+            secondaryTextColor: '#c9d1d9',
+            secondaryBorderColor: '#444c56',
+            tertiaryColor: '#22262e',
+            tertiaryTextColor: '#c9d1d9',
+            tertiaryBorderColor: '#444c56',
+            mainBkg: '#2a2d35',
+            nodeBorder: '#444c56',
+            clusterBkg: '#161b22',
+            clusterBorder: '#30363d',
+            titleColor: '#e6edf3',
+            edgeLabelBackground: '#22262e',
+            noteBkgColor: '#22262e',
+            noteTextColor: '#8b949e',
+            noteBorderColor: '#444c56'
+        };
+
         mermaid.initialize({
             startOnLoad: false,
-            theme: theme === 'dark' ? 'dark' : 'default',
+            theme: isDark ? 'dark' : 'default',
+            themeVariables: isDark ? darkVars : lightVars,
             securityLevel: 'loose',
             logLevel: 'error',
             // 🔥 性能优化配置
-            maxTextSize: 99999, // 限制文本大小，避免超大文本导致性能问题
-            maxEdges: 999, // 限制边数量，避免复杂图导致渲染缓慢
-            flowchart: {
-                curve: 'basis' // 使用更平滑的曲线，提升渲染性能
-            },
-            sequence: {
-                useMaxWidth: true // 启用最大宽度限制，避免图表过宽
-            },
-            gantt: {
-                useMaxWidth: true // 启用最大宽度限制
-            }
+            maxTextSize: 99999,
+            maxEdges: 999,
+            flowchart: { curve: 'basis' },
+            sequence: { useMaxWidth: true },
+            gantt: { useMaxWidth: true }
         });
     }
 

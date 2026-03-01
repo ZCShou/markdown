@@ -1816,17 +1816,36 @@ body.is-dragging-tree {
 /* ==================== Mermaid 图表 ==================== */
 .markdown-body .mermaid {
   text-align: center;
-  margin: 16px 0;
+  margin: 20px 0;
+  padding: 24px 16px;
   background-color: var(--md-bg-secondary);
-  padding: 16px;
-  border-radius: 6px;
   border: 1px solid var(--md-border-light);
+  border-radius: 8px;
+  overflow-x: auto;
 }
 
 .markdown-body .mermaid svg {
   display: inline-block;
   max-width: 100%;
   height: auto;
+}
+
+/* 字体平滑，与正文保持一致 */
+.markdown-body .mermaid svg text,
+.markdown-body .mermaid svg tspan {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 渲染错误状态 */
+.markdown-body .mermaid.render-error {
+  color: var(--md-color-danger);
+  background: rgba(244, 67, 54, 0.04);
+  border-color: rgba(244, 67, 54, 0.3);
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.875em;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
 }
 
 /* ==================== 数学公式 ==================== */
