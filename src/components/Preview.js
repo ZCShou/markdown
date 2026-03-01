@@ -377,6 +377,31 @@ export class Preview extends BaseComponent {
             },
             false
         );
+
+        // 代码复制按钮 — 事件委托，一个监听器处理所有按钮
+        this.addEventListener(
+            this.container,
+            'click',
+            e => {
+                const btn = e.target.closest('.code-copy-btn');
+                if (!btn || btn.classList.contains('copied')) return;
+                const code = btn.closest('.code-block-wrapper')?.querySelector('code');
+                if (!code) return;
+                e.stopPropagation();
+                navigator.clipboard
+                    .writeText(code.textContent)
+                    .then(() => {
+                        btn.querySelector('i').className = 'codicon codicon-check';
+                        btn.classList.add('copied');
+                        setTimeout(() => {
+                            btn.querySelector('i').className = 'codicon codicon-copy';
+                            btn.classList.remove('copied');
+                        }, 2000);
+                    })
+                    .catch(err => console.error('复制失败:', err));
+            },
+            false
+        );
     }
 
     /**
@@ -1453,69 +1478,18 @@ export class Preview extends BaseComponent {
      */
     #addCopyButtons(preElements) {
         if (preElements.length === 0) return;
-
         preElements.forEach(pre => {
-            // 🔥 优化：跳过已处理的（通过 .has-copy-btn 类判断）
-            if (pre.classList.contains('has-copy-btn')) {
-                return;
-            }
-
-            // 🔥 修复：检查元素是否仍在 DOM 中
-            if (!pre.isConnected || !pre.parentNode) {
-                return;
-            }
-
-            // 创建包装器
+            if (pre.classList.contains('has-copy-btn') || !pre.isConnected || !pre.parentNode) return;
             const wrapper = document.createElement('div');
             wrapper.className = 'code-block-wrapper';
             pre.parentNode.insertBefore(wrapper, pre);
             wrapper.appendChild(pre);
-
-            // 🔥 重要：标记为已添加复制按钮，避免重复添加
             pre.classList.add('has-copy-btn');
-
-            // 添加复制按钮
-            const btn = this.createElement('button', {
-                className: 'md-btn md-btn-sm code-copy-btn',
-                textContent: '📋',
-                attributes: { title: '复制代码' },
-                parent: wrapper
-            });
-
-            // 获取 code 元素
-            const code = dom.getIn(pre, 'code');
-            
-            // 🔥 优化：提取事件处理逻辑，以便在克隆后重新绑定
-            this.#attachCopyButtonHandler(btn, code);
-        });
-    }
-
-    /**
-     * 为复制按钮添加事件处理（用于克隆后重新绑定）
-     * @param {HTMLButtonElement} btn - 复制按钮元素
-     * @param {HTMLElement} code - 代码元素
-     * @private
-     */
-    #attachCopyButtonHandler(btn, code) {
-        if (!btn || !code) return;
-
-        this.addEventListener(btn, 'click', e => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (!code || btn.classList.contains('copied')) return;
-
-            navigator.clipboard
-                .writeText(code.textContent)
-                .then(() => {
-                    btn.innerHTML = '✓';
-                    btn.classList.add('copied');
-                    setTimeout(() => {
-                        btn.innerHTML = '📋';
-                        btn.classList.remove('copied');
-                    }, 2000);
-                })
-                .catch(err => console.error('复制失败:', err));
+            const btn = document.createElement('button');
+            btn.className = 'md-btn code-copy-btn';
+            btn.title = '复制代码';
+            btn.innerHTML = '<i class="codicon codicon-copy"></i>';
+            wrapper.appendChild(btn);
         });
     }
 
