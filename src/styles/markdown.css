@@ -747,6 +747,35 @@ html::-webkit-scrollbar-thumb:hover, .unified-scrollbar::-webkit-scrollbar-thumb
   color: var(--md-code-text);
 }
 
+/* CodeMirror 空白符显示样式 - 与 Monaco 风格一致 */
+/* 空格 - 符号覆盖原始位置，不增加额外宽度 */
+#markdown-editor .cm-highlightSpace {
+  position: relative;
+  background-image: none !important;
+  background: none !important;
+}
+#markdown-editor .cm-highlightSpace::before {
+  content: '·' !important;
+  position: absolute;
+  left: 0;
+  color: var(--md-text-tertiary) !important;
+  opacity: 0.6;
+}
+/* 制表符 */
+#markdown-editor .cm-highlightTab {
+  position: relative;
+  background-image: none !important;
+  background: none !important;
+}
+#markdown-editor .cm-highlightTab::before {
+  content: '→' !important;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--md-text-tertiary) !important;
+  opacity: 0.6;
+}
+
 /* CodeMirror 搜索面板样式 */
 #markdown-editor .cm-panel.cm-search {
   background: var(--md-bg-secondary);
