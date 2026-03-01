@@ -1199,6 +1199,20 @@ export class Preview extends BaseComponent {
         // 在新 HTML 中保留未变化的元素
         this.#preserveUnchangedElements(tempDiv, oldElements, changes);
 
+        // 对 tempDiv 中仍未高亮的代码块（真正新增的块）同步高亮并添加复制按钮
+        if (typeof Prism !== 'undefined') {
+            const toHighlight = Array.from(
+                tempDiv.querySelectorAll('pre code[class*="language-"]:not(.prism-highlighted):not(.language-mermaid)')
+            );
+            if (toHighlight.length > 0) {
+                toHighlight.forEach(el => {
+                    Prism.highlightElement(el);
+                    el.classList.add('prism-highlighted');
+                });
+                this.#addCopyButtons(toHighlight.map(el => el.parentElement).filter(Boolean));
+            }
+        }
+
         // 更新 DOM - 使用 replaceChildren 减少重排
         if (this.container.replaceChildren) {
             this.container.replaceChildren(...tempDiv.childNodes);
@@ -1231,20 +1245,20 @@ export class Preview extends BaseComponent {
 
         // 使用 dom.js 统一查询，收集代码块（存储引用）
         // 🔥 修复：存储 code-block-wrapper 而不是 pre，以保留复制按钮
+        maps.codeByIndex = new Map();
         const codeBlocks = dom.getAllIn(
             this.container,
             'pre code[class*="language-"]:not(.language-mermaid)'
         );
         codeBlocks.forEach((el, index) => {
             const hash = this.#generateSimpleHash(el.textContent);
-            // 🔥 修复：使用复合键（哈希 + 索引）
             const compositeKey = `${hash}_idx_${index}`;
-            // 🔥 修复：存储 code-block-wrapper（pre 的父元素），以保留复制按钮
             const preElement = el.parentElement;
             const wrapper = preElement?.parentElement?.classList.contains('code-block-wrapper')
                 ? preElement.parentElement
                 : preElement;
             maps.code.set(compositeKey, wrapper);
+            maps.codeByIndex.set(index, wrapper);
         });
 
         // 收集 Mermaid 图表（存储引用），同时建立按位置索引的映射（避免后续 regex）
@@ -1306,14 +1320,31 @@ export class Preview extends BaseComponent {
             const compositeKey = `${hash}_idx_${index}`;
             const oldWrapper = oldElements.code.get(compositeKey);
 
-            // 只有当旧元素存在且未发生变化时才保留
+            const newPre = newEl.parentElement;
+            const newWrapper = newPre?.parentElement?.classList.contains('code-block-wrapper')
+                ? newPre.parentElement
+                : newPre;
+
             if (oldWrapper && !changes.changedCodeBlocks.has(compositeKey)) {
-                // 直接移动旧元素（保留所有事件监听器，无需克隆和重新绑定）
-                const newPre = newEl.parentElement;
-                const newWrapper = newPre?.parentElement?.classList.contains('code-block-wrapper')
-                    ? newPre.parentElement
-                    : newPre;
+                // 未变化：直接平移旧 wrapper
                 newWrapper.replaceWith(oldWrapper);
+            } else {
+                // 变化或新增：按位置查找旧 wrapper，复用以保留复制按钮
+                const oldWrapperByIdx = oldElements.codeByIndex?.get(index);
+                if (oldWrapperByIdx) {
+                    const oldCode = oldWrapperByIdx.querySelector('code');
+                    if (oldCode) {
+                        oldCode.className = newEl.className;
+                        oldCode.textContent = newEl.textContent;
+                        oldCode.classList.remove('prism-highlighted', 'code-pending');
+                        if (typeof Prism !== 'undefined') {
+                            Prism.highlightElement(oldCode);
+                            oldCode.classList.add('prism-highlighted');
+                        }
+                        newWrapper.replaceWith(oldWrapperByIdx);
+                    }
+                }
+                // 若无旧 wrapper，保留新 <pre> 留给后续同步高亮处理
             }
         });
 
@@ -1479,7 +1510,7 @@ export class Preview extends BaseComponent {
     #addCopyButtons(preElements) {
         if (preElements.length === 0) return;
         preElements.forEach(pre => {
-            if (pre.classList.contains('has-copy-btn') || !pre.isConnected || !pre.parentNode) return;
+            if (pre.classList.contains('has-copy-btn') || !pre.parentNode) return;
             const wrapper = document.createElement('div');
             wrapper.className = 'code-block-wrapper';
             pre.parentNode.insertBefore(wrapper, pre);
