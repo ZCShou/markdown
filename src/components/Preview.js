@@ -1785,6 +1785,10 @@ export class Preview extends BaseComponent {
      */
     #isElementVisible(element) {
         const rect = element.getBoundingClientRect();
+        // 元素未参与布局（容器隐藏，如仅显示编辑器时 preview 面板被隐藏），
+        // getBoundingClientRect 返回全零矩形，此时应视为不可见，
+        // 等待 IntersectionObserver 在面板重新显示时触发渲染。
+        if (rect.width === 0 && rect.height === 0) return false;
         const buffer = Preview.#VISIBILITY_BUFFER;
         return rect.top < window.innerHeight + buffer && rect.bottom > -buffer;
     }
