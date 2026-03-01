@@ -143,7 +143,7 @@ graph TB
     subgraph "持久化层"
         L[PersistenceManager<br/>持久化管理器]
         M[StoreManager<br/>存储管理器]
-        N[localStorage<br/>本地存储]
+        N[IndexedDB<br/>本地数据库]
     end
     
     subgraph "工具层"
@@ -651,8 +651,8 @@ buildTree() {
 ### 3. StoreManager（存储管理器）
 
 **职责**：
-- 管理 localStorage 数据存储
-- 提供异步存储队列
+- 管理 IndexedDB 数据存储
+- 提供异步存储 API
 - 数据序列化和反序列化
 - 错误处理和降级
 
@@ -661,221 +661,59 @@ buildTree() {
 ```javascript
 export class StoreManager {
     /**
-     * 默认 Markdown 内容
+     * 初始化 IndexedDB 数据库
      */
-    static DEFAULT_CONTENT = `# Markdown 语法指南
-...
-`;
-
-    /**
-     * 存储键配置
-     */
-    static STORAGE_KEYS = {
-        DOCUMENTS: 'markdown_documents',
-        CURRENT_DOC: 'markdown_current_doc',
-        THEME: 'markdown_theme',
-        LAYOUT: 'markdown_layout',
-        LEFT_RATIO: 'markdown_left_ratio'
-    };
-
-    /**
-     * 异步存储队列（私有字段）
-     */
-    static #pendingOperations = new Map();
-    static #isProcessing = false;
-
-    /**
-     * 调度存储操作（异步，私有方法）
-     */
-    static async #scheduleAsync(operation) {
-        const id = Date.now() + Math.random();
-        
-        return new Promise((resolve, reject) => {
-            StoreManager.#pendingOperations.set(id, { operation, resolve, reject });
-            
-            if (!StoreManager.#isProcessing) {
-                StoreManager.#processQueue();
-            }
-        });
+    static async init() {
+        await openDatabase();
     }
 
     /**
-     * 处理操作队列（私有方法）
+     * 保存文档列表
      */
-    static async #processQueue() {
-        if (StoreManager.#pendingOperations.size === 0) {
-            StoreManager.#isProcessing = false;
-            return;
+    static saveDocuments(documents) {
+        return setData(KEYS.DOCUMENTS, documents);
+    }
+
+    /**
+     * 加载文档列表
+     */
+    static async loadDocuments() {
+        const documents = await getData(KEYS.DOCUMENTS);
+        if (!documents) return [];
+        if (!Array.isArray(documents)) {
+            console.warn('文档列表格式错误，已重置');
+            return [];
         }
-
-        StoreManager.#isProcessing = true;
-
-        const processNext = async () => {
-            const entry = StoreManager.#pendingOperations.entries().next().value;
-            if (!entry) {
-                StoreManager.#isProcessing = false;
-                return;
-            }
-
-            const [id, { operation, resolve, reject }] = entry;
-            StoreManager.#pendingOperations.delete(id);
-
-            try {
-                const result = await operation();
-                resolve(result);
-            } catch (error) {
-                console.error('[StoreManager] Operation failed:', error);
-                reject(error);
-            }
-
-            // 继续处理下一个
-            if (StoreManager.#pendingOperations.size > 0) {
-                if (typeof requestIdleCallback !== 'undefined') {
-                    requestIdleCallback(() => processNext(), { timeout: 50 });
-                } else {
-                    setTimeout(() => processNext(), 0);
-                }
-            } else {
-                StoreManager.#isProcessing = false;
-            }
-        };
-
-        // 使用 requestIdleCallback 或 setTimeout
-        if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => processNext(), { timeout: 50 });
-        } else {
-            setTimeout(() => processNext(), 0);
-        }
+        return documents;
     }
-}
-```
 
-**存储方法**：
-
-```javascript
-/**
- * 保存文档列表
- */
-static async saveDocuments(documents) {
-    return StoreManager.#scheduleAsync(() => {
-        try {
-            const data = JSON.stringify(documents);
-            localStorage.setItem(StoreManager.STORAGE_KEYS.DOCUMENTS, data);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-}
-
-/**
- * 加载文档列表
- */
-static loadDocuments() {
-    try {
-        const data = localStorage.getItem(StoreManager.STORAGE_KEYS.DOCUMENTS);
-        if (data) {
-            return JSON.parse(data);
-        }
-    } catch (error) {
-        console.error('[StoreManager] Failed to load documents:', error);
+    /**
+     * 保存当前文档 ID
+     */
+    static saveCurrentDocId(docId) {
+        return setData(KEYS.CURRENT_DOC_ID, docId);
     }
-    return null;
-}
 
-/**
- * 保存当前文档 ID
- */
-static saveCurrentDocId(docId) {
-    try {
-        localStorage.setItem(StoreManager.STORAGE_KEYS.CURRENT_DOC, docId);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
+    /**
+     * 加载当前文档 ID
+     */
+    static async loadCurrentDocId() {
+        const saved = await getData(KEYS.CURRENT_DOC_ID);
+        return saved || null;
     }
-}
 
-/**
- * 加载当前文档 ID
- */
-static loadCurrentDocId() {
-    try {
-        return localStorage.getItem(StoreManager.STORAGE_KEYS.CURRENT_DOC);
-    } catch (error) {
-        console.error('[StoreManager] Failed to load current doc:', error);
-        return null;
+    /**
+     * 保存设置
+     */
+    static saveSettings(settings) {
+        return setData(KEYS.SETTINGS, settings);
     }
-}
 
-/**
- * 保存主题
- */
-static saveTheme(theme) {
-    try {
-        localStorage.setItem(StoreManager.STORAGE_KEYS.THEME, theme);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * 加载主题
- */
-static loadTheme() {
-    try {
-        return localStorage.getItem(StoreManager.STORAGE_KEYS.THEME) || 'light';
-    } catch (error) {
-        return 'light';
-    }
-}
-
-/**
- * 保存设置
- */
-static saveSettings(settings) {
-    try {
-        localStorage.setItem(StoreManager.STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * 加载设置
- */
-static loadSettings() {
-    try {
-        const data = localStorage.getItem(StoreManager.STORAGE_KEYS.SETTINGS);
-        return data ? JSON.parse(data) : null;
-    } catch (error) {
-        console.error('[StoreManager] Failed to load settings:', error);
-        return null;
-    }
-}
-
-/**
- * 保存同步滚动状态
- */
-static saveSyncScrollEnabled(enabled) {
-    try {
-        localStorage.setItem(StoreManager.STORAGE_KEYS.SYNC_SCROLL, String(enabled));
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * 加载同步滚动状态
- */
-static loadSyncScrollEnabled() {
-    try {
-        const value = localStorage.getItem(StoreManager.STORAGE_KEYS.SYNC_SCROLL);
-        return value === 'true';
-    } catch (error) {
-        return true;
+    /**
+     * 加载设置
+     */
+    static loadSettings() {
+        return getData(KEYS.SETTINGS);
     }
 }
 ```
@@ -1449,7 +1287,7 @@ this.state.setState({ content: '...' }, { force: true });
 graph TB
     A[EditorState] --> B[PersistenceManager]
     B --> C[StoreManager]
-    C --> D[localStorage]
+    C --> D[IndexedDB]
     
     B --> E[防抖调度]
     B --> F[立即持久化]
@@ -1467,7 +1305,7 @@ sequenceDiagram
     participant S as EditorState
     participant P as PersistenceManager
     participant ST as StoreManager
-    participant L as localStorage
+    participant I as IndexedDB
 
     S->>P: schedule(changedKeys)
     P->>P: 分离立即/延迟键
@@ -1475,7 +1313,7 @@ sequenceDiagram
     P->>P: 设置防抖定时器
     Note over P: 等待防抖延迟
     P->>ST: 批量持久化
-    ST->>L: 写入数据
+    ST->>I: 写入数据
 ```
 
 ### 持久化配置
@@ -1548,13 +1386,10 @@ graph LR
 ```javascript
 static async saveDocumentsAsync(documents) {
     try {
-        const serialized = JSON.stringify(documents);
-        await StoreManager.#scheduleAsync(() => {
-            localStorage.setItem(StoreManager.#STORAGE_KEYS.DOCUMENTS, serialized);
-        });
-        return { success: true };
+        const result = await StoreManager.saveDocuments(documents);
+        return result;
     } catch (e) {
-        const errorMsg = StoreManager.#handleStorageError(e, '保存文档列表失败');
+        const errorMsg = '保存文档列表失败';
         console.warn(`${errorMsg}:`, e);
         return { success: false, error: errorMsg };
     }
@@ -1564,12 +1399,11 @@ static async saveDocumentsAsync(documents) {
 **数据损坏处理**：
 
 ```javascript
-static loadDocuments() {
+static async loadDocuments() {
     try {
-        const saved = localStorage.getItem(StoreManager.#STORAGE_KEYS.DOCUMENTS);
-        if (!saved) return [];
+        const documents = await StoreManager.loadDocuments();
+        if (!documents) return [];
 
-        const documents = JSON.parse(saved);
         // 验证数据格式
         if (!Array.isArray(documents)) {
             console.warn('文档列表格式错误，已重置');
@@ -1578,7 +1412,6 @@ static loadDocuments() {
         return documents;
     } catch (e) {
         console.warn('加载文档列表失败:', e);
-        StoreManager.#clearCorruptedData(StoreManager.#STORAGE_KEYS.DOCUMENTS);
         return [];
     }
 }
@@ -1623,7 +1456,7 @@ sequenceDiagram
     
     E->>E: 防抖处理
     E->>S: updateDocument(docId, { content })
-    S->>ST: 保存到 localStorage
+    S->>ST: 保存到 IndexedDB
 ```
 
 ### 文档管理流程
@@ -1647,7 +1480,7 @@ sequenceDiagram
     
     U->>E: 编辑内容
     E->>S: updateDocument(docId, { content })
-    S->>ST: 保存到 localStorage
+    S->>ST: 保存到 IndexedDB
 ```
 
 ---

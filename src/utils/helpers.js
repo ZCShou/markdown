@@ -192,12 +192,9 @@ export function escapeHtml(text) {
  */
 export function supportsFeature(feature) {
     switch (feature) {
-        case 'localStorage':
+        case 'indexedDB':
             try {
-                const test = '__localStorage_test__';
-                localStorage.setItem(test, test);
-                localStorage.removeItem(test);
-                return true;
+                return 'indexedDB' in window;
             } catch {
                 return false;
             }

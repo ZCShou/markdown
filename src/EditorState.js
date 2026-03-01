@@ -504,9 +504,8 @@ $$
      * @returns {Promise<void>}
      */
     async init() {
-        // 初始化 IndexedDB 并迁移旧数据
+        // 初始化 IndexedDB
         await StoreManager.init();
-        await StoreManager.migrateFromLocalStorage();
 
         const documents = await StoreManager.loadDocuments();
         const savedDocId = await StoreManager.loadCurrentDocId();
