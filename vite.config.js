@@ -14,9 +14,9 @@ const __dirname = dirname(__filename);
  */
 export default defineConfig(({ mode }) => {
   // 使用 Vite 约定的 VITE_* 环境变量
-  // Tauri 和 Web 部署都使用根路径，由服务器/协议处理
+  // Tauri 和 Web 部署都使用相对路径，确保在自定义域名和 GitHub Pages 原始域名下都能正常工作
   const env = loadEnv(mode, process.cwd(), 'VITE_');
-  const base = env.VITE_BASE_URL || '/';
+  const base = env.VITE_BASE_URL || './';
 
   return {
     base,
