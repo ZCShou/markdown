@@ -4,18 +4,28 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
+import { debounce, escapeHtml } from '../utils/helpers.js';
 
 /**
  *
  */
 export class RightSidebar extends BaseComponent {
-    /**
-     * 构造函数
-     * @param state
-     * @param containerId
-     */
     /** @private 已折叠的标题 ID 集合 */
     #collapsedHeadings = new Set();
+    /** @private 工具按钮映射缓存 */
+    #toolButtons = null;
+    /** @private 区块元素映射缓存 */
+    #sectionElements = null;
+    /** @private TOC 容器缓存 */
+    #tocContainer = null;
+    /** @private 当前激活的 TOC 项缓存 */
+    #activeTocItem = null;
+    /** @private 导出按钮清理函数数组 */
+    #exportCleanups = [];
+    /** @private 关闭按钮清理函数 */
+    #closeBtnCleanup = null;
+    /** @private 防抖后的高亮更新函数 */
+    #debouncedUpdateActiveTocItem = null;
 
     constructor(state, containerId) {
         super(state, containerId);
@@ -49,9 +59,14 @@ export class RightSidebar extends BaseComponent {
             this.generateTOC();
         });
 
-        // 订阅滚动高亮标题变化
-        const unsubscribeActiveHeading = this.state.subscribeTo('activeHeadingId', headingId =>
-            this.#updateActiveTocItem(headingId)
+        // 订阅滚动高亮标题变化（防抖处理：快速滚动时减少DOM操作）
+        this.#debouncedUpdateActiveTocItem = debounce(
+            headingId => this.#updateActiveTocItem(headingId),
+            50
+        );
+        const unsubscribeActiveHeading = this.state.subscribeTo(
+            'activeHeadingId',
+            this.#debouncedUpdateActiveTocItem
         );
 
         // 合并取消订阅函数
@@ -67,15 +82,15 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     bindEvents() {
-        // 侧边栏工具按钮点击
+        // 侧边栏工具按钮点击（事件委托）
         this.addEventListener(this.container, 'click', e => {
             this.handleToolClick(e);
         });
 
-        // 目录项点击
-        const tocContainer = dom.getById('md-toc')?.element;
+        // 目录项点击（事件委托）
+        const tocContainer = this.#getTocContainer();
         if (tocContainer) {
-            tocContainer.addEventListener('click', e => {
+            this.addEventListener(tocContainer, 'click', e => {
                 // 点击折叠按钮 — 切换折叠，不触发跳转
                 const toggle = e.target.closest('.md-toc-toggle');
                 if (toggle) {
@@ -109,21 +124,53 @@ export class RightSidebar extends BaseComponent {
             });
         }
 
-        // 关闭按钮
+        // 关闭按钮 - 使用 addEventListener 以便正确清理
         const closeBtn = dom.getById('md-close-right-sidebar')?.element;
         if (closeBtn) {
-            closeBtn.onclick = () => this.toggle();
+            const closeHandler = () => this.toggle();
+            closeBtn.addEventListener('click', closeHandler);
+            this.#closeBtnCleanup = () => closeBtn.removeEventListener('click', closeHandler);
         }
 
-        // 导出按钮
+        // 导出按钮 - 使用 addEventListener 以便正确清理
         ['html', 'md', 'pdf'].forEach(type => {
             const btn = dom.getById(`md-export-${type}`)?.element;
             if (btn) {
-                btn.onclick = () => this.state.triggerExport(type);
+                const handler = () => this.state.triggerExport(type);
+                btn.addEventListener('click', handler);
+                this.#exportCleanups.push(() => btn.removeEventListener('click', handler));
             }
         });
 
+        // 缓存工具按钮和区块元素，避免重复查询
+        this.#cacheToolAndSectionElements();
         this.setActiveSection(this.activeSection);
+    }
+
+    /**
+     * 缓存工具按钮和区块元素，避免重复查询
+     * @private
+     */
+    #cacheToolAndSectionElements() {
+        const tools = this.container.querySelectorAll('.md-sidebar-tool');
+        const sectionElements = this.container.querySelectorAll('.md-sidebar-section');
+
+        this.#toolButtons = new Map();
+        this.#sectionElements = new Map();
+
+        tools.forEach(button => {
+            const sectionName = button.getAttribute('data-section');
+            if (sectionName) {
+                this.#toolButtons.set(sectionName, button);
+            }
+        });
+
+        sectionElements.forEach(el => {
+            const sectionName = el.getAttribute('data-section');
+            if (sectionName) {
+                this.#sectionElements.set(sectionName, el);
+            }
+        });
     }
 
     // ==================== 侧边栏控制 ====================
@@ -172,22 +219,17 @@ export class RightSidebar extends BaseComponent {
     setActiveSection(sectionName) {
         this.activeSection = sectionName;
 
-        // 一次遍历更新所有工具按钮和区块
-        const tools = this.container.querySelectorAll('.md-sidebar-tool');
-        const sectionElements = this.container.querySelectorAll('.md-sidebar-section');
-        const sectionMap = new Map();
+        // 使用缓存的映射，避免重复 DOM 查询
+        if (!this.#toolButtons || !this.#sectionElements) {
+            this.#cacheToolAndSectionElements();
+        }
 
-        sectionElements.forEach(el => {
-            sectionMap.set(el.getAttribute('data-section'), el);
-        });
-
-        tools.forEach(button => {
-            const btnSection = button.getAttribute('data-section');
+        this.#toolButtons.forEach((button, btnSection) => {
             const isActive = btnSection === sectionName;
             button.classList.toggle('active', isActive);
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
 
-            const section = sectionMap.get(btnSection);
+            const section = this.#sectionElements.get(btnSection);
             if (section) {
                 section.classList.toggle('is-active', isActive);
             }
@@ -197,17 +239,31 @@ export class RightSidebar extends BaseComponent {
     // ==================== 目录功能 ====================
 
     /**
+     * 获取 TOC 容器（带缓存）
+     * @returns {HTMLElement|null}
+     * @private
+     */
+    #getTocContainer() {
+        if (!this.#tocContainer) {
+            this.#tocContainer = dom.getById('md-toc')?.element;
+        }
+        return this.#tocContainer;
+    }
+
+    /**
      * 生成目录
      * @returns {void}
      */
     generateTOC() {
-        const tocContainer = dom.getById('md-toc')?.element;
+        const tocContainer = this.#getTocContainer();
         if (!tocContainer) return;
 
         const headings = this.state.get('headings');
 
         if (!headings || headings.length === 0) {
             tocContainer.innerHTML = '<p class="md-empty-state">暂无目录</p>';
+            // 重置激活项缓存
+            this.#activeTocItem = null;
             return;
         }
 
@@ -219,11 +275,9 @@ export class RightSidebar extends BaseComponent {
         for (let i = 0; i < headings.length; i++) {
             const h = headings[i];
             const id = h.id || `heading-${i}`;
-            const level = h.level || +h.tagName.substring(1);
-            const nextLevel =
-                i + 1 < headings.length
-                    ? headings[i + 1].level || +headings[i + 1].tagName.substring(1)
-                    : 0;
+            const level = h.level ?? +h.tagName.substring(1);
+            const nextH = headings[i + 1];
+            const nextLevel = nextH ? (nextH.level ?? +nextH.tagName.substring(1)) : 0;
             const hasChildren = nextLevel > level;
 
             // 折叠可见性（栈算法）
@@ -235,10 +289,7 @@ export class RightSidebar extends BaseComponent {
             if (isCollapsed) collapseStack.push(level);
 
             // 安全转义文本
-            const text = (h.textContent || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
+            const text = escapeHtml(h.textContent || '');
 
             const cls = [
                 'md-toc-item',
@@ -258,8 +309,8 @@ export class RightSidebar extends BaseComponent {
                 : '';
             parts.push(
                 `<div class="${cls}" data-heading-id="${id}" data-level="${level}">` +
-                    `<span class="md-toc-toggle">${chevron}</span>` +
-                    `<span class="md-toc-text">${text}</span>${expandHint}</div>`
+                `<span class="md-toc-toggle">${chevron}</span>` +
+                `<span class="md-toc-text">${text}</span>${expandHint}</div>`
             );
         }
 
@@ -270,53 +321,13 @@ export class RightSidebar extends BaseComponent {
     }
 
     /**
+
      * 滚动到指定标题（委托给 Preview 处理，确保懒加载元素先渲染）
      * @param {string} headingId - 标题 ID
      * @returns {void}
      */
     scrollToHeading(headingId) {
         this.state.triggerScrollToHeading(headingId);
-    }
-
-    /**
-     * 对 items 数组应用折叠可见性（栈算法，支持多级嵌套折叠）。
-     * 每次 generateTOC 或切换折叠后调用。
-     * @param {HTMLElement[]} items
-     * @private
-     */
-    #applyCollapsedState(items) {
-        // collapseStack 存放当前「正在折叠」的祖先级别
-        const collapseStack = [];
-        for (const item of items) {
-            const level = +item.dataset.level;
-            const id = item.dataset.headingId;
-
-            // 弹出已结束的折叠区间（当前 level <= 栈顶 level，说明已跳出该折叠区间）
-            while (collapseStack.length && collapseStack[collapseStack.length - 1] >= level) {
-                collapseStack.pop();
-            }
-
-            // 位于折叠区间内 → 隐藏
-            item.classList.toggle('toc-hidden', collapseStack.length > 0);
-
-            // 本节点也是折叠状态且有子项 → 入栈
-            const isCollapsed =
-                this.#collapsedHeadings.has(id) && item.classList.contains('has-children');
-            item.classList.toggle('collapsed', isCollapsed);
-            if (isCollapsed) collapseStack.push(level);
-
-            // 动态添加/移除 "..." 展开提示按钮
-            const existingHint = item.querySelector('.md-toc-expand-hint');
-            if (isCollapsed && !existingHint) {
-                const hint = document.createElement('span');
-                hint.className = 'md-toc-expand-hint';
-                hint.title = '展开';
-                hint.textContent = '⋯';
-                item.appendChild(hint);
-            } else if (!isCollapsed && existingHint) {
-                existingHint.remove();
-            }
-        }
     }
 
     /**
@@ -330,30 +341,32 @@ export class RightSidebar extends BaseComponent {
         } else {
             this.#collapsedHeadings.add(headingId);
         }
-        const toc = document.getElementById('md-toc');
-        if (toc) {
-            this.#applyCollapsedState([...toc.querySelectorAll('.md-toc-item')]);
-        }
+        // 重新生成 TOC（已优化，使用 innerHTML 一次性写入）
+        this.generateTOC();
     }
 
     /**
-     * 更新 TOC 中当前激活的标题项
+     * 更新 TOC 中当前激活的标题项（使用缓存优化）
      * @param {string|null} headingId
      * @private
      */
     #updateActiveTocItem(headingId) {
-        const toc = document.getElementById('md-toc');
+        const toc = this.#getTocContainer();
         if (!toc) return;
 
-        // 移除旧的高亮
-        toc.querySelector('.md-toc-item.active')?.classList.remove('active');
+        // 使用缓存移除旧的高亮
+        if (this.#activeTocItem) {
+            this.#activeTocItem.classList.remove('active');
+            this.#activeTocItem = null;
+        }
 
         if (!headingId) return;
 
         // 添加新的高亮，并确保该项在 TOC 侧边栏内可见
-        const item = toc.querySelector(`.md-toc-item[data-heading-id="${headingId}"]`);
+        const item = toc.querySelector(`.md-toc-item[data-heading-id="${CSS.escape(headingId)}"]`);
         if (item) {
             item.classList.add('active');
+            this.#activeTocItem = item;
             // 使用 instant 避免滚动时触发多个竞争的 smooth 动画
             item.scrollIntoView({ block: 'nearest', behavior: 'instant' });
         }
@@ -378,6 +391,26 @@ export class RightSidebar extends BaseComponent {
      * @returns {void}
      */
     destroy() {
+        // 清理导出按钮事件
+        this.#exportCleanups.forEach(cleanup => cleanup());
+        this.#exportCleanups = [];
+
+        // 清理关闭按钮事件
+        if (this.#closeBtnCleanup) {
+            this.#closeBtnCleanup();
+            this.#closeBtnCleanup = null;
+        }
+
+
+        // 清理缓存
+        this.#toolButtons = null;
+        this.#sectionElements = null;
+        this.#tocContainer = null;
+        this.#activeTocItem = null;
+        this.#debouncedUpdateActiveTocItem = null;
+        this.#collapsedHeadings.clear();
+
+        // 调用父类销毁
         super.destroy();
     }
 }
