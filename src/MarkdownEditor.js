@@ -169,8 +169,8 @@ export class MarkdownEditor {
      * @param {number} duration - 显示时长（毫秒）
      */
     showMessage(
-        message, 
-        type = MarkdownEditor.MESSAGE_TYPES.INFO, 
+        message,
+        type = MarkdownEditor.MESSAGE_TYPES.INFO,
         duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION
     ) {
         const overlay = dom.status.overlay?.element;
@@ -212,7 +212,7 @@ export class MarkdownEditor {
     #buildEditorConfig(initialValue = '') {
         const editorConfig = this.state.get('editor') || {};
         const interfaceConfig = this.state.get('interface') || {};
-        
+
         return {
             initialValue,
             editorConfig,
@@ -258,13 +258,12 @@ export class MarkdownEditor {
      */
     #createEditorInstance(editorType, initialValue, editorHost) {
         const config = this.#buildEditorConfig(initialValue);
-        const EditorClass = editorType === MarkdownEditor.EDITOR_TYPES.MONACO 
-            ? MonacoEditor 
-            : CodeMirrorEditor;
-        
+        const EditorClass =
+            editorType === MarkdownEditor.EDITOR_TYPES.MONACO ? MonacoEditor : CodeMirrorEditor;
+
         const editor = new EditorClass(editorHost, config);
         editor.init();
-        
+
         return editor;
     }
 
@@ -281,7 +280,7 @@ export class MarkdownEditor {
             this.monacoEditor.destroy();
             this.monacoEditor = null;
         }
-        
+
         const editorHost = dom.getById('markdown-editor')?.element;
         if (editorHost) {
             editorHost.innerHTML = '';
@@ -316,7 +315,7 @@ export class MarkdownEditor {
         // 创建新编辑器
         this.currentEditorType = editorType;
         const editor = this.#createEditorInstance(editorType, currentContent, editorHost);
-        
+
         if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
             this.monacoEditor = editor;
         } else {
@@ -330,7 +329,7 @@ export class MarkdownEditor {
         this.setupSyncScroll();
 
         this.showMessage(
-            `已切换到 ${editorType === MarkdownEditor.EDITOR_TYPES.MONACO ? 'Monaco' : 'CodeMirror'} 编辑器`, 
+            `已切换到 ${editorType === MarkdownEditor.EDITOR_TYPES.MONACO ? 'Monaco' : 'CodeMirror'} 编辑器`,
             MarkdownEditor.MESSAGE_TYPES.SUCCESS
         );
     }
@@ -352,7 +351,7 @@ export class MarkdownEditor {
 
             // 使用统一的创建方法
             const editor = this.#createEditorInstance(editorType, initialValue, editorHost);
-            
+
             if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
                 this.monacoEditor = editor;
             } else {
@@ -424,7 +423,7 @@ export class MarkdownEditor {
         // 内容变化时更新高度（使用新的订阅名称避免冲突）
         this.#syncScrollContentUnsubscribe = this.state.subscribeTo(
             ['content', 'currentDocId'],
-            () => requestAnimationFrame(() => heights = updateScrollHeights())
+            () => requestAnimationFrame(() => (heights = updateScrollHeights()))
         );
 
         // 滚动处理
@@ -439,7 +438,7 @@ export class MarkdownEditor {
             target.scrollTop = (source.scrollTop / sourceH) * targetH;
             lastSyncTime = now;
 
-            requestAnimationFrame(() => this.isSyncing = false);
+            requestAnimationFrame(() => (this.isSyncing = false));
         };
 
         // 编辑器滚动 -> 预览（使用新的订阅名称避免冲突）
@@ -538,7 +537,9 @@ export class MarkdownEditor {
         }
 
         // 监听 layout/sidebars 变化
-        this.#dividerInterfaceUnsubscribe = this.state.subscribeTo('interface', () => recalculateSplitRatio());
+        this.#dividerInterfaceUnsubscribe = this.state.subscribeTo('interface', () =>
+            recalculateSplitRatio()
+        );
 
         // 悬停样式（仅视觉）
         divider.addEventListener('mouseenter', () => {
@@ -558,7 +559,7 @@ export class MarkdownEditor {
         let cachedContainerRect = null;
         let cachedDividerWidth = divider.offsetWidth;
 
-        const onPointerMove = (e) => {
+        const onPointerMove = e => {
             if (!this.isDragging) return;
             if (this.#dragRafId) return;
             this.#dragRafId = requestAnimationFrame(() => {
@@ -585,7 +586,7 @@ export class MarkdownEditor {
             });
         };
 
-        const endDrag = (e) => {
+        const endDrag = e => {
             if (!this.isDragging) return;
             this.isDragging = false;
             divider.classList.remove('dragging', 'hover');
@@ -600,7 +601,8 @@ export class MarkdownEditor {
             updateSplitRatio(this.lastLeftRatio);
 
             try {
-                if (e?.pointerId && divider.releasePointerCapture) divider.releasePointerCapture(e.pointerId);
+                if (e?.pointerId && divider.releasePointerCapture)
+                    divider.releasePointerCapture(e.pointerId);
             } catch (_err) {}
 
             window.removeEventListener('pointermove', onPointerMove);
@@ -608,7 +610,7 @@ export class MarkdownEditor {
             window.removeEventListener('pointercancel', endDrag);
         };
 
-        const onPointerDown = (e) => {
+        const onPointerDown = e => {
             this.isDragging = true;
             divider.classList.add('dragging');
             divider.classList.remove('hover');
@@ -746,7 +748,7 @@ export class MarkdownEditor {
         if (syncScrollButton) {
             // 保存同步滚动图标引用
             this.#syncScrollIcon = dom.getIn(syncScrollButton, '.codicon');
-            
+
             syncScrollButton.onclick = () => {
                 this.syncScrollEnabled = !this.syncScrollEnabled;
                 this.state.updateInterfaceConfig({ syncScrollEnabled: this.syncScrollEnabled });
@@ -809,15 +811,14 @@ export class MarkdownEditor {
      */
     #subscribe() {
         // 同步内容到编辑器
-        this.#editorStateUnsubscribe = this.state.subscribeTo(
-            ['content', 'currentDocId'],
-            () => {
-                this.#getActiveEditor()?.setValue(this.state.get('content') || '', { emitUpdate: false });
-            }
-        );
+        this.#editorStateUnsubscribe = this.state.subscribeTo(['content', 'currentDocId'], () => {
+            this.#getActiveEditor()?.setValue(this.state.get('content') || '', {
+                emitUpdate: false
+            });
+        });
 
         // 同步编辑器配置到编辑器
-        this.#editorConfigUnsubscribe = this.state.subscribeTo('editor', (newEditor) => {
+        this.#editorConfigUnsubscribe = this.state.subscribeTo('editor', newEditor => {
             this.#getActiveEditor()?.updateConfig(newEditor, this.state.get('interface'));
 
             // 如果编辑器类型变化，切换编辑器
@@ -847,13 +848,15 @@ export class MarkdownEditor {
                         MarkdownEditor.LAYOUT_MODES.EDITOR_ONLY,
                         MarkdownEditor.LAYOUT_MODES.PREVIEW_ONLY
                     );
-                    container.classList.add(newInterface.layout ?? MarkdownEditor.LAYOUT_MODES.BOTH);
+                    container.classList.add(
+                        newInterface.layout ?? MarkdownEditor.LAYOUT_MODES.BOTH
+                    );
                 }
             }
         });
 
         // 监听通知状态变化，显示消息
-        this.state.subscribeTo('notification', (notification) => {
+        this.state.subscribeTo('notification', notification => {
             if (notification) {
                 this.showMessage(notification.message, notification.type);
                 this.state.clearNotification();

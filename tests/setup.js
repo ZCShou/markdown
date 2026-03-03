@@ -31,7 +31,8 @@ class IDBObjectStoreMock {
     get(key) {
         const request = new IDBRequestMock();
         setTimeout(() => {
-            request.result = this.store[key] !== undefined ? { key, value: this.store[key] } : undefined;
+            request.result =
+                this.store[key] !== undefined ? { key, value: this.store[key] } : undefined;
             if (request.onsuccess) request.onsuccess({ target: request });
         }, 0);
         return request;
@@ -61,7 +62,7 @@ class IDBDatabaseMock {
     constructor() {
         this._store = {};
         this.objectStoreNames = {
-            contains: (name) => true
+            contains: name => true
         };
     }
 
@@ -79,10 +80,10 @@ class IDBOpenDBRequestMock extends IDBRequestMock {
 
 const indexedDBMock = {
     _databases: {},
-    
+
     open(name, version) {
         const request = new IDBOpenDBRequestMock();
-        
+
         setTimeout(() => {
             if (!this._databases[name]) {
                 this._databases[name] = new IDBDatabaseMock();
@@ -94,7 +95,7 @@ const indexedDBMock = {
             request.result = this._databases[name];
             if (request.onsuccess) request.onsuccess({ target: request });
         }, 0);
-        
+
         return request;
     }
 };

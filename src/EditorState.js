@@ -518,21 +518,32 @@ $$
         const savedSettings = await StoreManager.loadSettings();
 
         // 合并保存的设置和默认设置
-        const settings = savedSettings ? {
-            editor: {
-                ...EditorState.DEFAULT_SETTINGS.editor,
-                ...savedSettings.editor,
-                // 深度合并嵌套的编辑器特定设置
-                codemirror: { ...EditorState.DEFAULT_SETTINGS.editor.codemirror, ...savedSettings.editor?.codemirror },
-                monaco: { ...EditorState.DEFAULT_SETTINGS.editor.monaco, ...savedSettings.editor?.monaco }
-            },
-            interface: { ...EditorState.DEFAULT_SETTINGS.interface, ...savedSettings.interface },
-            export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
-        } : {
-            editor: { ...EditorState.DEFAULT_SETTINGS.editor },
-            interface: { ...EditorState.DEFAULT_SETTINGS.interface },
-            export: { ...EditorState.DEFAULT_SETTINGS.export }
-        };
+        const settings = savedSettings
+            ? {
+                  editor: {
+                      ...EditorState.DEFAULT_SETTINGS.editor,
+                      ...savedSettings.editor,
+                      // 深度合并嵌套的编辑器特定设置
+                      codemirror: {
+                          ...EditorState.DEFAULT_SETTINGS.editor.codemirror,
+                          ...savedSettings.editor?.codemirror
+                      },
+                      monaco: {
+                          ...EditorState.DEFAULT_SETTINGS.editor.monaco,
+                          ...savedSettings.editor?.monaco
+                      }
+                  },
+                  interface: {
+                      ...EditorState.DEFAULT_SETTINGS.interface,
+                      ...savedSettings.interface
+                  },
+                  export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
+              }
+            : {
+                  editor: { ...EditorState.DEFAULT_SETTINGS.editor },
+                  interface: { ...EditorState.DEFAULT_SETTINGS.interface },
+                  export: { ...EditorState.DEFAULT_SETTINGS.export }
+              };
 
         // 确定当前文档和内容
         let currentDocId = null;
@@ -822,9 +833,7 @@ $$
             const minIndex = Math.min(startIndex, endIndex);
             const maxIndex = Math.max(startIndex, endIndex);
 
-            const selectedDocIds = flatDocs
-                .slice(minIndex, maxIndex + 1)
-                .map(doc => doc.id);
+            const selectedDocIds = flatDocs.slice(minIndex, maxIndex + 1).map(doc => doc.id);
 
             this.#setState({
                 selectedDocIds,
@@ -874,7 +883,7 @@ $$
         const result = [];
         const tree = this.getDocumentTree();
 
-        const traverse = (nodes) => {
+        const traverse = nodes => {
             for (const node of nodes) {
                 result.push(node);
                 if (node.children && node.children.length > 0) {
@@ -918,9 +927,7 @@ $$
      */
     importDocuments(docs, mode = 'replace', notify = true) {
         const currentDocs = this.#state.documents;
-        const newDocuments = mode === 'replace'
-            ? docs
-            : this.#mergeDocuments(currentDocs, docs);
+        const newDocuments = mode === 'replace' ? docs : this.#mergeDocuments(currentDocs, docs);
 
         this.#setState({ documents: newDocuments }, { silent: !notify });
     }
@@ -1116,9 +1123,9 @@ $$
      * 关闭所有侧边栏
      */
     closeAllSidebars() {
-        this.updateInterfaceConfig({ 
-            leftSidebarOpen: false, 
-            rightSidebarOpen: false 
+        this.updateInterfaceConfig({
+            leftSidebarOpen: false,
+            rightSidebarOpen: false
         });
     }
 

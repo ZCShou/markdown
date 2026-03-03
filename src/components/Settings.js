@@ -96,7 +96,9 @@ export class Settings {
 
             // Monaco 设置
             monacoMinimapInput: dom.get('#setting-monaco-minimap'),
-            monacoBracketPairColorizationInput: dom.get('#setting-monaco-bracket-pair-colorization'),
+            monacoBracketPairColorizationInput: dom.get(
+                '#setting-monaco-bracket-pair-colorization'
+            ),
             monacoCursorBlinkingSelect: dom.get('#setting-monaco-cursor-blinking'),
             monacoSmoothScrollingInput: dom.get('#setting-monaco-smooth-scrolling'),
             monacoRenderWhitespaceSelect: dom.get('#setting-monaco-render-whitespace'),
@@ -135,7 +137,7 @@ export class Settings {
 
         // 点击遮罩层关闭
         if (this.overlay) {
-            this.overlay.addEventListener('click', (e) => {
+            this.overlay.addEventListener('click', e => {
                 if (e.target === this.overlay) {
                     this.close();
                 }
@@ -164,7 +166,7 @@ export class Settings {
 
         // 布局比例滑块实时显示 - 使用缓存的元素
         if (this.cachedElements?.leftRatioInput) {
-            this.cachedElements.leftRatioInput.addEventListener('input', (e) => {
+            this.cachedElements.leftRatioInput.addEventListener('input', e => {
                 if (this.cachedElements?.ratioValue) {
                     this.cachedElements.ratioValue.textContent = `${e.target.value}%`;
                 }
@@ -173,14 +175,14 @@ export class Settings {
 
         // 主题选择器实时预览
         if (this.cachedElements?.themeSelect) {
-            this.cachedElements.themeSelect.addEventListener('change', (e) => {
+            this.cachedElements.themeSelect.addEventListener('change', e => {
                 this.applyTheme(e.target.value);
             });
         }
 
         // 编辑器类型切换 - 动态显示/隐藏对应的设置组
         if (this.cachedElements?.editorTypeSelect) {
-            this.cachedElements.editorTypeSelect.addEventListener('change', (e) => {
+            this.cachedElements.editorTypeSelect.addEventListener('change', e => {
                 this.updateEditorSpecificSettings(e.target.value);
             });
         }
@@ -251,19 +253,47 @@ export class Settings {
         this.#setInputChecked(this.cachedElements.insertSpacesInput, editor.insertSpaces, true);
         this.#setInputValue(this.cachedElements.tabSizeInput, editor.tabSize, 4);
         this.#setInputChecked(this.cachedElements.wordWrapInput, editor.wordWrap, true);
-        this.#setInputChecked(this.cachedElements.highlightActiveLineInput, editor.highlightActiveLine, true);
+        this.#setInputChecked(
+            this.cachedElements.highlightActiveLineInput,
+            editor.highlightActiveLine,
+            true
+        );
 
         // CodeMirror 设置
         this.#setInputChecked(this.cachedElements.cmLineNumbersInput, codemirror.lineNumbers, true);
-        this.#setInputChecked(this.cachedElements.cmBracketMatchingInput, codemirror.bracketMatching, true);
-        this.#setInputChecked(this.cachedElements.cmRenderWhitespaceInput, codemirror.renderWhitespace, false);
+        this.#setInputChecked(
+            this.cachedElements.cmBracketMatchingInput,
+            codemirror.bracketMatching,
+            true
+        );
+        this.#setInputChecked(
+            this.cachedElements.cmRenderWhitespaceInput,
+            codemirror.renderWhitespace,
+            false
+        );
 
         // Monaco 设置
         this.#setInputChecked(this.cachedElements.monacoMinimapInput, monaco.minimap, true);
-        this.#setInputChecked(this.cachedElements.monacoBracketPairColorizationInput, monaco.bracketPairColorization, true);
-        this.#setInputValue(this.cachedElements.monacoCursorBlinkingSelect, monaco.cursorBlinking, 'smooth');
-        this.#setInputChecked(this.cachedElements.monacoSmoothScrollingInput, monaco.smoothScrolling, true);
-        this.#setInputValue(this.cachedElements.monacoRenderWhitespaceSelect, monaco.renderWhitespace, 'selection');
+        this.#setInputChecked(
+            this.cachedElements.monacoBracketPairColorizationInput,
+            monaco.bracketPairColorization,
+            true
+        );
+        this.#setInputValue(
+            this.cachedElements.monacoCursorBlinkingSelect,
+            monaco.cursorBlinking,
+            'smooth'
+        );
+        this.#setInputChecked(
+            this.cachedElements.monacoSmoothScrollingInput,
+            monaco.smoothScrolling,
+            true
+        );
+        this.#setInputValue(
+            this.cachedElements.monacoRenderWhitespaceSelect,
+            monaco.renderWhitespace,
+            'selection'
+        );
 
         // 根据编辑器类型显示/隐藏对应的设置组
         this.updateEditorSpecificSettings(editor.type || 'monaco');
@@ -277,13 +307,33 @@ export class Settings {
         if (this.cachedElements.ratioValue) {
             this.cachedElements.ratioValue.textContent = `${leftRatioPercent}%`;
         }
-        this.#setInputChecked(this.cachedElements.leftSidebarInput, interfaceState.leftSidebarOpen, false);
-        this.#setInputChecked(this.cachedElements.rightSidebarInput, interfaceState.rightSidebarOpen, false);
-        this.#setInputChecked(this.cachedElements.syncScrollEnabledInput, interfaceState.syncScrollEnabled, true);
+        this.#setInputChecked(
+            this.cachedElements.leftSidebarInput,
+            interfaceState.leftSidebarOpen,
+            false
+        );
+        this.#setInputChecked(
+            this.cachedElements.rightSidebarInput,
+            interfaceState.rightSidebarOpen,
+            false
+        );
+        this.#setInputChecked(
+            this.cachedElements.syncScrollEnabledInput,
+            interfaceState.syncScrollEnabled,
+            true
+        );
 
         // 导出配置
-        this.#setInputChecked(this.cachedElements.exportStyleInput, exportConfig.includeStyle, true);
-        this.#setInputChecked(this.cachedElements.exportHighlightInput, exportConfig.codeHighlight, true);
+        this.#setInputChecked(
+            this.cachedElements.exportStyleInput,
+            exportConfig.includeStyle,
+            true
+        );
+        this.#setInputChecked(
+            this.cachedElements.exportHighlightInput,
+            exportConfig.codeHighlight,
+            true
+        );
     }
 
     /**
@@ -292,7 +342,8 @@ export class Settings {
      */
     updateEditorSpecificSettings(editorType) {
         if (this.cachedElements?.codemirrorGroup) {
-            this.cachedElements.codemirrorGroup.style.display = editorType === 'codemirror' ? '' : 'none';
+            this.cachedElements.codemirrorGroup.style.display =
+                editorType === 'codemirror' ? '' : 'none';
         }
         if (this.cachedElements?.monacoGroup) {
             this.cachedElements.monacoGroup.style.display = editorType === 'monaco' ? '' : 'none';
@@ -347,10 +398,12 @@ export class Settings {
             // Monaco 特有设置
             monaco: {
                 minimap: this.cachedElements.monacoMinimapInput?.checked ?? true,
-                bracketPairColorization: this.cachedElements.monacoBracketPairColorizationInput?.checked ?? true,
+                bracketPairColorization:
+                    this.cachedElements.monacoBracketPairColorizationInput?.checked ?? true,
                 cursorBlinking: this.cachedElements.monacoCursorBlinkingSelect?.value || 'smooth',
                 smoothScrolling: this.cachedElements.monacoSmoothScrollingInput?.checked ?? true,
-                renderWhitespace: this.cachedElements.monacoRenderWhitespaceSelect?.value || 'selection'
+                renderWhitespace:
+                    this.cachedElements.monacoRenderWhitespaceSelect?.value || 'selection'
             }
         };
 
@@ -464,8 +517,7 @@ export class Settings {
         const html = document.documentElement;
 
         // 确定实际主题模式
-        const isDark = theme === 'dark' ||
-            (theme === 'auto' && this.colorSchemeMatcher?.matches);
+        const isDark = theme === 'dark' || (theme === 'auto' && this.colorSchemeMatcher?.matches);
 
         // 应用主题到 HTML
         html.setAttribute('data-mode', isDark ? 'dark' : 'light');

@@ -16,9 +16,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
 
         // 创建模拟状态
         mockState = {
-            documents: [
-                { id: '1', name: 'Test Doc', type: 'file', content: 'Hello' }
-            ],
+            documents: [{ id: '1', name: 'Test Doc', type: 'file', content: 'Hello' }],
             currentDocId: '1',
             content: 'Hello',
             editor: { fontSize: 16 },
@@ -146,7 +144,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
 
             // 等待一段时间，确保没有定时器在运行
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             const saved = await StoreManager.loadDocuments();
             expect(saved).toEqual([]);
         });

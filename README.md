@@ -52,13 +52,13 @@ npm run build
 
 ## 📚 文档
 
-| 文档 | 说明 |
-|------|------|
-| [架构设计](docs/arch.md) | 组件体系、状态管理、数据流 |
-| [文档管理](docs/document.md) | 文档树功能实现与性能优化 |
-| [预览功能](docs/preview.md) | Markdown 渲染、代码高亮、公式图表 |
-| [构建部署](docs/build.md) | Vite 配置、构建流程 |
-| [测试规范](docs/testing.md) | 测试框架、代码检查 |
+| 文档                         | 说明                              |
+| ---------------------------- | --------------------------------- |
+| [架构设计](docs/arch.md)     | 组件体系、状态管理、数据流        |
+| [文档管理](docs/document.md) | 文档树功能实现与性能优化          |
+| [预览功能](docs/preview.md)  | Markdown 渲染、代码高亮、公式图表 |
+| [构建部署](docs/build.md)    | Vite 配置、构建流程               |
+| [测试规范](docs/testing.md)  | 测试框架、代码检查                |
 
 ## 🖥️ 桌面应用（Tauri）
 

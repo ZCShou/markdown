@@ -30,11 +30,7 @@ import {
     highlightWhitespace
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import {
-    search,
-    searchKeymap,
-    openSearchPanel
-} from '@codemirror/search';
+import { search, searchKeymap, openSearchPanel } from '@codemirror/search';
 import {
     bracketMatching,
     indentUnit,
@@ -173,7 +169,10 @@ export class CodeMirrorEditor {
                     this.createHighlightActiveLineExtension(editorConfig)
                 ),
                 this.bracketMatchingCompartment.of(
-                    this.#createExtensionIfEnabled(codemirrorConfig?.bracketMatching, bracketMatching)
+                    this.#createExtensionIfEnabled(
+                        codemirrorConfig?.bracketMatching,
+                        bracketMatching
+                    )
                 ),
                 // 原生搜索功能
                 search({
@@ -205,7 +204,9 @@ export class CodeMirrorEditor {
                 EditorView.updateListener.of(update => {
                     if (!update.docChanged) return;
 
-                    const isExternal = update.transactions.some(tr => tr.annotation(externalUpdate));
+                    const isExternal = update.transactions.some(tr =>
+                        tr.annotation(externalUpdate)
+                    );
                     if (isExternal) return;
 
                     this.options.onChange?.(update.state.doc.toString());
@@ -261,14 +262,14 @@ export class CodeMirrorEditor {
         return [
             {
                 key: 'Mod-f',
-                run: (view) => {
+                run: view => {
                     openSearchPanel(view);
                     return true;
                 }
             },
             {
                 key: 'Mod-h',
-                run: (view) => {
+                run: view => {
                     openSearchPanel(view);
                     return true;
                 }
@@ -343,7 +344,7 @@ export class CodeMirrorEditor {
      */
     #setupGlobalDragListeners() {
         // 全局鼠标移动处理
-        this.#globalMouseMoveHandler = (event) => {
+        this.#globalMouseMoveHandler = event => {
             const dragState = this.#lineDragState;
             if (!dragState?.isDragging || !dragState.view) return;
 
@@ -534,7 +535,9 @@ export class CodeMirrorEditor {
                 ),
                 this.indentCompartment.reconfigure(this.createIndentExtension(editorConfig)),
                 this.themeCompartment.reconfigure(this.createThemeExtension(editorConfig, isDark)),
-                this.lineNumbersCompartment.reconfigure(this.createLineNumbersExtension(codemirrorConfig)),
+                this.lineNumbersCompartment.reconfigure(
+                    this.createLineNumbersExtension(codemirrorConfig)
+                ),
                 this.lineWrappingCompartment.reconfigure(
                     this.#createExtensionIfEnabled(editorConfig?.wordWrap, EditorView.lineWrapping)
                 ),
@@ -542,7 +545,10 @@ export class CodeMirrorEditor {
                     this.createHighlightActiveLineExtension(editorConfig)
                 ),
                 this.bracketMatchingCompartment.reconfigure(
-                    this.#createExtensionIfEnabled(codemirrorConfig?.bracketMatching, bracketMatching)
+                    this.#createExtensionIfEnabled(
+                        codemirrorConfig?.bracketMatching,
+                        bracketMatching
+                    )
                 ),
                 this.highlightWhitespaceCompartment.reconfigure(
                     this.createWhitespaceExtension(codemirrorConfig)
@@ -582,9 +588,7 @@ export class CodeMirrorEditor {
             return;
         }
 
-        const annotations = options.emitUpdate !== true
-            ? [externalUpdate.of(true)]
-            : [];
+        const annotations = options.emitUpdate !== true ? [externalUpdate.of(true)] : [];
 
         this.view.dispatch({
             changes: { from: 0, to: currentDoc.length, insert: value },
@@ -638,7 +642,7 @@ export class CodeMirrorEditor {
     onScroll(callback) {
         const scrollDOM = this.view?.scrollDOM;
         if (!scrollDOM || typeof callback !== 'function') return () => {};
-        
+
         scrollDOM.addEventListener('scroll', callback, { passive: true });
         return () => scrollDOM.removeEventListener('scroll', callback);
     }

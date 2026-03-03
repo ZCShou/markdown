@@ -35,13 +35,14 @@ export class PersistenceManager {
      * @type {Object}
      */
     static PERSIST_HANDLERS = {
-        documents: async (state) => StoreManager.saveDocuments(state.documents),
-        currentDocId: async (state) => StoreManager.saveCurrentDocId(state.currentDocId),
-        settings: async (state) => StoreManager.saveSettings({
-            editor: state.editor,
-            interface: state.interface,
-            export: state.export
-        })
+        documents: async state => StoreManager.saveDocuments(state.documents),
+        currentDocId: async state => StoreManager.saveCurrentDocId(state.currentDocId),
+        settings: async state =>
+            StoreManager.saveSettings({
+                editor: state.editor,
+                interface: state.interface,
+                export: state.export
+            })
     };
 
     /**
@@ -155,9 +156,7 @@ export class PersistenceManager {
         this.#clearTimer();
 
         // 计算最大延迟时间
-        const maxDelay = Math.max(
-            ...keys.map(key => this.#config[key]?.debounce || 300)
-        );
+        const maxDelay = Math.max(...keys.map(key => this.#config[key]?.debounce || 300));
 
         // 设置新的定时器
         this.#debounceTimer = setTimeout(() => {

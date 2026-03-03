@@ -1,59 +1,59 @@
 /**
  * UI 组件基类
- * 
+ *
  * @abstract
  * @description 提供持久化组件的通用功能：状态订阅、事件管理、生命周期管理
- * 
+ *
  * 适用范围：
  * - ✅ 持久化组件：Editor, Preview, LeftSidebar, RightSidebar, SearchReplace
  * - ❌ 对话框组件：Settings（独立类，不需要状态订阅）
  * - ❌ 工具类：Dialog（纯静态方法，不需要实例）
- * 
+ *
  * 核心功能：
  * - 状态订阅：subscribe() / unsubscribe()
  * - 事件管理：addEventListener() / 自动清理
  * - 生命周期：init() → subscribe() → bindEvents() → render() → destroy()
  * - 错误处理：handleError() / wrapWithErrorHandler()
  * - 工具方法：showMessage() / debounce() / formatDate()
- * 
+ *
  * DOM 访问说明：
  * - 全局元素：使用 dom.js（如 dom.editor.element）
  * - 组件内查询：使用 dom.getIn() 或 dom.getAllIn()
- * 
+ *
  * @example
  * ```js
  * class MyComponent extends BaseComponent {
  *   constructor(state, containerId) {
  *     super(state, containerId);
  *   }
- * 
+ *
  *   subscribe() {
  *     // 订阅状态变化
  *     this.unsubscribe = this.state.subscribeTo('content', () => {
  *       this.render();
  *     });
  *   }
- * 
+ *
  *   bindEvents() {
  *     // 绑定事件（自动管理清理）
  *     this.addEventListener(this.container, 'click', (e) => {
  *       this.handleClick(e);
  *     });
  *   }
- * 
+ *
  *   render() {
  *     // 渲染组件
  *     this.container.innerHTML = '<p>Hello</p>';
  *   }
  * }
  * ```
- * 
+ *
  * @architecture
  * - 使用模板方法模式：init() 定义初始化流程
  * - 子类实现：subscribe() / bindEvents() / render()
  * - 自动清理：destroy() 时取消订阅和移除事件监听
  * - 错误处理：所有方法都包装在 try-catch 中
- * 
+ *
  * @see Settings 对话框组件示例（不继承 BaseComponent）
  * @see Dialog 工具类示例（纯静态方法）
  */

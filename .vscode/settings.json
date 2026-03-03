@@ -17,7 +17,7 @@
   "prettier.enable": true,
   "prettier.requireConfig": true,
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "vscode.typescript-language-features"
   },
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"

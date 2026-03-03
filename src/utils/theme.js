@@ -24,8 +24,10 @@ export function resolveDarkMode(interfaceConfig = {}) {
  */
 export function applyTheme(mode) {
     const html = document.documentElement;
-    const isDark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    
+    const isDark =
+        mode === 'dark' ||
+        (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
     html.dataset.mode = isDark ? 'dark' : 'light';
 
     // 更新主题颜色
@@ -43,8 +45,8 @@ export function applyTheme(mode) {
 export function watchSystemTheme(callback) {
     const matcher = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => callback(matcher.matches ? 'dark' : 'light');
-    
+
     matcher.addEventListener('change', handler);
-    
+
     return () => matcher.removeEventListener('change', handler);
 }

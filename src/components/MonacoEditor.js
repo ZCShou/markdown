@@ -226,7 +226,7 @@ export class MonacoEditor {
         const { FoldingRangeKind } = monaco.languages;
 
         monaco.languages.registerFoldingRangeProvider('markdown', {
-            provideFoldingRanges: (model) => {
+            provideFoldingRanges: model => {
                 const ranges = [];
                 const lines = model.getLinesContent();
                 const lineCount = lines.length;
@@ -234,7 +234,7 @@ export class MonacoEditor {
                 let stackLen = 0;
 
                 let fenceStart = null; // 围栏代码块起始行号（1-based），null 表示不在代码块内
-                let fenceChar = null;  // 围栏字符 (` 或 ~)
+                let fenceChar = null; // 围栏字符 (` 或 ~)
 
                 for (let i = 0; i < lineCount; i++) {
                     const line = lines[i];
@@ -255,7 +255,11 @@ export class MonacoEditor {
                             // 在代码块内，检查是否是匹配的围栏结束
                             if (line[1] === c0 && line[2] === c0) {
                                 // 添加代码块折叠范围
-                                ranges.push({ start: fenceStart, end: i + 1, kind: FoldingRangeKind.Region });
+                                ranges.push({
+                                    start: fenceStart,
+                                    end: i + 1,
+                                    kind: FoldingRangeKind.Region
+                                });
                                 fenceStart = null;
                                 fenceChar = null;
                                 continue;
@@ -276,7 +280,11 @@ export class MonacoEditor {
                                 const startLine = stack[stackLen - 2];
                                 stackLen -= 2;
                                 if (i + 1 > startLine) {
-                                    ranges.push({ start: startLine, end: i, kind: FoldingRangeKind.Region });
+                                    ranges.push({
+                                        start: startLine,
+                                        end: i,
+                                        kind: FoldingRangeKind.Region
+                                    });
                                 }
                             }
                             stack[stackLen++] = i + 1; // 行号从1开始
@@ -288,7 +296,11 @@ export class MonacoEditor {
                 // 处理剩余标题
                 for (let j = 0; j < stackLen; j += 2) {
                     if (lineCount > stack[j]) {
-                        ranges.push({ start: stack[j], end: lineCount, kind: FoldingRangeKind.Region });
+                        ranges.push({
+                            start: stack[j],
+                            end: lineCount,
+                            kind: FoldingRangeKind.Region
+                        });
                     }
                 }
 
@@ -468,7 +480,7 @@ export class MonacoEditor {
     /**
      * 获取滚动元素（代理对象，用于同步滚动）
      * 仅提供滚动属性，事件通过 onScroll 回调处理
-     * 
+     *
      * @returns {Object|null} 滚动代理对象
      */
     getScrollElement() {
@@ -476,10 +488,18 @@ export class MonacoEditor {
         if (!editor) return null;
 
         return {
-            get scrollTop() { return editor.getScrollTop(); },
-            set scrollTop(v) { editor.setScrollTop(Math.max(0, v)); },
-            get scrollHeight() { return editor.getScrollHeight(); },
-            get clientHeight() { return editor.getLayoutInfo().height; }
+            get scrollTop() {
+                return editor.getScrollTop();
+            },
+            set scrollTop(v) {
+                editor.setScrollTop(Math.max(0, v));
+            },
+            get scrollHeight() {
+                return editor.getScrollHeight();
+            },
+            get clientHeight() {
+                return editor.getLayoutInfo().height;
+            }
         };
     }
 
@@ -497,7 +517,7 @@ export class MonacoEditor {
      */
     onScroll(callback) {
         if (!this.editor || typeof callback !== 'function') return () => {};
-        
+
         const disposable = this.editor.onDidScrollChange(callback);
         return () => disposable.dispose();
     }
@@ -518,10 +538,10 @@ export class MonacoEditor {
 
     /**
      * 配置 Monaco Editor Workers
-     * 
+     *
      * Monaco Editor 需要 Web Workers 来处理语言服务功能（语法高亮、代码补全等）。
      * 此方法配置全局的 MonacoEnvironment 来告诉 Monaco 如何加载 worker 文件。
-     * 
+     *
      * @private
      * @see {@link https://code.visualstudio.com/api/extension-guides/vscode-web-extensions#web-workers}
      */

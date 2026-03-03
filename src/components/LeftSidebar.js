@@ -36,14 +36,17 @@ export class LeftSidebar extends BaseComponent {
      */
     subscribe() {
         // 订阅侧边栏状态
-        const unsubscribeSidebar = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
-            const hasOld = !!oldInterface;
-            
-            // 更新侧边栏可见性（只在状态变化时）
-            if (!hasOld || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
-                this.updateVisibility(newInterface.leftSidebarOpen);
+        const unsubscribeSidebar = this.state.subscribeTo(
+            'interface',
+            (newInterface, oldInterface) => {
+                const hasOld = !!oldInterface;
+
+                // 更新侧边栏可见性（只在状态变化时）
+                if (!hasOld || newInterface.leftSidebarOpen !== oldInterface.leftSidebarOpen) {
+                    this.updateVisibility(newInterface.leftSidebarOpen);
+                }
             }
-        });
+        );
 
         // 订阅文档树状态
         const unsubscribeTree = this.state.subscribeTo(
@@ -216,9 +219,10 @@ export class LeftSidebar extends BaseComponent {
      * @param {boolean|string} [expanded='toggle'] - 展开状态：true=展开, false=折叠, 'toggle'=切换
      */
     manageFolderState(folderId, expanded = 'toggle') {
-        const finalExpanded = expanded === 'toggle' ? !this.expandedFolders.has(folderId) : expanded;
+        const finalExpanded =
+            expanded === 'toggle' ? !this.expandedFolders.has(folderId) : expanded;
         const currentlyExpanded = this.expandedFolders.has(folderId);
-        
+
         if (finalExpanded === currentlyExpanded) return;
 
         if (finalExpanded) {
@@ -233,7 +237,9 @@ export class LeftSidebar extends BaseComponent {
         const toggle = dom.getIn(item, '.md-tree-toggle');
         const icon = dom.getIn(item, '.md-doc-item-icon i');
         const nodeContainer = item.closest('.md-tree-node');
-        const childrenContainer = nodeContainer ? dom.getIn(nodeContainer, '.md-tree-children') : null;
+        const childrenContainer = nodeContainer
+            ? dom.getIn(nodeContainer, '.md-tree-children')
+            : null;
 
         if (toggle) toggle.classList.toggle('expanded', finalExpanded);
         if (icon) {
@@ -341,14 +347,14 @@ export class LeftSidebar extends BaseComponent {
 
         const { docId } = item.dataset;
         const selectedDocIds = this.state.get('selectedDocIds') || [];
-        
+
         this.draggedItems = selectedDocIds.includes(docId) ? [...selectedDocIds] : [docId];
         this.draggedSet = new Set(this.draggedItems);
-        
+
         this.draggedItems.forEach(id => {
             this.#getDocEl(id)?.classList.add('md-dragging');
         });
-        
+
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedItems.join(','));
         document.body.classList.add('is-dragging-tree');
@@ -368,7 +374,11 @@ export class LeftSidebar extends BaseComponent {
         this.lastDragOverTime = now;
 
         const treeContainer = dom.getById('md-doc-tree')?.element;
-        if (!treeContainer || e.target.closest('.md-doc-toolbar') || e.target.closest('.md-empty-state')) {
+        if (
+            !treeContainer ||
+            e.target.closest('.md-doc-toolbar') ||
+            e.target.closest('.md-empty-state')
+        ) {
             this.#clearDropTarget();
             return;
         }
@@ -403,7 +413,10 @@ export class LeftSidebar extends BaseComponent {
         // 检查是否在展开的文件夹内，同时排除正在被拖拽的文件夹
         let current = targetNode.parentElement;
         while (current && current !== treeContainer) {
-            if (current.classList.contains('md-tree-children') && !current.classList.contains('collapsed')) {
+            if (
+                current.classList.contains('md-tree-children') &&
+                !current.classList.contains('collapsed')
+            ) {
                 const folderNode = current.parentElement;
                 if (folderNode?.classList.contains('md-tree-node')) {
                     const folderItem = dom.getIn(folderNode, '.md-doc-item');
@@ -431,15 +444,19 @@ export class LeftSidebar extends BaseComponent {
      */
     #setDropTarget(element, type) {
         if (this.dragTarget === element && element !== null) return;
-        
+
         this.#clearDropTarget();
-        
+
         if (!element) return;
-        
+
         this.dragTarget = element;
         this.dragTargetType = type;
-        
-        const classMap = { expanded: 'md-drop-target-expanded', root: 'md-drop-target-root', item: 'md-drop-target' };
+
+        const classMap = {
+            expanded: 'md-drop-target-expanded',
+            root: 'md-drop-target-root',
+            item: 'md-drop-target'
+        };
         element.classList.add(classMap[type]);
     }
 
@@ -449,7 +466,11 @@ export class LeftSidebar extends BaseComponent {
      */
     #clearDropTarget() {
         if (this.dragTarget) {
-            this.dragTarget.classList.remove('md-drop-target', 'md-drop-target-expanded', 'md-drop-target-root');
+            this.dragTarget.classList.remove(
+                'md-drop-target',
+                'md-drop-target-expanded',
+                'md-drop-target-root'
+            );
             this.dragTarget = null;
             this.dragTargetType = null;
         }
@@ -486,7 +507,7 @@ export class LeftSidebar extends BaseComponent {
 
         // 只移动顶层条目：跳过祖先链中已包含在拖拽集合内的项，
         // 以便子项随父项自动迁移，保留原有目录层次结构。
-        const isAncestorDragged = (docId) => {
+        const isAncestorDragged = docId => {
             let current = docMap.get(docMap.get(docId)?.parentId);
             while (current) {
                 if (draggedSet.has(current.id)) return true;
@@ -501,7 +522,7 @@ export class LeftSidebar extends BaseComponent {
 
             // 跳过其祖先已在拖拽集合中的项（它们会随父节点一起迁移）
             if (isAncestorDragged(draggedId)) continue;
-            
+
             // 防止将文件夹拖到自己的子文件夹中
             if (targetId) {
                 let current = docMap.get(targetId);
@@ -520,7 +541,7 @@ export class LeftSidebar extends BaseComponent {
                 anyMoved = true;
             }
         }
-        
+
         if (anyMoved && targetId) {
             this.manageFolderState(targetId, true);
         }
@@ -628,7 +649,10 @@ export class LeftSidebar extends BaseComponent {
         if (this.#pendingEdit && this.editingDocId) {
             const treeContainer = dom.getById('md-doc-tree')?.element;
             if (treeContainer) {
-                const editingItem = dom.getIn(treeContainer, `[data-doc-id="${this.editingDocId}"]`);
+                const editingItem = dom.getIn(
+                    treeContainer,
+                    `[data-doc-id="${this.editingDocId}"]`
+                );
                 if (editingItem?.classList.contains('editing')) {
                     const input = dom.getIn(editingItem, '.md-doc-item-input');
                     input?.blur();
@@ -822,9 +846,7 @@ export class LeftSidebar extends BaseComponent {
         this.renderTree();
 
         this.showMessage(
-            selectedDocIds.length > 0
-                ? `已删除 ${docIdsToDelete.length} 个文件`
-                : '已清空所有文件',
+            selectedDocIds.length > 0 ? `已删除 ${docIdsToDelete.length} 个文件` : '已清空所有文件',
             'success'
         );
     }
@@ -877,7 +899,7 @@ export class LeftSidebar extends BaseComponent {
         // 在构建 DOM 之前，将当前文档和选中文档的祖先文件夹合并到 expandedFolders，
         // 避免先渲染折叠状态、再展开时产生闪烁。
         const docMap = new Map(documents.map(d => [d.id, d]));
-        const addAncestors = (docId) => {
+        const addAncestors = docId => {
             if (!docId) return;
             let currentId = docId;
             while (currentId) {
@@ -911,7 +933,11 @@ export class LeftSidebar extends BaseComponent {
             const pendingEdit = this.#pendingEdit;
             this.#pendingEdit = null;
             requestAnimationFrame(() => {
-                this.editDocumentName(pendingEdit.docId, pendingEdit.isNewItem, pendingEdit.shouldSetCurrent);
+                this.editDocumentName(
+                    pendingEdit.docId,
+                    pendingEdit.isNewItem,
+                    pendingEdit.shouldSetCurrent
+                );
             });
         }
     }
@@ -931,7 +957,10 @@ export class LeftSidebar extends BaseComponent {
         const isExpanded = isFolder && this.expandedFolders.has(node.id);
         const hasChildren = isFolder && node.children?.length > 0;
 
-        const nodeContainer = this.createElement('div', { className: 'md-tree-node', dataset: { level } });
+        const nodeContainer = this.createElement('div', {
+            className: 'md-tree-node',
+            dataset: { level }
+        });
 
         const itemClasses = ['md-doc-item'];
         if (isActive) itemClasses.push('active');
@@ -960,8 +989,15 @@ export class LeftSidebar extends BaseComponent {
             this.createElement('span', { className: 'md-tree-spacer', parent: item });
         }
 
-        const iconSpan = this.createElement('span', { className: 'md-doc-item-icon', parent: item });
-        const iconClass = isFolder ? (isExpanded ? 'codicon-folder-opened' : 'codicon-folder') : 'codicon-file';
+        const iconSpan = this.createElement('span', {
+            className: 'md-doc-item-icon',
+            parent: item
+        });
+        const iconClass = isFolder
+            ? isExpanded
+                ? 'codicon-folder-opened'
+                : 'codicon-folder'
+            : 'codicon-file';
         this.createElement('i', { className: `codicon ${iconClass}`, parent: iconSpan });
 
         if (isEditing) {
@@ -972,16 +1008,26 @@ export class LeftSidebar extends BaseComponent {
                 parent: item
             });
         } else {
-            this.createElement('span', { className: 'md-doc-item-name', textContent: node.name, parent: item });
+            this.createElement('span', {
+                className: 'md-doc-item-name',
+                textContent: node.name,
+                parent: item
+            });
         }
 
-        const actions = this.createElement('span', { className: 'md-doc-item-actions', parent: item });
+        const actions = this.createElement('span', {
+            className: 'md-doc-item-actions',
+            parent: item
+        });
 
         if (isFolder) {
             ['new-file', 'new-folder'].forEach(type => {
                 const btn = this.createElement('button', {
                     className: `md-btn md-btn-icon md-btn-xs md-${type}-btn`,
-                    attributes: { title: type === 'new-file' ? '在此新建文档' : '在此新建文件夹', 'data-folder-id': node.id },
+                    attributes: {
+                        title: type === 'new-file' ? '在此新建文档' : '在此新建文件夹',
+                        'data-folder-id': node.id
+                    },
                     parent: actions
                 });
                 this.createElement('i', { className: `codicon codicon-${type}`, parent: btn });
@@ -1003,7 +1049,9 @@ export class LeftSidebar extends BaseComponent {
             });
 
             node.children.forEach(child => {
-                childrenContainer.appendChild(this.renderTreeNode(child, currentDocId, level + 1, selectedDocIds)); // Set 直接向下传递
+                childrenContainer.appendChild(
+                    this.renderTreeNode(child, currentDocId, level + 1, selectedDocIds)
+                ); // Set 直接向下传递
             });
 
             nodeContainer.appendChild(childrenContainer);
@@ -1026,11 +1074,17 @@ export class LeftSidebar extends BaseComponent {
 
         try {
             const blob = new Blob(
-                [JSON.stringify({
-                    version: '1.0',
-                    exportDate: new Date().toISOString(),
-                    documents
-                }, null, 2)],
+                [
+                    JSON.stringify(
+                        {
+                            version: '1.0',
+                            exportDate: new Date().toISOString(),
+                            documents
+                        },
+                        null,
+                        2
+                    )
+                ],
                 { type: 'application/json' }
             );
 
@@ -1058,7 +1112,7 @@ export class LeftSidebar extends BaseComponent {
         input.type = 'file';
         input.accept = '.json,application/json';
 
-        input.onchange = async (e) => {
+        input.onchange = async e => {
             const file = e.target.files?.[0];
             if (!file) return;
 
@@ -1093,12 +1147,16 @@ export class LeftSidebar extends BaseComponent {
                 }
 
                 const currentDocs = this.state.get('documents');
-                const newDocuments = importMode === 'replace'
-                    ? data.documents
-                    : this.#mergeDocuments(currentDocs, data.documents);
+                const newDocuments =
+                    importMode === 'replace'
+                        ? data.documents
+                        : this.#mergeDocuments(currentDocs, data.documents);
 
                 this.state.importDocuments(newDocuments, 'replace', true);
-                this.showMessage(`成功${importMode === 'replace' ? '替换' : '合并'}导入 ${data.documents.length} 个文档`, 'success');
+                this.showMessage(
+                    `成功${importMode === 'replace' ? '替换' : '合并'}导入 ${data.documents.length} 个文档`,
+                    'success'
+                );
             } catch (error) {
                 this.showMessage(`导入失败：${error.message}`, 'error');
             } finally {

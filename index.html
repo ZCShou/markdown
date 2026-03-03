@@ -55,7 +55,10 @@
                             title="导入文档"
                             aria-label="导入文档"
                         >
-                            <i class="codicon codicon-sign-in md-icon-rotate-90" aria-hidden="true"></i>
+                            <i
+                                class="codicon codicon-sign-in md-icon-rotate-90"
+                                aria-hidden="true"
+                            ></i>
                         </button>
                         <button
                             class="md-btn md-btn-icon"
@@ -63,7 +66,10 @@
                             title="导出文档"
                             aria-label="导出文档"
                         >
-                            <i class="codicon codicon-sign-out md-icon-rotate-90" aria-hidden="true"></i>
+                            <i
+                                class="codicon codicon-sign-out md-icon-rotate-90"
+                                aria-hidden="true"
+                            ></i>
                         </button>
                         <button
                             class="md-btn md-btn-icon"
@@ -83,12 +89,7 @@
                     </button>
                 </div>
                 <div class="md-sidebar-content">
-                    <nav
-                        class="md-doc-tree"
-                        id="md-doc-tree"
-                        role="navigation"
-                        aria-label="文档树"
-                    >
+                    <nav class="md-doc-tree" id="md-doc-tree" role="navigation" aria-label="文档树">
                         <!-- Document tree will be generated dynamically -->
                     </nav>
                 </div>
@@ -175,10 +176,7 @@
 
                     <!-- Preview Pane -->
                     <div class="md-pane md-preview-pane" id="md-preview-pane">
-                        <div
-                            class="md-preview-scroll unified-scrollbar"
-                            id="md-preview-wrapper"
-                        >
+                        <div class="md-preview-scroll unified-scrollbar" id="md-preview-wrapper">
                             <div
                                 id="markdown-preview"
                                 class="markdown-body"
@@ -285,14 +283,22 @@
             <div class="md-settings-dialog">
                 <div class="md-settings-header">
                     <h2>设置</h2>
-                    <button class="md-btn md-btn-icon md-btn-ghost" id="md-settings-close" title="关闭">
+                    <button
+                        class="md-btn md-btn-icon md-btn-ghost"
+                        id="md-settings-close"
+                        title="关闭"
+                    >
                         <i class="codicon codicon-close"></i>
                     </button>
                 </div>
                 <div class="md-settings-content">
                     <!-- Left Navigation -->
                     <div class="md-settings-nav unified-scrollbar">
-                        <div class="md-settings-nav-item active" data-section="interface" title="界面">
+                        <div
+                            class="md-settings-nav-item active"
+                            data-section="interface"
+                            title="界面"
+                        >
                             <i class="codicon codicon-layout md-settings-nav-item-icon"></i>
                             <span class="md-settings-nav-item-text">界面</span>
                         </div>
@@ -330,7 +336,9 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>布局模式</span>
-                                        <span class="md-settings-description">选择编辑器布局模式</span>
+                                        <span class="md-settings-description"
+                                            >选择编辑器布局模式</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <select id="setting-layout">
@@ -343,21 +351,40 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>编辑器宽度比例</span>
-                                        <span class="md-settings-description">调整编辑器与预览的宽度比例</span>
+                                        <span class="md-settings-description"
+                                            >调整编辑器与预览的宽度比例</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
-                                        <input type="range" id="setting-left-ratio" value="50" min="20" max="80" step="5" />
-                                        <span class="md-settings-value" id="setting-left-ratio-value">50%</span>
+                                        <input
+                                            type="range"
+                                            id="setting-left-ratio"
+                                            value="50"
+                                            min="20"
+                                            max="80"
+                                            step="5"
+                                        />
+                                        <span
+                                            class="md-settings-value"
+                                            id="setting-left-ratio-value"
+                                            >50%</span
+                                        >
                                     </div>
                                 </div>
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>同步滚动</span>
-                                        <span class="md-settings-description">编辑器与预览窗口同步滚动</span>
+                                        <span class="md-settings-description"
+                                            >编辑器与预览窗口同步滚动</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-sync-scroll-enabled" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-sync-scroll-enabled"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -368,7 +395,9 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>默认打开左侧边栏</span>
-                                        <span class="md-settings-description">启动时自动打开左侧边栏</span>
+                                        <span class="md-settings-description"
+                                            >启动时自动打开左侧边栏</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
@@ -380,11 +409,16 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>默认打开右侧边栏</span>
-                                        <span class="md-settings-description">启动时自动打开右侧边栏</span>
+                                        <span class="md-settings-description"
+                                            >启动时自动打开右侧边栏</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-right-sidebar-open" />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-right-sidebar-open"
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -410,10 +444,18 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>字体大小</span>
-                                        <span class="md-settings-description">留空使用浏览器默认值（通常为16px）</span>
+                                        <span class="md-settings-description"
+                                            >留空使用浏览器默认值（通常为16px）</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
-                                        <input type="number" id="setting-font-size" placeholder="默认" min="10" max="24" />
+                                        <input
+                                            type="number"
+                                            id="setting-font-size"
+                                            placeholder="默认"
+                                            min="10"
+                                            max="24"
+                                        />
                                         <span class="md-settings-unit">px</span>
                                     </div>
                                 </div>
@@ -423,13 +465,22 @@
                                         <span class="md-settings-description">设置编辑器行高</span>
                                     </label>
                                     <div class="md-settings-control">
-                                        <input type="number" id="setting-line-height" value="1.6" min="1.0" max="2.5" step="0.1" />
+                                        <input
+                                            type="number"
+                                            id="setting-line-height"
+                                            value="1.6"
+                                            min="1.0"
+                                            max="2.5"
+                                            step="0.1"
+                                        />
                                     </div>
                                 </div>
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>自动保存</span>
-                                        <span class="md-settings-description">编辑时自动保存文档</span>
+                                        <span class="md-settings-description"
+                                            >编辑时自动保存文档</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
@@ -441,11 +492,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>使用空格代替 TAB</span>
-                                        <span class="md-settings-description">按 TAB 键时插入空格而非制表符</span>
+                                        <span class="md-settings-description"
+                                            >按 TAB 键时插入空格而非制表符</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-insert-spaces" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-insert-spaces"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -453,17 +510,27 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>TAB 大小</span>
-                                        <span class="md-settings-description">TAB 键对应的空格数量</span>
+                                        <span class="md-settings-description"
+                                            >TAB 键对应的空格数量</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
-                                        <input type="number" id="setting-tab-size" value="4" min="2" max="8" />
+                                        <input
+                                            type="number"
+                                            id="setting-tab-size"
+                                            value="4"
+                                            min="2"
+                                            max="8"
+                                        />
                                         <span class="md-settings-unit">空格</span>
                                     </div>
                                 </div>
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>自动换行</span>
-                                        <span class="md-settings-description">超出宽度时自动换行</span>
+                                        <span class="md-settings-description"
+                                            >超出宽度时自动换行</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
@@ -475,11 +542,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>高亮当前行</span>
-                                        <span class="md-settings-description">高亮显示光标所在行</span>
+                                        <span class="md-settings-description"
+                                            >高亮显示光标所在行</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-highlight-active-line" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-highlight-active-line"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -490,11 +563,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>显示行号</span>
-                                        <span class="md-settings-description">在编辑器左侧显示行号</span>
+                                        <span class="md-settings-description"
+                                            >在编辑器左侧显示行号</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-cm-line-numbers" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-cm-line-numbers"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -502,11 +581,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>括号匹配</span>
-                                        <span class="md-settings-description">自动匹配括号、引号等</span>
+                                        <span class="md-settings-description"
+                                            >自动匹配括号、引号等</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-cm-bracket-matching" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-cm-bracket-matching"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -514,11 +599,16 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>显示空白符</span>
-                                        <span class="md-settings-description">显示空格、制表符等空白字符</span>
+                                        <span class="md-settings-description"
+                                            >显示空格、制表符等空白字符</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-cm-render-whitespace" />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-cm-render-whitespace"
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -529,11 +619,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>显示小地图</span>
-                                        <span class="md-settings-description">在编辑器右侧显示代码缩略图</span>
+                                        <span class="md-settings-description"
+                                            >在编辑器右侧显示代码缩略图</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-monaco-minimap" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-monaco-minimap"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -541,11 +637,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>括号配对着色</span>
-                                        <span class="md-settings-description">为匹配的括号对显示不同颜色</span>
+                                        <span class="md-settings-description"
+                                            >为匹配的括号对显示不同颜色</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-monaco-bracket-pair-colorization" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-monaco-bracket-pair-colorization"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -553,7 +655,9 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>光标闪烁动画</span>
-                                        <span class="md-settings-description">设置光标闪烁效果</span>
+                                        <span class="md-settings-description"
+                                            >设置光标闪烁效果</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <select id="setting-monaco-cursor-blinking">
@@ -568,11 +672,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>平滑滚动</span>
-                                        <span class="md-settings-description">启用平滑滚动效果</span>
+                                        <span class="md-settings-description"
+                                            >启用平滑滚动效果</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-monaco-smooth-scrolling" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-monaco-smooth-scrolling"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -580,7 +690,9 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>显示空白符</span>
-                                        <span class="md-settings-description">显示空格、制表符等空白字符</span>
+                                        <span class="md-settings-description"
+                                            >显示空格、制表符等空白字符</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <select id="setting-monaco-render-whitespace">
@@ -599,11 +711,17 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>包含样式</span>
-                                        <span class="md-settings-description">导出时包含 CSS 样式</span>
+                                        <span class="md-settings-description"
+                                            >导出时包含 CSS 样式</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-export-include-style" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-export-include-style"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
@@ -611,17 +729,22 @@
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
                                         <span>代码高亮</span>
-                                        <span class="md-settings-description">导出时保留代码高亮</span>
+                                        <span class="md-settings-description"
+                                            >导出时保留代码高亮</span
+                                        >
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-export-code-highlight" checked />
+                                            <input
+                                                type="checkbox"
+                                                id="setting-export-code-highlight"
+                                                checked
+                                            />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>

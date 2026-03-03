@@ -67,7 +67,7 @@ function openDatabase() {
             resolve(db);
         };
 
-        request.onupgradeneeded = (event) => {
+        request.onupgradeneeded = event => {
             const database = event.target.result;
 
             // 创建对象存储（使用单个存储，通过键区分不同数据）
@@ -90,7 +90,7 @@ async function setData(key, value) {
     try {
         const database = await openDatabase();
 
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             const transaction = database.transaction([STORES.DATA], 'readwrite');
             const store = transaction.objectStore(STORES.DATA);
 
@@ -216,7 +216,6 @@ export class StoreManager {
     }
 
     // ==================== 数据迁移 ====================
-
 
     /**
      * 清除所有数据

@@ -150,7 +150,7 @@ export class Preview extends BaseComponent {
         this.#initIntersectionObserver();
 
         // 订阅导出准备事件：强制完整渲染后通知 Exporter
-        this.state.subscribeTo('export:prepare', async (type) => {
+        this.state.subscribeTo('export:prepare', async type => {
             await this.#renderAllForExport();
             const html = this.container?.innerHTML ?? '';
             this.state.triggerExportReady(type, html);
@@ -232,8 +232,10 @@ export class Preview extends BaseComponent {
                         const element = entry.target;
 
                         // 处理代码高亮
-                        if (element.classList.contains('code-pending') &&
-                            !element.classList.contains('prism-highlighted')) {
+                        if (
+                            element.classList.contains('code-pending') &&
+                            !element.classList.contains('prism-highlighted')
+                        ) {
                             this.#pendingCodeBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
                             element.classList.remove('code-pending');
@@ -241,9 +243,11 @@ export class Preview extends BaseComponent {
                         }
 
                         // 处理 Mermaid 渲染 —— 收集到批次，一次性 mermaid.run
-                        if (element.classList.contains('mermaid-pending') &&
+                        if (
+                            element.classList.contains('mermaid-pending') &&
                             !element.classList.contains('mermaid-done') &&
-                            !element.classList.contains('mermaid-rendering')) {
+                            !element.classList.contains('mermaid-rendering')
+                        ) {
                             this.#pendingMermaidBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
                             element.classList.remove('mermaid-pending');
@@ -251,8 +255,10 @@ export class Preview extends BaseComponent {
                         }
 
                         // 处理数学公式渲染
-                        if (element.classList.contains('math-pending') &&
-                            !element.classList.contains('math-rendered')) {
+                        if (
+                            element.classList.contains('math-pending') &&
+                            !element.classList.contains('math-rendered')
+                        ) {
                             this.#pendingMathBlocks.delete(element);
                             this.#intersectionObserver.unobserve(element);
                             element.classList.remove('math-pending');
@@ -290,9 +296,8 @@ export class Preview extends BaseComponent {
         );
 
         // 订阅来自 RightSidebar / 其他组件的标题跳转请求
-        const unsubscribeScroll = this.state.subscribeTo(
-            'scroll:heading',
-            headingId => this.#doScrollToHeading(headingId)
+        const unsubscribeScroll = this.state.subscribeTo('scroll:heading', headingId =>
+            this.#doScrollToHeading(headingId)
         );
 
         // 保存取消订阅函数
@@ -366,7 +371,11 @@ export class Preview extends BaseComponent {
 
                 // 处理外部链接：在新标签页中打开
                 // 检查是否是外部链接（http://, https://, // 等）
-                if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
+                if (
+                    href.startsWith('http://') ||
+                    href.startsWith('https://') ||
+                    href.startsWith('//')
+                ) {
                     e.preventDefault();
                     window.open(href, '_blank', 'noopener,noreferrer');
                 }
@@ -432,7 +441,8 @@ export class Preview extends BaseComponent {
 
         const observer = this.#intersectionObserver;
         const target = this.container.querySelector(`[id="${CSS.escape(headingId)}"]`);
-        const isAfter = el => target && !!(target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+        const isAfter = el =>
+            target && !!(target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
 
         // ── 1. 数学公式：一次查询覆盖 pending Set + rAF-batch 两条路径 ────────
         const mathFlushed = this.#flushPendingMath();
@@ -441,7 +451,8 @@ export class Preview extends BaseComponent {
         // ── 2. Mermaid pending：按位置分流，目标前必须等待，目标后 fire-and-forget ──
         if (this.#pendingMermaidBlocks.size > 0) {
             needsReflow = true;
-            const before = [], after = [];
+            const before = [],
+                after = [];
             for (const el of this.#pendingMermaidBlocks) {
                 if (!el.isConnected) continue;
                 observer?.unobserve(el);
@@ -451,14 +462,18 @@ export class Preview extends BaseComponent {
             this.#pendingMermaidBlocks.clear();
             if (after.length) this.#runMermaid(after);
             if (before.length) {
-                await Promise.race([this.#runMermaid(before), new Promise(r => setTimeout(r, 3000))]);
+                await Promise.race([
+                    this.#runMermaid(before),
+                    new Promise(r => setTimeout(r, 3000))
+                ]);
                 if (myVersion !== this.#scrollToHeadingVersion) return;
             }
         }
 
         // ── 3. Mermaid rendering：轮询等待目标前方已在渲染中的图表完成 ─────────
-        const renderingBefore = [...this.container.querySelectorAll('div.mermaid.mermaid-rendering')]
-            .filter(el => !isAfter(el));
+        const renderingBefore = [
+            ...this.container.querySelectorAll('div.mermaid.mermaid-rendering')
+        ].filter(el => !isAfter(el));
         if (renderingBefore.length) {
             needsReflow = true;
             await this.#awaitMermaidRendering(renderingBefore, 3000);
@@ -483,17 +498,28 @@ export class Preview extends BaseComponent {
         // finalTarget 始终位于 this.#scrollWrapper 内部，无需遍历祖先
         const scrollEl = this.#scrollWrapper;
         if (scrollEl) {
-            const top = finalTarget.getBoundingClientRect().top
-                - scrollEl.getBoundingClientRect().top
-                + scrollEl.scrollTop - 16;
-            const clampedTop = Math.min(Math.max(0, top), scrollEl.scrollHeight - scrollEl.clientHeight);
+            const top =
+                finalTarget.getBoundingClientRect().top -
+                scrollEl.getBoundingClientRect().top +
+                scrollEl.scrollTop -
+                16;
+            const clampedTop = Math.min(
+                Math.max(0, top),
+                scrollEl.scrollHeight - scrollEl.clientHeight
+            );
 
             // 若目标已在正确位置，无需滚动，跳过 scrollTo 避免等待不会触发的 scrollend
             if (Math.abs(scrollEl.scrollTop - clampedTop) > 2) {
                 // 顺序等待：scrollend + 1500ms fallback，无嵌套回调
                 await new Promise(resolve => {
                     let settled = false;
-                    const finish = () => { if (!settled) { settled = true; clearTimeout(fb); resolve(); } };
+                    const finish = () => {
+                        if (!settled) {
+                            settled = true;
+                            clearTimeout(fb);
+                            resolve();
+                        }
+                    };
                     const fb = setTimeout(finish, 1500);
                     scrollEl.addEventListener('scrollend', finish, { once: true });
                     scrollEl.scrollTo({ top: clampedTop, behavior: 'smooth' });
@@ -535,11 +561,14 @@ export class Preview extends BaseComponent {
     #cacheHeadingOffsets() {
         if (!this.#scrollWrapper) return;
         const wrapperTop = this.#scrollWrapper.getBoundingClientRect().top;
-        const scrollTop  = this.#scrollWrapper.scrollTop;
+        const scrollTop = this.#scrollWrapper.scrollTop;
         // Math.floor 消除亚像素浮点误差，确保 spy 阈值能准确命中缓存值
         this.#headingOffsets = Array.from(
             this.container.querySelectorAll('[id^="heading-"]'),
-            h => ({ id: h.id, top: Math.floor(h.getBoundingClientRect().top - wrapperTop + scrollTop) })
+            h => ({
+                id: h.id,
+                top: Math.floor(h.getBoundingClientRect().top - wrapperTop + scrollTop)
+            })
         );
     }
 
@@ -555,7 +584,9 @@ export class Preview extends BaseComponent {
         const threshold = this.#scrollWrapper.scrollTop + 16;
 
         // 二分查找最后一个 top <= threshold 的标题
-        let lo = 0, hi = this.#headingOffsets.length - 1, activeId = null;
+        let lo = 0,
+            hi = this.#headingOffsets.length - 1,
+            activeId = null;
         while (lo <= hi) {
             const mid = (lo + hi) >>> 1;
             if (this.#headingOffsets[mid].top <= threshold) {
@@ -749,7 +780,9 @@ export class Preview extends BaseComponent {
      * @private
      */
     async #awaitMermaidRendering(nodes, timeout = 3000) {
-        const pending = nodes ?? [...(this.container?.querySelectorAll('div.mermaid.mermaid-rendering') ?? [])];
+        const pending = nodes ?? [
+            ...(this.container?.querySelectorAll('div.mermaid.mermaid-rendering') ?? [])
+        ];
         if (!pending.length) return;
         await Promise.race([
             new Promise(resolve => {
@@ -798,9 +831,10 @@ export class Preview extends BaseComponent {
         const headingsChanged =
             oldHeadings.length !== renderedHeadings.length ||
             renderedHeadings.some(
-                (h, i) => oldHeadings[i]?.id !== h.id ||
-                           oldHeadings[i]?.level !== h.level ||
-                           oldHeadings[i]?.textContent !== h.textContent
+                (h, i) =>
+                    oldHeadings[i]?.id !== h.id ||
+                    oldHeadings[i]?.level !== h.level ||
+                    oldHeadings[i]?.textContent !== h.textContent
             );
 
         // 同步更新缓存（在 DOM 更新前，避免 rAF 窗口期内的脏读）
@@ -862,7 +896,9 @@ export class Preview extends BaseComponent {
         const mermaidBlocks = new Map();
         const mathBlocks = new Map();
 
-        let codeIndex = 0, mermaidIndex = 0, mathIndex = 0;
+        let codeIndex = 0,
+            mermaidIndex = 0,
+            mathIndex = 0;
         const codeBlockRanges = [];
 
         // 第一步：提取代码块（包括 mermaid），并记录位置
@@ -886,7 +922,11 @@ export class Preview extends BaseComponent {
             } else {
                 const hash = this.#generateSimpleHash(lang + content);
                 const compositeKey = `${hash}_idx_${codeIndex}`;
-                codeBlocks.set(compositeKey, { lang: lang || 'text', code: content, index: codeIndex++ });
+                codeBlocks.set(compositeKey, {
+                    lang: lang || 'text',
+                    code: content,
+                    index: codeIndex++
+                });
             }
         }
 
@@ -896,21 +936,20 @@ export class Preview extends BaseComponent {
         while ((match = inlineCodeRegex.exec(newMarkdown)) !== null) {
             const startIndex = match.index;
             const endIndex = startIndex + match[0].length;
-            
+
             // 检查这个行内代码是否在代码块内，如果是就跳过
             const alreadyInCodeBlock = codeBlockRanges.some(
                 range => startIndex >= range.start && startIndex < range.end
             );
-            
+
             if (!alreadyInCodeBlock) {
                 codeBlockRanges.push({ start: startIndex, end: endIndex });
             }
         }
 
         // 辅助函数：检查位置是否在任何代码块内
-        const isInAnyCodeBlock = (index) => codeBlockRanges.some(
-            range => index >= range.start && index < range.end
-        );
+        const isInAnyCodeBlock = index =>
+            codeBlockRanges.some(range => index >= range.start && index < range.end);
 
         // 第二步：提取数学公式（块级和行内），排除代码块内的
         const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
@@ -944,7 +983,10 @@ export class Preview extends BaseComponent {
 
         // 比较变化，并记录具体哪些元素发生了变化
         const changedCodeBlocks = this.#findChangedMapEntries(oldData.codeBlocks, codeBlocks);
-        const changedMermaidBlocks = this.#findChangedMapEntries(oldData.mermaidBlocks, mermaidBlocks);
+        const changedMermaidBlocks = this.#findChangedMapEntries(
+            oldData.mermaidBlocks,
+            mermaidBlocks
+        );
         const changedMathBlocks = this.#findChangedMapEntries(oldData.mathBlocks, mathBlocks);
 
         return {
@@ -1034,7 +1076,10 @@ export class Preview extends BaseComponent {
             const codeRegex = /```[\s\S]*?```|`[^`]+`/g;
             let codeMatch;
             while ((codeMatch = codeRegex.exec(markdown)) !== null) {
-                codeRanges.push({ start: codeMatch.index, end: codeMatch.index + codeMatch[0].length });
+                codeRanges.push({
+                    start: codeMatch.index,
+                    end: codeMatch.index + codeMatch[0].length
+                });
             }
 
             // 性能优化：排序并合并重叠/相邻的范围，减少检查次数
@@ -1056,8 +1101,9 @@ export class Preview extends BaseComponent {
             }
 
             // 性能优化：使用二分查找检查位置是否在代码块内
-            const isInCode = (index) => {
-                let left = 0, right = codeRanges.length - 1;
+            const isInCode = index => {
+                let left = 0,
+                    right = codeRanges.length - 1;
                 while (left <= right) {
                     const mid = (left + right) >>> 1;
                     const range = codeRanges[mid];
@@ -1113,14 +1159,17 @@ export class Preview extends BaseComponent {
 
                 // 添加标题 ID 并同步提取标题数据（唯一提取点，避免后续 DOM 查询）
                 let headingIndex = 0;
-                html = html.replace(/<h([1-6])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, inner) => {
-                    if (attrs.includes('id=')) return match;
-                    const id = `heading-${headingIndex++}`;
-                    // 剥离行内 HTML 标签，获得纯文本用于 TOC 显示
-                    const textContent = inner.replace(/<[^>]+>/g, '');
-                    renderedHeadings.push({ id, level: +level, textContent });
-                    return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
-                });
+                html = html.replace(
+                    /<h([1-6])([^>]*)>(.*?)<\/h\1>/gi,
+                    (match, level, attrs, inner) => {
+                        if (attrs.includes('id=')) return match;
+                        const id = `heading-${headingIndex++}`;
+                        // 剥离行内 HTML 标签，获得纯文本用于 TOC 显示
+                        const textContent = inner.replace(/<[^>]+>/g, '');
+                        renderedHeadings.push({ id, level: +level, textContent });
+                        return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
+                    }
+                );
             } else {
                 html = this.escapeHtml(processedMarkdown);
             }
@@ -1152,15 +1201,59 @@ export class Preview extends BaseComponent {
             if (DOMPurify?.sanitize) {
                 html = DOMPurify.sanitize(html, {
                     ALLOWED_TAGS: [
-                        'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
-                        'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                        'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'img',
-                        'input', 'span', 'div', 'dd', 'dt', 'dl', 's', 'sup', 'sub'
+                        'p',
+                        'br',
+                        'strong',
+                        'em',
+                        'code',
+                        'pre',
+                        'blockquote',
+                        'ul',
+                        'ol',
+                        'li',
+                        'a',
+                        'h1',
+                        'h2',
+                        'h3',
+                        'h4',
+                        'h5',
+                        'h6',
+                        'table',
+                        'thead',
+                        'tbody',
+                        'tr',
+                        'th',
+                        'td',
+                        'hr',
+                        'img',
+                        'input',
+                        'span',
+                        'div',
+                        'dd',
+                        'dt',
+                        'dl',
+                        's',
+                        'sup',
+                        'sub'
                     ],
                     ALLOWED_ATTR: [
-                        'href', 'src', 'alt', 'title', 'class', 'id', 'type',
-                        'checked', 'width', 'height', 'loading', 'colspan',
-                        'rowspan', 'start', 'align', 'style', 'data-load-status'
+                        'href',
+                        'src',
+                        'alt',
+                        'title',
+                        'class',
+                        'id',
+                        'type',
+                        'checked',
+                        'width',
+                        'height',
+                        'loading',
+                        'colspan',
+                        'rowspan',
+                        'start',
+                        'align',
+                        'style',
+                        'data-load-status'
                     ],
                     ALLOW_DATA_ATTR: true
                 });
@@ -1217,7 +1310,10 @@ export class Preview extends BaseComponent {
             } else if (el.tagName === 'IMG') {
                 // 设置图片为加载中状态（通过事件监听器异步处理）
                 el.dataset.loadStatus = 'loading';
-            } else if (el.classList.contains('math-block') || el.classList.contains('math-inline')) {
+            } else if (
+                el.classList.contains('math-block') ||
+                el.classList.contains('math-inline')
+            ) {
                 pendingMathElements.push(el);
             }
         });
@@ -1292,7 +1388,6 @@ export class Preview extends BaseComponent {
             this.container.innerHTML = '';
             this.container.appendChild(fragment);
         }
-
 
         // 返回需要处理的元素
         return this.#collectElementsToProcess();
@@ -1424,9 +1519,11 @@ export class Preview extends BaseComponent {
             const compositeKey = `${hash}_idx_${index}`;
             const oldDiv = oldElements.mermaid.get(compositeKey);
 
-            if (oldDiv &&
+            if (
+                oldDiv &&
                 !changes.changedMermaidBlocks.has(compositeKey) &&
-                oldDiv.classList.contains('mermaid-done')) {
+                oldDiv.classList.contains('mermaid-done')
+            ) {
                 // 直接移动（transplant）旧元素，避免 cloneNode(true) 深克隆 SVG
                 newEl.parentElement.replaceWith(oldDiv);
             } else if (changes.changedMermaidBlocks.has(compositeKey)) {
@@ -1456,7 +1553,10 @@ export class Preview extends BaseComponent {
             // 只有当旧元素存在且未发生变化时才保留
             if (oldEl && !changes.changedMathBlocks.has(compositeKey)) {
                 newEl.replaceWith(oldEl); // 直接移动，保留已渲染的 KaTeX DOM
-            } else if (changes.changedMathBlocks.has(compositeKey) && newEl.classList.contains('math-block')) {
+            } else if (
+                changes.changedMathBlocks.has(compositeKey) &&
+                newEl.classList.contains('math-block')
+            ) {
                 // 过渡替换：block math 变化时保留旧渲染内容作占位，消除内容消失的闪烁
                 const oldElByIdx = oldElements.mathByIndex?.get(index);
                 if (oldElByIdx && oldElByIdx.classList.contains('math-rendered')) {
@@ -1620,10 +1720,11 @@ export class Preview extends BaseComponent {
      * @private
      */
     async #runMermaid(nodes) {
-        const pending = nodes.filter(div =>
-            div.isConnected &&
-            !div.classList.contains('mermaid-done') &&
-            !div.classList.contains('mermaid-rendering')
+        const pending = nodes.filter(
+            div =>
+                div.isConnected &&
+                !div.classList.contains('mermaid-done') &&
+                !div.classList.contains('mermaid-rendering')
         );
         if (!pending.length) return;
 
@@ -1691,17 +1792,22 @@ export class Preview extends BaseComponent {
         offscreen.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;';
         document.body.appendChild(offscreen);
 
-        const targets = transitionDivs.map(placeholder => {
-            const code = placeholder.getAttribute('data-mermaid-new');
-            if (!code) return null;
-            const temp = document.createElement('div');
-            temp.className = 'mermaid';
-            temp.textContent = code;
-            offscreen.appendChild(temp);
-            return { placeholder, temp, code };
-        }).filter(Boolean);
+        const targets = transitionDivs
+            .map(placeholder => {
+                const code = placeholder.getAttribute('data-mermaid-new');
+                if (!code) return null;
+                const temp = document.createElement('div');
+                temp.className = 'mermaid';
+                temp.textContent = code;
+                offscreen.appendChild(temp);
+                return { placeholder, temp, code };
+            })
+            .filter(Boolean);
 
-        if (!targets.length) { offscreen.remove(); return; }
+        if (!targets.length) {
+            offscreen.remove();
+            return;
+        }
 
         try {
             await mermaid.run({ nodes: targets.map(t => t.temp) });
@@ -1719,7 +1825,11 @@ export class Preview extends BaseComponent {
             targets.forEach(({ placeholder }) => {
                 if (!placeholder.isConnected) return;
                 placeholder.removeAttribute('data-mermaid-new');
-                placeholder.classList.remove('mermaid-transition', 'mermaid-rendering', 'mermaid-done');
+                placeholder.classList.remove(
+                    'mermaid-transition',
+                    'mermaid-rendering',
+                    'mermaid-done'
+                );
                 placeholder.textContent = '图表渲染失败: ' + err.message;
                 placeholder.classList.add('render-error');
             });

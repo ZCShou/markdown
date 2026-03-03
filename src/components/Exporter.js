@@ -31,7 +31,7 @@ export class Exporter {
      */
     init() {
         // 阶段 1：收到导出请求
-        this.unsubscribe = this.state.subscribeTo('export:trigger', (type) => {
+        this.unsubscribe = this.state.subscribeTo('export:trigger', type => {
             if (type === 'md') {
                 // Markdown 导出不依赖渲染结果，直接执行
                 this.exportMarkdown();
@@ -281,7 +281,8 @@ ${html}
 
         const iframe = document.createElement('iframe');
         iframe.setAttribute('aria-hidden', 'true');
-        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;';
+        iframe.style.cssText =
+            'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;';
         document.body.appendChild(iframe);
 
         // 打印后移除 iframe 并释放 Blob URL
@@ -290,19 +291,25 @@ ${html}
             if (document.body.contains(iframe)) document.body.removeChild(iframe);
         };
 
-        iframe.addEventListener('load', () => {
-            const iframeWin = iframe.contentWindow;
-            // afterprint：打印对话框关闭后清理
-            iframeWin.addEventListener('afterprint', cleanup, { once: true });
-            // 60 秒兜底清理（防止 afterprint 不触发）
-            const fallback = setTimeout(cleanup, 60_000);
-            iframeWin.addEventListener('afterprint', () => clearTimeout(fallback), { once: true });
+        iframe.addEventListener(
+            'load',
+            () => {
+                const iframeWin = iframe.contentWindow;
+                // afterprint：打印对话框关闭后清理
+                iframeWin.addEventListener('afterprint', cleanup, { once: true });
+                // 60 秒兜底清理（防止 afterprint 不触发）
+                const fallback = setTimeout(cleanup, 60_000);
+                iframeWin.addEventListener('afterprint', () => clearTimeout(fallback), {
+                    once: true
+                });
 
-            const doPrint = () => iframeWin.print();
-            // 等待字体加载，最多 3 秒超时避免 CDN 慢/被屏蔽时永久挂起
-            const fontsReady = iframeWin.document.fonts?.ready ?? Promise.resolve();
-            Promise.race([fontsReady, new Promise(r => setTimeout(r, 3000))]).then(doPrint);
-        }, { once: true });
+                const doPrint = () => iframeWin.print();
+                // 等待字体加载，最多 3 秒超时避免 CDN 慢/被屏蔽时永久挂起
+                const fontsReady = iframeWin.document.fonts?.ready ?? Promise.resolve();
+                Promise.race([fontsReady, new Promise(r => setTimeout(r, 3000))]).then(doPrint);
+            },
+            { once: true }
+        );
 
         iframe.src = blobUrl;
 

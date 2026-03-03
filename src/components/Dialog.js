@@ -1,22 +1,22 @@
 /**
  * 通用对话框工具类
- * 
+ *
  * @utility Dialog
  * @description 提供静态方法创建各种类型的对话框（确认、警告、自定义）
- * 
+ *
  * 与其他组件的区别：
  * - 持久化组件（Editor, Preview 等）：继承 BaseComponent，长期存在，有实例
  * - 对话框组件（Settings）：独立类，有实例，临时显示
  * - 工具类（Dialog）：纯静态方法，无实例，按需创建 DOM
- * 
+ *
  * @example
  * ```js
  * // 确认对话框
  * const confirmed = await Dialog.confirm('确定要删除吗？');
- * 
+ *
  * // 警告对话框
  * await Dialog.alert('操作成功！');
- * 
+ *
  * // 自定义对话框
  * const result = await Dialog.show({
  *     title: '自定义标题',
@@ -27,13 +27,13 @@
  *     ]
  * });
  * ```
- * 
+ *
  * @architecture
  * - 纯静态工具类，不继承任何基类
  * - 不需要实例化，所有方法都是静态的
  * - 每次调用创建新的 DOM 元素，使用后自动清理
  * - 返回 Promise，支持 async/await
- * 
+ *
  * @see Settings 设置对话框组件（有实例的对话框）
  * @see BaseComponent 持久化组件基类
  */

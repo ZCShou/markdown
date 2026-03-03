@@ -31,12 +31,18 @@ export class RightSidebar extends BaseComponent {
      */
     subscribe() {
         // 订阅侧边栏状态
-        const unsubscribeSidebar = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
-            // 更新侧边栏可见性（只在状态变化时）
-            if (!oldInterface || newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen) {
-                this.updateVisibility(newInterface.rightSidebarOpen);
+        const unsubscribeSidebar = this.state.subscribeTo(
+            'interface',
+            (newInterface, oldInterface) => {
+                // 更新侧边栏可见性（只在状态变化时）
+                if (
+                    !oldInterface ||
+                    newInterface.rightSidebarOpen !== oldInterface.rightSidebarOpen
+                ) {
+                    this.updateVisibility(newInterface.rightSidebarOpen);
+                }
             }
-        });
+        );
 
         // 订阅标题数据变化，生成目录
         const unsubscribeTOC = this.state.subscribeTo('headings', () => {
@@ -44,9 +50,8 @@ export class RightSidebar extends BaseComponent {
         });
 
         // 订阅滚动高亮标题变化
-        const unsubscribeActiveHeading = this.state.subscribeTo(
-            'activeHeadingId',
-            headingId => this.#updateActiveTocItem(headingId)
+        const unsubscribeActiveHeading = this.state.subscribeTo('activeHeadingId', headingId =>
+            this.#updateActiveTocItem(headingId)
         );
 
         // 合并取消订阅函数
@@ -81,10 +86,21 @@ export class RightSidebar extends BaseComponent {
                     return;
                 }
 
+                // 点击 "..." 展开提示按钮 — 展开折叠，不触发跳转
+                const expandHint = e.target.closest('.md-toc-expand-hint');
+                if (expandHint) {
+                    const item = expandHint.closest('.md-toc-item');
+                    if (item?.dataset.headingId) {
+                        this.#toggleHeadingCollapse(item.dataset.headingId);
+                    }
+                    return;
+                }
                 // 点击目录文本 — 立即高亮并跳转到对应标题
                 const item = e.target.closest('.md-toc-item');
                 if (!item) return;
-                const { dataset: { headingId } } = item;
+                const {
+                    dataset: { headingId }
+                } = item;
                 if (headingId) {
                     // 立即高亮，无需等待滚动完成
                     this.state.updateActiveHeading(headingId);
@@ -143,7 +159,7 @@ export class RightSidebar extends BaseComponent {
      */
     updateVisibility(isOpen) {
         this.container.classList.toggle('open', isOpen);
-        
+
         if (window.innerWidth <= 768) {
             dom.app.overlay?.[isOpen ? 'addClass' : 'removeClass']('show');
         }
@@ -204,9 +220,10 @@ export class RightSidebar extends BaseComponent {
             const h = headings[i];
             const id = h.id || `heading-${i}`;
             const level = h.level || +h.tagName.substring(1);
-            const nextLevel = i + 1 < headings.length
-                ? (headings[i + 1].level || +headings[i + 1].tagName.substring(1))
-                : 0;
+            const nextLevel =
+                i + 1 < headings.length
+                    ? headings[i + 1].level || +headings[i + 1].tagName.substring(1)
+                    : 0;
             const hasChildren = nextLevel > level;
 
             // 折叠可见性（栈算法）
@@ -219,23 +236,30 @@ export class RightSidebar extends BaseComponent {
 
             // 安全转义文本
             const text = (h.textContent || '')
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
 
             const cls = [
-                'md-toc-item', `level-${level}`,
+                'md-toc-item',
+                `level-${level}`,
                 hasChildren ? 'has-children' : '',
-                isCollapsed  ? 'collapsed'    : '',
-                hidden       ? 'toc-hidden'   : '',
-            ].filter(Boolean).join(' ');
+                isCollapsed ? 'collapsed' : '',
+                hidden ? 'toc-hidden' : ''
+            ]
+                .filter(Boolean)
+                .join(' ');
 
-            const chevron = hasChildren
-                ? '<i class="codicon codicon-chevron-right"></i>'
+            const chevron = hasChildren ? '<i class="codicon codicon-chevron-right"></i>' : '';
+
+            // 折叠时在标题右侧显示 "..." 提示按钮
+            const expandHint = isCollapsed
+                ? '<span class="md-toc-expand-hint" title="展开">⋯</span>'
                 : '';
-
             parts.push(
                 `<div class="${cls}" data-heading-id="${id}" data-level="${level}">` +
-                `<span class="md-toc-toggle">${chevron}</span>` +
-                `<span class="md-toc-text">${text}</span></div>`
+                    `<span class="md-toc-toggle">${chevron}</span>` +
+                    `<span class="md-toc-text">${text}</span>${expandHint}</div>`
             );
         }
 
@@ -276,9 +300,22 @@ export class RightSidebar extends BaseComponent {
             item.classList.toggle('toc-hidden', collapseStack.length > 0);
 
             // 本节点也是折叠状态且有子项 → 入栈
-            const isCollapsed = this.#collapsedHeadings.has(id) && item.classList.contains('has-children');
+            const isCollapsed =
+                this.#collapsedHeadings.has(id) && item.classList.contains('has-children');
             item.classList.toggle('collapsed', isCollapsed);
             if (isCollapsed) collapseStack.push(level);
+
+            // 动态添加/移除 "..." 展开提示按钮
+            const existingHint = item.querySelector('.md-toc-expand-hint');
+            if (isCollapsed && !existingHint) {
+                const hint = document.createElement('span');
+                hint.className = 'md-toc-expand-hint';
+                hint.title = '展开';
+                hint.textContent = '⋯';
+                item.appendChild(hint);
+            } else if (!isCollapsed && existingHint) {
+                existingHint.remove();
+            }
         }
     }
 
