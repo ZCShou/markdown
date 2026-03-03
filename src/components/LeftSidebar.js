@@ -880,6 +880,7 @@ export class LeftSidebar extends BaseComponent {
             this.#domCache.clear();
             treeContainer.innerHTML = `
                 <div class="md-empty-state">
+                    <i class="codicon codicon-folder"></i>
                     <p>暂无文档</p>
                 </div>
             `;

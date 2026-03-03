@@ -261,7 +261,12 @@ export class RightSidebar extends BaseComponent {
         const headings = this.state.get('headings');
 
         if (!headings || headings.length === 0) {
-            tocContainer.innerHTML = '<div class="md-empty-state">暂无目录</div>';
+            tocContainer.innerHTML = `
+                <div class="md-empty-state">
+                    <i class="codicon codicon-list-tree"></i>
+                    <p>暂无目录</p>
+                </div>
+            `;
             // 重置激活项缓存
             this.#activeTocItem = null;
             return;
