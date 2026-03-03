@@ -31,9 +31,6 @@ jobs:
 
             - name: Build
               run: npm run build
-              env:
-                  # 设置基础路径为仓库名称，用于 GitHub Pages 部署
-                  VITE_BASE_URL: /${{ github.event.repository.name }}/
 
             - name: Upload artifact
               uses: actions/upload-pages-artifact@v3
