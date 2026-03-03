@@ -329,7 +329,7 @@ export class LeftSidebar extends BaseComponent {
 
         const item = e.target.closest('.md-doc-item');
         if (item && !this.editingDocId) {
-            this.editDocumentName(item.dataset.docId, false, false);
+            this.editDocumentName(item.dataset.docId, false);
         }
     }
 
@@ -672,8 +672,13 @@ export class LeftSidebar extends BaseComponent {
         };
 
         this.state.clearDocuments({ selection: true });
-        this.#pendingEdit = { docId: doc.id, isNewItem: true, shouldSetCurrent: type === 'file' };
+        this.#pendingEdit = { docId: doc.id, isNewItem: true };
         this.state.addDocument(doc, parentId, { silent: true });
+
+        // 对于文件类型，立即切换到新文档（编辑器立刻显示新内容）
+        if (type === 'file') {
+            this.state.setCurrentDocument(doc.id);
+        }
 
         // 完全重渲染（renderTree 内部会自动展开祖先文件夹）
         this.renderTree();
@@ -683,9 +688,8 @@ export class LeftSidebar extends BaseComponent {
      * 编辑文档名称
      * @param {string} docId - 文档 ID
      * @param {boolean} isNewItem - 是否为新建的项目（新建时默认保存，重命名时默认取消）
-     * @param {boolean} shouldSetCurrent - 是否设置为当前文档（仅对文件有效）
      */
-    editDocumentName(docId, isNewItem = false, shouldSetCurrent = false) {
+    editDocumentName(docId, isNewItem = false) {
         this.editingDocId = docId;
 
         const treeContainer = dom.getById('md-doc-tree')?.element;
@@ -762,13 +766,6 @@ export class LeftSidebar extends BaseComponent {
             this.editingDocId = null;
             item.classList.remove('editing');
             item.draggable = true;
-
-            // 如果需要，设置为当前文档并直接标记高亮
-            // （订阅未覆盖 currentDocId，不会自动重渲染）
-            if (shouldSetCurrent && isNewItem) {
-                this.state.setCurrentDocument(docId);
-                item.classList.add('active');
-            }
         };
 
         input.addEventListener('blur', handleBlur, { once: true });
@@ -933,11 +930,7 @@ export class LeftSidebar extends BaseComponent {
             const pendingEdit = this.#pendingEdit;
             this.#pendingEdit = null;
             requestAnimationFrame(() => {
-                this.editDocumentName(
-                    pendingEdit.docId,
-                    pendingEdit.isNewItem,
-                    pendingEdit.shouldSetCurrent
-                );
+                this.editDocumentName(pendingEdit.docId, pendingEdit.isNewItem);
             });
         }
     }
