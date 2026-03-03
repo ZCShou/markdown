@@ -834,7 +834,6 @@ export class MarkdownEditor {
             // 应用主题（只在主题变化时）
             if (!hasOld || newInterface.theme !== oldInterface.theme) {
                 this.applyTheme(newInterface.theme ?? 'light');
-                this.components.preview?.updateMermaidTheme();
             }
 
             this.#getActiveEditor()?.updateConfig(this.state.get('editor'), newInterface);
