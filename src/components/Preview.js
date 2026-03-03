@@ -676,9 +676,9 @@ export class Preview extends BaseComponent {
         // 清理所有待处理集合和定时器
         this.#clearAllPendingTasks();
 
-        // 重置渲染状态
+        // 重置渲染状态（markdown 用 null 标记"未渲染"，避免空内容时跳过渲染）
         this.#lastRenderedData = {
-            markdown: '',
+            markdown: null,
             codeBlocks: new Map(),
             mermaidBlocks: new Map(),
             mathBlocks: new Map(),
