@@ -817,11 +817,25 @@ export class Preview extends BaseComponent {
         this.#pendingCodeBlocks.clear();
         this.#pendingMathBlocks.clear();
 
-        // 检测变化
-        const changes = this.#detectChanges(markdown);
-
         // 完全没变，跳过
         if (markdown === this.#lastRenderedData.markdown) return;
+
+        // 空内容快速路径：直接清空 DOM，跳过检测和渲染
+        if (!markdown) {
+            this.container.innerHTML = '';
+            this.#lastRenderedData = {
+                markdown: '',
+                codeBlocks: new Map(),
+                mermaidBlocks: new Map(),
+                mathBlocks: new Map(),
+                headings: []
+            };
+            this.state.updateHeadings([]);
+            return;
+        }
+
+        // 检测变化
+        const changes = this.#detectChanges(markdown);
 
         // 渲染 Markdown 为 HTML，同时提取标题数据（唯一提取点）
         const { html, headings: renderedHeadings } = this.renderMarkdown(markdown);
@@ -884,7 +898,7 @@ export class Preview extends BaseComponent {
 
     /**
      * 检测内容变化（优化版：单次扫描 + 增量检测）
-     * @param {string} newMarkdown - 新的 Markdown 文本
+     * @param {string} newMarkdown - 新的 Markdown 文本（非空）
      * @returns {Object} 变化检测结果
      * @private
      */
