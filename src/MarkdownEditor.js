@@ -603,7 +603,7 @@ export class MarkdownEditor {
             try {
                 if (e?.pointerId && divider.releasePointerCapture)
                     divider.releasePointerCapture(e.pointerId);
-            } catch (_err) {}
+            } catch (_err) { }
 
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', endDrag);
@@ -628,7 +628,7 @@ export class MarkdownEditor {
 
             try {
                 if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
-            } catch (_err) {}
+            } catch (_err) { }
 
             window.addEventListener('pointermove', onPointerMove, { passive: true });
             window.addEventListener('pointerup', endDrag, { passive: true });
