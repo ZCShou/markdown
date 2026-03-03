@@ -820,9 +820,14 @@ export class Preview extends BaseComponent {
         // 完全没变，跳过
         if (markdown === this.#lastRenderedData.markdown) return;
 
-        // 空内容快速路径：直接清空 DOM，跳过检测和渲染
+        // 空内容快速路径：显示空状态提示，跳过检测和渲染
         if (!markdown) {
-            this.container.innerHTML = '';
+            this.container.innerHTML = `
+                <div class="md-empty-state">
+                    <i class="codicon codicon-markdown"></i>
+                    <p>开始编写你的文档</p>
+                </div>
+            `;
             this.#lastRenderedData = {
                 markdown: '',
                 codeBlocks: new Map(),
