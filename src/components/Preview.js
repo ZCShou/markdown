@@ -71,7 +71,7 @@ export class Preview extends BaseComponent {
 
     /** @private 上次渲染的数据 */
     #lastRenderedData = {
-        markdown: '',
+        markdown: null,
         codeBlocks: new Map(),
         mermaidBlocks: new Map(),
         mathBlocks: new Map(),
@@ -123,7 +123,7 @@ export class Preview extends BaseComponent {
 
         // 增量渲染：存储上次渲染的数据
         this.#lastRenderedData = {
-            markdown: '',
+            markdown: null,
             codeBlocks: new Map(), // hash -> code content
             mermaidBlocks: new Map(), // hash -> mermaid content
             mathBlocks: new Map(), // hash -> math content
@@ -609,11 +609,10 @@ export class Preview extends BaseComponent {
      * @returns {void}
      */
     render() {
-        // 初始渲染预览内容
+        // 初始渲染预览内容（包括空内容时显示空状态提示）
         const content = this.state.get('content') || '';
-        if (content) {
-            this.#scheduleRender(content, 0);
-        }
+        this.renderContent(content);
+        this.#lastRenderedContent = content;
     }
 
     /**
