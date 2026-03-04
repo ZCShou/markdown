@@ -1732,6 +1732,12 @@ body.is-dragging-tree {
   padding: 8px;
   overflow-y: auto;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.md-settings-nav-item[data-section="about"] {
+  margin-top: auto;
 }
 
 .md-settings-nav-item {
