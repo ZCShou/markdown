@@ -26,6 +26,9 @@
  * 提供便捷的元素操作方法
  */
 class DOMElement {
+    /** @type {Element|null} @private */
+    #element = null;
+
     /**
      * @param {string} selector - CSS 选择器
      * @param {Function} getter - 获取元素的函数
@@ -33,7 +36,6 @@ class DOMElement {
     constructor(selector, getter = null) {
         this.selector = selector;
         this.getter = getter;
-        this._element = null;
     }
 
     /**
@@ -42,13 +44,13 @@ class DOMElement {
      */
     get element() {
         // 如果缓存的元素已从 DOM 移除，重新查询
-        if (this._element && !this._element.isConnected) {
-            this._element = null;
+        if (this.#element && !this.#element.isConnected) {
+            this.#element = null;
         }
-        if (!this._element) {
-            this._element = this.getter ? this.getter() : document.querySelector(this.selector);
+        if (!this.#element) {
+            this.#element = this.getter ? this.getter() : document.querySelector(this.selector);
         }
-        return this._element;
+        return this.#element;
     }
 
     /**
@@ -196,7 +198,7 @@ class DOMElement {
      * 清除缓存
      */
     clearCache() {
-        this._element = null;
+        this.#element = null;
     }
 }
 
@@ -204,6 +206,9 @@ class DOMElement {
  * DOM 元素集合包装类
  */
 class DOMElementList {
+    /** @type {Element[]|null} @private */
+    #elements = null;
+
     /**
      * @param {string} selector - CSS 选择器
      * @param {Function|null} getter - 获取元素的函数
@@ -211,7 +216,6 @@ class DOMElementList {
     constructor(selector, getter = null) {
         this.selector = selector;
         this.getter = getter;
-        this._elements = null;
     }
 
     /**
@@ -219,11 +223,11 @@ class DOMElementList {
      * @returns {Element[]}
      */
     get all() {
-        if (!this._elements) {
+        if (!this.#elements) {
             const elements = this.getter ? this.getter() : document.querySelectorAll(this.selector);
-            this._elements = Array.from(elements);
+            this.#elements = Array.from(elements);
         }
-        return this._elements;
+        return this.#elements;
     }
 
     /**
@@ -310,7 +314,7 @@ class DOMElementList {
      * @returns {void}
      */
     clearCache() {
-        this._elements = null;
+        this.#elements = null;
     }
 }
 
