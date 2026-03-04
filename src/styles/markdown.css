@@ -631,10 +631,12 @@ html::-webkit-scrollbar-thumb:hover,
   font-size: 16px;
 }
 
-.md-empty-state i {
-  font-size: 72px;
+.md-empty-state i,
+.md-empty-state .codicon {
+  font-size: 48px !important;
   margin-bottom: 16px;
   opacity: 0.35;
+  line-height: 1;
 }
 
 .md-empty-state p {
