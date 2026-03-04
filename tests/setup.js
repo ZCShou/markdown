@@ -53,7 +53,7 @@ class IDBTransactionMock {
         this.db = db;
     }
 
-    objectStore(name) {
+    objectStore(_name) {
         return new IDBObjectStoreMock(this.db._store);
     }
 }
@@ -62,7 +62,7 @@ class IDBDatabaseMock {
     constructor() {
         this._store = {};
         this.objectStoreNames = {
-            contains: name => true
+            contains: _name => true
         };
     }
 
@@ -81,7 +81,7 @@ class IDBOpenDBRequestMock extends IDBRequestMock {
 const indexedDBMock = {
     _databases: {},
 
-    open(name, version) {
+    open(name, _version) {
         const request = new IDBOpenDBRequestMock();
 
         setTimeout(() => {
@@ -107,9 +107,9 @@ Object.defineProperty(window, 'matchMedia', {
 });
 // 模拟 ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-    disconnect() {}
-    observe() {}
-    unobserve() {}
+    disconnect() { }
+    observe() { }
+    unobserve() { }
 };
 // 清理函数（每个测试后执行）
 afterEach(() => {

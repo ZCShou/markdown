@@ -127,7 +127,7 @@ async function getData(key) {
             const request = store.get(key);
 
             request.onsuccess = () => {
-                const result = request.result;
+                const {result} = request;
                 resolve(result ? result.value : null);
             };
 

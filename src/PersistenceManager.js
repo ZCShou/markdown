@@ -35,9 +35,9 @@ export class PersistenceManager {
      * @type {Object}
      */
     static PERSIST_HANDLERS = {
-        documents: async state => StoreManager.saveDocuments(state.documents),
-        currentDocId: async state => StoreManager.saveCurrentDocId(state.currentDocId),
-        settings: async state =>
+        documents: state => StoreManager.saveDocuments(state.documents),
+        currentDocId: state => StoreManager.saveCurrentDocId(state.currentDocId),
+        settings: state =>
             StoreManager.saveSettings({
                 editor: state.editor,
                 interface: state.interface,
@@ -192,11 +192,12 @@ export class PersistenceManager {
             handlerGroups.get(handlerKey).push(key);
         }
 
-        // 执行持久化
+        // 执行持久化（顺序执行以确保数据一致性）
         for (const [handlerKey, _keys] of handlerGroups) {
             try {
                 const handler = PersistenceManager.PERSIST_HANDLERS[handlerKey];
                 if (handler) {
+                    // eslint-disable-next-line no-await-in-loop
                     await handler(state);
                 }
             } catch (error) {

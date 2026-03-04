@@ -8,7 +8,7 @@ import globals from 'globals';
 export default [
   // 基础 JavaScript 规则
   js.configs.recommended,
-  
+
   {
     // 语言选项
     languageOptions: {
@@ -30,7 +30,7 @@ export default [
         vi: 'readonly'
       }
     },
-    
+
     // 规则配置 - 只保留代码质量检查规则
     rules: {
       // ========== 代码质量 ==========
@@ -41,7 +41,7 @@ export default [
       'prefer-const': 'error',
       'no-constant-condition': 'warn',
       'no-empty': ['warn', { allowEmptyCatch: true }],
-      
+
       // ========== 最佳实践 ==========
       'eqeqeq': ['error', 'always'],
       'no-eval': 'error',
@@ -49,14 +49,14 @@ export default [
       'no-new-func': 'error',
       'no-return-await': 'error',
       'require-await': 'warn',
-      'no-unused-vars': ['error', { 
+      'no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_'
       }],
       'no-throw-literal': 'error',
       'prefer-promise-reject-errors': 'error',
-      
+
       // ========== ES6+ 最佳实践 ==========
       'no-duplicate-imports': 'error',
       'no-useless-constructor': 'error',
@@ -67,7 +67,7 @@ export default [
       }],
       'prefer-spread': 'error',
       'prefer-rest-params': 'error',
-      
+
       // ========== 潜在问题检查 ==========
       'no-async-promise-executor': 'warn',
       'no-await-in-loop': 'warn',
@@ -93,7 +93,7 @@ export default [
       'no-unsafe-negation': 'error',
       'use-isnan': 'error',
       'valid-typeof': 'error',
-      
+
       // ========== 代码逻辑问题 ==========
       'no-fallthrough': 'error',
       'no-octal': 'error',
@@ -109,7 +109,7 @@ export default [
       'no-useless-escape': 'error',
       'no-with': 'error',
       'no-nonoctal-decimal-escape': 'error',
-      
+
       // ========== 函数和变量 ==========
       'no-loop-func': 'warn',
       'no-param-reassign': 'warn',
@@ -121,7 +121,7 @@ export default [
       'no-useless-return': 'error'
     }
   },
-  
+
   // 忽略文件
   {
     ignores: [
@@ -130,7 +130,8 @@ export default [
       'build/**',
       'coverage/**',
       '*.config.js',
-      'public/**'
+      'public/**',
+      'tauri/target/**'
     ]
   }
 ];

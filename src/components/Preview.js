@@ -80,9 +80,6 @@ export class Preview extends BaseComponent {
     /** @private 上次渲染的原始内容 */
     #lastRenderedContent = '';
 
-    /** @private 渲染版本号，用于取消旧渲染 */
-    #renderVersion = 0;
-
     /** @private IntersectionObserver 实例 */
     #intersectionObserver = null;
 
@@ -561,7 +558,7 @@ export class Preview extends BaseComponent {
     #cacheHeadingOffsets() {
         if (!this.#scrollWrapper) return;
         const wrapperTop = this.#scrollWrapper.getBoundingClientRect().top;
-        const scrollTop = this.#scrollWrapper.scrollTop;
+        const {scrollTop} = this.#scrollWrapper;
         // Math.floor 消除亚像素浮点误差，确保 spy 阈值能准确命中缓存值
         this.#headingOffsets = Array.from(
             this.container.querySelectorAll('[id^="heading-"]'),
@@ -657,9 +654,6 @@ export class Preview extends BaseComponent {
         const documents = this.state.get('documents');
         const doc = documents.find(d => d.id === currentDocId);
         if (!doc || doc.type === 'folder') return;
-
-        // 🔥 关键：增加版本号，使旧的异步渲染失效
-        this.#renderVersion++;
 
         // 切换文档时重置滚动高亮状态
         this.#scrollToHeadingVersion++; // 使上一个文档任何飞行中的 scroll-to-heading 失效
@@ -971,24 +965,24 @@ export class Preview extends BaseComponent {
             codeBlockRanges.length < 20
                 ? index => codeBlockRanges.some(range => index >= range.start && index < range.end)
                 : (() => {
-                      codeBlockRanges.sort((a, b) => a.start - b.start);
-                      return index => {
-                          let lo = 0,
-                              hi = codeBlockRanges.length - 1;
-                          while (lo <= hi) {
-                              const mid = (lo + hi) >>> 1;
-                              const range = codeBlockRanges[mid];
-                              if (index < range.start) {
-                                  hi = mid - 1;
-                              } else if (index >= range.end) {
-                                  lo = mid + 1;
-                              } else {
-                                  return true;
-                              }
-                          }
-                          return false;
-                      };
-                  })();
+                    codeBlockRanges.sort((a, b) => a.start - b.start);
+                    return index => {
+                        let lo = 0,
+                            hi = codeBlockRanges.length - 1;
+                        while (lo <= hi) {
+                            const mid = (lo + hi) >>> 1;
+                            const range = codeBlockRanges[mid];
+                            if (index < range.start) {
+                                hi = mid - 1;
+                            } else if (index >= range.end) {
+                                lo = mid + 1;
+                            } else {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+                })();
 
         // 第二步：提取数学公式（块级和行内），排除代码块内的
         const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
@@ -1550,7 +1544,7 @@ export class Preview extends BaseComponent {
         });
 
         // 保留未变化的 Mermaid 图表（直接移动元素，避免深克隆 SVG 树）
-        const mermaidByIndex = oldElements.mermaidByIndex;
+        const {mermaidByIndex} = oldElements;
 
         newMermaidBlocks.forEach((newEl, index) => {
             const text = newEl.textContent.trim();
