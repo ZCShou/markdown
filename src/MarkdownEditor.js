@@ -381,6 +381,17 @@ export class MarkdownEditor {
         Object.values(this.components).forEach(component => {
             component.init();
         });
+
+        // 预加载 Monaco Worker（空闲时执行，加速后续切换）
+        if (this.currentEditorType !== MarkdownEditor.EDITOR_TYPES.MONACO) {
+            const scheduleIdle = window.requestIdleCallback || (cb => setTimeout(cb, 1));
+            scheduleIdle(
+                () => {
+                    import('monaco-editor/esm/vs/editor/editor.worker?worker');
+                },
+                { timeout: 5000 }
+            );
+        }
     }
 
     // ==================== 同步滚动 ====================
@@ -603,7 +614,7 @@ export class MarkdownEditor {
             try {
                 if (e?.pointerId && divider.releasePointerCapture)
                     divider.releasePointerCapture(e.pointerId);
-            } catch (_err) { }
+            } catch (_err) {}
 
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', endDrag);
@@ -628,7 +639,7 @@ export class MarkdownEditor {
 
             try {
                 if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
-            } catch (_err) { }
+            } catch (_err) {}
 
             window.addEventListener('pointermove', onPointerMove, { passive: true });
             window.addEventListener('pointerup', endDrag, { passive: true });

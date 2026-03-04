@@ -624,7 +624,7 @@ export class Preview extends BaseComponent {
         // 避免重复渲染（但允许初始渲染）
         if (content === this.#lastRenderedContent && this.#lastRenderedContent !== '') return;
 
-        this.#scheduleRender(content, 100);
+        this.#scheduleRender(content, 150);
     }
 
     /**
@@ -966,8 +966,29 @@ export class Preview extends BaseComponent {
         }
 
         // 辅助函数：检查位置是否在任何代码块内
-        const isInAnyCodeBlock = index =>
-            codeBlockRanges.some(range => index >= range.start && index < range.end);
+        // 小数组直接遍历，大数组排序后二分查找
+        const isInAnyCodeBlock =
+            codeBlockRanges.length < 20
+                ? index => codeBlockRanges.some(range => index >= range.start && index < range.end)
+                : (() => {
+                      codeBlockRanges.sort((a, b) => a.start - b.start);
+                      return index => {
+                          let lo = 0,
+                              hi = codeBlockRanges.length - 1;
+                          while (lo <= hi) {
+                              const mid = (lo + hi) >>> 1;
+                              const range = codeBlockRanges[mid];
+                              if (index < range.start) {
+                                  hi = mid - 1;
+                              } else if (index >= range.end) {
+                                  lo = mid + 1;
+                              } else {
+                                  return true;
+                              }
+                          }
+                          return false;
+                      };
+                  })();
 
         // 第二步：提取数学公式（块级和行内），排除代码块内的
         const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;

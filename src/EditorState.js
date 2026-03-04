@@ -433,26 +433,24 @@ $$
     // ==================== 状态访问 ====================
 
     /**
-     * 获取单个状态值（返回深拷贝以保证不可变性）
+     * 获取单个状态值
      * @template T
      * @param {string} key - 状态键
-     * @returns {T} 状态值的深拷贝
+     * @param {boolean} [clone=false] - 是否返回深拷贝（需要修改数据时设为 true）
+     * @returns {T} 状态值
      */
-    get(key) {
+    get(key, clone = false) {
         const value = this.#state[key];
-        // 对于 null、undefined 或原始值直接返回
-        if (value === null || value === undefined) {
+        if (!clone) {
             return value;
         }
-        if (typeof value !== 'object') {
+        // 深拷贝逻辑
+        if (value === null || value === undefined || typeof value !== 'object') {
             return value;
         }
-        // 使用 structuredClone 进行深拷贝（现代浏览器支持）
-        // 降级方案：JSON.parse(JSON.stringify())
         try {
             return structuredClone(value);
         } catch {
-            // 对于无法克隆的对象（如包含函数），返回 JSON 深拷贝
             return JSON.parse(JSON.stringify(value));
         }
     }

@@ -37,10 +37,14 @@ class DOMElement {
     }
 
     /**
-     * 获取元素（带缓存）
+     * 获取元素（带缓存，自动检测失效）
      * @returns {Element|null} DOM 元素或 null
      */
     get element() {
+        // 如果缓存的元素已从 DOM 移除，重新查询
+        if (this._element && !this._element.isConnected) {
+            this._element = null;
+        }
         if (!this._element) {
             this._element = this.getter ? this.getter() : document.querySelector(this.selector);
         }

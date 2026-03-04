@@ -314,8 +314,8 @@ export class RightSidebar extends BaseComponent {
                 : '';
             parts.push(
                 `<div class="${cls}" data-heading-id="${id}" data-level="${level}">` +
-                `<span class="md-toc-toggle">${chevron}</span>` +
-                `<span class="md-toc-text">${text}</span>${expandHint}</div>`
+                    `<span class="md-toc-toggle">${chevron}</span>` +
+                    `<span class="md-toc-text">${text}</span>${expandHint}</div>`
             );
         }
 
@@ -405,7 +405,6 @@ export class RightSidebar extends BaseComponent {
             this.#closeBtnCleanup();
             this.#closeBtnCleanup = null;
         }
-
 
         // 清理缓存
         this.#toolButtons = null;
