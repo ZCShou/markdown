@@ -2456,3 +2456,121 @@ pre[class*='language-'] {
 .token.variable {
   color: var(--prism-regex);
 }
+
+/* ==================== Lightbox（图片/图表放大查看） ==================== */
+
+/* 鼠标悬停提示 */
+.markdown-body img[data-load-status='success'] {
+  cursor: zoom-in;
+}
+
+.markdown-body .mermaid.mermaid-done {
+  cursor: zoom-in;
+}
+
+/* 主容器：固定全屏，内容可滚动查看超出部分 */
+.md-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.88);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* 占满弹层，拖拽区 */
+.md-lightbox-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.md-lightbox-stage.is-dragging {
+  cursor: grabbing;
+}
+
+.md-lightbox-inner {
+  flex-shrink: 0;
+  will-change: transform;
+}
+
+.md-lightbox-inner img {
+  display: block;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* SVG 放在白底卡片内，明暗主题下均可读 */
+.md-lightbox-svg-wrap {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+  line-height: 0;
+}
+
+.md-lightbox-svg-wrap svg {
+  display: block;
+  height: auto;
+}
+
+/* 工具栏（右上角固定） */
+.md-lightbox-toolbar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10000;
+}
+
+.md-lightbox-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.md-lightbox-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.md-lightbox-btn .codicon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.md-lightbox-scale-label {
+  height: 36px;
+  padding: 0 8px;
+  line-height: 36px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  user-select: none;
+  white-space: nowrap;
+}
+

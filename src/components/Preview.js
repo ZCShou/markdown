@@ -105,6 +105,19 @@ export class Preview extends BaseComponent {
     /** @private 滚动调用版本号，用于取消旧的 async 调用 */
     #scrollToHeadingVersion = 0;
 
+    /** @private Lightbox 弹层（懒初始化） */
+    #lightbox = null;
+    /** @private Lightbox 当前缩放比例 */
+    #lightboxScale = 1;
+    /** @private Lightbox 基准宽度（scale=1 时的尺寸，px） */
+    #lightboxBaseWidth = 0;
+    /** @private Lightbox ESC 键处理器引用 */
+    #lightboxEscHandler = null;
+    /** @private Lightbox 拖拽状态（null 表示未拖拽） */
+    #lightboxDrag = null;
+    /** @private Lightbox 当前平移偏移量 (px) */
+    #lightboxOffset = { x: 0, y: 0 };
+
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
 
@@ -415,6 +428,30 @@ export class Preview extends BaseComponent {
             },
             false
         );
+
+        // 图片点击放大
+        this.addEventListener(
+            this.container,
+            'click',
+            e => {
+                const img = e.target.closest('img');
+                if (img && img.dataset.loadStatus === 'success') {
+                    this.#openLightbox('img', img);
+                }
+            },
+            false
+        );
+
+        // Mermaid 图表点击放大
+        this.addEventListener(
+            this.container,
+            'click',
+            e => {
+                const mermaidEl = e.target.closest('.mermaid.mermaid-done');
+                if (mermaidEl) this.#openLightbox('mermaid', mermaidEl);
+            },
+            false
+        );
     }
 
     /**
@@ -558,7 +595,7 @@ export class Preview extends BaseComponent {
     #cacheHeadingOffsets() {
         if (!this.#scrollWrapper) return;
         const wrapperTop = this.#scrollWrapper.getBoundingClientRect().top;
-        const {scrollTop} = this.#scrollWrapper;
+        const { scrollTop } = this.#scrollWrapper;
         // Math.floor 消除亚像素浮点误差，确保 spy 阈值能准确命中缓存值
         this.#headingOffsets = Array.from(
             this.container.querySelectorAll('[id^="heading-"]'),
@@ -1544,7 +1581,7 @@ export class Preview extends BaseComponent {
         });
 
         // 保留未变化的 Mermaid 图表（直接移动元素，避免深克隆 SVG 树）
-        const {mermaidByIndex} = oldElements;
+        const { mermaidByIndex } = oldElements;
 
         newMermaidBlocks.forEach((newEl, index) => {
             const text = newEl.textContent.trim();
@@ -1989,6 +2026,233 @@ export class Preview extends BaseComponent {
         requestAnimationFrame(processBatch);
     }
 
+    // ==================== Lightbox（图片/图表放大查看） ====================
+
+    /**
+     * 懒初始化 Lightbox DOM
+     * @returns {HTMLElement}
+     * @private
+     */
+    #getLightbox() {
+        if (this.#lightbox) return this.#lightbox;
+
+        const lb = document.createElement('div');
+        lb.className = 'md-lightbox';
+        lb.innerHTML = `
+            <div class="md-lightbox-stage">
+                <div class="md-lightbox-inner"></div>
+            </div>
+            <div class="md-lightbox-toolbar">
+                <button class="md-lightbox-btn" data-lb-action="zoom-out" title="缩小"><i class="codicon codicon-zoom-out"></i></button>
+                <span class="md-lightbox-scale-label" data-lb-scale>100%</span>
+                <button class="md-lightbox-btn" data-lb-action="zoom-in" title="放大"><i class="codicon codicon-zoom-in"></i></button>
+                <button class="md-lightbox-btn" data-lb-action="fullscreen" title="全屏"><i class="codicon codicon-screen-full"></i></button>
+                <button class="md-lightbox-btn" data-lb-action="close" title="关闭 (Esc)"><i class="codicon codicon-close"></i></button>
+            </div>
+        `;
+
+        // 拖拽平移（替换原来的点击背景关闭，用 pointerup 区分点击和拖拽）
+        const stage = lb.querySelector('.md-lightbox-stage');
+
+        stage.addEventListener('pointerdown', e => {
+            if (e.target.closest('.md-lightbox-toolbar, .md-lightbox-btn')) return;
+            e.preventDefault();
+            stage.setPointerCapture(e.pointerId);
+            this.#lightboxDrag = {
+                pointerId: e.pointerId,
+                startX: e.clientX,
+                startY: e.clientY,
+                baseX: this.#lightboxOffset.x,
+                baseY: this.#lightboxOffset.y,
+                moved: false
+            };
+            stage.classList.add('is-dragging');
+        });
+
+        stage.addEventListener('pointermove', e => {
+            const drag = this.#lightboxDrag;
+            if (!drag || drag.pointerId !== e.pointerId) return;
+            const dx = e.clientX - drag.startX;
+            const dy = e.clientY - drag.startY;
+            if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+            drag.moved = true;
+            this.#lightboxOffset = { x: drag.baseX + dx, y: drag.baseY + dy };
+            this.#applyLightboxTransform();
+        });
+
+        const endDrag = e => {
+            const drag = this.#lightboxDrag;
+            if (!drag || drag.pointerId !== e.pointerId) return;
+            this.#lightboxDrag = null;
+            stage.classList.remove('is-dragging');
+            // 未移动且点在背景：关闭
+            if (!drag.moved && e.target === stage) this.#closeLightbox();
+        };
+        stage.addEventListener('pointerup', endDrag);
+        stage.addEventListener('pointercancel', e => {
+            if (this.#lightboxDrag?.pointerId === e.pointerId) {
+                this.#lightboxDrag = null;
+                stage.classList.remove('is-dragging');
+            }
+        });
+
+        // 工具栏按钮
+        lb.querySelector('.md-lightbox-toolbar').addEventListener('click', e => {
+            const action = e.target.closest('[data-lb-action]')?.dataset.lbAction;
+            if (action === 'close') this.#closeLightbox();
+            else if (action === 'zoom-in') this.#lightboxZoomBy(0.25);
+            else if (action === 'zoom-out') this.#lightboxZoomBy(-0.25);
+            else if (action === 'fullscreen') this.#toggleLightboxFullscreen();
+        });
+
+        // 滚轮缩放
+        lb.addEventListener('wheel', e => {
+            e.preventDefault();
+            this.#lightboxZoomBy(e.deltaY < 0 ? 0.15 : -0.15);
+        }, { passive: false });
+
+        // 全屏状态同步图标
+        lb.addEventListener('fullscreenchange', () => {
+            const icon = lb.querySelector('[data-lb-action="fullscreen"] .codicon');
+            if (icon) {
+                icon.className = document.fullscreenElement === lb
+                    ? 'codicon codicon-screen-normal'
+                    : 'codicon codicon-screen-full';
+            }
+        });
+
+        document.body.appendChild(lb);
+        this.#lightbox = lb;
+        return lb;
+    }
+
+    /**
+     * 应用当前平移偏移到 inner 元素
+     * @private
+     */
+    #applyLightboxTransform() {
+        const inner = this.#lightbox?.querySelector('.md-lightbox-inner');
+        if (inner) inner.style.transform = `translate(${this.#lightboxOffset.x}px, ${this.#lightboxOffset.y}px)`;
+    }
+
+    /**
+     * 打开 Lightbox
+     * @param {'img'|'mermaid'} type
+     * @param {HTMLElement} el - 原始元素
+     * @private
+     */
+    #openLightbox(type, el) {
+        const lb = this.#getLightbox();
+        const inner = lb.querySelector('.md-lightbox-inner');
+        inner.innerHTML = '';
+        inner.style.transform = '';
+        this.#lightboxScale = 1;
+        this.#lightboxOffset = { x: 0, y: 0 };
+        this.#lightboxDrag = null;
+
+        if (type === 'img') {
+            const img = new Image();
+            img.src = el.src;
+            img.alt = el.alt || '';
+            inner.appendChild(img);
+            const capture = () => {
+                const w = img.naturalWidth || img.offsetWidth;
+                this.#lightboxBaseWidth = Math.min(w, window.innerWidth * 0.9 - 32);
+                img.style.width = `${this.#lightboxBaseWidth}px`;
+                img.style.height = 'auto';
+                this.#updateLightboxScaleLabel();
+            };
+            if (img.complete) capture();
+            else img.onload = capture;
+        } else {
+            // Mermaid SVG 克隆
+            const svg = el.querySelector('svg');
+            if (!svg) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'md-lightbox-svg-wrap';
+            const clone = svg.cloneNode(true);
+            clone.removeAttribute('width');
+            clone.removeAttribute('height');
+            clone.style.cssText = '';
+            // 从 viewBox 或实际尺寸推断基准宽度
+            const vb = svg.getAttribute('viewBox');
+            let baseW = svg.getBoundingClientRect().width || 600;
+            if (vb) {
+                const parts = vb.trim().split(/[\s,]+/).map(Number);
+                if (parts.length >= 4 && parts[2] > 0) baseW = parts[2];
+            }
+            this.#lightboxBaseWidth = Math.min(baseW, window.innerWidth * 0.85 - 40);
+            clone.style.width = `${this.#lightboxBaseWidth}px`;
+            clone.style.height = 'auto';
+            wrap.appendChild(clone);
+            inner.appendChild(wrap);
+            this.#updateLightboxScaleLabel();
+        }
+
+        lb.style.display = 'block';
+
+        // ESC 关闭（全屏时浏览器自行处理，这里只处理非全屏情况）
+        this.#lightboxEscHandler = e => {
+            if (e.key === 'Escape' && !document.fullscreenElement) this.#closeLightbox();
+        };
+        document.addEventListener('keydown', this.#lightboxEscHandler);
+    }
+
+    /**
+     * 关闭 Lightbox
+     * @private
+     */
+    #closeLightbox() {
+        if (!this.#lightbox) return;
+        this.#lightbox.style.display = 'none';
+        if (this.#lightboxEscHandler) {
+            document.removeEventListener('keydown', this.#lightboxEscHandler);
+            this.#lightboxEscHandler = null;
+        }
+        if (document.fullscreenElement === this.#lightbox) {
+            document.exitFullscreen().catch(() => { });
+        }
+    }
+
+    /**
+     * 按增量缩放 Lightbox 内容
+     * @param {number} delta
+     * @private
+     */
+    #lightboxZoomBy(delta) {
+        this.#lightboxScale = Math.min(5, Math.max(0.2, this.#lightboxScale + delta));
+        if (!this.#lightbox || !this.#lightboxBaseWidth) return;
+        const inner = this.#lightbox.querySelector('.md-lightbox-inner');
+        const target = inner?.querySelector('img') ?? inner?.querySelector('svg');
+        if (target) {
+            target.style.width = `${this.#lightboxBaseWidth * this.#lightboxScale}px`;
+            target.style.height = 'auto';
+        }
+        this.#updateLightboxScaleLabel();
+    }
+
+    /**
+     * 更新缩放比例标签文字
+     * @private
+     */
+    #updateLightboxScaleLabel() {
+        const label = this.#lightbox?.querySelector('[data-lb-scale]');
+        if (label) label.textContent = `${Math.round(this.#lightboxScale * 100)}%`;
+    }
+
+    /**
+     * 切换全屏
+     * @private
+     */
+    #toggleLightboxFullscreen() {
+        if (!this.#lightbox) return;
+        if (!document.fullscreenElement) {
+            this.#lightbox.requestFullscreen().catch(() => { });
+        } else {
+            document.exitFullscreen().catch(() => { });
+        }
+    }
+
     // ==================== 工具函数 ====================
 
     /**
@@ -2061,6 +2325,16 @@ export class Preview extends BaseComponent {
         this.#pendingCodeBlocks.clear();
         this.#pendingMermaidBlocks.clear();
         this.#pendingMathBlocks.clear();
+
+        // 清理 Lightbox
+        if (this.#lightboxEscHandler) {
+            document.removeEventListener('keydown', this.#lightboxEscHandler);
+            this.#lightboxEscHandler = null;
+        }
+        if (this.#lightbox) {
+            this.#lightbox.remove();
+            this.#lightbox = null;
+        }
 
         super.destroy();
     }
