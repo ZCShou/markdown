@@ -111,12 +111,17 @@ export class Preview extends BaseComponent {
     #lightboxScale = 1;
     /** @private Lightbox 基准宽度（scale=1 时的尺寸，px） */
     #lightboxBaseWidth = 0;
-    /** @private Lightbox ESC 键处理器引用 */
-    #lightboxEscHandler = null;
-    /** @private Lightbox 拖拽状态（null 表示未拖拽） */
+    /** @private Lightbox 拖拽状态 */
     #lightboxDrag = null;
-    /** @private Lightbox 当前平移偏移量 (px) */
-    #lightboxOffset = { x: 0, y: 0 };
+    /** @private Lightbox 平移偏移（px） */
+    #lightboxOx = 0;
+    #lightboxOy = 0;
+    // 缓存 Lightbox 内部 DOM 引用（犯层消除 querySelector 开销）
+    #lbInner = null;
+    #lbStage = null;
+    #lbScaleLabel = null;
+    /** @private Lightbox 当前内容元素（img 或 svg） */
+    #lbContent = null;
 
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
@@ -429,7 +434,7 @@ export class Preview extends BaseComponent {
             false
         );
 
-        // 图片点击放大
+        // 图片 / Mermaid 图表点击放大（合并为一个委托）
         this.addEventListener(
             this.container,
             'click',
@@ -437,16 +442,8 @@ export class Preview extends BaseComponent {
                 const img = e.target.closest('img');
                 if (img && img.dataset.loadStatus === 'success') {
                     this.#openLightbox('img', img);
+                    return;
                 }
-            },
-            false
-        );
-
-        // Mermaid 图表点击放大
-        this.addEventListener(
-            this.container,
-            'click',
-            e => {
                 const mermaidEl = e.target.closest('.mermaid.mermaid-done');
                 if (mermaidEl) this.#openLightbox('mermaid', mermaidEl);
             },
@@ -2028,9 +2025,7 @@ export class Preview extends BaseComponent {
 
     // ==================== Lightbox（图片/图表放大查看） ====================
 
-    /**
-     * 懒初始化 Lightbox DOM
-     * @returns {HTMLElement}
+    /** * 懒初始化 Lightbox DOM，缓存内部引用
      * @private
      */
     #getLightbox() {
@@ -2051,67 +2046,74 @@ export class Preview extends BaseComponent {
             </div>
         `;
 
-        // 拖拽平移（替换原来的点击背景关闭，用 pointerup 区分点击和拖拽）
-        const stage = lb.querySelector('.md-lightbox-stage');
+        // 缓存高频访问的 DOM 引用，避免每次事件触发时 querySelector
+        this.#lbInner = lb.querySelector('.md-lightbox-inner');
+        this.#lbStage = lb.querySelector('.md-lightbox-stage');
+        this.#lbScaleLabel = lb.querySelector('[data-lb-scale]');
 
-        stage.addEventListener('pointerdown', e => {
-            if (e.target.closest('.md-lightbox-toolbar, .md-lightbox-btn')) return;
+        // 拖拽平移
+        this.#lbStage.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
             e.preventDefault();
-            stage.setPointerCapture(e.pointerId);
+            this.#lbStage.setPointerCapture(e.pointerId);
             this.#lightboxDrag = {
                 pointerId: e.pointerId,
-                startX: e.clientX,
-                startY: e.clientY,
-                baseX: this.#lightboxOffset.x,
-                baseY: this.#lightboxOffset.y,
+                startX: e.clientX - this.#lightboxOx,
+                startY: e.clientY - this.#lightboxOy,
+                downX: e.clientX,
+                downY: e.clientY,
                 moved: false
             };
-            stage.classList.add('is-dragging');
+            this.#lbStage.classList.add('is-dragging');
         });
 
-        stage.addEventListener('pointermove', e => {
+        this.#lbStage.addEventListener('pointermove', e => {
             const drag = this.#lightboxDrag;
             if (!drag || drag.pointerId !== e.pointerId) return;
-            const dx = e.clientX - drag.startX;
-            const dy = e.clientY - drag.startY;
-            if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-            drag.moved = true;
-            this.#lightboxOffset = { x: drag.baseX + dx, y: drag.baseY + dy };
-            this.#applyLightboxTransform();
+            if (!drag.moved) {
+                if (Math.hypot(e.clientX - drag.downX, e.clientY - drag.downY) < 4) return;
+                drag.moved = true;
+            }
+            this.#lightboxOx = e.clientX - drag.startX;
+            this.#lightboxOy = e.clientY - drag.startY;
+            this.#lbInner.style.transform = `translate(${this.#lightboxOx}px,${this.#lightboxOy}px)`;
         });
 
         const endDrag = e => {
             const drag = this.#lightboxDrag;
             if (!drag || drag.pointerId !== e.pointerId) return;
             this.#lightboxDrag = null;
-            stage.classList.remove('is-dragging');
-            // 未移动且点在背景：关闭
-            if (!drag.moved && e.target === stage) this.#closeLightbox();
-        };
-        stage.addEventListener('pointerup', endDrag);
-        stage.addEventListener('pointercancel', e => {
-            if (this.#lightboxDrag?.pointerId === e.pointerId) {
-                this.#lightboxDrag = null;
-                stage.classList.remove('is-dragging');
+            this.#lbStage.classList.remove('is-dragging');
+            if (!drag.moved && e.type === 'pointerup' && e.target === this.#lbStage) {
+                this.#closeLightbox();
             }
-        });
+        };
+        this.#lbStage.addEventListener('pointerup', endDrag);
+        this.#lbStage.addEventListener('pointercancel', endDrag);
 
         // 工具栏按钮
         lb.querySelector('.md-lightbox-toolbar').addEventListener('click', e => {
             const action = e.target.closest('[data-lb-action]')?.dataset.lbAction;
             if (action === 'close') this.#closeLightbox();
-            else if (action === 'zoom-in') this.#lightboxZoomBy(0.25);
-            else if (action === 'zoom-out') this.#lightboxZoomBy(-0.25);
+            else if (action === 'zoom-in') this.#lightboxZoom(0.25);
+            else if (action === 'zoom-out') this.#lightboxZoom(-0.25);
             else if (action === 'fullscreen') this.#toggleLightboxFullscreen();
         });
 
         // 滚轮缩放
         lb.addEventListener('wheel', e => {
             e.preventDefault();
-            this.#lightboxZoomBy(e.deltaY < 0 ? 0.15 : -0.15);
+            this.#lightboxZoom(e.deltaY < 0 ? 0.15 : -0.15);
         }, { passive: false });
 
-        // 全屏状态同步图标
+        // ESC 关闭：绑定一次，按可见性判断，避免每次 open/close 增删监听
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && lb.style.display !== 'none' && !document.fullscreenElement) {
+                this.#closeLightbox();
+            }
+        });
+
+        // 全屏图标同步
         lb.addEventListener('fullscreenchange', () => {
             const icon = lb.querySelector('[data-lb-action="fullscreen"] .codicon');
             if (icon) {
@@ -2127,45 +2129,39 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 应用当前平移偏移到 inner 元素
-     * @private
-     */
-    #applyLightboxTransform() {
-        const inner = this.#lightbox?.querySelector('.md-lightbox-inner');
-        if (inner) inner.style.transform = `translate(${this.#lightboxOffset.x}px, ${this.#lightboxOffset.y}px)`;
-    }
-
-    /**
      * 打开 Lightbox
      * @param {'img'|'mermaid'} type
-     * @param {HTMLElement} el - 原始元素
+     * @param {HTMLElement} el
      * @private
      */
     #openLightbox(type, el) {
-        const lb = this.#getLightbox();
-        const inner = lb.querySelector('.md-lightbox-inner');
-        inner.innerHTML = '';
-        inner.style.transform = '';
+        this.#getLightbox();
+        this.#lbInner.innerHTML = '';
+        this.#lbInner.style.transform = '';
         this.#lightboxScale = 1;
-        this.#lightboxOffset = { x: 0, y: 0 };
+        this.#lightboxOx = 0;
+        this.#lightboxOy = 0;
         this.#lightboxDrag = null;
+        this.#lbContent = null;
 
         if (type === 'img') {
             const img = new Image();
             img.src = el.src;
             img.alt = el.alt || '';
-            inner.appendChild(img);
-            const capture = () => {
-                const w = img.naturalWidth || img.offsetWidth;
-                this.#lightboxBaseWidth = Math.min(w, window.innerWidth * 0.9 - 32);
+            this.#lbContent = img;
+            this.#lbInner.appendChild(img);
+            const setWidth = () => {
+                this.#lightboxBaseWidth = Math.min(
+                    img.naturalWidth || img.offsetWidth,
+                    window.innerWidth * 0.9 - 32
+                );
                 img.style.width = `${this.#lightboxBaseWidth}px`;
                 img.style.height = 'auto';
-                this.#updateLightboxScaleLabel();
+                this.#lbScaleLabel.textContent = '100%';
             };
-            if (img.complete) capture();
-            else img.onload = capture;
+            if (img.complete) setWidth();
+            else img.onload = setWidth;
         } else {
-            // Mermaid SVG 克隆
             const svg = el.querySelector('svg');
             if (!svg) return;
             const wrap = document.createElement('div');
@@ -2174,7 +2170,6 @@ export class Preview extends BaseComponent {
             clone.removeAttribute('width');
             clone.removeAttribute('height');
             clone.style.cssText = '';
-            // 从 viewBox 或实际尺寸推断基准宽度
             const vb = svg.getAttribute('viewBox');
             let baseW = svg.getBoundingClientRect().width || 600;
             if (vb) {
@@ -2184,18 +2179,13 @@ export class Preview extends BaseComponent {
             this.#lightboxBaseWidth = Math.min(baseW, window.innerWidth * 0.85 - 40);
             clone.style.width = `${this.#lightboxBaseWidth}px`;
             clone.style.height = 'auto';
+            this.#lbContent = clone;
             wrap.appendChild(clone);
-            inner.appendChild(wrap);
-            this.#updateLightboxScaleLabel();
+            this.#lbInner.appendChild(wrap);
+            this.#lbScaleLabel.textContent = '100%';
         }
 
-        lb.style.display = 'block';
-
-        // ESC 关闭（全屏时浏览器自行处理，这里只处理非全屏情况）
-        this.#lightboxEscHandler = e => {
-            if (e.key === 'Escape' && !document.fullscreenElement) this.#closeLightbox();
-        };
-        document.addEventListener('keydown', this.#lightboxEscHandler);
+        this.#lightbox.style.display = 'block';
     }
 
     /**
@@ -2205,39 +2195,22 @@ export class Preview extends BaseComponent {
     #closeLightbox() {
         if (!this.#lightbox) return;
         this.#lightbox.style.display = 'none';
-        if (this.#lightboxEscHandler) {
-            document.removeEventListener('keydown', this.#lightboxEscHandler);
-            this.#lightboxEscHandler = null;
-        }
         if (document.fullscreenElement === this.#lightbox) {
             document.exitFullscreen().catch(() => { });
         }
     }
 
     /**
-     * 按增量缩放 Lightbox 内容
+     * 按增量缩放 Lightbox 内容（使用缓存的 #lbContent，无 querySelector）
      * @param {number} delta
      * @private
      */
-    #lightboxZoomBy(delta) {
+    #lightboxZoom(delta) {
+        if (!this.#lightboxBaseWidth || !this.#lbContent) return;
         this.#lightboxScale = Math.min(5, Math.max(0.2, this.#lightboxScale + delta));
-        if (!this.#lightbox || !this.#lightboxBaseWidth) return;
-        const inner = this.#lightbox.querySelector('.md-lightbox-inner');
-        const target = inner?.querySelector('img') ?? inner?.querySelector('svg');
-        if (target) {
-            target.style.width = `${this.#lightboxBaseWidth * this.#lightboxScale}px`;
-            target.style.height = 'auto';
-        }
-        this.#updateLightboxScaleLabel();
-    }
-
-    /**
-     * 更新缩放比例标签文字
-     * @private
-     */
-    #updateLightboxScaleLabel() {
-        const label = this.#lightbox?.querySelector('[data-lb-scale]');
-        if (label) label.textContent = `${Math.round(this.#lightboxScale * 100)}%`;
+        this.#lbContent.style.width = `${this.#lightboxBaseWidth * this.#lightboxScale}px`;
+        this.#lbContent.style.height = 'auto';
+        this.#lbScaleLabel.textContent = `${Math.round(this.#lightboxScale * 100)}%`;
     }
 
     /**
@@ -2327,10 +2300,6 @@ export class Preview extends BaseComponent {
         this.#pendingMathBlocks.clear();
 
         // 清理 Lightbox
-        if (this.#lightboxEscHandler) {
-            document.removeEventListener('keydown', this.#lightboxEscHandler);
-            this.#lightboxEscHandler = null;
-        }
         if (this.#lightbox) {
             this.#lightbox.remove();
             this.#lightbox = null;
