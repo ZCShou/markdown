@@ -441,6 +441,8 @@ export class Preview extends BaseComponent {
             e => {
                 const img = e.target.closest('img');
                 if (img && img.dataset.loadStatus === 'success') {
+                    // 图片被链接包裹时，优先让链接事件处理，不触发 lightbox
+                    if (img.closest('a')) return;
                     this.#openLightbox('img', img);
                     return;
                 }

@@ -2464,6 +2464,11 @@ pre[class*='language-'] {
   cursor: zoom-in;
 }
 
+/* 图片被链接包裹时恢复指针，不触发 lightbox */
+.markdown-body a img[data-load-status='success'] {
+  cursor: pointer;
+}
+
 .markdown-body .mermaid.mermaid-done {
   cursor: zoom-in;
 }
