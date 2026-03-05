@@ -2509,9 +2509,9 @@ pre[class*='language-'] {
   -webkit-user-drag: none;
 }
 
-/* SVG 放在白底卡片内，明暗主题下均可读 */
+/* SVG 放在卡片内，与 mermaid 渲染区背景保持一致 */
 .md-lightbox-svg-wrap {
-  background: #fff;
+  background: var(--md-bg-secondary);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
@@ -2521,6 +2521,15 @@ pre[class*='language-'] {
 .md-lightbox-svg-wrap svg {
   display: block;
   height: auto;
+}
+
+/* 暗色模式：与预览区 mermaid SVG 保持一致的 filter */
+[data-mode='dark'] .md-lightbox-svg-wrap svg {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.md-lightbox-svg-wrap .edgeLabel foreignObject > div {
+  background: transparent !important;
 }
 
 /* 工具栏（右上角固定） */
