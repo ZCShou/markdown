@@ -2530,47 +2530,48 @@ pre[class*='language-'] {
   right: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   z-index: 10000;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: rgba(30, 30, 30, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .md-lightbox-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: transparent;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  transition: background 0.12s;
 }
 
 .md-lightbox-btn:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .md-lightbox-btn .codicon {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
 .md-lightbox-scale-label {
-  height: 36px;
+  height: 32px;
   padding: 0 8px;
-  line-height: 36px;
+  line-height: 32px;
   color: rgba(255, 255, 255, 0.8);
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   user-select: none;
   white-space: nowrap;
 }
+
 
