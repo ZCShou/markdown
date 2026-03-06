@@ -63,8 +63,8 @@
   --md-tree-item-active-text: #1565c0;
   --md-tree-item-hover-bg: rgba(0, 0, 0, 0.04);
 
-  /* 侧边栏遮罩 */
-  --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.5);
+  /* 遮罩层背景（对话框、设置、侧边栏等共用） */
+  --md-overlay-bg: rgba(0, 0, 0, 0.45);
 
   /* 复选框 */
   --md-checkbox-border: #dfe2e5;
@@ -131,7 +131,7 @@
   --md-tree-item-active-text: #90caf9;
   --md-tree-item-hover-bg: rgba(255, 255, 255, 0.08);
 
-  --md-sidebar-overlay-bg: rgba(0, 0, 0, 0.7);
+  --md-overlay-bg: rgba(0, 0, 0, 0.65);
 
   --md-checkbox-border: #3e3e3e;
   --md-checkbox-checked-bg: #0d47a1;
@@ -1241,45 +1241,35 @@ html::-webkit-scrollbar-thumb:hover,
 .status-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: var(--md-overlay-bg);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   z-index: 9999;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.3s,
-    visibility 0.3s;
+  display: none;
 }
 
 .status-overlay.show {
-  opacity: 1;
-  visibility: visible;
+  display: block;
 }
 
 .status-message {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.9);
+  transform: translate(-50%, -50%);
   background-color: var(--md-status-bg);
   color: var(--md-status-text);
   padding: 16px 24px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10000;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.3s,
-    visibility 0.3s,
-    transform 0.3s;
+  display: none;
   max-width: 400px;
   text-align: center;
 }
 
 .status-message.show {
-  opacity: 1;
-  visibility: visible;
-  transform: translate(-50%, -50%) scale(1);
+  display: block;
 }
 
 .status-message.success {
@@ -1610,17 +1600,17 @@ body.is-dragging-tree {
 .md-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
+  background: var(--md-overlay-bg);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: 10002;
-  opacity: 0;
-  transition: opacity 0.2s;
 }
 
 .md-dialog-overlay.md-dialog-overlay-show {
-  opacity: 1;
+  display: flex;
 }
 
 .md-dialog {
@@ -1631,14 +1621,12 @@ body.is-dragging-tree {
   max-width: 90vw;
   max-height: 90vh;
   overflow: hidden;
-  transform: scale(0.9);
-  transition: transform 0.2s;
   display: flex;
   flex-direction: column;
 }
 
 .md-dialog-overlay.md-dialog-overlay-show .md-dialog {
-  transform: scale(1);
+  display: flex;
 }
 
 .md-dialog-body {
@@ -1667,21 +1655,17 @@ body.is-dragging-tree {
 .md-settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
+  background: var(--md-overlay-bg);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  display: none;
   align-items: center;
   justify-content: center;
   z-index: 10001;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.2s,
-    visibility 0.2s;
 }
 
 .md-settings-overlay.show {
-  opacity: 1;
-  visibility: visible;
+  display: flex;
 }
 
 .md-settings-dialog {
@@ -1695,12 +1679,10 @@ body.is-dragging-tree {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transform: scale(0.95);
-  transition: transform 0.2s;
 }
 
 .md-settings-overlay.show .md-settings-dialog {
-  transform: scale(1);
+  display: flex;
 }
 
 .md-settings-content {
@@ -2230,18 +2212,15 @@ body.is-dragging-tree {
     display: block;
     position: fixed;
     inset: 0;
-    background-color: var(--md-sidebar-overlay-bg);
+    background: var(--md-overlay-bg);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
     z-index: 999;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-      opacity 0.3s,
-      visibility 0.3s;
+    display: none;
   }
 
   .md-sidebar-overlay.show {
-    opacity: 1;
-    visibility: visible;
+    display: block;
   }
 
   .md-settings-dialog {
@@ -2520,7 +2499,6 @@ pre[class*='language-'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.12s;
 }
 
 .md-lightbox-btn:hover {
