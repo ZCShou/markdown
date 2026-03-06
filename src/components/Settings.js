@@ -26,6 +26,7 @@
 import { dom } from '../utils/dom.js';
 import { EditorState } from '../EditorState.js';
 import { Dialog } from './Dialog.js';
+import { version } from '../../package.json';
 
 export class Settings {
     /**
@@ -69,6 +70,10 @@ export class Settings {
 
         // 监听系统主题变化
         this.watchSystemTheme();
+
+        // 设置版本号
+        const versionEl = dom.get('#md-settings-about-version');
+        if (versionEl) versionEl.textContent = `版本 ${version}`;
 
         // 应用已保存的设置
         this.applySettings();
