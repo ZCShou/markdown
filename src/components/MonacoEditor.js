@@ -170,6 +170,37 @@ export class MonacoEditor {
             this.options.onChange?.(this.getValue());
         });
         this.disposables.push(changeListener);
+
+        // 在行号区域拖动选择时支持鼠标滚轮滚动
+        this.#setupGutterWheelScroll();
+    }
+
+    /**
+     * 在行号（gutter）区域按住鼠标拖动选择时，允许鼠标滚轮滚动编辑器
+     * @private
+     */
+    #setupGutterWheelScroll() {
+        const domNode = this.editor.getDomNode();
+        if (!domNode) return;
+
+        const handler = (e) => {
+            if (!e.target?.closest('.margin')) return;
+
+            // 根据 deltaMode 将 delta 换算为像素
+            // DOM_DELTA_PIXEL=0 已是像素；DOM_DELTA_LINE=1 乘行高；DOM_DELTA_PAGE=2 乘视口高
+            let multiplier = 1;
+            if (e.deltaMode === 1) {
+                multiplier = this.editor.getOption(monaco.editor.EditorOption.lineHeight);
+            } else if (e.deltaMode === 2) {
+                multiplier = this.editor.getLayoutInfo().height;
+            }
+
+            if (e.deltaY) this.editor.setScrollTop(this.editor.getScrollTop() + e.deltaY * multiplier);
+            if (e.deltaX) this.editor.setScrollLeft(this.editor.getScrollLeft() + e.deltaX * multiplier);
+        };
+
+        domNode.addEventListener('wheel', handler, { passive: true });
+        this.disposables.push({ dispose: () => domNode.removeEventListener('wheel', handler) });
     }
 
     /**
