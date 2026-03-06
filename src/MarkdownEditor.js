@@ -13,8 +13,6 @@ import { EditorState } from './EditorState.js';
 import { Preview } from './components/Preview.js';
 import { LeftSidebar } from './components/LeftSidebar.js';
 import { RightSidebar } from './components/RightSidebar.js';
-import { CodeMirrorEditor } from './components/CodeMirrorEditor.js';
-import { MonacoEditor } from './components/MonacoEditor.js';
 import { Settings } from './components/Settings.js';
 import { Exporter } from './components/Exporter.js';
 import { dom } from './utils/dom.js';
@@ -253,13 +251,20 @@ export class MarkdownEditor {
      * @param {string} editorType - 编辑器类型
      * @param {string} initialValue - 初始内容
      * @param {HTMLElement} editorHost - 编辑器容器
-     * @returns {CodeMirrorEditor|MonacoEditor} 编辑器实例
+     * @returns {Promise<CodeMirrorEditor|MonacoEditor>} 编辑器实例
      * @private
      */
-    #createEditorInstance(editorType, initialValue, editorHost) {
+    async #createEditorInstance(editorType, initialValue, editorHost) {
         const config = this.#buildEditorConfig(initialValue);
-        const EditorClass =
-            editorType === MarkdownEditor.EDITOR_TYPES.MONACO ? MonacoEditor : CodeMirrorEditor;
+        let EditorClass;
+
+        if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
+            const { MonacoEditor } = await import('./components/MonacoEditor.js');
+            EditorClass = MonacoEditor;
+        } else {
+            const { CodeMirrorEditor } = await import('./components/CodeMirrorEditor.js');
+            EditorClass = CodeMirrorEditor;
+        }
 
         const editor = new EditorClass(editorHost, config);
         editor.init();
@@ -296,7 +301,7 @@ export class MarkdownEditor {
      * editor.switchEditorType('codemirror');
      * ```
      */
-    switchEditorType(editorType) {
+    async switchEditorType(editorType) {
         if (editorType === this.currentEditorType) return;
 
         const editorHost = dom.getById('markdown-editor')?.element;
@@ -309,12 +314,14 @@ export class MarkdownEditor {
         // 保存当前内容
         const currentContent = this.#getActiveEditor()?.getValue() || '';
 
+        // 更新类型标记（先更新，防止并发调用）
+        this.currentEditorType = editorType;
+
         // 销毁旧编辑器
         this.#destroyCurrentEditor();
 
-        // 创建新编辑器
-        this.currentEditorType = editorType;
-        const editor = this.#createEditorInstance(editorType, currentContent, editorHost);
+        // 按需加载并创建新编辑器
+        const editor = await this.#createEditorInstance(editorType, currentContent, editorHost);
 
         if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
             this.monacoEditor = editor;
@@ -339,7 +346,7 @@ export class MarkdownEditor {
     /**
      * 初始化所有组件
      */
-    initComponents() {
+    async initComponents() {
         // 编辑器
         const editorHost = dom.getById('markdown-editor')?.element;
         if (editorHost) {
@@ -349,8 +356,8 @@ export class MarkdownEditor {
 
             this.currentEditorType = editorType;
 
-            // 使用统一的创建方法
-            const editor = this.#createEditorInstance(editorType, initialValue, editorHost);
+            // 按需加载并创建编辑器
+            const editor = await this.#createEditorInstance(editorType, initialValue, editorHost);
 
             if (editorType === MarkdownEditor.EDITOR_TYPES.MONACO) {
                 this.monacoEditor = editor;
@@ -382,13 +389,17 @@ export class MarkdownEditor {
             component.init();
         });
 
-        // 预加载 Monaco Worker（空闲时执行，加速后续切换）
+        // 空闲时预加载另一个编辑器模块，加速首次切换
         if (this.currentEditorType !== MarkdownEditor.EDITOR_TYPES.MONACO) {
-            const scheduleIdle = window.requestIdleCallback || (cb => setTimeout(cb, 1));
+            const scheduleIdle = window.requestIdleCallback || (cb => setTimeout(cb, 2000));
             scheduleIdle(
-                () => {
-                    import('monaco-editor/esm/vs/editor/editor.worker?worker');
-                },
+                () => import('./components/MonacoEditor.js'),
+                { timeout: 5000 }
+            );
+        } else {
+            const scheduleIdle = window.requestIdleCallback || (cb => setTimeout(cb, 2000));
+            scheduleIdle(
+                () => import('./components/CodeMirrorEditor.js'),
                 { timeout: 5000 }
             );
         }
@@ -614,7 +625,7 @@ export class MarkdownEditor {
             try {
                 if (e?.pointerId && divider.releasePointerCapture)
                     divider.releasePointerCapture(e.pointerId);
-            } catch (_err) {}
+            } catch (_err) { }
 
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', endDrag);
@@ -639,7 +650,7 @@ export class MarkdownEditor {
 
             try {
                 if (divider.setPointerCapture) divider.setPointerCapture(e.pointerId);
-            } catch (_err) {}
+            } catch (_err) { }
 
             window.addEventListener('pointermove', onPointerMove, { passive: true });
             window.addEventListener('pointerup', endDrag, { passive: true });
@@ -803,7 +814,7 @@ export class MarkdownEditor {
 
         await this.state.init();
 
-        this.initComponents();
+        await this.initComponents();
         this.applyTheme(this.state.get('interface').theme);
         this.applyLayout(this.state.get('interface').layout ?? 'layout-both');
         this.bindEvents();
