@@ -1,6 +1,6 @@
 {
   "name": "markdown-editor",
-  "version": "0.4.16",
+  "version": "0.4.17",
   "description": "独立的 Markdown 编辑器",
   "type": "module",
   "scripts": {
