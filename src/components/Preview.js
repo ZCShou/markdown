@@ -2064,7 +2064,8 @@ export class Preview extends BaseComponent {
                 startY: e.clientY - this.#lightboxOy,
                 downX: e.clientX,
                 downY: e.clientY,
-                moved: false
+                moved: false,
+                downTarget: e.target
             };
             this.#lbStage.classList.add('is-dragging');
         });
@@ -2086,7 +2087,7 @@ export class Preview extends BaseComponent {
             if (!drag || drag.pointerId !== e.pointerId) return;
             this.#lightboxDrag = null;
             this.#lbStage.classList.remove('is-dragging');
-            if (!drag.moved && e.type === 'pointerup' && e.target === this.#lbStage) {
+            if (!drag.moved && e.type === 'pointerup' && drag.downTarget === this.#lbStage) {
                 this.#closeLightbox();
             }
         };
