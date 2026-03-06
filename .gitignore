@@ -40,7 +40,7 @@ public/upload/**
 .history
 
 # Package manager lock file
-package-lock.json
+# package-lock.json
 yarn.lock
 # pnpm-lock.yaml
 auto-imports.d.ts
