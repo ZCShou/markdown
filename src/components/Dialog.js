@@ -145,14 +145,14 @@ export class Dialog {
                 </div>
                 <div class="md-dialog-footer">
                     ${buttons
-                        .map(
-                            (btn, index) => `
-                        <button class="md-btn md-btn-${btn.type || 'secondary'}${index === buttons.length - 1 ? ' md-btn-primary' : ''}" data-value="${this.escapeHtml(String(btn.value))}">
+                    .map(
+                        (btn, index) => `
+                        <button class="md-btn md-btn-${btn.type || 'secondary'}" data-value="${this.escapeHtml(String(btn.value))}">
                             ${this.escapeHtml(btn.text)}
                         </button>
                     `
-                        )
-                        .join('')}
+                    )
+                    .join('')}
                 </div>
             `;
 
