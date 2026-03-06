@@ -116,6 +116,13 @@ export class Preview extends BaseComponent {
     /** @private Lightbox 平移偏移（px） */
     #lightboxOx = 0;
     #lightboxOy = 0;
+    /** @private 滚轮缩放 RAF 句柄（节流用） */
+    #lightboxZoomRaf = null;
+    /** @private 待处理的累积滚轮 delta */
+    #pendingWheelDelta = 0;
+    /** @private 待处理滚轮事件的最新光标位置 */
+    #pendingWheelX = 0;
+    #pendingWheelY = 0;
     // 缓存 Lightbox 内部 DOM 引用（犯层消除 querySelector 开销）
     #lbInner = null;
     #lbStage = null;
@@ -2103,10 +2110,20 @@ export class Preview extends BaseComponent {
             else if (action === 'fullscreen') this.#toggleLightboxFullscreen();
         });
 
-        // 滚轮缩放
+        // 滚轮缩放（以光标位置为中心，RAF 节流：一帧内多次事件只触发一次 DOM 更新）
         lb.addEventListener('wheel', e => {
             e.preventDefault();
-            this.#lightboxZoom(e.deltaY < 0 ? 0.15 : -0.15);
+            this.#pendingWheelDelta += e.deltaY < 0 ? 0.15 : -0.15;
+            this.#pendingWheelX = e.clientX;
+            this.#pendingWheelY = e.clientY;
+            if (!this.#lightboxZoomRaf) {
+                this.#lightboxZoomRaf = requestAnimationFrame(() => {
+                    this.#lightboxZoomRaf = null;
+                    const d = this.#pendingWheelDelta;
+                    this.#pendingWheelDelta = 0;
+                    this.#lightboxZoom(d, this.#pendingWheelX, this.#pendingWheelY);
+                });
+            }
         }, { passive: false });
 
         // ESC 关闭：绑定一次，按可见性判断，避免每次 open/close 增删监听
@@ -2198,22 +2215,47 @@ export class Preview extends BaseComponent {
     #closeLightbox() {
         if (!this.#lightbox) return;
         this.#lightbox.style.display = 'none';
+        if (this.#lightboxZoomRaf) {
+            cancelAnimationFrame(this.#lightboxZoomRaf);
+            this.#lightboxZoomRaf = null;
+            this.#pendingWheelDelta = 0;
+        }
         if (document.fullscreenElement === this.#lightbox) {
             document.exitFullscreen().catch(() => { });
         }
     }
 
     /**
-     * 按增量缩放 Lightbox 内容（使用缓存的 #lbContent，无 querySelector）
+     * 按增量缩放 Lightbox 内容
+     * 修改 lbContent 的 width 使浏览器按新尺寸重新渲染图片，保证清晰度。
+     * translate 平移写入 lbInner.style.transform，不加 scale。
      * @param {number} delta
+     * @param {number} [cursorX] 光标屏幕 X 坐标（传入时以光标为缩放中心）
+     * @param {number} [cursorY] 光标屏幕 Y 坐标
      * @private
      */
-    #lightboxZoom(delta) {
+    #lightboxZoom(delta, cursorX, cursorY) {
         if (!this.#lightboxBaseWidth || !this.#lbContent) return;
-        this.#lightboxScale = Math.min(5, Math.max(0.2, this.#lightboxScale + delta));
-        this.#lbContent.style.width = `${this.#lightboxBaseWidth * this.#lightboxScale}px`;
+        const oldScale = this.#lightboxScale;
+        const newScale = Math.min(5, Math.max(0.2, oldScale + delta));
+        if (newScale === oldScale) return;
+        this.#lightboxScale = newScale;
+
+        // 以光标为缩放中心：调整平移偏移，使光标下的像素保持原位。
+        // stage 是 position:fixed; inset:0，与 viewport 等大，中心即 window 中心。
+        if (cursorX !== undefined && cursorY !== undefined) {
+            const px = cursorX - window.innerWidth / 2;
+            const py = cursorY - window.innerHeight / 2;
+            const r = newScale / oldScale;
+            this.#lightboxOx = px - (px - this.#lightboxOx) * r;
+            this.#lightboxOy = py - (py - this.#lightboxOy) * r;
+            this.#lbInner.style.transform = `translate(${this.#lightboxOx}px,${this.#lightboxOy}px)`;
+        }
+
+        // 修改 width 而非使用 CSS scale，让浏览器按实际尺寸重新渲染，保证图片清晰度。
+        this.#lbContent.style.width = `${this.#lightboxBaseWidth * newScale}px`;
         this.#lbContent.style.height = 'auto';
-        this.#lbScaleLabel.textContent = `${Math.round(this.#lightboxScale * 100)}%`;
+        this.#lbScaleLabel.textContent = `${Math.round(newScale * 100)}%`;
     }
 
     /**
