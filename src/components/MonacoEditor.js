@@ -185,8 +185,6 @@ export class MonacoEditor {
                 blockComment: ['<!--', '-->']
             },
             brackets: [
-                ['*', '*'],
-                ['_', '_'],
                 ['[', ']'],
                 ['(', ')'],
                 ['{', '}']
@@ -516,7 +514,7 @@ export class MonacoEditor {
      * @returns {Function} 取消订阅函数
      */
     onScroll(callback) {
-        if (!this.editor || typeof callback !== 'function') return () => {};
+        if (!this.editor || typeof callback !== 'function') return () => { };
 
         const disposable = this.editor.onDidScrollChange(callback);
         return () => disposable.dispose();
