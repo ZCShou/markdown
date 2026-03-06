@@ -69,6 +69,18 @@
   /* 复选框 */
   --md-checkbox-border: #dfe2e5;
   --md-checkbox-checked-bg: #0366d6;
+
+  /* Prism 代码高亮 */
+  --prism-bg: #f5f5f5;
+  --prism-text-shadow: 0 1px #fff;
+  --prism-comment: #708090;
+  --prism-punctuation: #999;
+  --prism-property: #905;
+  --prism-selector: #690;
+  --prism-operator: #9a6e3a;
+  --prism-keyword: #07a;
+  --prism-function: #dd4a68;
+  --prism-regex: #e90;
 }
 
 /* ==================== 深色主题 ==================== */
@@ -123,6 +135,18 @@
 
   --md-checkbox-border: #3e3e3e;
   --md-checkbox-checked-bg: #0d47a1;
+
+  /* Prism 代码高亮 */
+  --prism-bg: #2d2d2d;
+  --prism-text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+  --prism-comment: #8e929a;
+  --prism-punctuation: #d4d4d4;
+  --prism-property: #b5cea8;
+  --prism-selector: #ce9178;
+  --prism-operator: #d4d4d4;
+  --prism-keyword: #c586c0;
+  --prism-function: #dcdcaa;
+  --prism-regex: #d16969;
 }
 
 /* ==================== 基础重置 ==================== */
@@ -133,14 +157,16 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  background-color: var(--md-bg-primary);
 }
 
 body {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  background-color: var(--md-bg-primary);
   visibility: hidden;
   opacity: 0;
 }
@@ -275,6 +301,12 @@ html::-webkit-scrollbar-thumb:hover,
   background-color: var(--md-color-danger);
   color: #fff;
   border-color: var(--md-color-danger);
+}
+
+/* 次要按钮 */
+.md-btn.md-btn-secondary {
+  background-color: var(--md-bg-tertiary);
+  border-color: var(--md-border);
 }
 
 /* 块级按钮 */
@@ -475,6 +507,7 @@ html::-webkit-scrollbar-thumb:hover,
 
 .md-sidebar-right .md-sidebar-section.is-active {
   display: flex;
+  flex-direction: column;
 }
 
 .md-sidebar-right .md-sidebar-section-header {
@@ -935,39 +968,6 @@ html::-webkit-scrollbar-thumb:hover,
   cursor: pointer;
 }
 
-#markdown-editor .cm-panel.cm-search input[type='checkbox'] {
-  appearance: none;
-  width: 1em;
-  height: 1em;
-  border: 1px solid var(--md-checkbox-border);
-  background-color: var(--md-bg-secondary);
-  vertical-align: -0.1em;
-  margin: 0 0.25em 0 0;
-  border-radius: 2px;
-  cursor: default;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-#markdown-editor .cm-panel.cm-search input[type='checkbox']:checked {
-  background-color: var(--md-checkbox-checked-bg);
-  border-color: var(--md-checkbox-checked-bg);
-}
-
-#markdown-editor .cm-panel.cm-search input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 0.25em;
-  top: 0.05em;
-  width: 0.25em;
-  height: 0.5em;
-  border: solid white;
-  border-width: 0 0.15em 0.15em 0;
-  transform: rotate(45deg);
-}
-
 /* ==================== Monaco Editor ==================== */
 #markdown-editor .monaco-editor .margin-view-overlays .current-line-exact-margin {
   border: none !important;
@@ -1196,7 +1196,8 @@ html::-webkit-scrollbar-thumb:hover,
 }
 
 /* 复选框 */
-.markdown-body input[type='checkbox'] {
+.markdown-body input[type='checkbox'],
+#markdown-editor .cm-panel.cm-search input[type='checkbox'] {
   appearance: none;
   width: 1em;
   height: 1em;
@@ -1212,12 +1213,14 @@ html::-webkit-scrollbar-thumb:hover,
   position: relative;
 }
 
-.markdown-body input[type='checkbox']:checked {
+.markdown-body input[type='checkbox']:checked,
+#markdown-editor .cm-panel.cm-search input[type='checkbox']:checked {
   background-color: var(--md-checkbox-checked-bg);
   border-color: var(--md-checkbox-checked-bg);
 }
 
-.markdown-body input[type='checkbox']:checked::after {
+.markdown-body input[type='checkbox']:checked::after,
+#markdown-editor .cm-panel.cm-search input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
   left: 0.25em;
@@ -1231,10 +1234,6 @@ html::-webkit-scrollbar-thumb:hover,
 
 /* 选中文字 */
 ::selection {
-  background-color: var(--md-selection-bg);
-}
-
-::-moz-selection {
   background-color: var(--md-selection-bg);
 }
 
@@ -1526,13 +1525,18 @@ body.is-dragging-tree {
   user-select: none;
 }
 
-.md-drop-target {
+/* 拖拽目标公共基础 */
+.md-drop-target,
+.md-drop-target-expanded,
+.md-drop-target-root {
   background-color: rgba(76, 175, 80, 0.1);
   position: relative;
   z-index: 10;
 }
 
-.md-drop-target::before {
+.md-drop-target::before,
+.md-drop-target-expanded::before,
+.md-drop-target-root::before {
   content: '';
   position: absolute;
   inset: -2px;
@@ -1555,19 +1559,7 @@ body.is-dragging-tree {
   z-index: 12;
 }
 
-.md-drop-target-expanded {
-  background-color: rgba(76, 175, 80, 0.1);
-  position: relative;
-  z-index: 10;
-}
-
 .md-drop-target-expanded::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border: 2px dashed var(--md-color-success);
-  border-radius: 4px;
-  pointer-events: none;
   z-index: 12;
 }
 
@@ -1590,21 +1582,12 @@ body.is-dragging-tree {
 }
 
 .md-drop-target-root {
-  background-color: rgba(76, 175, 80, 0.1);
   border-radius: 6px;
-  position: relative;
   min-height: 100px;
-  z-index: 10;
 }
 
 .md-drop-target-root::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border: 2px dashed var(--md-color-success);
   border-radius: 6px;
-  pointer-events: none;
-  z-index: 11;
 }
 
 .md-drop-target-root::after {
@@ -2368,34 +2351,6 @@ body.is-dragging-tree {
 }
 
 /* ==================== Prism 代码高亮主题 ==================== */
-/* 使用 CSS 变量实现主题切换 */
-
-:root {
-  --prism-bg: #f5f5f5;
-  --prism-text-shadow: 0 1px #fff;
-  --prism-comment: #708090;
-  --prism-punctuation: #999;
-  --prism-property: #905;
-  --prism-selector: #690;
-  --prism-operator: #9a6e3a;
-  --prism-keyword: #07a;
-  --prism-function: #dd4a68;
-  --prism-regex: #e90;
-}
-
-[data-mode='dark'] {
-  --prism-bg: #2d2d2d;
-  --prism-text-shadow: 0 1px rgba(0, 0, 0, 0.3);
-  --prism-comment: #8e929a;
-  --prism-punctuation: #d4d4d4;
-  --prism-property: #b5cea8;
-  --prism-selector: #ce9178;
-  --prism-operator: #d4d4d4;
-  --prism-keyword: #c586c0;
-  --prism-function: #dcdcaa;
-  --prism-regex: #d16969;
-}
-
 code[class*='language-'],
 pre[class*='language-'] {
   text-shadow: var(--prism-text-shadow);
