@@ -19,7 +19,9 @@
   /* 主题色 */
   --md-color-primary: #2196f3;
   --md-color-primary-dark: #0d47a1;
+  --md-color-primary-hover: #1976d2;
   --md-color-danger: #f44336;
+  --md-color-danger-hover: #d32f2f;
   --md-color-success: #4caf50;
   --md-color-warning: #ff9800;
 
@@ -99,6 +101,8 @@
   --md-border-light: #3e3e3e;
 
   --md-color-primary: #42a5f5;
+  --md-color-primary-hover: #64b5f6;
+  --md-color-danger-hover: #e53935;
 
   --md-code-bg: #1a1a1a;
   --md-code-bg-inline: rgba(255, 255, 255, 0.12);
@@ -292,8 +296,7 @@ html::-webkit-scrollbar-thumb:hover,
 }
 
 .md-btn.md-btn-primary:hover {
-  background-color: var(--md-color-primary-dark);
-  border-color: var(--md-color-primary-dark);
+  background-color: var(--md-color-primary-hover);
 }
 
 /* 危险按钮 */
@@ -303,10 +306,18 @@ html::-webkit-scrollbar-thumb:hover,
   border-color: var(--md-color-danger);
 }
 
+.md-btn.md-btn-danger:hover {
+  background-color: var(--md-color-danger-hover);
+}
+
 /* 次要按钮 */
 .md-btn.md-btn-secondary {
   background-color: var(--md-bg-tertiary);
   border-color: var(--md-border);
+}
+
+.md-btn.md-btn-secondary:hover {
+  background-color: var(--md-bg-hover);
 }
 
 /* 块级按钮 */
