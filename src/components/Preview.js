@@ -63,6 +63,35 @@ async function loadLanguage(lang) {
     }
 }
 
+// 检测块级 HTML 元素内部是否包含 Markdown 语法（链接/图片、强调、行内代码、标题等）
+const _MD_SYNTAX_RE = /!?\[|\*\*|\*[^*]|`|#{1,6} /;
+
+/**
+ * 在 marked.parse 之前预处理 Markdown：将块级 HTML 元素（div/center 等）内的 Markdown 语法
+ * 提前渲染为 HTML，使 marked 将其作为原始 HTML 块直通输出。
+ * 代码围栏内容通过 split 排除，不会被错误处理。
+ * 每次调用内部创建新的 RegExp 实例，避免递归时 lastIndex 共享问题。
+ */
+function _preprocessHtmlBlocks(md) {
+    const parts = md.split(/(```[\s\S]*?```)/g);
+    return parts
+        .map((part, i) => {
+            if (i % 2 === 1) return part; // 奇数分段为代码围栏内容，保持原样
+            return part.replace(
+                /^(<(?:div|section|article|center|details|summary|figure|figcaption|aside|header|footer|main)\b[^>\n]*>)[ \t]*\n([\s\S]*?)\n[ \t]*(<\/(?:div|section|article|center|details|summary|figure|figcaption|aside|header|footer|main)>)[ \t]*$/gim,
+                (match, open, inner, close) => {
+                    if (!_MD_SYNTAX_RE.test(inner)) return match;
+                    const innerHtml = marked.parse(_preprocessHtmlBlocks(inner), {
+                        breaks: false,
+                        gfm: true
+                    });
+                    return `${open}\n${innerHtml}\n${close}`;
+                }
+            );
+        })
+        .join('');
+}
+
 /**
  * 预览组件
  */
@@ -1227,8 +1256,8 @@ export class Preview extends BaseComponent {
             // 使用 marked 解析
             let html;
             if (marked?.parse) {
-                // 先使用默认渲染器解析
-                html = marked.parse(processedMarkdown, {
+                // 预处理：将块级 HTML 元素内的 Markdown 提前渲染为 HTML，使 marked 将其直通输出
+                html = marked.parse(_preprocessHtmlBlocks(processedMarkdown), {
                     breaks: false,
                     gfm: true
                 });
