@@ -988,7 +988,7 @@ export class Preview extends BaseComponent {
                 const blobUrl = await getImageUrl(dataSrc);
                 if (blobUrl) {
                     img.src = blobUrl;
-                    img.removeAttribute('data-src');
+                    // 保留 data-src 属性供导出使用
                 }
             } catch (error) {
                 console.warn('Failed to load internal image:', dataSrc, error);
@@ -1406,9 +1406,10 @@ export class Preview extends BaseComponent {
                 const srcMatch = attrs.match(/src="([^"]+)"/);
                 if (srcMatch && isInternalImagePath(srcMatch[1])) {
                     // 将 src 移动到 data-src，使用透明占位图作为 src
+                    // 注意：无论是否有 alt 属性，都要添加 data-src
                     const newAttrs = attrs
                         .replace(/src="[^"]+"/, 'src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"')
-                        .replace(/alt="([^"]*)"/, 'alt="$1" data-src="' + srcMatch[1] + '"');
+                        + ` data-src="${srcMatch[1]}"`;
                     return `<img${newAttrs} data-load-status="pending">`;
                 }
 

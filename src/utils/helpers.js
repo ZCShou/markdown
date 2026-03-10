@@ -338,6 +338,47 @@ export function getImageUrl(path) {
 }
 
 /**
+ * 获取图片的 Base64 Data URL（用于 HTML 导出）
+ * @param {string} path - 图片路径
+ * @returns {Promise<string|null>} Base64 Data URL 或 null
+ */
+export async function getImageAsBase64(path) {
+    const database = await initImageDB();
+    return new Promise((resolve, reject) => {
+        const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
+        const request = store.get(path);
+        request.onsuccess = async () => {
+            const result = request.result;
+            if (!result) {
+                resolve(null);
+                return;
+            }
+            try {
+                const dataUrl = await blobToBase64(result.blob);
+                resolve(dataUrl);
+            } catch (e) {
+                reject(e);
+            }
+        };
+        request.onerror = () => reject(new Error('Failed to get image'));
+    });
+}
+
+/**
+ * 将 Blob 转换为 Base64 Data URL
+ * @param {Blob} blob - Blob 对象
+ * @returns {Promise<string>} Base64 Data URL
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read blob'));
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
  * 清理单个 Blob URL 缓存
  * @param {string} path - 图片路径
  */

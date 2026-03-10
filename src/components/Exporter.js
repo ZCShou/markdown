@@ -3,90 +3,100 @@
  * 负责 HTML、Markdown、PDF 导出功能
  * 直接订阅 export:trigger 事件，独立于 Preview 组件
  */
+import { isInternalImagePath, getImageAsBase64 } from '../utils/helpers.js';
+
 export class Exporter {
-  /** @type {Function|null} */
-  #unsubscribeReady = null;
+    /** @type {Function|null} */
+    #unsubscribeReady = null;
 
-  /**
-   * @param {Object} state - 状态管理器
-   * @param {string} previewContainerId - 预览容器元素 ID
-   */
-  constructor(state, previewContainerId) {
-    this.state = state;
-    this.previewContainerId = previewContainerId;
-    this.unsubscribe = null;
-    this.#unsubscribeReady = null;
-  }
-
-  /**
-   * 初始化组件，订阅导出事件
-   *
-   * 通信流程（通过 EditorState 解耦）：
-   *   1. export:trigger  → Exporter 收到请求
-   *      - Markdown 直接导出（不依赖渲染 DOM）
-   *      - HTML / PDF 先触发 export:prepare，等待 Preview 完整渲染
-   *   2. export:prepare  → Preview 收到，强制渲染全部待处理元素
-   *      渲染完成后触发 export:ready 并附带 HTML 快照
-   *   3. export:ready    → Exporter 收到，执行实际的导出逻辑
-   */
-  init() {
-    // 阶段 1：收到导出请求
-    this.unsubscribe = this.state.subscribeTo('export:trigger', type => {
-      if (type === 'md') {
-        // Markdown 导出不依赖渲染结果，直接执行
-        this.exportMarkdown();
-      } else if (type === 'html' || type === 'pdf') {
-        // 需要完整渲染的 HTML：先请求 Preview 完整渲染
-        this.#showMessage('正在准备导出...', 'info');
-        this.state.triggerExportPrepare(type);
-      } else {
-        console.warn('Unknown export type:', type);
-      }
-    });
-
-    // 阶段 3：Preview 完整渲染后，执行实际导出
-    this.#unsubscribeReady = this.state.subscribeTo('export:ready', (type, html) => {
-      if (type === 'html') {
-        this.exportHTML(html);
-      } else if (type === 'pdf') {
-        this.exportPDF(html);
-      }
-    });
-  }
-
-  /**
-   * 显示消息（使用状态驱动的通知系统）
-   * @param {string} message - 消息内容
-   * @param {string} type - 消息类型
-   * @private
-   */
-  #showMessage(message, type = 'info') {
-    this.state.showNotification(message, type);
-  }
-
-  // ==================== 公共方法 ====================
-
-  /**
-   * 导出为 HTML
-   * @param {string} rawHtml - Preview 完整渲染后的容器 innerHTML
-   * @returns {void}
-   */
-  exportHTML(rawHtml) {
-    if (!rawHtml) {
-      this.#showMessage('预览内容为空', 'error');
-      return;
+    /**
+     * @param {Object} state - 状态管理器
+     * @param {string} previewContainerId - 预览容器元素 ID
+     */
+    constructor(state, previewContainerId) {
+        this.state = state;
+        this.previewContainerId = previewContainerId;
+        this.unsubscribe = null;
+        this.#unsubscribeReady = null;
     }
 
-    // 使用传入的已渲染 HTML
-    let html = rawHtml;
+    /**
+     * 初始化组件，订阅导出事件
+     *
+     * 通信流程（通过 EditorState 解耦）：
+     *   1. export:trigger  → Exporter 收到请求
+     *      - Markdown 直接导出（不依赖渲染 DOM）
+     *      - HTML / PDF 先触发 export:prepare，等待 Preview 完整渲染
+     *   2. export:prepare  → Preview 收到，强制渲染全部待处理元素
+     *      渲染完成后触发 export:ready 并附带 HTML 快照
+     *   3. export:ready    → Exporter 收到，执行实际的导出逻辑
+     */
+    init() {
+        // 阶段 1：收到导出请求
+        this.unsubscribe = this.state.subscribeTo('export:trigger', type => {
+            if (type === 'md') {
+                // Markdown 导出不依赖渲染结果，直接执行
+                this.exportMarkdown();
+            } else if (type === 'html' || type === 'pdf') {
+                // 需要完整渲染的 HTML：先请求 Preview 完整渲染
+                this.#showMessage('正在准备导出...', 'info');
+                this.state.triggerExportPrepare(type);
+            } else {
+                console.warn('Unknown export type:', type);
+            }
+        });
 
-    // 清理不需要的属性和类
-    html = this.#cleanHtml(html);
+        // 阶段 3：Preview 完整渲染后，执行实际导出
+        this.#unsubscribeReady = this.state.subscribeTo('export:ready', async (type, html) => {
+            try {
+                if (type === 'html') {
+                    await this.exportHTML(html);
+                } else if (type === 'pdf') {
+                    await this.exportPDF(html);
+                }
+            } catch (err) {
+                console.error('Export failed:', err);
+                this.#showMessage('导出失败', 'error');
+            }
+        });
+    }
 
-    // 获取当前主题
-    const isDark = this.state.get('interface')?.theme === 'dark';
+    /**
+     * 显示消息（使用状态驱动的通知系统）
+     * @param {string} message - 消息内容
+     * @param {string} type - 消息类型
+     * @private
+     */
+    #showMessage(message, type = 'info') {
+        this.state.showNotification(message, type);
+    }
 
-    const fullHtml = `<!DOCTYPE html>
+    // ==================== 公共方法 ====================
+
+    /**
+     * 导出为 HTML
+     * @param {string} rawHtml - Preview 完整渲染后的容器 innerHTML
+     * @returns {Promise<void>}
+     */
+    async exportHTML(rawHtml) {
+        if (!rawHtml) {
+            this.#showMessage('预览内容为空', 'error');
+            return;
+        }
+
+        // 使用传入的已渲染 HTML
+        let html = rawHtml;
+
+        // 将内部图片转换为 base64（必须在 cleanHtml 之前，因为需要 src 属性）
+        html = await this.#convertInternalImagesToBase64(html);
+
+        // 清理不需要的属性和类
+        html = this.#cleanHtml(html);
+
+        // 获取当前主题
+        const isDark = this.state.get('interface')?.theme === 'dark';
+
+        const fullHtml = `<!DOCTYPE html>
 <html lang="zh-CN"${isDark ? ' data-mode="dark"' : ''}>
 <head>
 <meta charset="UTF-8">
@@ -132,50 +142,53 @@ ${html}
 </body>
 </html>`;
 
-    this.#downloadFile(fullHtml, 'text/html', '.html');
-    this.#showMessage('HTML 导出成功', 'success');
-  }
-
-  /**
-   * 导出为 Markdown
-   * @returns {void}
-   */
-  exportMarkdown() {
-    const content = this.state.get('content');
-    this.#downloadFile(content, 'text/markdown', '.md');
-    this.#showMessage('Markdown 导出成功', 'success');
-  }
-
-  /**
-   * 导出为 PDF（在当前页面内通过隐藏 iframe 触发打印，无需弹窗权限）
-   * @param {string} rawHtml - Preview 完整渲染后的容器 innerHTML
-   * @returns {void}
-   */
-  exportPDF(rawHtml) {
-    if (!rawHtml) {
-      this.#showMessage('预览内容为空', 'warning');
-      return;
-    }
-    const content = this.state.get('content');
-    if (!content) {
-      this.#showMessage('没有内容可导出', 'warning');
-      return;
+        this.#downloadFile(fullHtml, 'text/html', '.html');
+        this.#showMessage('HTML 导出成功', 'success');
     }
 
-    // 固定默认值
-    const pageSize = '210mm 297mm';
+    /**
+     * 导出为 Markdown
+     * @returns {void}
+     */
+    exportMarkdown() {
+        const content = this.state.get('content');
+        this.#downloadFile(content, 'text/markdown', '.md');
+        this.#showMessage('Markdown 导出成功', 'success');
+    }
 
-    // 使用传入的已渲染 HTML
-    const html = this.#cleanHtml(rawHtml);
+    /**
+     * 导出为 PDF（在当前页面内通过隐藏 iframe 触发打印，无需弹窗权限）
+     * @param {string} rawHtml - Preview 完整渲染后的容器 innerHTML
+     * @returns {Promise<void>}
+     */
+    async exportPDF(rawHtml) {
+        if (!rawHtml) {
+            this.#showMessage('预览内容为空', 'warning');
+            return;
+        }
+        const content = this.state.get('content');
+        if (!content) {
+            this.#showMessage('没有内容可导出', 'warning');
+            return;
+        }
 
-    // 获取当前主题
-    const isDark = this.state.get('interface')?.theme === 'dark';
+        // 固定默认值
+        const pageSize = '210mm 297mm';
 
-    // 获取文档标题
-    const titleMatch = content.match(/^#\s+(.+)$/m);
-    const docTitle = titleMatch ? titleMatch[1].trim() : 'Markdown 文档';
+        // 将内部图片转换为 base64（必须在 cleanHtml 之前）
+        let html = await this.#convertInternalImagesToBase64(rawHtml);
 
-    const fullHtml = `<!DOCTYPE html>
+        // 清理不需要的属性和类
+        html = this.#cleanHtml(html);
+
+        // 获取当前主题
+        const isDark = this.state.get('interface')?.theme === 'dark';
+
+        // 获取文档标题
+        const titleMatch = content.match(/^#\s+(.+)$/m);
+        const docTitle = titleMatch ? titleMatch[1].trim() : 'Markdown 文档';
+
+        const fullHtml = `<!DOCTYPE html>
 <html lang="zh-CN"${isDark ? ' data-mode="dark"' : ''}>
 <head>
 <meta charset="UTF-8">
@@ -265,75 +278,182 @@ ${html}
 </body>
 </html>`;
 
-    // ── 使用隐藏 iframe + Blob URL 触发打印（doc.write 不能可靠触发 load 事件）──
-    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
+        // ── 使用隐藏 iframe + Blob URL 触发打印（doc.write 不能可靠触发 load 事件）──
+        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
 
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText =
-      'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;';
-    document.body.appendChild(iframe);
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.style.cssText =
+            'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;border:none;';
+        document.body.appendChild(iframe);
 
-    // 打印后移除 iframe 并释放 Blob URL
-    const cleanup = () => {
-      URL.revokeObjectURL(blobUrl);
-      if (document.body.contains(iframe)) document.body.removeChild(iframe);
-    };
+        // 打印后移除 iframe 并释放 Blob URL
+        const cleanup = () => {
+            URL.revokeObjectURL(blobUrl);
+            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        };
 
-    iframe.addEventListener(
-      'load',
-      () => {
-        const iframeWin = iframe.contentWindow;
-        // afterprint：打印对话框关闭后清理
-        iframeWin.addEventListener('afterprint', cleanup, { once: true });
-        // 60 秒兜底清理（防止 afterprint 不触发）
-        const fallback = setTimeout(cleanup, 60_000);
-        iframeWin.addEventListener('afterprint', () => clearTimeout(fallback), {
-          once: true
-        });
+        iframe.addEventListener(
+            'load',
+            () => {
+                const iframeWin = iframe.contentWindow;
+                // afterprint：打印对话框关闭后清理
+                iframeWin.addEventListener('afterprint', cleanup, { once: true });
+                // 60 秒兜底清理（防止 afterprint 不触发）
+                const fallback = setTimeout(cleanup, 60_000);
+                iframeWin.addEventListener('afterprint', () => clearTimeout(fallback), {
+                    once: true
+                });
 
-        const doPrint = () => iframeWin.print();
-        // 等待字体加载，最多 3 秒超时避免 CDN 慢/被屏蔽时永久挂起
-        const fontsReady = iframeWin.document.fonts?.ready ?? Promise.resolve();
-        Promise.race([fontsReady, new Promise(r => setTimeout(r, 3000))]).then(doPrint);
-      },
-      { once: true }
-    );
+                const doPrint = () => iframeWin.print();
+                // 等待字体加载，最多 3 秒超时避免 CDN 慢/被屏蔽时永久挂起
+                const fontsReady = iframeWin.document.fonts?.ready ?? Promise.resolve();
+                Promise.race([fontsReady, new Promise(r => setTimeout(r, 3000))]).then(doPrint);
+            },
+            { once: true }
+        );
 
-    iframe.src = blobUrl;
+        iframe.src = blobUrl;
 
-    this.#showMessage('请在打印对话框中选择"另存为 PDF"', 'info');
-  }
+        this.#showMessage('请在打印对话框中选择"另存为 PDF"', 'info');
+    }
 
-  // ==================== 私有方法 ====================
+    // ==================== 私有方法 ====================
 
-  /**
-   * 清理 HTML 中不需要的属性和类
-   * @param {string} html - 原始 HTML
-   * @returns {string} - 清理后的 HTML
-   * @private
-   */
-  #cleanHtml(html) {
-    return html
-      .replace(/ class="prism-highlighted"/g, '')
-      .replace(/ class="mermaid-done"/g, '')
-      .replace(/ class="mermaid-pending"/g, '')
-      .replace(/ class="mermaid-rendering"/g, '')
-      .replace(/ data-load-status="[^"]*"/g, '')
-      .replace(/ class="math-rendered"/g, '')
-      .replace(/ class="math-pending"/g, '')
-      .replace(/ data-mermaid="[^"]*"/g, '')
-      .replace(/ data-latex="[^"]*"/g, '');
-  }
+    /**
+     * 将 HTML 中的内部图片转换为 Base64 Data URL
+     * @param {string} html - 原始 HTML
+     * @returns {Promise<string>} - 转换后的 HTML
+     * @private
+     */
+    async #convertInternalImagesToBase64(html) {
+        // 匹配所有 img 标签，同时捕获 src 和 data-src
+        const imgRegex = /<img([^>]*)>/g;
+        const replacements = [];
 
-  /**
-   * 获取导出通用的 CSS 样式
-   * @returns {string} - CSS 样式字符串
-   * @private
-   */
-  #getCommonStyles() {
-    return `/* ==================== CSS 变量 ==================== */
+        let match;
+        while ((match = imgRegex.exec(html)) !== null) {
+            const fullMatch = match[0];
+            const attrs = match[1];
+
+            // 提取 src 和 data-src 属性
+            const srcMatch = attrs.match(/src="([^"]+)"/);
+            const dataSrcMatch = attrs.match(/data-src="([^"]+)"/);
+
+            // 优先使用 data-src（内部图片的原始路径），其次检查 src
+            const imagePath = dataSrcMatch?.[1] || (srcMatch?.[1] && isInternalImagePath(srcMatch[1]) ? srcMatch[1] : null);
+
+            if (imagePath) {
+                replacements.push(this.#loadImageAsBase64(imagePath).then(base64 => {
+                    if (base64) {
+                        return { fullMatch, src: srcMatch?.[1], dataSrc: dataSrcMatch?.[1], base64 };
+                    }
+                    return null;
+                }).catch(err => {
+                    console.warn('Failed to convert image to base64:', imagePath, err);
+                    return null;
+                }));
+            }
+        }
+
+        // 并行加载所有图片
+        const results = await Promise.all(replacements);
+
+        // 替换 src 为 base64，并移除 data-src 属性
+        results
+            .filter(r => r !== null)
+            .sort((a, b) => b.fullMatch.length - a.fullMatch.length)
+            .forEach(({ fullMatch, src, dataSrc, base64 }) => {
+                // 构建新的 img 标签：替换 src，移除 data-src
+                let newTag = fullMatch.replace(/src="[^"]+"/, `src="${base64}"`);
+                if (dataSrc) {
+                    newTag = newTag.replace(/\s*data-src="[^"]*"/, '');
+                }
+                html = html.replace(fullMatch, newTag);
+            });
+
+        return html;
+    }
+
+    /**
+     * 加载单个图片并转换为 Base64
+     * @param {string} src - 图片路径
+     * @returns {Promise<string|null>} Base64 Data URL 或 null
+     * @private
+     */
+    async #loadImageAsBase64(src) {
+        // Tauri 环境：从文件系统读取
+        if (window.__TAURI__) {
+            const { readFile } = window.__TAURI__.fs;
+            const { join, resourceDir } = window.__TAURI__.path;
+
+            const resourceDirPath = await resourceDir();
+            const fullPath = await join(resourceDirPath, src.replace(/^\/?/, ''));
+
+            try {
+                const uint8Array = await readFile(fullPath);
+                // 根据扩展名推断 MIME 类型
+                const ext = src.split('.').pop()?.toLowerCase() || 'png';
+                const mimeTypes = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+                const mime = mimeTypes[ext] || 'image/png';
+                // 使用高效的方式转换 Uint8Array 到 Base64（避免 call stack overflow 和性能问题）
+                const base64 = this.#uint8ArrayToBase64(uint8Array);
+                return `data:${mime};base64,${base64}`;
+            } catch (err) {
+                console.warn('Failed to read image file:', fullPath, err);
+                return null;
+            }
+        }
+
+        // Web 环境：从 IndexedDB 读取
+        return await getImageAsBase64(src);
+    }
+
+    /**
+     * 高效地将 Uint8Array 转换为 Base64 字符串
+     * 分块处理以避免大文件的 call stack overflow
+     * @param {Uint8Array} bytes - 字节数组
+     * @returns {string} Base64 编码字符串
+     * @private
+     */
+    #uint8ArrayToBase64(bytes) {
+        const CHUNK_SIZE = 8192; // 每次处理 8KB
+        let result = '';
+        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+            const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+            result += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        return btoa(result);
+    }
+
+    /**
+     * 清理 HTML 中不需要的属性和类
+     * @param {string} html - 原始 HTML
+     * @returns {string} - 清理后的 HTML
+     * @private
+     */
+    #cleanHtml(html) {
+        return html
+            .replace(/ class="prism-highlighted"/g, '')
+            .replace(/ class="mermaid-done"/g, '')
+            .replace(/ class="mermaid-pending"/g, '')
+            .replace(/ class="mermaid-rendering"/g, '')
+            .replace(/ data-load-status="[^"]*"/g, '')
+            .replace(/ class="math-rendered"/g, '')
+            .replace(/ class="math-pending"/g, '')
+            .replace(/ data-mermaid="[^"]*"/g, '')
+            .replace(/ data-latex="[^"]*"/g, '')
+            .replace(/\s*data-src="[^"]*"/g, ''); // 清理内部图片的原始路径属性
+    }
+
+    /**
+     * 获取导出通用的 CSS 样式
+     * @returns {string} - CSS 样式字符串
+     * @private
+     */
+    #getCommonStyles() {
+        return `/* ==================== CSS 变量 ==================== */
 :root {
   --md-bg-primary: #f5f5f5;
   --md-bg-secondary: #fff;
@@ -749,38 +869,38 @@ pre[class*='language-'] {
 .katex { font-size: 1.1em; }
 .katex-display > .katex { white-space: nowrap; }
 .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.5em 0; }`;
-  }
-
-  /**
-   * 下载文件
-   * @param {string} content - 文件内容
-   * @param {string} mimeType - MIME 类型
-   * @param {string} extension - 文件扩展名
-   * @private
-   */
-  #downloadFile(content, mimeType, extension) {
-    const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'document-' + new Date().toISOString().slice(0, 10) + extension;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  /**
-   * 销毁组件，取消订阅
-   */
-  destroy() {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-      this.unsubscribe = null;
     }
-    if (this.#unsubscribeReady) {
-      this.#unsubscribeReady();
-      this.#unsubscribeReady = null;
+
+    /**
+     * 下载文件
+     * @param {string} content - 文件内容
+     * @param {string} mimeType - MIME 类型
+     * @param {string} extension - 文件扩展名
+     * @private
+     */
+    #downloadFile(content, mimeType, extension) {
+        const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'document-' + new Date().toISOString().slice(0, 10) + extension;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
-  }
+
+    /**
+     * 销毁组件，取消订阅
+     */
+    destroy() {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+            this.unsubscribe = null;
+        }
+        if (this.#unsubscribeReady) {
+            this.#unsubscribeReady();
+            this.#unsubscribeReady = null;
+        }
+    }
 }
