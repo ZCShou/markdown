@@ -19,6 +19,7 @@
 import * as monaco from 'monaco-editor';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { resolveDarkMode } from '../utils/theme.js';
+import { extractImageFromClipboard } from '../utils/helpers.js';
 
 // ---------------------------------------------------------------------------
 // 模块级 Markdown 解析缓存（单条目，适合单编辑器场景）
@@ -114,6 +115,7 @@ export class MonacoEditor {
      * @param {string} [options.placeholder=''] - 占位符文本
      * @param {string} [options.ariaLabel='Markdown editor input'] - ARIA 标签
      * @param {Function} [options.onChange] - 内容变化回调
+     * @param {Function} [options.onImagePaste] - 粘贴图片回调，接收 File 对象，返回 Promise<string> 图片路径
      * @param {Object} [options.editorConfig] - 编辑器配置
      * @param {Object} [options.interfaceConfig] - 界面配置
      */
@@ -122,6 +124,8 @@ export class MonacoEditor {
         this.options = options;
         this.editor = null;
         this.disposables = [];
+        /** @type {Function|null} 粘贴事件处理函数 */
+        this.pasteHandler = null;
     }
 
     /**
@@ -180,6 +184,68 @@ export class MonacoEditor {
 
         // 在行号区域拖动选择时支持鼠标滚轮滚动
         this.#setupGutterWheelScroll();
+
+        // 设置粘贴事件监听器
+        this.#setupPasteHandler();
+    }
+
+    /**
+     * 设置粘贴事件处理器
+     * 支持从剪贴板粘贴图片
+     * @private
+     */
+    #setupPasteHandler() {
+        if (!this.editor || !this.options.onImagePaste) return;
+
+        this.pasteHandler = async (event) => {
+            if (!this.editor?.hasTextFocus()) return;
+
+            const imageFile = extractImageFromClipboard(event.clipboardData);
+            if (!imageFile) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            try {
+                const imagePath = await this.options.onImagePaste(imageFile);
+                if (imagePath) this.#insertImage(imagePath);
+            } catch (error) {
+                console.error('Failed to handle pasted image:', error);
+            }
+        };
+
+        document.addEventListener('paste', this.pasteHandler, true);
+    }
+
+    /**
+     * 在当前光标位置插入图片
+     * @param {string} imagePath - 图片路径
+     * @private
+     */
+    #insertImage(imagePath) {
+        if (!this.editor) return;
+
+        const imageMarkdown = `![输入图片说明](${imagePath})`;
+        const position = this.editor.getPosition();
+        if (!position) return;
+
+        this.editor.executeEdits('', [{
+            range: new monaco.Range(
+                position.lineNumber,
+                position.column,
+                position.lineNumber,
+                position.column
+            ),
+            text: imageMarkdown
+        }]);
+
+        // 将光标移动到插入文本的末尾
+        const newPosition = new monaco.Position(
+            position.lineNumber,
+            position.column + imageMarkdown.length
+        );
+        this.editor.setPosition(newPosition);
+        this.editor.focus();
     }
 
     /**
@@ -490,6 +556,12 @@ export class MonacoEditor {
      * ```
      */
     destroy() {
+        // 清理粘贴事件监听器
+        if (this.pasteHandler) {
+            document.removeEventListener('paste', this.pasteHandler, true);
+            this.pasteHandler = null;
+        }
+
         // 清理事件监听器
         this.disposables.forEach(d => d.dispose());
         this.disposables = [];

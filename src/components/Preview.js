@@ -9,6 +9,7 @@ import mermaid from 'mermaid';
 import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
+import { isInternalImagePath, getImageUrl } from '../utils/helpers.js';
 
 // Prism 语言懒加载映射
 const LANG_MAP = {
@@ -939,7 +940,10 @@ export class Preview extends BaseComponent {
         }
 
         // 延迟处理元素（避免阻塞主线程）
-        requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
+            // 处理内部图片路径（Web 环境下从 IndexedDB 加载）
+            await this.#processInternalImages();
+
             // 缓存标题偏移量，并初始化滚动高亮（渲染后 DOM 已稳定，一次性读取 getBoundingClientRect）
             this.#cacheHeadingOffsets();
             this.#runScrollSpy();
@@ -964,6 +968,33 @@ export class Preview extends BaseComponent {
                 }
             }
         });
+    }
+
+    /**
+     * 处理内部图片路径
+     * 在 Web 环境下，从 data-src 读取路径，从 IndexedDB 加载后设置到 src
+     * @private
+     */
+    async #processInternalImages() {
+        // 检查是否在 Tauri 环境中（Tauri 环境不需要处理）
+        if (window.__TAURI__) return;
+
+        const images = dom.getAllIn(this.container, 'img[data-src]');
+        // 并行加载所有内部图片，避免串行等待
+        await Promise.all(Array.from(images).map(async (img) => {
+            const dataSrc = img.getAttribute('data-src');
+            if (dataSrc && isInternalImagePath(dataSrc)) {
+                try {
+                    const blobUrl = await getImageUrl(dataSrc);
+                    if (blobUrl) {
+                        img.src = blobUrl;
+                        img.removeAttribute('data-src');
+                    }
+                } catch (error) {
+                    console.warn('Failed to load internal image:', dataSrc, error);
+                }
+            }
+        }));
     }
 
     /**
@@ -1358,18 +1389,30 @@ export class Preview extends BaseComponent {
                         'start',
                         'align',
                         'style',
-                        'data-load-status'
+                        'data-load-status',
+                        'data-src'
                     ],
                     ALLOW_DATA_ATTR: true
                 });
             }
 
-            // 为新生成的图片添加初始状态
+            // 为新生成的图片添加初始状态，并处理内部图片路径
             html = html.replace(/<img([^>]*?)>/g, (match, attrs) => {
                 // 如果已经有 data-load-status 属性，跳过
                 if (attrs.includes('data-load-status')) {
                     return match;
                 }
+
+                // 检查是否为内部图片路径（Web 环境下需要从 IndexedDB 加载）
+                const srcMatch = attrs.match(/src="([^"]+)"/);
+                if (srcMatch && isInternalImagePath(srcMatch[1])) {
+                    // 将 src 移动到 data-src，使用透明占位图作为 src
+                    const newAttrs = attrs
+                        .replace(/src="[^"]+"/, 'src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"')
+                        .replace(/alt="([^"]*)"/, 'alt="$1" data-src="' + srcMatch[1] + '"');
+                    return `<img${newAttrs} data-load-status="pending">`;
+                }
+
                 // 在标签中添加 data-load-status="pending"
                 return `<img${attrs} data-load-status="pending">`;
             });

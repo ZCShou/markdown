@@ -17,6 +17,7 @@ import { Settings } from './components/Settings.js';
 import { Exporter } from './components/Exporter.js';
 import { dom } from './utils/dom.js';
 import { applyTheme } from './utils/theme.js';
+import { handlePastedImage } from './utils/helpers.js';
 
 /**
  *
@@ -218,8 +219,25 @@ export class MarkdownEditor {
             placeholder: '在此输入 Markdown 内容...',
             ariaLabel: 'Markdown 编辑器输入区域',
             onChange: this.#handleEditorChange.bind(this),
-            onEscape: this.#handleEditorEscape.bind(this)
+            onEscape: this.#handleEditorEscape.bind(this),
+            onImagePaste: this.#handleImagePaste.bind(this)
         };
+    }
+
+    /**
+     * 处理粘贴图片
+     * @param {File} file - 图片文件
+     * @returns {Promise<string>} 图片路径
+     * @private
+     */
+    async #handleImagePaste(file) {
+        try {
+            return await handlePastedImage(file);
+        } catch (error) {
+            console.error('Failed to save pasted image:', error);
+            this.showMessage('保存图片失败', MarkdownEditor.MESSAGE_TYPES.ERROR);
+            throw error;
+        }
     }
 
     /**

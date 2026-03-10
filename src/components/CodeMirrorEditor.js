@@ -18,6 +18,7 @@
 
 import { EditorState, Compartment, Annotation } from '@codemirror/state';
 import { resolveDarkMode } from '../utils/theme.js';
+import { extractImageFromClipboard } from '../utils/helpers.js';
 import {
     EditorView,
     keymap,
@@ -97,6 +98,7 @@ export class CodeMirrorEditor {
     #lineDragState = null;
     #globalMouseMoveHandler = null;
     #globalMouseUpHandler = null;
+    #pasteHandler = null;
 
     /**
      * 创建编辑器实例
@@ -107,6 +109,7 @@ export class CodeMirrorEditor {
      * @param {string} [options.ariaLabel='Markdown editor input'] - ARIA 标签
      * @param {Function} [options.onChange] - 内容变化回调
      * @param {Function} [options.onEscape] - ESC 键按下回调
+     * @param {Function} [options.onImagePaste] - 粘贴图片回调，接收 File 对象，返回 Promise<string> 图片路径
      * @param {Object} [options.editorConfig] - 编辑器配置
      * @param {Object} [options.interfaceConfig] - 界面配置
      */
@@ -218,6 +221,54 @@ export class CodeMirrorEditor {
             state,
             parent: this.container
         });
+
+        // 设置粘贴事件监听器
+        this.#setupPasteHandler();
+    }
+
+    /**
+     * 设置粘贴事件处理器
+     * 支持从剪贴板粘贴图片
+     * @private
+     */
+    #setupPasteHandler() {
+        if (!this.view || !this.options.onImagePaste) return;
+
+        this.#pasteHandler = async (event) => {
+            const imageFile = extractImageFromClipboard(event.clipboardData);
+            if (!imageFile) return;
+
+            event.preventDefault();
+
+            try {
+                const imagePath = await this.options.onImagePaste(imageFile);
+                if (imagePath) this.#insertImage(imagePath);
+            } catch (error) {
+                console.error('Failed to handle pasted image:', error);
+            }
+        };
+
+        this.view.contentDOM.addEventListener('paste', this.#pasteHandler);
+    }
+
+    /**
+     * 在当前光标位置插入图片
+     * @param {string} imagePath - 图片路径
+     * @private
+     */
+    #insertImage(imagePath) {
+        if (!this.view) return;
+
+        const alt = this.options.imagePasteAltText ?? '';
+        const imageMarkdown = `![${alt}](${imagePath})`;
+        const { from, to } = this.view.state.selection.main;
+
+        this.view.dispatch({
+            changes: { from, to, insert: imageMarkdown },
+            selection: { anchor: from + imageMarkdown.length }
+        });
+
+        this.view.focus();
     }
 
     /**
@@ -232,6 +283,12 @@ export class CodeMirrorEditor {
     destroy() {
         // 清理拖动状态和全局监听器
         this.#endLineDrag();
+
+        // 清理粘贴事件监听器
+        if (this.view && this.#pasteHandler) {
+            this.view.contentDOM.removeEventListener('paste', this.#pasteHandler);
+            this.#pasteHandler = null;
+        }
 
         if (this.view) {
             this.view.destroy();
@@ -641,7 +698,7 @@ export class CodeMirrorEditor {
      */
     onScroll(callback) {
         const scrollDOM = this.view?.scrollDOM;
-        if (!scrollDOM || typeof callback !== 'function') return () => {};
+        if (!scrollDOM || typeof callback !== 'function') return () => { };
 
         scrollDOM.addEventListener('scroll', callback, { passive: true });
         return () => scrollDOM.removeEventListener('scroll', callback);

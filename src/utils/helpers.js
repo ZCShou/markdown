@@ -202,3 +202,159 @@ export function supportsFeature(feature) {
             return false;
     }
 }
+
+// ==================== 图片存储管理 ====================
+
+const DB_NAME = 'markdown-editor-images';
+const STORE_NAME = 'images';
+const DB_VERSION = 1;
+
+/** @type {Promise<IDBDatabase>|null} 共享的 DB 初始化 Promise，防止并发竞态 */
+let dbPromise = null;
+
+/** @type {Map<string, string>} Blob URL 缓存，避免重复创建和泄漏 */
+const blobUrlCache = new Map();
+
+/**
+ * 生成随机字符串
+ * @param {number} length - 字符串长度
+ * @returns {string}
+ */
+function randomString(length = 16) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const bytes = crypto.getRandomValues(new Uint8Array(length));
+    return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+
+/**
+ * 生成图片保存路径
+ * 格式: /imgs/YYYY-MM-DD/随机字符串.扩展名
+ * @param {string} ext - 文件扩展名（不含点）
+ * @returns {string} 图片保存路径
+ */
+export function generateImagePath(ext = 'png') {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return `/imgs/${dateStr}/${randomString(16)}.${ext}`;
+}
+
+/**
+ * 检查是否为内部图片路径
+ * @param {string} path - 路径
+ * @returns {boolean}
+ */
+export function isInternalImagePath(path) {
+    return path.startsWith('/imgs/') || path.startsWith('imgs/');
+}
+
+/**
+ * 初始化 IndexedDB
+ * @returns {Promise<IDBDatabase>}
+ */
+function initImageDB() {
+    if (!dbPromise) {
+        dbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onerror = () => {
+                dbPromise = null; // 失败时重置，允许下次重试
+                reject(new Error('Failed to open IndexedDB'));
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onupgradeneeded = (event) => {
+                const database = event.target.result;
+                if (!database.objectStoreNames.contains(STORE_NAME)) {
+                    database.createObjectStore(STORE_NAME, { keyPath: 'path' });
+                }
+            };
+        });
+    }
+    return dbPromise;
+}
+
+/**
+ * 保存图片到 IndexedDB
+ * @param {string} path - 图片路径
+ * @param {Blob} blob - 图片数据
+ * @returns {Promise<void>}
+ */
+export async function saveImage(path, blob) {
+    const database = await initImageDB();
+    return new Promise((resolve, reject) => {
+        const store = database.transaction([STORE_NAME], 'readwrite').objectStore(STORE_NAME);
+        const request = store.put({ path, blob, timestamp: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(new Error('Failed to save image'));
+    });
+}
+
+/**
+ * 获取图片的 Blob URL
+ * @param {string} path - 图片路径
+ * @returns {Promise<string|null>}
+ */
+export async function getImageUrl(path) {
+    // 命中缓存直接返回，避免重复读 IDB 和创建 Blob URL
+    if (blobUrlCache.has(path)) return blobUrlCache.get(path);
+
+    const database = await initImageDB();
+    return new Promise((resolve, reject) => {
+        const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
+        const request = store.get(path);
+        request.onsuccess = () => {
+            const result = request.result;
+            if (result) {
+                const url = URL.createObjectURL(result.blob);
+                blobUrlCache.set(path, url);
+                resolve(url);
+            } else {
+                resolve(null);
+            }
+        };
+        request.onerror = () => reject(new Error('Failed to get image'));
+    });
+}
+
+/**
+ * 处理粘贴的图片文件
+ * @param {File} file - 图片文件
+ * @returns {Promise<string>} 图片路径
+ */
+export async function handlePastedImage(file) {
+    const ext = file.name.split('.').pop() || 'png';
+    const imagePath = generateImagePath(ext);
+
+    // Tauri 环境：保存到文件系统
+    if (window.__TAURI__) {
+        const { writeFile, mkdir } = window.__TAURI__.fs;
+        const { join, dirname, resourceDir } = window.__TAURI__.path;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const resourceDirPath = await resourceDir();
+        const fullPath = await join(resourceDirPath, imagePath.slice(1));
+        // 使用 Tauri 的 dirname API，兼容 Windows 反斜杠路径
+        const dirPath = await dirname(fullPath);
+
+        try { await mkdir(dirPath, { recursive: true }); } catch { /* ignore */ }
+        await writeFile(fullPath, new Uint8Array(arrayBuffer));
+        return imagePath;
+    }
+
+    // Web 环境：保存到 IndexedDB
+    await saveImage(imagePath, file);
+    return imagePath;
+}
+
+/**
+ * 从剪贴板数据中提取图片文件
+ * @param {DataTransfer} clipboardData - 剪贴板数据
+ * @returns {File|null} 图片文件或 null
+ */
+export function extractImageFromClipboard(clipboardData) {
+    if (!clipboardData) return null;
+    for (const item of clipboardData.items) {
+        if (item.type.startsWith('image/')) {
+            return item.getAsFile();
+        }
+    }
+    return null;
+}
