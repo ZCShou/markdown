@@ -983,16 +983,15 @@ export class Preview extends BaseComponent {
         // 并行加载所有内部图片，避免串行等待
         await Promise.all(Array.from(images).map(async (img) => {
             const dataSrc = img.getAttribute('data-src');
-            if (dataSrc && isInternalImagePath(dataSrc)) {
-                try {
-                    const blobUrl = await getImageUrl(dataSrc);
-                    if (blobUrl) {
-                        img.src = blobUrl;
-                        img.removeAttribute('data-src');
-                    }
-                } catch (error) {
-                    console.warn('Failed to load internal image:', dataSrc, error);
+            if (!dataSrc) return;
+            try {
+                const blobUrl = await getImageUrl(dataSrc);
+                if (blobUrl) {
+                    img.src = blobUrl;
+                    img.removeAttribute('data-src');
                 }
+            } catch (error) {
+                console.warn('Failed to load internal image:', dataSrc, error);
             }
         }));
     }

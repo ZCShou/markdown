@@ -209,11 +209,31 @@ const DB_NAME = 'markdown-editor-images';
 const STORE_NAME = 'images';
 const DB_VERSION = 1;
 
+/** 粘贴图片的最大尺寸限制（10MB） */
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
 /** @type {Promise<IDBDatabase>|null} 共享的 DB 初始化 Promise，防止并发竞态 */
 let dbPromise = null;
 
-/** @type {Map<string, string>} Blob URL 缓存，避免重复创建和泄漏 */
+/**
+ * Blob URL 缓存，值为 Promise<string|null>，防止并发请求对同一路径重复创建 Blob URL
+ * @type {Map<string, Promise<string|null>>}
+ */
 const blobUrlCache = new Map();
+
+/** MIME 类型到扩展名的映射 */
+const MIME_TO_EXT = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+    'image/bmp': 'bmp',
+    'image/tiff': 'tiff'
+};
+
+/** 预计算的有效扩展名集合，避免每次调用时重建数组 */
+const VALID_EXTS = new Set(Object.values(MIME_TO_EXT));
 
 /**
  * 生成随机字符串
@@ -292,35 +312,99 @@ export async function saveImage(path, blob) {
  * @param {string} path - 图片路径
  * @returns {Promise<string|null>}
  */
-export async function getImageUrl(path) {
-    // 命中缓存直接返回，避免重复读 IDB 和创建 Blob URL
+export function getImageUrl(path) {
+    // 将 Promise 本身存入缓存：并发调用会复用同一个 Promise，
+    // 不会重复读 IDB 或创建多个 Blob URL
     if (blobUrlCache.has(path)) return blobUrlCache.get(path);
 
-    const database = await initImageDB();
-    return new Promise((resolve, reject) => {
-        const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
-        const request = store.get(path);
-        request.onsuccess = () => {
-            const result = request.result;
-            if (result) {
-                const url = URL.createObjectURL(result.blob);
-                blobUrlCache.set(path, url);
-                resolve(url);
-            } else {
-                resolve(null);
-            }
-        };
-        request.onerror = () => reject(new Error('Failed to get image'));
+    const promise = initImageDB().then(
+        database => new Promise((resolve, reject) => {
+            const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
+            const request = store.get(path);
+            request.onsuccess = () => {
+                const result = request.result;
+                resolve(result ? URL.createObjectURL(result.blob) : null);
+            };
+            request.onerror = () => reject(new Error('Failed to get image'));
+        })
+    ).catch(err => {
+        // 失败时移除缓存，允许下次重试
+        blobUrlCache.delete(path);
+        throw err;
     });
+
+    blobUrlCache.set(path, promise);
+    return promise;
+}
+
+/**
+ * 清理单个 Blob URL 缓存
+ * @param {string} path - 图片路径
+ */
+export async function revokeBlobUrl(path) {
+    const promise = blobUrlCache.get(path);
+    if (promise) {
+        blobUrlCache.delete(path);
+        try {
+            const url = await promise;
+            if (url) URL.revokeObjectURL(url);
+        } catch {
+            // Promise 失败时无需撤销
+        }
+    }
+}
+
+/**
+ * 清理所有 Blob URL 缓存（用于内存管理或应用卸载）
+ */
+export async function clearBlobUrlCache() {
+    const promises = Array.from(blobUrlCache.values());
+    blobUrlCache.clear();
+    const urls = await Promise.allSettled(promises);
+    for (const result of urls) {
+        if (result.status === 'fulfilled' && result.value) {
+            URL.revokeObjectURL(result.value);
+        }
+    }
+}
+
+/**
+ * 从文件对象提取扩展名
+ * 优先使用 MIME 类型，其次从文件名提取
+ * @param {File} file - 文件对象
+ * @returns {string} 扩展名（不含点）
+ */
+function extractExtension(file) {
+    // 优先从 MIME 类型获取
+    if (file.type && MIME_TO_EXT[file.type]) {
+        return MIME_TO_EXT[file.type];
+    }
+    // 从文件名提取
+    const name = file.name || '';
+    const dotIndex = name.lastIndexOf('.');
+    if (dotIndex > 0 && dotIndex < name.length - 1) {
+        const ext = name.slice(dotIndex + 1).toLowerCase();
+        if (VALID_EXTS.has(ext)) {
+            return ext;
+        }
+    }
+    // 默认 png
+    return 'png';
 }
 
 /**
  * 处理粘贴的图片文件
  * @param {File} file - 图片文件
  * @returns {Promise<string>} 图片路径
+ * @throws {Error} 图片过大时抛出错误
  */
 export async function handlePastedImage(file) {
-    const ext = file.name.split('.').pop() || 'png';
+    // 校验文件大小
+    if (file.size > MAX_IMAGE_SIZE) {
+        throw new Error(`图片大小超过限制（最大 ${MAX_IMAGE_SIZE / 1024 / 1024}MB）`);
+    }
+
+    const ext = extractExtension(file);
     const imagePath = generateImagePath(ext);
 
     // Tauri 环境：保存到文件系统
@@ -357,4 +441,37 @@ export function extractImageFromClipboard(clipboardData) {
         }
     }
     return null;
+}
+
+/**
+ * 删除图片
+ * @param {string} path - 图片路径
+ * @returns {Promise<void>}
+ */
+export async function deleteImage(path) {
+    // 清理 Blob URL 缓存
+    await revokeBlobUrl(path);
+
+    // Tauri 环境：从文件系统删除
+    if (window.__TAURI__) {
+        try {
+            const { remove } = window.__TAURI__.fs;
+            const { join, resourceDir } = window.__TAURI__.path;
+            const resourceDirPath = await resourceDir();
+            const fullPath = await join(resourceDirPath, path.replace(/^\/?/, ''));
+            await remove(fullPath);
+        } catch {
+            // 文件可能不存在，忽略错误
+        }
+        return;
+    }
+
+    // Web 环境：从 IndexedDB 删除
+    const database = await initImageDB();
+    return new Promise((resolve, reject) => {
+        const store = database.transaction([STORE_NAME], 'readwrite').objectStore(STORE_NAME);
+        const request = store.delete(path);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(new Error('Failed to delete image'));
+    });
 }

@@ -235,7 +235,7 @@ export class MarkdownEditor {
             return await handlePastedImage(file);
         } catch (error) {
             console.error('Failed to save pasted image:', error);
-            this.showMessage('保存图片失败', MarkdownEditor.MESSAGE_TYPES.ERROR);
+            this.showMessage(error.message || '保存图片失败', MarkdownEditor.MESSAGE_TYPES.ERROR);
             throw error;
         }
     }
