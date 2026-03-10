@@ -20,6 +20,63 @@ import * as monaco from 'monaco-editor';
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { resolveDarkMode } from '../utils/theme.js';
 
+// ---------------------------------------------------------------------------
+// 模块级 Markdown 解析缓存（单条目，适合单编辑器场景）
+// DocumentSymbolProvider 和 FoldingRangeProvider 共享同一次解析结果，
+// 每次文档编辑后 getLinesContent() 只调用一次。
+// ---------------------------------------------------------------------------
+let _mdCacheKey = '';
+let _mdCacheVal = null;
+
+/**
+ * 解析 Markdown 模型，一次性提取所有标题和围栏代码块的位置。
+ * 按 model URI + versionId 缓存，同一版本多次调用只解析一次。
+ * @param {import('monaco-editor').editor.ITextModel} model
+ */
+function _parseMarkdownModel(model) {
+    const key = `${model.uri}:${model.getVersionId()}`;
+    if (key === _mdCacheKey) return _mdCacheVal;
+
+    const lines = model.getLinesContent();
+    const n = lines.length;
+    const headings = [];   // { lineIdx, level, text }
+    const fenceRanges = []; // { start, end }  1-based
+
+    let inFence = false;
+    let fenceChar = '';
+    let fenceStart = 0;
+
+    for (let i = 0; i < n; i++) {
+        const line = lines[i];
+        const len = line.length;
+
+        if (len >= 3 && (line[0] === '`' || line[0] === '~')) {
+            const c = line[0];
+            if (!inFence) {
+                if (line[1] === c && line[2] === c) {
+                    inFence = true; fenceChar = c; fenceStart = i + 1;
+                    continue;
+                }
+            } else if (c === fenceChar && line[1] === c && line[2] === c) {
+                inFence = false;
+                fenceRanges.push({ start: fenceStart, end: i + 1 });
+                continue;
+            }
+        }
+        if (inFence) continue;
+
+        let level = 0;
+        while (level < 6 && level < len && line[level] === '#') level++;
+        if (level > 0 && level < len && line[level] === ' ') {
+            headings.push({ lineIdx: i, level, text: line.slice(level + 1).trim() });
+        }
+    }
+
+    _mdCacheKey = key;
+    _mdCacheVal = { headings, fenceRanges, lines, n };
+    return _mdCacheVal;
+}
+
 /**
  * Monaco 编辑器包装类
  * 提供基于 Monaco Editor 的 Markdown 编辑器功能
@@ -45,6 +102,9 @@ export class MonacoEditor {
      * @type {MonacoEditor|null}
      * @static
      */
+
+    /** 标记 Markdown 语言扩展是否已全局注册（仅需注册一次） */
+    static #markdownRegistered = false;
 
     /**
      * 创建编辑器实例
@@ -89,79 +149,26 @@ export class MonacoEditor {
         // 注册 Markdown 语言
         this.registerMarkdownLanguage();
 
-        // 创建编辑器（精简配置，适合 Markdown 编辑）
+        // 创建编辑器
         this.editor = monaco.editor.create(this.container, {
             value: this.options.initialValue || '',
             language: 'markdown',
             theme: isDark ? 'vs-dark' : 'vs',
             automaticLayout: true,
-            // 基础编辑（通用设置）
+            // 基础编辑
             fontSize: editorConfig.fontSize || 14,
             lineHeight: editorConfig.lineHeight || 1.6,
-            fontFamily: editorConfig.fontFamily || "'Fira Code', 'Consolas', 'Monaco', monospace",
-            fontLigatures: editorConfig.fontLigatures || false,
-            fontWeight: editorConfig.fontWeight || 'normal',
-            letterSpacing: editorConfig.letterSpacing || 0,
-            // Monaco 特有设置
             wordWrap: editorConfig.wordWrap !== false ? 'on' : 'off',
-            minimap: { enabled: monacoConfig.minimap !== false },
             scrollBeyondLastLine: false,
-            smoothScrolling: monacoConfig.smoothScrolling !== false,
-            // 光标
-            cursorBlinking: monacoConfig.cursorBlinking || 'smooth',
-            cursorStyle: 'line',
-            cursorWidth: 2,
-            // 缩进（通用设置）
-            tabSize: editorConfig.tabSize || 4,
-            insertSpaces: editorConfig.insertSpaces !== false,
-            detectIndentation: false,
-            // 禁用智能提示（Markdown 不需要）
-            suggestOnTriggerCharacters: false,
+            // 禁用 Markdown 不需要的智能提示
             quickSuggestions: false,
+            suggestOnTriggerCharacters: false,
             wordBasedSuggestions: 'off',
             parameterHints: { enabled: false },
-            // 禁用自动配对（Markdown 中较少使用）
-            autoClosingBrackets: 'never',
-            autoClosingQuotes: 'never',
-            autoSurround: 'never',
-            // 简化括号相关
-            matchBrackets: 'never',
-            bracketPairColorization: { enabled: monacoConfig.bracketPairColorization !== false },
-            guides: {
-                bracketPairs: false,
-                indentation: false
-            },
-            // 禁用格式化
-            formatOnPaste: false,
-            formatOnType: false,
-            trimAutoWhitespace: false,
-            // 渲染选项
-            renderWhitespace: monacoConfig.renderWhitespace || 'selection',
-            renderControlCharacters: false,
-            renderLineHighlight: editorConfig.highlightActiveLine !== false ? 'all' : 'gutter',
-            // 禁用 Unicode 高亮警告（中文项目不需要）
-            unicodeHighlight: {
-                ambiguousCharacters: false,
-                invisibleCharacters: false,
-                nonBasicASCII: false
-            },
-            // 代码折叠（保留，Markdown 标题折叠有用）
+            // 折叠（供右侧折叠图标及 stickyScroll 使用）
             folding: true,
-            foldingStrategy: 'auto',
-            showFoldingControls: 'mouseover',
-            // 滚动条
-            scrollbar: {
-                useShadows: false,
-                verticalScrollbarSize: 12,
-                horizontalScrollbarSize: 12,
-                vertical: 'auto',
-                horizontal: 'auto'
-            },
-            padding: { top: 8, bottom: 8 },
-            // 其他
-            contextmenu: true, // 启用右键菜单（使用浏览器默认）
-            fixedOverflowWidgets: true,
-            accessibilitySupport: 'auto',
+            // 粘性滚动：outlineModel 配合下方注册的 DocumentSymbolProvider 驱动
+            stickyScroll: { enabled: monacoConfig.stickyScroll !== false },
             ariaLabel: this.options.ariaLabel || 'Markdown editor input'
         });
 
@@ -208,6 +215,9 @@ export class MonacoEditor {
      * @private
      */
     registerMarkdownLanguage() {
+        if (MonacoEditor.#markdownRegistered) return;
+        MonacoEditor.#markdownRegistered = true;
+
         // Monaco Editor 内置支持 Markdown
         // 这里可以添加自定义的语言配置
         //
@@ -363,6 +373,66 @@ export class MonacoEditor {
 
         // 注册 Markdown 标题折叠范围提供程序
         this.registerMarkdownFoldingProvider();
+
+        // 注册 DocumentSymbolProvider，为 stickyScroll 的 outlineModel 提供标题符号
+        this.registerMarkdownSymbolProvider();
+    }
+
+    /**
+     * 注册 Markdown DocumentSymbolProvider
+     * stickyScroll 的 outlineModel 依赖此 provider 获取各级标题符号。
+     * Monaco standalone 对 Markdown 没有内置的符号提供者，故手动注册。
+     * @private
+     */
+    registerMarkdownSymbolProvider() {
+        monaco.languages.registerDocumentSymbolProvider('markdown', {
+            provideDocumentSymbols(model) {
+                const { headings, lines, n } = _parseMarkdownModel(model);
+                if (headings.length === 0) return [];
+
+                const roots = [];
+                // 单遍栈算法 O(n)：每个标题入栈一次、出栈一次
+                // 出栈时才确定 range.end（即下一个同级/更高级标题前一行）
+                const stack = []; // { sym, level }[]
+
+                for (const h of headings) {
+                    // 关闭所有同级或更深的标题
+                    while (stack.length > 0 && stack[stack.length - 1].level >= h.level) {
+                        const { sym } = stack.pop();
+                        const endLine = h.lineIdx; // 1-based：当前标题行的前一行
+                        sym.range.endLineNumber = endLine;
+                        sym.range.endColumn = lines[endLine - 1].length + 1;
+                    }
+
+                    const sym = {
+                        name: h.text,
+                        detail: '',
+                        kind: monaco.languages.SymbolKind.String,
+                        tags: [],
+                        range: {
+                            startLineNumber: h.lineIdx + 1,
+                            startColumn: 1,
+                            endLineNumber: n,               // 暂定文档末尾，出栈时覆盖
+                            endColumn: lines[n - 1].length + 1
+                        },
+                        selectionRange: {
+                            startLineNumber: h.lineIdx + 1,
+                            startColumn: 1,
+                            endLineNumber: h.lineIdx + 1,
+                            endColumn: lines[h.lineIdx].length + 1
+                        },
+                        children: []
+                    };
+
+                    const parent = stack.length > 0 ? stack[stack.length - 1].sym.children : roots;
+                    parent.push(sym);
+                    stack.push({ sym, level: h.level });
+                }
+                // 剩余条目自然延伸到文档末尾，endLineNumber 已在初始化时设为 n
+
+                return roots;
+            }
+        });
     }
 
     /**
@@ -374,81 +444,34 @@ export class MonacoEditor {
         const { FoldingRangeKind } = monaco.languages;
 
         monaco.languages.registerFoldingRangeProvider('markdown', {
-            provideFoldingRanges: model => {
-                const ranges = [];
-                const lines = model.getLinesContent();
-                const lineCount = lines.length;
-                const stack = []; // [line1, level1, line2, level2, ...]
+            provideFoldingRanges(model) {
+                const { headings, fenceRanges, n } = _parseMarkdownModel(model);
+
+                // 围栏代码块直接映射
+                const ranges = fenceRanges.map(f => ({
+                    start: f.start, end: f.end, kind: FoldingRangeKind.Region
+                }));
+
+                // 标题折叠：单遍栈算法，stack = [startLine1, level1, ...]
+                const stack = [];
                 let stackLen = 0;
 
-                let fenceStart = null; // 围栏代码块起始行号（1-based），null 表示不在代码块内
-                let fenceChar = null; // 围栏字符 (` 或 ~)
-
-                for (let i = 0; i < lineCount; i++) {
-                    const line = lines[i];
-                    const { length: len } = line;
-
-                    // 检查围栏代码块
-                    if (len >= 3 && (line[0] === '`' || line[0] === '~')) {
-                        const [c0] = line;
-
-                        if (fenceChar === null) {
-                            // 不在代码块内，检查是否是围栏开始
-                            if (line[1] === c0 && line[2] === c0) {
-                                fenceStart = i + 1; // 1-based
-                                fenceChar = c0;
-                                continue;
-                            }
-                        } else if (c0 === fenceChar) {
-                            // 在代码块内，检查是否是匹配的围栏结束
-                            if (line[1] === c0 && line[2] === c0) {
-                                // 添加代码块折叠范围
-                                ranges.push({
-                                    start: fenceStart,
-                                    end: i + 1,
-                                    kind: FoldingRangeKind.Region
-                                });
-                                fenceStart = null;
-                                fenceChar = null;
-                                continue;
-                            }
+                for (const { lineIdx, level } of headings) {
+                    const lineNo = lineIdx + 1; // 1-based
+                    while (stackLen > 0 && stack[stackLen - 1] >= level) {
+                        const startLine = stack[stackLen - 2];
+                        stackLen -= 2;
+                        if (lineNo - 1 >= startLine) {
+                            ranges.push({ start: startLine, end: lineNo - 1, kind: FoldingRangeKind.Region });
                         }
                     }
-
-                    if (fenceChar !== null) continue;
-
-                    // 检查标题 (1-6个# 后跟空格)
-                    if (len >= 2 && line[0] === '#') {
-                        let level = 1;
-                        while (level < 6 && level < len && line[level] === '#') level++;
-
-                        if (level < len && line[level] === ' ') {
-                            // 弹出所有 >= 当前级别的标题
-                            while (stackLen > 0 && stack[stackLen - 1] >= level) {
-                                const startLine = stack[stackLen - 2];
-                                stackLen -= 2;
-                                if (i + 1 > startLine) {
-                                    ranges.push({
-                                        start: startLine,
-                                        end: i,
-                                        kind: FoldingRangeKind.Region
-                                    });
-                                }
-                            }
-                            stack[stackLen++] = i + 1; // 行号从1开始
-                            stack[stackLen++] = level;
-                        }
-                    }
+                    stack[stackLen++] = lineNo;
+                    stack[stackLen++] = level;
                 }
 
-                // 处理剩余标题
                 for (let j = 0; j < stackLen; j += 2) {
-                    if (lineCount > stack[j]) {
-                        ranges.push({
-                            start: stack[j],
-                            end: lineCount,
-                            kind: FoldingRangeKind.Region
-                        });
+                    if (n >= stack[j]) {
+                        ranges.push({ start: stack[j], end: n, kind: FoldingRangeKind.Region });
                     }
                 }
 
@@ -561,6 +584,9 @@ export class MonacoEditor {
         }
         if (monacoConfig.renderWhitespace !== undefined) {
             options.renderWhitespace = monacoConfig.renderWhitespace;
+        }
+        if (monacoConfig.stickyScroll !== undefined) {
+            options.stickyScroll = { enabled: monacoConfig.stickyScroll };
         }
 
         this.editor.updateOptions(options);

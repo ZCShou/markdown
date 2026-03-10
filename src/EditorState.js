@@ -55,7 +55,8 @@ export class EditorState {
                 bracketPairColorization: true,
                 cursorBlinking: 'smooth',
                 smoothScrolling: true,
-                renderWhitespace: 'selection' // Monaco 支持完整选项
+                renderWhitespace: 'selection', // Monaco 支持完整选项
+                stickyScroll: true
             }
         },
         interface: {
@@ -518,30 +519,30 @@ $$
         // 合并保存的设置和默认设置
         const settings = savedSettings
             ? {
-                  editor: {
-                      ...EditorState.DEFAULT_SETTINGS.editor,
-                      ...savedSettings.editor,
-                      // 深度合并嵌套的编辑器特定设置
-                      codemirror: {
-                          ...EditorState.DEFAULT_SETTINGS.editor.codemirror,
-                          ...savedSettings.editor?.codemirror
-                      },
-                      monaco: {
-                          ...EditorState.DEFAULT_SETTINGS.editor.monaco,
-                          ...savedSettings.editor?.monaco
-                      }
-                  },
-                  interface: {
-                      ...EditorState.DEFAULT_SETTINGS.interface,
-                      ...savedSettings.interface
-                  },
-                  export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
-              }
+                editor: {
+                    ...EditorState.DEFAULT_SETTINGS.editor,
+                    ...savedSettings.editor,
+                    // 深度合并嵌套的编辑器特定设置
+                    codemirror: {
+                        ...EditorState.DEFAULT_SETTINGS.editor.codemirror,
+                        ...savedSettings.editor?.codemirror
+                    },
+                    monaco: {
+                        ...EditorState.DEFAULT_SETTINGS.editor.monaco,
+                        ...savedSettings.editor?.monaco
+                    }
+                },
+                interface: {
+                    ...EditorState.DEFAULT_SETTINGS.interface,
+                    ...savedSettings.interface
+                },
+                export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
+            }
             : {
-                  editor: { ...EditorState.DEFAULT_SETTINGS.editor },
-                  interface: { ...EditorState.DEFAULT_SETTINGS.interface },
-                  export: { ...EditorState.DEFAULT_SETTINGS.export }
-              };
+                editor: { ...EditorState.DEFAULT_SETTINGS.editor },
+                interface: { ...EditorState.DEFAULT_SETTINGS.interface },
+                export: { ...EditorState.DEFAULT_SETTINGS.export }
+            };
 
         // 确定当前文档和内容
         let currentDocId = null;

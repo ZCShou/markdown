@@ -107,6 +107,7 @@ export class Settings {
             monacoCursorBlinkingSelect: dom.get('#setting-monaco-cursor-blinking'),
             monacoSmoothScrollingInput: dom.get('#setting-monaco-smooth-scrolling'),
             monacoRenderWhitespaceSelect: dom.get('#setting-monaco-render-whitespace'),
+            monacoStickyScrollInput: dom.get('#setting-monaco-sticky-scroll'),
 
             // 设置组（用于动态显示/隐藏）
             codemirrorGroup: dom.get('#settings-codemirror-group'),
@@ -299,6 +300,7 @@ export class Settings {
             monaco.renderWhitespace,
             'selection'
         );
+        this.#setInputChecked(this.cachedElements.monacoStickyScrollInput, monaco.stickyScroll, true);
 
         // 根据编辑器类型显示/隐藏对应的设置组
         this.updateEditorSpecificSettings(editor.type || 'monaco');
@@ -408,7 +410,8 @@ export class Settings {
                 cursorBlinking: this.cachedElements.monacoCursorBlinkingSelect?.value || 'smooth',
                 smoothScrolling: this.cachedElements.monacoSmoothScrollingInput?.checked ?? true,
                 renderWhitespace:
-                    this.cachedElements.monacoRenderWhitespaceSelect?.value || 'selection'
+                    this.cachedElements.monacoRenderWhitespaceSelect?.value || 'selection',
+                stickyScroll: this.cachedElements.monacoStickyScrollInput?.checked ?? true
             }
         };
 
