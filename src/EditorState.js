@@ -566,6 +566,26 @@ $$
             }
         }
 
+        // 如果没有任何文档，创建一个默认文档并立即持久化
+        if (!currentDocId) {
+            const now = new Date().toISOString();
+            const defaultDoc = {
+                id: Date.now().toString(),
+                name: '欢迎使用',
+                type: 'file',
+                parentId: null,
+                content: EditorState.DEFAULT_CONTENT,
+                createdAt: now,
+                updatedAt: now
+            };
+            documents.push(defaultDoc);
+            currentDocId = defaultDoc.id;
+            content = defaultDoc.content;
+            // 立即持久化，确保刷新后不会重复创建
+            await StoreManager.saveDocuments(documents);
+            await StoreManager.saveCurrentDocId(currentDocId);
+        }
+
         // 直接初始化状态（不触发监听器和持久化）
         Object.assign(this.#state, {
             documents,
