@@ -18,6 +18,7 @@
  */
 import { StoreManager } from './StoreManager.js';
 import { PersistenceManager } from './PersistenceManager.js';
+import { deleteImage, extractImagePaths, isInternalImagePath } from './utils/helpers.js';
 
 /**
  *
@@ -389,8 +390,6 @@ $$
 
     // ==================== 私有字段 ====================
 
-    /** @private */
-    #updateTimestampTimeout = null;
 
     /** @type {Object} 核心状态对象 */
     #state = {
@@ -755,6 +754,20 @@ $$
             this.#collectDescendants(docId, toDelete);
         }
 
+        // 收集待删除文档中的所有内部图片路径
+        const imagePaths = new Set();
+        for (const docId of toDelete) {
+            const doc = this.#state.documents.find(d => d.id === docId);
+            if (doc?.content) {
+                const paths = extractImagePaths(doc.content);
+                for (const path of paths) {
+                    if (isInternalImagePath(path)) {
+                        imagePaths.add(path);
+                    }
+                }
+            }
+        }
+
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
 
         // 检查当前文档是否被删除
@@ -763,6 +776,21 @@ $$
             : this.#state.currentDocId;
 
         this.#setState({ documents, currentDocId }, options);
+
+        // 异步删除图片（不阻塞状态更新）
+        if (imagePaths.size > 0) {
+            // 过滤掉仍被其他存活文档引用的路径，避免误删共享图片
+            for (const doc of documents) {
+                if (doc.content) {
+                    for (const path of extractImagePaths(doc.content)) {
+                        imagePaths.delete(path);
+                    }
+                }
+            }
+            for (const path of imagePaths) {
+                deleteImage(path).catch(() => { });
+            }
+        }
     }
 
     /**
@@ -1028,39 +1056,21 @@ $$
     }
 
     /**
-     * 更新文档内容（内部方法，带防抖时间戳更新）
+     * 更新文档内容（内部方法）
      * @private
      * @param {string} docId - 文档ID
      * @param {string} content - 文档内容
      */
     #updateDocumentContent(docId, content) {
         const documents = this.#state.documents.map(doc =>
-            doc.id === docId ? { ...doc, content } : doc
+            doc.id === docId
+                ? { ...doc, content, updatedAt: new Date().toISOString() }
+                : doc
         );
         // 静默更新，避免重复触发订阅者
         Object.assign(this.#state, { documents });
 
-        // 延迟更新 updatedAt（防抖），避免每次输入都创建新 Date
-        if (this.#updateTimestampTimeout) {
-            clearTimeout(this.#updateTimestampTimeout);
-        }
-        this.#updateTimestampTimeout = setTimeout(() => {
-            this.#updateDocumentTimestamp(docId);
-            this.#updateTimestampTimeout = null;
-        }, 2000);
-    }
-
-    /**
-     * 更新文档时间戳
-     * @private
-     * @param {string} docId - 文档ID
-     */
-    #updateDocumentTimestamp(docId) {
-        const documents = this.#state.documents.map(doc =>
-            doc.id === docId ? { ...doc, updatedAt: new Date().toISOString() } : doc
-        );
-        Object.assign(this.#state, { documents });
-        // 触发持久化
+        // 调度持久化（300ms 防抖）：与图片保存对齐，content 和 updatedAt 一次写入
         this.#persistence.schedule(['documents']);
     }
 
@@ -1277,12 +1287,6 @@ $$
      * 清理资源（通常不需要调用，因为这是全局单例）
      */
     destroy() {
-        // 清理 updatedAt 更新定时器
-        if (this.#updateTimestampTimeout) {
-            clearTimeout(this.#updateTimestampTimeout);
-            this.#updateTimestampTimeout = null;
-        }
-
         // 清理所有监听器
         this.#listeners.clear();
         this.#globalListeners.clear();

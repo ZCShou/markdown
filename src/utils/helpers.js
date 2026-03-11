@@ -268,6 +268,22 @@ export function isInternalImagePath(path) {
 }
 
 /**
+ * 从 Markdown 内容中提取内部图片路径
+ * @param {string} content - Markdown 内容
+ * @returns {string[]} 内部图片路径数组
+ */
+export function extractImagePaths(content) {
+    if (!content) return [];
+    const regex = /!\[.*?\]\((\/imgs\/[^)]+)\)/g;
+    const paths = [];
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+        paths.push(match[1]);
+    }
+    return paths;
+}
+
+/**
  * 初始化 IndexedDB
  * @returns {Promise<IDBDatabase>}
  */
