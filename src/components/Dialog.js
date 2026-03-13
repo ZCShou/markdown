@@ -146,7 +146,7 @@ export class Dialog {
                 <div class="md-dialog-footer">
                     ${buttons
                     .map(
-                        (btn, index) => `
+                        (btn) => `
                         <button class="md-btn md-btn-${btn.type || 'secondary'}" data-value="${this.escapeHtml(String(btn.value))}">
                             ${this.escapeHtml(btn.text)}
                         </button>

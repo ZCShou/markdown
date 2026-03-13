@@ -550,6 +550,7 @@ export class MarkdownEditor {
             });
 
             this.lastLeftRatio = clamped;
+            this.state.updateInterfaceConfig({ leftRatio: clamped });
             // 不再设置内联样式，让 CSS 通过 --split-ratio 变量自动处理
             // 这样可以避免滚动条出现时的布局问题
         };
@@ -566,7 +567,9 @@ export class MarkdownEditor {
             }
             // Defer to next frame
             requestAnimationFrame(() => {
-                updateSplitRatio(this.lastLeftRatio);
+                const ratio = this.state.get('interface')?.leftRatio ?? this.lastLeftRatio;
+                this.lastLeftRatio = ratio;
+                updateSplitRatio(ratio);
             });
         };
 
@@ -737,6 +740,11 @@ export class MarkdownEditor {
         const container = dom.get('.md-container');
         if (!container) return;
 
+        const stateRatio = this.state.get('interface')?.leftRatio;
+        if (typeof stateRatio === 'number') {
+            this.lastLeftRatio = stateRatio;
+        }
+
         // 移除所有布局类并添加新布局类
         container.classList.remove(
             MarkdownEditor.LAYOUT_MODES.EDITOR_ONLY,
@@ -831,6 +839,11 @@ export class MarkdownEditor {
         if (this.isInitialized) return;
 
         await this.state.init();
+
+        const iface = this.state.get('interface') || {};
+        if (typeof iface.leftRatio === 'number') {
+            this.lastLeftRatio = iface.leftRatio;
+        }
 
         await this.initComponents();
         this.applyTheme(this.state.get('interface').theme);

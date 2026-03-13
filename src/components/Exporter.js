@@ -347,7 +347,7 @@ ${html}
             if (imagePath) {
                 replacements.push(this.#loadImageAsBase64(imagePath).then(base64 => {
                     if (base64) {
-                        return { fullMatch, src: srcMatch?.[1], dataSrc: dataSrcMatch?.[1], base64 };
+                        return { fullMatch, dataSrc: dataSrcMatch?.[1], base64 };
                     }
                     return null;
                 }).catch(err => {
@@ -364,7 +364,7 @@ ${html}
         results
             .filter(r => r !== null)
             .sort((a, b) => b.fullMatch.length - a.fullMatch.length)
-            .forEach(({ fullMatch, src, dataSrc, base64 }) => {
+            .forEach(({ fullMatch, dataSrc, base64 }) => {
                 // 构建新的 img 标签：替换 src，移除 data-src
                 let newTag = fullMatch.replace(/src="[^"]+"/, `src="${base64}"`);
                 if (dataSrc) {
@@ -407,7 +407,7 @@ ${html}
         }
 
         // Web 环境：从 IndexedDB 读取
-        return await getImageAsBase64(src);
+        return getImageAsBase64(src);
     }
 
     /**

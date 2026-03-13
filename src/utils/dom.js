@@ -424,7 +424,7 @@ export const dom = {
      */
     toc: {
         container: new DOMElement('#md-toc'),
-        items: new DOMElementList('.toc-item')
+        items: new DOMElementList('.md-toc-item')
     },
 
     // ==================== 按钮 ====================
@@ -683,8 +683,7 @@ export const dom = {
     getById(id) {
         const selector = `#${id}`;
         if (!this.globalCache.has(selector)) {
-            const element = document.getElementById(id);
-            this.globalCache.set(selector, new DOMElement(selector, () => element));
+            this.globalCache.set(selector, new DOMElement(selector, () => document.getElementById(id)));
         }
         return this.globalCache.get(selector);
     },

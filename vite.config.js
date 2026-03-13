@@ -84,7 +84,6 @@ export default defineConfig(({ mode }) => {
             alias: {
                 '@': resolve(__dirname, 'src'),
                 '@components': resolve(__dirname, 'src/components'),
-                '@modules': resolve(__dirname, 'src/modules'),
                 '@utils': resolve(__dirname, 'src/utils'),
                 '@styles': resolve(__dirname, 'src/styles')
             },

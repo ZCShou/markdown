@@ -124,6 +124,7 @@ export class MonacoEditor {
         this.options = options;
         this.editor = null;
         this.disposables = [];
+        this._suppressOnChange = false;
         /** @type {Function|null} 粘贴事件处理函数 */
         this.pasteHandler = null;
     }
@@ -178,6 +179,7 @@ export class MonacoEditor {
 
         // 监听内容变化
         const changeListener = this.editor.onDidChangeModelContent(() => {
+            if (this._suppressOnChange) return;
             this.options.onChange?.(this.getValue());
         });
         this.disposables.push(changeListener);
@@ -692,9 +694,13 @@ export class MonacoEditor {
         const currentValue = this.getValue();
         if (currentValue === value) return;
 
-        // 暂时移除监听器以避免触发 onChange
         if (options.emitUpdate !== true) {
-            this.editor.setValue(value);
+            this._suppressOnChange = true;
+            try {
+                this.editor.setValue(value);
+            } finally {
+                this._suppressOnChange = false;
+            }
         } else {
             this.editor.setValue(value);
         }
