@@ -1034,8 +1034,7 @@ export class Preview extends BaseComponent {
                 const compositeKey = `${mermaidHash}_idx_${mermaidIndex}`;
                 mermaidBlocks.set(compositeKey, { code: trimmedCode, index: mermaidIndex++ });
             } else {
-                const hash = this.#generateSimpleHash(lang + content);
-                const compositeKey = `${hash}_idx_${codeIndex}`;
+                const compositeKey = this.#codeBlockCompositeKey(lang || '', content, codeIndex);
                 codeBlocks.set(compositeKey, {
                     lang: lang || 'text',
                     code: content,
@@ -1561,8 +1560,8 @@ export class Preview extends BaseComponent {
             'pre code[class*="language-"]:not(.language-mermaid)'
         );
         codeBlocks.forEach((el, index) => {
-            const hash = this.#generateSimpleHash(el.textContent);
-            const compositeKey = `${hash}_idx_${index}`;
+            const lang = this.#langFromFenceCodeElement(el);
+            const compositeKey = this.#codeBlockCompositeKey(lang, el.textContent, index);
             const preElement = el.parentElement;
             const wrapper = preElement?.parentElement?.classList.contains('code-block-wrapper')
                 ? preElement.parentElement
@@ -1626,8 +1625,8 @@ export class Preview extends BaseComponent {
         // 保留未变化的代码块
         // 🔥 优化：使用 changedCodeBlocks 集合精确判断哪些代码块发生了变化
         newCodeBlocks.forEach((newEl, index) => {
-            const hash = this.#generateSimpleHash(newEl.textContent);
-            const compositeKey = `${hash}_idx_${index}`;
+            const lang = this.#langFromFenceCodeElement(newEl);
+            const compositeKey = this.#codeBlockCompositeKey(lang, newEl.textContent, index);
             const oldWrapper = oldElements.code.get(compositeKey);
 
             const newPre = newEl.parentElement;
@@ -1775,9 +1774,7 @@ export class Preview extends BaseComponent {
         block.classList.add('prism-highlighted');
 
         try {
-            // 从 class 中提取语言（如 language-javascript）
-            const langClass = [...block.classList].find(c => c.startsWith('language-'));
-            const lang = langClass?.replace('language-', '');
+            const lang = this.#langFromFenceCodeElement(block);
             await loadLanguage(lang);
             Prism.highlightElement(block);
         } catch (err) {
@@ -2351,11 +2348,31 @@ export class Preview extends BaseComponent {
      * @returns {number} 哈希值
      * @private
      */
+    /**
+     * 从围栏代码块对应的 code 元素 class 解析语言标识，与 ```lang 围栏一致（无语言则为 ''）
+     */
+    #langFromFenceCodeElement(el) {
+        const langClass = [...el.classList].find(c => c.startsWith('language-'));
+        if (!langClass) return '';
+        return langClass.slice('language-'.length);
+    }
+
+    /**
+     * 代码块增量 DOM 用的复合键（须与 #detectChanges 中围栏扫描一致）
+     */
+    #codeBlockCompositeKey(lang, code, index) {
+        const h = this.#generateSimpleHash(`${lang}\0${code}`);
+        return `${h}_idx_${index}`;
+    }
+
+    /**
+     * 轻量字符串哈希（全量扫描，避免仅取前 256 字导致长代码块尾部修改不触发更新）
+     */
     #generateSimpleHash(str) {
         let hash = 0;
-        const len = Math.min(str.length, 256);
-        for (let i = 0; i < len; i++) {
-            hash = (hash << 5) - hash + str.charCodeAt(i);
+        const s = typeof str === 'string' ? str : String(str);
+        for (let i = 0; i < s.length; i++) {
+            hash = (hash << 5) - hash + s.charCodeAt(i);
             hash |= 0;
         }
         return hash.toString(36);
