@@ -186,6 +186,41 @@ export function escapeHtml(text) {
 }
 
 /**
+ * 转义用于插入到 HTML 文本节点的字符（不转义 '>'）
+ * @param {string} text - 要转义的文本
+ * @returns {string} 转义后的文本
+ */
+export function escapeHtmlText(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<"']/g, m => map[m]);
+}
+
+/**
+ * 解码 HTML 实体（用于从 HTML 片段提取纯文本）
+ * @param {string} text
+ * @returns {string}
+ */
+export function decodeHtmlEntities(text) {
+    if (text === null || text === undefined) return '';
+    const str = String(text);
+    const map = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#039;': "'",
+        '&#39;': "'"
+    };
+    // 只解码常见实体：足够用于 headings 文本提取，避免引入 DOM 与额外开销
+    return str.replace(/&(amp|lt|gt|quot);|&#0?39;/g, m => map[m] || m);
+}
+
+/**
  * 检测浏览器是否支持某个特性
  * @param {string} feature - 特性名称
  * @returns {boolean} 是否支持

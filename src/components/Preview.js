@@ -9,7 +9,7 @@ import mermaid from 'mermaid';
 import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
-import { isInternalImagePath, getImageUrl } from '../utils/helpers.js';
+import { isInternalImagePath, getImageUrl, decodeHtmlEntities } from '../utils/helpers.js';
 
 // Prism 语言懒加载映射
 const LANG_MAP = {
@@ -1299,7 +1299,7 @@ export class Preview extends BaseComponent {
                         if (attrs.includes('id=')) return match;
                         const id = `heading-${headingIndex++}`;
                         // 剥离行内 HTML 标签，获得纯文本用于 TOC 显示
-                        const textContent = inner.replace(/<[^>]+>/g, '');
+                        const textContent = decodeHtmlEntities(inner.replace(/<[^>]+>/g, ''));
                         renderedHeadings.push({ id, level: +level, textContent });
                         return `<h${level}${attrs} id="${id}">${inner}</h${level}>`;
                     }

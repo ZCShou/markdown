@@ -4,7 +4,7 @@
  */
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
-import { debounce, escapeHtml } from '../utils/helpers.js';
+import { debounce, escapeHtmlText } from '../utils/helpers.js';
 
 /**
  *
@@ -297,7 +297,7 @@ export class RightSidebar extends BaseComponent {
             if (isCollapsed) collapseStack.push(level);
 
             // 安全转义文本
-            const text = escapeHtml(h.textContent || '');
+            const text = escapeHtmlText(h.textContent || '');
 
             const cls = [
                 'md-toc-item',

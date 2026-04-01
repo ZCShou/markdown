@@ -6,6 +6,8 @@ import {
     debounce,
     throttle,
     escapeHtml,
+    escapeHtmlText,
+    decodeHtmlEntities,
     formatDate,
     generateId,
     deepClone,
@@ -125,6 +127,23 @@ describe('工具函数测试', () => {
 
         it('应该处理没有特殊字符的字符串', () => {
             expect(escapeHtml('Hello World')).toBe('Hello World');
+        });
+    });
+
+    describe('escapeHtmlText - HTML 文本节点转义', () => {
+        it('不应该把 > 转义为 &gt;', () => {
+            expect(escapeHtmlText('列 > 表')).toBe('列 > 表');
+        });
+
+        it('应该转义 & 和 <（避免注入）', () => {
+            expect(escapeHtmlText('a & b < c')).toBe('a &amp; b &lt; c');
+        });
+    });
+
+    describe('decodeHtmlEntities - HTML 实体解码', () => {
+        it('应该把常见实体解码回字符', () => {
+            expect(decodeHtmlEntities('强---&gt;.sds调')).toBe('强--->.sds调');
+            expect(decodeHtmlEntities('&lt; &amp; &quot; &#039;')).toBe('< & " \'');
         });
     });
 
