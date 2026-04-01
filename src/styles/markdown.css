@@ -762,7 +762,6 @@ html::-webkit-scrollbar-thumb:hover,
   min-width: 0;
   min-height: 0;
   background-color: var(--md-bg-secondary);
-  padding: 8px 0;
 }
 
 #markdown-editor {
