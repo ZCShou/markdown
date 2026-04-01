@@ -140,16 +140,11 @@ export class LeftSidebar extends BaseComponent {
 
         if (isOpen) {
             this.container.classList.add('open');
-
-            if (isMobile) {
-                dom.app.overlay?.addClass('show');
-            }
+            if (isMobile) dom.app.overlay?.addClass('show');
         } else {
             this.container.classList.remove('open');
-
-            if (isMobile) {
-                dom.app.overlay?.removeClass('show');
-            }
+            // 关键：无论当前是否 mobile，都清掉残留的 `.show`
+            dom.app.overlay?.removeClass('show');
         }
     }
 

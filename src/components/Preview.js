@@ -2163,6 +2163,13 @@ export class Preview extends BaseComponent {
             if (!drag || drag.pointerId !== e.pointerId) return;
             this.#lightboxDrag = null;
             this.#lbStage.classList.remove('is-dragging');
+            try {
+                if (this.#lbStage.hasPointerCapture?.(e.pointerId)) {
+                    this.#lbStage.releasePointerCapture(e.pointerId);
+                }
+            } catch (_err) {
+                /* ignore */
+            }
             if (!drag.moved && e.type === 'pointerup' && drag.downTarget === this.#lbStage) {
                 this.#closeLightbox();
             }
@@ -2283,6 +2290,18 @@ export class Preview extends BaseComponent {
      */
     #closeLightbox() {
         if (!this.#lightbox) return;
+        if (this.#lightboxDrag && this.#lbStage) {
+            const pid = this.#lightboxDrag.pointerId;
+            try {
+                if (this.#lbStage.hasPointerCapture?.(pid)) {
+                    this.#lbStage.releasePointerCapture(pid);
+                }
+            } catch (_err) {
+                /* ignore */
+            }
+            this.#lightboxDrag = null;
+            this.#lbStage.classList.remove('is-dragging');
+        }
         this.#lightbox.style.display = 'none';
         if (this.#lightboxZoomRaf) {
             cancelAnimationFrame(this.#lightboxZoomRaf);

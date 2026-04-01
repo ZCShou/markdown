@@ -206,9 +206,12 @@ export class RightSidebar extends BaseComponent {
      */
     updateVisibility(isOpen) {
         this.container.classList.toggle('open', isOpen);
-
-        if (window.innerWidth <= 768) {
-            dom.app.overlay?.[isOpen ? 'addClass' : 'removeClass']('show');
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile && isOpen) {
+            dom.app.overlay?.addClass('show');
+        } else if (!isOpen) {
+            // 关键：无论当前是否 mobile，都清掉残留的 `.show`
+            dom.app.overlay?.removeClass('show');
         }
     }
 
