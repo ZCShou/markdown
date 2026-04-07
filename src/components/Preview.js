@@ -924,11 +924,13 @@ export class Preview extends BaseComponent {
             return;
         }
 
+        const featureFlags = this.#getMarkdownFeatureFlags(markdown);
+
         // 检测变化
-        const changes = this.#detectChanges(markdown);
+        const changes = this.#detectChanges(markdown, featureFlags);
 
         // 渲染 Markdown 为 HTML，同时提取标题数据（唯一提取点）
-        const { html, headings: renderedHeadings } = this.renderMarkdown(markdown);
+        const { html, headings: renderedHeadings } = this.renderMarkdown(markdown, featureFlags);
 
         // 标题变化检测（与缓存比较，形状相同：{id, level, textContent}）
         const oldHeadings = this.#lastRenderedData.headings;
@@ -951,7 +953,7 @@ export class Preview extends BaseComponent {
         };
 
         // 智能更新 DOM，同时收集需要处理的元素
-        const elementsToProcess = this.#updateDOM(html, changes);
+        const elementsToProcess = this.#updateDOM(html, changes, featureFlags);
 
         // 标题有变化时直接推送，无需 DOM 查询
         if (headingsChanged) {
@@ -959,9 +961,13 @@ export class Preview extends BaseComponent {
         }
 
         // 延迟处理元素（避免阻塞主线程）
-        requestAnimationFrame(async () => {
-            // 处理内部图片路径（Web 环境下从 IndexedDB 加载）
-            await this.#processInternalImages();
+        requestAnimationFrame(() => {
+            // 内部图片加载不阻塞代码高亮/图表/公式处理
+            if (featureFlags.hasImages) {
+                this.#processInternalImages().catch(error => {
+                    console.warn('Failed to process internal images:', error);
+                });
+            }
 
             // 缓存标题偏移量，并初始化滚动高亮（渲染后 DOM 已稳定，一次性读取 getBoundingClientRect）
             this.#cacheHeadingOffsets();
@@ -1016,12 +1022,29 @@ export class Preview extends BaseComponent {
     }
 
     /**
+     * 轻量语法特征检测，避免每次渲染都执行不必要的重扫描。
+     * @param {string} markdown
+     * @returns {{hasMermaid: boolean, hasMath: boolean, hasImages: boolean, hasSupSub: boolean, hasStrike: boolean}}
+     * @private
+     */
+    #getMarkdownFeatureFlags(markdown) {
+        return {
+            hasMermaid: markdown.includes('```mermaid'),
+            hasMath: markdown.includes('$'),
+            hasImages: markdown.includes('![') || markdown.includes('<img'),
+            hasSupSub: markdown.includes('^') || markdown.includes('~'),
+            hasStrike: markdown.includes('~~')
+        };
+    }
+
+    /**
      * 检测内容变化（优化版：单次扫描 + 增量检测）
      * @param {string} newMarkdown - 新的 Markdown 文本（非空）
+     * @param {Object} featureFlags - Markdown 特征标记
      * @returns {Object} 变化检测结果
      * @private
      */
-    #detectChanges(newMarkdown) {
+    #detectChanges(newMarkdown, featureFlags) {
         const oldData = this.#lastRenderedData;
 
         // 单次扫描提取所有数据
@@ -1064,18 +1087,20 @@ export class Preview extends BaseComponent {
 
         // 第一步半：提取行内代码块位置（用于排除数学公式解析）
         // 注意：必须排除已被代码块覆盖的区域，避免匹配到代码块标记中的反引号
-        const inlineCodeRegex = /`([^`]+)`/g;
-        while ((match = inlineCodeRegex.exec(newMarkdown)) !== null) {
-            const startIndex = match.index;
-            const endIndex = startIndex + match[0].length;
+        if (featureFlags.hasMath) {
+            const inlineCodeRegex = /`([^`]+)`/g;
+            while ((match = inlineCodeRegex.exec(newMarkdown)) !== null) {
+                const startIndex = match.index;
+                const endIndex = startIndex + match[0].length;
 
-            // 检查这个行内代码是否在代码块内，如果是就跳过
-            const alreadyInCodeBlock = codeBlockRanges.some(
-                range => startIndex >= range.start && startIndex < range.end
-            );
+                // 检查这个行内代码是否在代码块内，如果是就跳过
+                const alreadyInCodeBlock = codeBlockRanges.some(
+                    range => startIndex >= range.start && startIndex < range.end
+                );
 
-            if (!alreadyInCodeBlock) {
-                codeBlockRanges.push({ start: startIndex, end: endIndex });
+                if (!alreadyInCodeBlock) {
+                    codeBlockRanges.push({ start: startIndex, end: endIndex });
+                }
             }
         }
 
@@ -1105,32 +1130,34 @@ export class Preview extends BaseComponent {
                 })();
 
         // 第二步：提取数学公式（块级和行内），排除代码块内的
-        const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
-        while ((match = mathRegex.exec(newMarkdown)) !== null) {
-            const matchIndex = match.index;
+        if (featureFlags.hasMath) {
+            const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
+            while ((match = mathRegex.exec(newMarkdown)) !== null) {
+                const matchIndex = match.index;
 
-            // 跳过代码块内的数学公式标记
-            if (isInAnyCodeBlock(matchIndex)) {
-                continue;
-            }
+                // 跳过代码块内的数学公式标记
+                if (isInAnyCodeBlock(matchIndex)) {
+                    continue;
+                }
 
-            const [, blockMath, inlineMath] = match;
-            if (blockMath !== undefined) {
-                const hash = this.#generateSimpleHash(blockMath.trim());
-                const compositeKey = `${hash}_idx_${mathIndex}`;
-                mathBlocks.set(compositeKey, {
-                    latex: blockMath.trim(),
-                    displayMode: true,
-                    index: mathIndex++
-                });
-            } else if (inlineMath !== undefined) {
-                const hash = this.#generateSimpleHash(inlineMath.trim());
-                const compositeKey = `${hash}_idx_${mathIndex}`;
-                mathBlocks.set(compositeKey, {
-                    latex: inlineMath.trim(),
-                    displayMode: false,
-                    index: mathIndex++
-                });
+                const [, blockMath, inlineMath] = match;
+                if (blockMath !== undefined) {
+                    const hash = this.#generateSimpleHash(blockMath.trim());
+                    const compositeKey = `${hash}_idx_${mathIndex}`;
+                    mathBlocks.set(compositeKey, {
+                        latex: blockMath.trim(),
+                        displayMode: true,
+                        index: mathIndex++
+                    });
+                } else if (inlineMath !== undefined) {
+                    const hash = this.#generateSimpleHash(inlineMath.trim());
+                    const compositeKey = `${hash}_idx_${mathIndex}`;
+                    mathBlocks.set(compositeKey, {
+                        latex: inlineMath.trim(),
+                        displayMode: false,
+                        index: mathIndex++
+                    });
+                }
             }
         }
 
@@ -1214,92 +1241,96 @@ export class Preview extends BaseComponent {
     /**
      * 渲染 Markdown 为 HTML（性能优化版）
      * @param {string} markdown - Markdown 文本
+     * @param {Object} featureFlags - Markdown 特征标记
      * @returns {string} HTML 字符串
      */
-    renderMarkdown(markdown) {
+    renderMarkdown(markdown, featureFlags) {
         const renderedHeadings = []; // 在此处收集，作为唯一提取点
         try {
             const mathBlocks = [];
             const supSubBlocks = [];
             const strikeBlocks = [];
+            let processedMarkdown = markdown;
 
-            // 预处理：找出所有代码块和行内代码的位置，用于排除数学公式匹配
-            // 使用单次扫描收集所有代码块位置，然后排序并合并重叠范围
-            const codeRanges = [];
-            const codeRegex = /```[\s\S]*?```|`[^`]+`/g;
-            let codeMatch;
-            while ((codeMatch = codeRegex.exec(markdown)) !== null) {
-                codeRanges.push({
-                    start: codeMatch.index,
-                    end: codeMatch.index + codeMatch[0].length
-                });
-            }
-
-            // 性能优化：排序并合并重叠/相邻的范围，减少检查次数
-            if (codeRanges.length > 1) {
-                codeRanges.sort((a, b) => a.start - b.start);
-                const merged = [codeRanges[0]];
-                for (let i = 1; i < codeRanges.length; i++) {
-                    const last = merged[merged.length - 1];
-                    const curr = codeRanges[i];
-                    // 如果当前范围与上一个重叠或相邻，合并
-                    if (curr.start <= last.end) {
-                        last.end = Math.max(last.end, curr.end);
-                    } else {
-                        merged.push(curr);
-                    }
+            if (featureFlags.hasMath || featureFlags.hasStrike || featureFlags.hasSupSub) {
+                // 预处理：找出所有代码块和行内代码的位置，用于排除数学公式匹配
+                const codeRanges = [];
+                const codeRegex = /```[\s\S]*?```|`[^`]+`/g;
+                let codeMatch;
+                while ((codeMatch = codeRegex.exec(markdown)) !== null) {
+                    codeRanges.push({
+                        start: codeMatch.index,
+                        end: codeMatch.index + codeMatch[0].length
+                    });
                 }
-                codeRanges.length = 0;
-                codeRanges.push(...merged);
-            }
 
-            // 性能优化：使用二分查找检查位置是否在代码块内
-            const isInCode = index => {
-                let left = 0,
-                    right = codeRanges.length - 1;
-                while (left <= right) {
-                    const mid = (left + right) >>> 1;
-                    const range = codeRanges[mid];
-                    if (index < range.start) {
-                        right = mid - 1;
-                    } else if (index >= range.end) {
-                        left = mid + 1;
-                    } else {
-                        return true; // 在范围内
+                if (codeRanges.length > 1) {
+                    codeRanges.sort((a, b) => a.start - b.start);
+                    const merged = [codeRanges[0]];
+                    for (let i = 1; i < codeRanges.length; i++) {
+                        const last = merged[merged.length - 1];
+                        const curr = codeRanges[i];
+                        if (curr.start <= last.end) {
+                            last.end = Math.max(last.end, curr.end);
+                        } else {
+                            merged.push(curr);
+                        }
                     }
+                    codeRanges.length = 0;
+                    codeRanges.push(...merged);
                 }
-                return false;
-            };
 
-            // 性能优化：按优先级处理，避免符号冲突
-            const processedMarkdown = markdown
-                // 第一步：保护数学公式（公式中可能包含 ^ 和 ~），排除代码块内的
-                .replace(/\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g, (match, block, inline, offset) => {
-                    // 如果匹配在代码块内，不处理
-                    if (isInCode(offset)) {
-                        return match;
+                const isInCode = index => {
+                    let left = 0,
+                        right = codeRanges.length - 1;
+                    while (left <= right) {
+                        const mid = (left + right) >>> 1;
+                        const range = codeRanges[mid];
+                        if (index < range.start) {
+                            right = mid - 1;
+                        } else if (index >= range.end) {
+                            left = mid + 1;
+                        } else {
+                            return true;
+                        }
                     }
-                    const latex = block !== undefined ? block : inline;
-                    const displayMode = block !== undefined;
-                    mathBlocks.push({ latex, displayMode });
-                    return `\x02MATH${mathBlocks.length - 1}\x02`;
-                })
-                // 第二步：保护删除线 ~~text~~（避免被下标误匹配）
-                .replace(/~~([^~\n]{1,200})~~/g, (match, content) => {
-                    strikeBlocks.push(content);
-                    return `\x03STRIKE${strikeBlocks.length - 1}\x03`;
-                })
-                // 第三步：提取上标 ^text^（限制长度，避免跨行）
-                .replace(/\^([^\n^]{1,50})\^/g, (match, content) => {
-                    supSubBlocks.push({ type: 'sup', content });
-                    return `\x01SUP${supSubBlocks.length - 1}\x01`;
-                })
-                // 第四步：提取下标 ~text~（限制长度，避免跨行）
-                // 此时删除线和数学公式已被保护，不会误匹配
-                .replace(/~([^~\n]{1,50})~/g, (match, content) => {
-                    supSubBlocks.push({ type: 'sub', content });
-                    return `\x01SUB${supSubBlocks.length - 1}\x01`;
-                });
+                    return false;
+                };
+
+                if (featureFlags.hasMath) {
+                    processedMarkdown = processedMarkdown.replace(
+                        /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g,
+                        (match, block, inline, offset) => {
+                            if (isInCode(offset)) {
+                                return match;
+                            }
+                            const latex = block !== undefined ? block : inline;
+                            const displayMode = block !== undefined;
+                            mathBlocks.push({ latex, displayMode });
+                            return `\x02MATH${mathBlocks.length - 1}\x02`;
+                        }
+                    );
+                }
+
+                if (featureFlags.hasStrike) {
+                    processedMarkdown = processedMarkdown.replace(/~~([^~\n]{1,200})~~/g, (match, content) => {
+                        strikeBlocks.push(content);
+                        return `\x03STRIKE${strikeBlocks.length - 1}\x03`;
+                    });
+                }
+
+                if (featureFlags.hasSupSub) {
+                    processedMarkdown = processedMarkdown
+                        .replace(/\^([^\n^]{1,50})\^/g, (match, content) => {
+                            supSubBlocks.push({ type: 'sup', content });
+                            return `\x01SUP${supSubBlocks.length - 1}\x01`;
+                        })
+                        .replace(/~([^~\n]{1,50})~/g, (match, content) => {
+                            supSubBlocks.push({ type: 'sub', content });
+                            return `\x01SUB${supSubBlocks.length - 1}\x01`;
+                        });
+                }
+            }
 
             // 使用 marked 解析
             let html;
@@ -1448,11 +1479,14 @@ export class Preview extends BaseComponent {
      * @returns {Object} 包含各类待处理元素的对象
      * @private
      */
-    #collectElementsToProcess() {
-        const allElements = dom.getAllIn(
-            this.container,
-            'pre code:not(.prism-highlighted), img[data-load-status="pending"], .math-block:not(.math-rendered), .math-inline:not(.math-rendered)'
-        );
+    #collectElementsToProcess(featureFlags = {}) {
+        const selectors = ['pre code:not(.prism-highlighted)'];
+        if (featureFlags.hasImages) selectors.push('img[data-load-status="pending"]');
+        if (featureFlags.hasMath) {
+            selectors.push('.math-block:not(.math-rendered)', '.math-inline:not(.math-rendered)');
+        }
+
+        const allElements = dom.getAllIn(this.container, selectors.join(', '));
 
         // 分类元素
         const pendingCodeBlocks = [];
@@ -1485,16 +1519,14 @@ export class Preview extends BaseComponent {
         });
 
         // 🔥 收集过渡中的 mermaid 图表（已有旧 SVG 但需要渲染新内容）
-        const pendingMermaidTransitions = dom.getAllIn(
-            this.container,
-            'div.mermaid.mermaid-transition[data-mermaid-new]'
-        );
+        const pendingMermaidTransitions = featureFlags.hasMermaid
+            ? dom.getAllIn(this.container, 'div.mermaid.mermaid-transition[data-mermaid-new]')
+            : [];
 
         // 🔥 收集过渡中的 block math（已有旧 KaTeX DOM 但需要重新渲染新公式）
-        const pendingMathTransitions = dom.getAllIn(
-            this.container,
-            '.math-block.math-transition[data-latex-new]'
-        );
+        const pendingMathTransitions = featureFlags.hasMath
+            ? dom.getAllIn(this.container, '.math-block.math-transition[data-latex-new]')
+            : [];
 
         return {
             pendingCodeBlocks,
@@ -1513,12 +1545,12 @@ export class Preview extends BaseComponent {
      * @returns {Object|null} 需要处理的元素集合，如果无需处理则返回 null
      * @private
      */
-    #updateDOM(newHTML, changes) {
+    #updateDOM(newHTML, changes, featureFlags) {
         // 首次渲染，使用 innerHTML（性能更好）
         if (!this.#lastRenderedData.markdown) {
             this.container.innerHTML = newHTML;
             // 返回需要处理的元素
-            return this.#collectElementsToProcess();
+            return this.#collectElementsToProcess(featureFlags);
         }
 
         // 如果所有内容都变了，直接替换
@@ -1529,7 +1561,7 @@ export class Preview extends BaseComponent {
         if (allChanged) {
             this.container.innerHTML = newHTML;
             // 返回需要处理的元素
-            return this.#collectElementsToProcess();
+            return this.#collectElementsToProcess(featureFlags);
         }
 
         // 部分内容未变，使用增量更新
@@ -1556,7 +1588,7 @@ export class Preview extends BaseComponent {
         }
 
         // 返回需要处理的元素
-        return this.#collectElementsToProcess();
+        return this.#collectElementsToProcess(featureFlags);
     }
 
     /**
