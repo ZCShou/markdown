@@ -2500,12 +2500,17 @@ pre[class*='language-'] {
 
 .md-lightbox-download {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .md-lightbox-download-menu {
   position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  top: 100%;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  margin-top: 8px;
   min-width: 92px;
   padding: 6px;
   border-radius: 10px;
