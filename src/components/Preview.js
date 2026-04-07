@@ -157,8 +157,12 @@ export class Preview extends BaseComponent {
     #lbInner = null;
     #lbStage = null;
     #lbScaleLabel = null;
+    #lbToolbar = null;
+    #lbDownloadMenu = null;
     /** @private Lightbox 当前内容元素（img 或 svg） */
     #lbContent = null;
+    /** @private Lightbox 当前下载资源信息 */
+    #lightboxAsset = null;
 
     // 可见区域缓冲区大小（像素）
     static #VISIBILITY_BUFFER = 500;
@@ -2116,6 +2120,16 @@ export class Preview extends BaseComponent {
                 <div class="md-lightbox-inner"></div>
             </div>
             <div class="md-lightbox-toolbar">
+                <div class="md-lightbox-download">
+                    <button class="md-lightbox-btn" data-lb-action="toggle-download-menu" title="下载">
+                        <i class="codicon codicon-save"></i>
+                    </button>
+                    <div class="md-lightbox-download-menu" data-lb-download-menu hidden>
+                        <button class="md-lightbox-menu-item" data-lb-download-format="svg" type="button">SVG</button>
+                        <button class="md-lightbox-menu-item" data-lb-download-format="jpeg" type="button">JPEG</button>
+                        <button class="md-lightbox-menu-item" data-lb-download-format="png" type="button">PNG</button>
+                    </div>
+                </div>
                 <button class="md-lightbox-btn" data-lb-action="zoom-out" title="缩小"><i class="codicon codicon-zoom-out"></i></button>
                 <span class="md-lightbox-scale-label" data-lb-scale>100%</span>
                 <button class="md-lightbox-btn" data-lb-action="zoom-in" title="放大"><i class="codicon codicon-zoom-in"></i></button>
@@ -2128,6 +2142,8 @@ export class Preview extends BaseComponent {
         this.#lbInner = lb.querySelector('.md-lightbox-inner');
         this.#lbStage = lb.querySelector('.md-lightbox-stage');
         this.#lbScaleLabel = lb.querySelector('[data-lb-scale]');
+        this.#lbToolbar = lb.querySelector('.md-lightbox-toolbar');
+        this.#lbDownloadMenu = lb.querySelector('[data-lb-download-menu]');
 
         // 拖拽平移
         this.#lbStage.addEventListener('pointerdown', e => {
@@ -2178,12 +2194,25 @@ export class Preview extends BaseComponent {
         this.#lbStage.addEventListener('pointercancel', endDrag);
 
         // 工具栏按钮
-        lb.querySelector('.md-lightbox-toolbar').addEventListener('click', e => {
+        this.#lbToolbar.addEventListener('click', e => {
+            const format = e.target.closest('[data-lb-download-format]')?.dataset.lbDownloadFormat;
+            if (format) {
+                e.stopPropagation();
+                this.#downloadLightboxAsset(format);
+                return;
+            }
             const action = e.target.closest('[data-lb-action]')?.dataset.lbAction;
             if (action === 'close') this.#closeLightbox();
             else if (action === 'zoom-in') this.#lightboxZoom(0.25);
             else if (action === 'zoom-out') this.#lightboxZoom(-0.25);
             else if (action === 'fullscreen') this.#toggleLightboxFullscreen();
+            else if (action === 'toggle-download-menu') this.#toggleLightboxDownloadMenu();
+        });
+
+        lb.addEventListener('click', e => {
+            if (!e.target.closest('.md-lightbox-download')) {
+                this.#toggleLightboxDownloadMenu(false);
+            }
         });
 
         // 滚轮缩放（以光标位置为中心，RAF 节流：一帧内多次事件只触发一次 DOM 更新）
@@ -2239,12 +2268,21 @@ export class Preview extends BaseComponent {
         this.#lightboxOy = 0;
         this.#lightboxDrag = null;
         this.#lbContent = null;
+        this.#lightboxAsset = null;
+        this.#toggleLightboxDownloadMenu(false);
 
         if (type === 'img') {
             const img = new Image();
             img.src = el.src;
             img.alt = el.alt || '';
             this.#lbContent = img;
+            this.#lightboxAsset = {
+                kind: 'img',
+                sourceUrl: el.currentSrc || el.src,
+                nameBase: this.#deriveLightboxFileName(el.getAttribute('data-src') || el.currentSrc || el.src),
+                svgSource: this.#isSvgImageSource(el.getAttribute('data-src') || el.currentSrc || el.src),
+                rasterBlocked: false
+            };
             this.#lbInner.appendChild(img);
             const setWidth = () => {
                 this.#lightboxBaseWidth = Math.min(
@@ -2270,17 +2308,25 @@ export class Preview extends BaseComponent {
             let baseW = svg.getBoundingClientRect().width || 600;
             if (vb) {
                 const parts = vb.trim().split(/[\s,]+/).map(Number);
-                if (parts.length >= 4 && parts[2] > 0) baseW = parts[2];
+                const [, , width] = parts;
+                if (parts.length >= 4 && width > 0) baseW = width;
             }
             this.#lightboxBaseWidth = Math.min(baseW, window.innerWidth * 0.85 - 40);
             clone.style.width = `${this.#lightboxBaseWidth}px`;
             clone.style.height = 'auto';
             this.#lbContent = clone;
+            this.#lightboxAsset = {
+                kind: 'svg',
+                svg: clone,
+                nameBase: 'diagram',
+                mermaidCode: el.getAttribute('data-mermaid') || ''
+            };
             wrap.appendChild(clone);
             this.#lbInner.appendChild(wrap);
             this.#lbScaleLabel.textContent = '100%';
         }
 
+        this.#syncLightboxDownloadMenu();
         this.#lightbox.style.display = 'block';
     }
 
@@ -2308,6 +2354,8 @@ export class Preview extends BaseComponent {
             this.#lightboxZoomRaf = null;
             this.#pendingWheelDelta = 0;
         }
+        this.#toggleLightboxDownloadMenu(false);
+        this.#lightboxAsset = null;
         if (document.fullscreenElement === this.#lightbox) {
             document.exitFullscreen().catch(() => { });
         }
@@ -2357,6 +2405,359 @@ export class Preview extends BaseComponent {
         } else {
             document.exitFullscreen().catch(() => { });
         }
+    }
+
+    /**
+     * 切换下载菜单显示状态
+     * @param {boolean} [force]
+     * @private
+     */
+    #toggleLightboxDownloadMenu(force) {
+        if (!this.#lbDownloadMenu) return;
+        const nextOpen = typeof force === 'boolean' ? force : this.#lbDownloadMenu.hidden;
+        this.#lbDownloadMenu.hidden = !nextOpen;
+    }
+
+    /**
+     * 同步下载菜单项的可用状态
+     * @private
+     */
+    #syncLightboxDownloadMenu() {
+        if (!this.#lbDownloadMenu) return;
+        const canExportSvg = this.#canLightboxExportSvg();
+        const canExportRaster = this.#canLightboxExportRaster();
+        const svgButton = this.#lbDownloadMenu.querySelector('[data-lb-download-format="svg"]');
+        const rasterButtons = this.#lbDownloadMenu.querySelectorAll(
+            '[data-lb-download-format="jpeg"], [data-lb-download-format="png"]'
+        );
+        if (svgButton) {
+            svgButton.disabled = !canExportSvg;
+            svgButton.title = canExportSvg ? '下载 SVG' : '当前图片不支持导出为 SVG';
+        }
+        rasterButtons.forEach(button => {
+            button.disabled = !canExportRaster;
+            button.title = canExportRaster
+                ? `下载 ${button.dataset.lbDownloadFormat?.toUpperCase()}`
+                : '当前图片受跨域限制，暂不支持导出为 PNG/JPEG';
+        });
+    }
+
+    /**
+     * 下载当前放大的图片/图表
+     * @param {'svg'|'jpeg'|'png'} format
+     * @private
+     */
+    async #downloadLightboxAsset(format) {
+        const asset = this.#lightboxAsset;
+        if (!asset) return;
+        if (format === 'svg' && !this.#canLightboxExportSvg(asset)) return;
+        if ((format === 'jpeg' || format === 'png') && !this.#canLightboxExportRaster(asset)) return;
+
+        try {
+            let blob = null;
+            if (format === 'svg') {
+                blob = await this.#createSvgExportBlob(asset);
+            } else {
+                blob = await this.#createRasterExportBlob(asset, format);
+            }
+            if (!blob) return;
+            this.#triggerBlobDownload(
+                blob,
+                `${asset.nameBase || 'image'}.${format === 'jpeg' ? 'jpg' : format}`
+            );
+            this.#toggleLightboxDownloadMenu(false);
+        } catch (error) {
+            if (
+                (format === 'jpeg' || format === 'png') &&
+                error?.message?.includes('跨域限制') &&
+                this.#lightboxAsset === asset
+            ) {
+                asset.rasterBlocked = true;
+                this.#syncLightboxDownloadMenu();
+                return;
+            }
+            console.warn(`导出 ${format.toUpperCase()} 失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 生成 SVG 导出 Blob
+     * @param {Object} asset
+     * @returns {Promise<Blob>}
+     * @private
+     */
+    async #createSvgExportBlob(asset) {
+        const svgText = await this.#getSvgExportText(asset);
+        return new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+    }
+
+    /**
+     * 生成 PNG/JPEG 导出 Blob
+     * @param {Object} asset
+     * @param {'jpeg'|'png'} format
+     * @returns {Promise<Blob>}
+     * @private
+     */
+    async #createRasterExportBlob(asset, format) {
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const { src, revoke, width, height } = await this.#getRasterExportSource(asset);
+        try {
+            const image = await this.#loadImageForExport(src);
+            const canvas = this.#drawImageToCanvas(
+                image,
+                width || image.naturalWidth || this.#lbContent?.naturalWidth || this.#lbContent?.width,
+                height || image.naturalHeight || this.#lbContent?.naturalHeight || this.#lbContent?.height,
+                format
+            );
+            return new Promise((resolve, reject) => {
+                try {
+                    canvas.toBlob(blob => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Canvas 导出失败'));
+                    }, mimeType, format === 'jpeg' ? 0.92 : undefined);
+                } catch (error) {
+                    reject(
+                        error?.name === 'SecurityError'
+                            ? new Error('当前图片受浏览器跨域限制，暂不支持导出为 PNG/JPEG')
+                            : error
+                    );
+                }
+            });
+        } finally {
+            if (revoke) revoke();
+        }
+    }
+
+    /**
+     * 获取 SVG 导出源码
+     * @param {Object} asset
+     * @returns {Promise<string>}
+     * @private
+     */
+    async #getSvgExportText(asset) {
+        if (asset.mermaidCode) {
+            const { svg } = await mermaid.render(
+                `mermaid-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                this.#buildMermaidRasterExportCode(asset.mermaidCode)
+            );
+            return svg;
+        }
+        if (asset.kind === 'svg' && asset.svg) {
+            return this.#serializeSvg(asset.svg);
+        }
+        const blob = await this.#fetchExportBlob(asset.sourceUrl);
+        if (blob.type === 'image/svg+xml') return blob.text();
+        return this.#serializeSvg(this.#lbContent);
+    }
+
+    /**
+     * 构造 Mermaid 导出专用代码
+     * 通过 init directive 关闭 htmlLabels，避免切换全局配置
+     * @param {string} code
+     * @returns {string}
+     * @private
+     */
+    #buildMermaidRasterExportCode(code) {
+        const directive = "%%{init: {'htmlLabels': false, 'flowchart': {'htmlLabels': false}} }%%";
+        return code.trimStart().startsWith('%%{init:')
+            ? code
+            : `${directive}\n${code}`;
+    }
+
+    /**
+     * 解析位图导出的安全资源
+     * @param {Object} asset
+     * @returns {Promise<{src: string, revoke: (() => void)|null, width?: number, height?: number}>}
+     * @private
+     */
+    async #getRasterExportSource(asset) {
+        if (asset.kind === 'svg' && asset.svg) {
+            const objectUrl = URL.createObjectURL(
+                new Blob([await this.#getSvgExportText(asset)], { type: 'image/svg+xml;charset=utf-8' })
+            );
+            return {
+                src: objectUrl,
+                revoke: () => URL.revokeObjectURL(objectUrl),
+                ...this.#getSvgExportSize(asset.svg)
+            };
+        }
+
+        const src = asset.sourceUrl;
+        if (!src) throw new Error('当前图片缺少可导出的资源地址');
+        if (src.startsWith('blob:') || src.startsWith('data:')) {
+            return { src, revoke: null };
+        }
+        const blob = await this.#fetchExportBlob(src);
+        const objectUrl = URL.createObjectURL(blob);
+        return {
+            src: objectUrl,
+            revoke: () => URL.revokeObjectURL(objectUrl)
+        };
+    }
+
+    /**
+     * 拉取导出用 Blob
+     * @param {string} src
+     * @returns {Promise<Blob>}
+     * @private
+     */
+    async #fetchExportBlob(src) {
+        let response;
+        try {
+            response = await fetch(src, {
+                mode: 'cors',
+                credentials: 'same-origin'
+            });
+        } catch {
+            throw new Error('当前图片受浏览器跨域限制，暂不支持导出为 PNG/JPEG');
+        }
+
+        if (!response.ok) {
+            throw new Error(`图片下载失败 (${response.status})`);
+        }
+        return response.blob();
+    }
+
+    /**
+     * 判断当前 lightbox 资源是否支持 SVG 导出
+     * @param {Object} [asset]
+     * @returns {boolean}
+     * @private
+     */
+    #canLightboxExportSvg(asset = this.#lightboxAsset) {
+        if (!asset) return false;
+        return asset.kind === 'svg' || Boolean(asset.svgSource);
+    }
+
+    /**
+     * 判断当前 lightbox 资源是否支持 PNG/JPEG 导出
+     * @param {Object} [asset]
+     * @returns {boolean}
+     * @private
+     */
+    #canLightboxExportRaster(asset = this.#lightboxAsset) {
+        if (!asset) return false;
+        return !asset.rasterBlocked;
+    }
+
+    /**
+     * 触发 Blob 下载
+     * @param {Blob} blob
+     * @param {string} fileName
+     * @private
+     */
+    #triggerBlobDownload(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /**
+     * 判断图片源是否为 SVG
+     * @param {string} src
+     * @returns {boolean}
+     * @private
+     */
+    #isSvgImageSource(src) {
+        if (!src) return false;
+        if (src.startsWith('data:image/svg+xml')) return true;
+        return /\.svg(?:[?#].*)?$/i.test(src);
+    }
+
+    /**
+     * 生成导出文件名
+     * @param {string} src
+     * @returns {string}
+     * @private
+     */
+    #deriveLightboxFileName(src) {
+        if (!src) return 'image';
+        const [beforeHash] = src.split('#');
+        const [cleaned] = beforeHash.split('?');
+        const segment = cleaned.split('/').filter(Boolean).pop() || 'image';
+        return (segment.replace(/\.[^.]+$/, '') || 'image').replace(/[\\/:*?"<>|]+/g, '-');
+    }
+
+    /**
+     * 序列化 SVG 节点
+     * @param {SVGElement} svg
+     * @returns {string}
+     * @private
+     */
+    #serializeSvg(svg) {
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        return new XMLSerializer().serializeToString(clone);
+    }
+
+    /**
+     * 获取 SVG 导出尺寸
+     * @param {SVGElement} svg
+     * @returns {{width: number, height: number}}
+     * @private
+     */
+    #getSvgExportSize(svg) {
+        const viewBox = svg.getAttribute('viewBox');
+        if (viewBox) {
+            const parts = viewBox.trim().split(/[\s,]+/).map(Number);
+            const [, , width, height] = parts;
+            if (parts.length >= 4 && width > 0 && height > 0) {
+                return { width, height };
+            }
+        }
+
+        const width = Number.parseFloat(svg.getAttribute('width')) || svg.getBoundingClientRect().width || 1200;
+        const height =
+            Number.parseFloat(svg.getAttribute('height')) || svg.getBoundingClientRect().height || 800;
+        return { width, height };
+    }
+
+    /**
+     * 加载导出用图片
+     * @param {string} src
+     * @returns {Promise<HTMLImageElement>}
+     * @private
+     */
+    #loadImageForExport(src) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.crossOrigin = 'anonymous';
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error('图片加载失败'));
+            image.src = src;
+        });
+    }
+
+    /**
+     * 绘制图片到 Canvas
+     * @param {CanvasImageSource} image
+     * @param {number} width
+     * @param {number} height
+     * @param {'jpeg'|'png'} format
+     * @returns {HTMLCanvasElement}
+     * @private
+     */
+    #drawImageToCanvas(image, width, height, format) {
+        const safeWidth = Math.max(1, Math.round(width || 1));
+        const safeHeight = Math.max(1, Math.round(height || 1));
+        const pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(safeWidth * pixelRatio);
+        canvas.height = Math.round(safeHeight * pixelRatio);
+        const ctx = canvas.getContext('2d');
+        ctx.scale(pixelRatio, pixelRatio);
+        if (format === 'jpeg') {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, safeWidth, safeHeight);
+        }
+        ctx.drawImage(image, 0, 0, safeWidth, safeHeight);
+        return canvas;
     }
 
     // ==================== 工具函数 ====================
