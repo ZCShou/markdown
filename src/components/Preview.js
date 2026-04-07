@@ -5,11 +5,26 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import Prism from 'prismjs';
-import mermaid from 'mermaid';
-import katex from 'katex';
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
 import { isInternalImagePath, getImageUrl, decodeHtmlEntities } from '../utils/helpers.js';
+
+let mermaidModulePromise = null;
+let katexModulePromise = null;
+
+function loadMermaidModule() {
+    if (!mermaidModulePromise) {
+        mermaidModulePromise = import('mermaid').then(module => module.default || module);
+    }
+    return mermaidModulePromise;
+}
+
+function loadKatexModule() {
+    if (!katexModulePromise) {
+        katexModulePromise = import('katex').then(module => module.default || module);
+    }
+    return katexModulePromise;
+}
 
 // Prism 语言懒加载映射
 const LANG_MAP = {
@@ -202,7 +217,6 @@ export class Preview extends BaseComponent {
      */
     init() {
         super.init();
-        this.initMermaid();
         this.#initIntersectionObserver();
 
         // 订阅导出准备事件：强制完整渲染后通知 Exporter
@@ -216,9 +230,9 @@ export class Preview extends BaseComponent {
     /**
      * 初始化 Mermaid
      */
-    initMermaid() {
+    async initMermaid() {
         if (this.mermaidInitialized) return;
-        this.#configureMermaid();
+        await this.#configureMermaid();
         this.mermaidInitialized = true;
     }
 
@@ -227,7 +241,8 @@ export class Preview extends BaseComponent {
      * @param theme
      * @private
      */
-    #configureMermaid() {
+    async #configureMermaid() {
+        const mermaid = await loadMermaidModule();
         // 始终以亮色主题渲染 SVG，暗色模式由 CSS filter 处理。
         // 这样用户在图中手写的 color/fill 等字面值在明暗主题下都能保持可读性，
         // 因为 invert(1) hue-rotate(180deg) 只反转明暗，不破坏色相。
@@ -1877,6 +1892,9 @@ export class Preview extends BaseComponent {
         );
         if (!pending.length) return;
 
+        await this.initMermaid();
+        const mermaid = await loadMermaidModule();
+
         pending.forEach(div => {
             div.classList.remove('mermaid-pending', 'render-error');
             div.classList.add('mermaid-rendering');
@@ -1936,6 +1954,9 @@ export class Preview extends BaseComponent {
      */
     async #renderMermaidTransitions(transitionDivs) {
         if (!transitionDivs.length) return;
+
+        await this.initMermaid();
+        const mermaid = await loadMermaidModule();
 
         const offscreen = document.createElement('div');
         offscreen.style.cssText = 'position:absolute;left:-9999px;top:-9999px;visibility:hidden;';
@@ -2016,8 +2037,10 @@ export class Preview extends BaseComponent {
      * @param {Array<Element>} mathElements - 数学公式元素数组（已过滤未渲染的）
      * @private
      */
-    #renderMath(mathElements) {
-        if (typeof katex === 'undefined' || mathElements.length === 0) return;
+    async #renderMath(mathElements) {
+        if (mathElements.length === 0) return;
+
+        const katex = await loadKatexModule();
 
         // 过滤出需要渲染的公式（排除无效元素）
         const elementsToRender = mathElements.filter(el => {
@@ -2029,7 +2052,7 @@ export class Preview extends BaseComponent {
 
         // 如果没有 IntersectionObserver，直接批量渲染
         if (!this.#intersectionObserver) {
-            this.#renderMathBatch(elementsToRender);
+            this.#renderMathBatch(elementsToRender, katex);
             return;
         }
 
@@ -2038,7 +2061,7 @@ export class Preview extends BaseComponent {
 
         // 可见公式也走 batch 路径，通过 requestIdleCallback 分帧渲染，避免大量公式卡顿首帧
         if (visible.length > 0) {
-            this.#renderMathBatch(visible);
+            this.#renderMathBatch(visible, katex);
         }
 
         // 监听不可见公式，IntersectionObserver 按需延迟渲染
@@ -2054,25 +2077,9 @@ export class Preview extends BaseComponent {
      * @param {Element} element - 数学公式元素
      * @private
      */
-    #renderSingleMath(element) {
-        // 🔥 优化：提前标记为已渲染，防止并发重复渲染
-        element.classList.add('math-rendered');
-
-        const latex = element.getAttribute('data-latex');
-        if (!latex) return;
-
-        try {
-            katex.render(latex, element, {
-                displayMode: element.classList.contains('math-block'),
-                throwOnError: false,
-                errorColor: '#cc0000'
-            });
-            element.classList.remove('math-error', 'math-pending'); // 清除可能的错误状态
-        } catch (err) {
-            console.warn('KaTeX 渲染失败:', err);
-            element.textContent = latex;
-            element.classList.add('math-error');
-        }
+    async #renderSingleMath(element) {
+        const katex = await loadKatexModule();
+        this.#renderSingleMathWithModule(element, katex);
     }
 
     /**
@@ -2080,7 +2087,7 @@ export class Preview extends BaseComponent {
      * @param {Array<Element>} elements - 数学公式元素数组
      * @private
      */
-    #renderMathBatch(elements) {
+    #renderMathBatch(elements, katex) {
         const BATCH_SIZE = 50;
         let index = 0;
 
@@ -2089,7 +2096,7 @@ export class Preview extends BaseComponent {
 
             while (index < end) {
                 const el = elements[index];
-                this.#renderSingleMath(el);
+                this.#renderSingleMathWithModule(el, katex);
                 index++;
             }
 
@@ -2103,6 +2110,32 @@ export class Preview extends BaseComponent {
         };
 
         requestAnimationFrame(processBatch);
+    }
+
+    /**
+     * 使用已加载的 KaTeX 实例渲染单个数学公式，避免批量场景重复动态导入。
+     * @param {Element} element
+     * @param {Object} katex
+     * @private
+     */
+    #renderSingleMathWithModule(element, katex) {
+        element.classList.add('math-rendered');
+
+        const latex = element.getAttribute('data-latex');
+        if (!latex) return;
+
+        try {
+            katex.render(latex, element, {
+                displayMode: element.classList.contains('math-block'),
+                throwOnError: false,
+                errorColor: '#cc0000'
+            });
+            element.classList.remove('math-error', 'math-pending');
+        } catch (err) {
+            console.warn('KaTeX 渲染失败:', err);
+            element.textContent = latex;
+            element.classList.add('math-error');
+        }
     }
 
     // ==================== Lightbox（图片/图表放大查看） ====================
@@ -2536,6 +2569,8 @@ export class Preview extends BaseComponent {
      */
     async #getSvgExportText(asset) {
         if (asset.mermaidCode) {
+            await this.initMermaid();
+            const mermaid = await loadMermaidModule();
             const { svg } = await mermaid.render(
                 `mermaid-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 this.#buildMermaidRasterExportCode(asset.mermaidCode)
