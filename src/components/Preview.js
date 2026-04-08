@@ -925,12 +925,17 @@ export class Preview extends BaseComponent {
         }
 
         const featureFlags = this.#getMarkdownFeatureFlags(markdown);
+        const analysis = this.#analyzeMarkdown(markdown, featureFlags);
 
         // 检测变化
-        const changes = this.#detectChanges(markdown, featureFlags);
+        const changes = this.#detectChanges(analysis);
 
         // 渲染 Markdown 为 HTML，同时提取标题数据（唯一提取点）
-        const { html, headings: renderedHeadings } = this.renderMarkdown(markdown, featureFlags);
+        const { html, headings: renderedHeadings } = this.renderMarkdown(
+            markdown,
+            featureFlags,
+            analysis
+        );
 
         // 标题变化检测（与缓存比较，形状相同：{id, level, textContent}）
         const oldHeadings = this.#lastRenderedData.headings;
@@ -1038,36 +1043,86 @@ export class Preview extends BaseComponent {
     }
 
     /**
-     * 检测内容变化（优化版：单次扫描 + 增量检测）
-     * @param {string} newMarkdown - 新的 Markdown 文本（非空）
-     * @param {Object} featureFlags - Markdown 特征标记
-     * @returns {Object} 变化检测结果
+     * 合并并排序范围，供代码区间排除逻辑复用
+     * @param {Array<{start: number, end: number}>} ranges
+     * @returns {Array<{start: number, end: number}>}
      * @private
      */
-    #detectChanges(newMarkdown, featureFlags) {
-        const oldData = this.#lastRenderedData;
+    #mergeRanges(ranges) {
+        if (ranges.length <= 1) return ranges;
 
-        // 单次扫描提取所有数据
+        const sortedRanges = [...ranges].sort((a, b) => a.start - b.start);
+        const merged = [sortedRanges[0]];
+
+        for (let i = 1; i < sortedRanges.length; i++) {
+            const last = merged[merged.length - 1];
+            const current = sortedRanges[i];
+
+            if (current.start <= last.end) {
+                last.end = Math.max(last.end, current.end);
+            } else {
+                merged.push(current);
+            }
+        }
+
+        return merged;
+    }
+
+    /**
+     * 根据范围创建快速命中函数
+     * @param {Array<{start: number, end: number}>} ranges
+     * @returns {(index: number) => boolean}
+     * @private
+     */
+    #createRangeChecker(ranges) {
+        if (!ranges.length) return () => false;
+
+        return index => {
+            let lo = 0;
+            let hi = ranges.length - 1;
+
+            while (lo <= hi) {
+                const mid = (lo + hi) >>> 1;
+                const range = ranges[mid];
+
+                if (index < range.start) {
+                    hi = mid - 1;
+                } else if (index >= range.end) {
+                    lo = mid + 1;
+                } else {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+    }
+
+    /**
+     * 单次扫描 Markdown，提取增量更新与公式排除所需信息
+     * @param {string} markdown
+     * @param {Object} featureFlags
+     * @returns {Object}
+     * @private
+     */
+    #analyzeMarkdown(markdown, featureFlags) {
         const codeBlocks = new Map();
         const mermaidBlocks = new Map();
         const mathBlocks = new Map();
+        const codeRanges = [];
 
-        let codeIndex = 0,
-            mermaidIndex = 0,
-            mathIndex = 0;
-        const codeBlockRanges = [];
-
-        // 第一步：提取代码块（包括 mermaid），并记录位置
-        // 修复：支持更多语言标识符（如 c++、c#），允许可选的空白字符和换行
-        const codeBlockRegex = /```(\S*)[ \t]*\r?\n?([\s\S]*?)```/g;
+        let codeIndex = 0;
+        let mermaidIndex = 0;
+        let mathIndex = 0;
         let match;
-        while ((match = codeBlockRegex.exec(newMarkdown)) !== null) {
+
+        const codeBlockRegex = /```(\S*)[ \t]*\r?\n?([\s\S]*?)```/g;
+        while ((match = codeBlockRegex.exec(markdown)) !== null) {
             const [fullMatch] = match;
             const startIndex = match.index;
             const endIndex = startIndex + fullMatch.length;
 
-            // 记录代码块位置范围（用于排除标题提取和数学公式）
-            codeBlockRanges.push({ start: startIndex, end: endIndex });
+            codeRanges.push({ start: startIndex, end: endIndex });
 
             const [, lang, content] = match;
             if (lang === 'mermaid') {
@@ -1085,60 +1140,26 @@ export class Preview extends BaseComponent {
             }
         }
 
-        // 第一步半：提取行内代码块位置（用于排除数学公式解析）
-        // 注意：必须排除已被代码块覆盖的区域，避免匹配到代码块标记中的反引号
         if (featureFlags.hasMath) {
+            const mergedCodeBlockRanges = this.#mergeRanges(codeRanges);
+            const isInCodeBlock = this.#createRangeChecker(mergedCodeBlockRanges);
             const inlineCodeRegex = /`([^`]+)`/g;
-            while ((match = inlineCodeRegex.exec(newMarkdown)) !== null) {
+
+            while ((match = inlineCodeRegex.exec(markdown)) !== null) {
                 const startIndex = match.index;
-                const endIndex = startIndex + match[0].length;
-
-                // 检查这个行内代码是否在代码块内，如果是就跳过
-                const alreadyInCodeBlock = codeBlockRanges.some(
-                    range => startIndex >= range.start && startIndex < range.end
-                );
-
-                if (!alreadyInCodeBlock) {
-                    codeBlockRanges.push({ start: startIndex, end: endIndex });
-                }
+                if (isInCodeBlock(startIndex)) continue;
+                codeRanges.push({ start: startIndex, end: startIndex + match[0].length });
             }
         }
 
-        // 辅助函数：检查位置是否在任何代码块内
-        // 小数组直接遍历，大数组排序后二分查找
-        const isInAnyCodeBlock =
-            codeBlockRanges.length < 20
-                ? index => codeBlockRanges.some(range => index >= range.start && index < range.end)
-                : (() => {
-                    codeBlockRanges.sort((a, b) => a.start - b.start);
-                    return index => {
-                        let lo = 0,
-                            hi = codeBlockRanges.length - 1;
-                        while (lo <= hi) {
-                            const mid = (lo + hi) >>> 1;
-                            const range = codeBlockRanges[mid];
-                            if (index < range.start) {
-                                hi = mid - 1;
-                            } else if (index >= range.end) {
-                                lo = mid + 1;
-                            } else {
-                                return true;
-                            }
-                        }
-                        return false;
-                    };
-                })();
+        const mergedCodeRanges = this.#mergeRanges(codeRanges);
 
-        // 第二步：提取数学公式（块级和行内），排除代码块内的
         if (featureFlags.hasMath) {
+            const isInCode = this.#createRangeChecker(mergedCodeRanges);
             const mathRegex = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$/g;
-            while ((match = mathRegex.exec(newMarkdown)) !== null) {
-                const matchIndex = match.index;
 
-                // 跳过代码块内的数学公式标记
-                if (isInAnyCodeBlock(matchIndex)) {
-                    continue;
-                }
+            while ((match = mathRegex.exec(markdown)) !== null) {
+                if (isInCode(match.index)) continue;
 
                 const [, blockMath, inlineMath] = match;
                 if (blockMath !== undefined) {
@@ -1161,6 +1182,40 @@ export class Preview extends BaseComponent {
             }
         }
 
+        return {
+            markdown,
+            codeBlocks,
+            mermaidBlocks,
+            mathBlocks,
+            codeRanges: mergedCodeRanges
+        };
+    }
+
+    /**
+     * 是否存在可复用的未变化项
+     * @param {Map} oldMap
+     * @param {Map} newMap
+     * @param {Set<string>} changed
+     * @returns {boolean}
+     * @private
+     */
+    #hasUnchangedEntries(oldMap, newMap, changed) {
+        for (const key of oldMap.keys()) {
+            if (newMap.has(key) && !changed.has(key)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 检测内容变化（优化版：单次扫描 + 增量检测）
+     * @param {Object} analysis - Markdown 分析结果
+     * @returns {Object} 变化检测结果
+     * @private
+     */
+    #detectChanges(analysis) {
+        const oldData = this.#lastRenderedData;
+        const { codeBlocks, mermaidBlocks, mathBlocks } = analysis;
+
         // 比较变化，并记录具体哪些元素发生了变化
         const changedCodeBlocks = this.#findChangedMapEntries(oldData.codeBlocks, codeBlocks);
         const changedMermaidBlocks = this.#findChangedMapEntries(
@@ -1168,6 +1223,10 @@ export class Preview extends BaseComponent {
             mermaidBlocks
         );
         const changedMathBlocks = this.#findChangedMapEntries(oldData.mathBlocks, mathBlocks);
+        const hasReusableBlocks =
+            this.#hasUnchangedEntries(oldData.codeBlocks, codeBlocks, changedCodeBlocks) ||
+            this.#hasUnchangedEntries(oldData.mermaidBlocks, mermaidBlocks, changedMermaidBlocks) ||
+            this.#hasUnchangedEntries(oldData.mathBlocks, mathBlocks, changedMathBlocks);
 
         return {
             newCodeBlocks: codeBlocks,
@@ -1175,7 +1234,8 @@ export class Preview extends BaseComponent {
             newMathBlocks: mathBlocks,
             changedCodeBlocks,
             changedMermaidBlocks,
-            changedMathBlocks
+            changedMathBlocks,
+            hasReusableBlocks
         };
     }
 
@@ -1242,9 +1302,10 @@ export class Preview extends BaseComponent {
      * 渲染 Markdown 为 HTML（性能优化版）
      * @param {string} markdown - Markdown 文本
      * @param {Object} featureFlags - Markdown 特征标记
+     * @param {Object} analysis - 预先计算的 Markdown 分析结果
      * @returns {string} HTML 字符串
      */
-    renderMarkdown(markdown, featureFlags) {
+    renderMarkdown(markdown, featureFlags, analysis = null) {
         const renderedHeadings = []; // 在此处收集，作为唯一提取点
         try {
             const mathBlocks = [];
@@ -1253,49 +1314,7 @@ export class Preview extends BaseComponent {
             let processedMarkdown = markdown;
 
             if (featureFlags.hasMath || featureFlags.hasStrike || featureFlags.hasSupSub) {
-                // 预处理：找出所有代码块和行内代码的位置，用于排除数学公式匹配
-                const codeRanges = [];
-                const codeRegex = /```[\s\S]*?```|`[^`]+`/g;
-                let codeMatch;
-                while ((codeMatch = codeRegex.exec(markdown)) !== null) {
-                    codeRanges.push({
-                        start: codeMatch.index,
-                        end: codeMatch.index + codeMatch[0].length
-                    });
-                }
-
-                if (codeRanges.length > 1) {
-                    codeRanges.sort((a, b) => a.start - b.start);
-                    const merged = [codeRanges[0]];
-                    for (let i = 1; i < codeRanges.length; i++) {
-                        const last = merged[merged.length - 1];
-                        const curr = codeRanges[i];
-                        if (curr.start <= last.end) {
-                            last.end = Math.max(last.end, curr.end);
-                        } else {
-                            merged.push(curr);
-                        }
-                    }
-                    codeRanges.length = 0;
-                    codeRanges.push(...merged);
-                }
-
-                const isInCode = index => {
-                    let left = 0,
-                        right = codeRanges.length - 1;
-                    while (left <= right) {
-                        const mid = (left + right) >>> 1;
-                        const range = codeRanges[mid];
-                        if (index < range.start) {
-                            right = mid - 1;
-                        } else if (index >= range.end) {
-                            left = mid + 1;
-                        } else {
-                            return true;
-                        }
-                    }
-                    return false;
-                };
+                const isInCode = this.#createRangeChecker(analysis?.codeRanges ?? []);
 
                 if (featureFlags.hasMath) {
                     processedMarkdown = processedMarkdown.replace(
@@ -1553,14 +1572,9 @@ export class Preview extends BaseComponent {
             return this.#collectElementsToProcess(featureFlags);
         }
 
-        // 如果所有内容都变了，直接替换
-        const allChanged =
-            changes.changedCodeBlocks.size &&
-            changes.changedMermaidBlocks.size &&
-            changes.changedMathBlocks.size;
-        if (allChanged) {
+        // 没有可复用的重型节点时，直接替换，避免额外的 HTML 解析和 DOM 全量扫描
+        if (!changes.hasReusableBlocks) {
             this.container.innerHTML = newHTML;
-            // 返回需要处理的元素
             return this.#collectElementsToProcess(featureFlags);
         }
 
@@ -1697,10 +1711,6 @@ export class Preview extends BaseComponent {
                         oldCode.className = newEl.className;
                         oldCode.textContent = newEl.textContent;
                         oldCode.classList.remove('prism-highlighted', 'code-pending');
-                        if (typeof Prism !== 'undefined') {
-                            Prism.highlightElement(oldCode);
-                            oldCode.classList.add('prism-highlighted');
-                        }
                         newWrapper.replaceWith(oldWrapperByIdx);
                     }
                 }
