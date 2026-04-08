@@ -579,7 +579,7 @@ $$
             };
             documents.push(defaultDoc);
             currentDocId = defaultDoc.id;
-            content = defaultDoc.content;
+            ({ content } = defaultDoc);
             // 立即持久化，确保刷新后不会重复创建
             await StoreManager.saveDocuments(documents);
             await StoreManager.saveCurrentDocId(currentDocId);

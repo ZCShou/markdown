@@ -334,8 +334,7 @@ ${html}
 
         let match;
         while ((match = imgRegex.exec(html)) !== null) {
-            const fullMatch = match[0];
-            const attrs = match[1];
+            const [fullMatch, attrs] = match;
 
             // 提取 src 和 data-src 属性
             const srcMatch = attrs.match(/src="([^"]+)"/);
@@ -361,6 +360,7 @@ ${html}
         const results = await Promise.all(replacements);
 
         // 替换 src 为 base64，并移除 data-src 属性
+        let outputHtml = html;
         results
             .filter(r => r !== null)
             .sort((a, b) => b.fullMatch.length - a.fullMatch.length)
@@ -370,10 +370,10 @@ ${html}
                 if (dataSrc) {
                     newTag = newTag.replace(/\s*data-src="[^"]*"/, '');
                 }
-                html = html.replace(fullMatch, newTag);
+                outputHtml = outputHtml.replace(fullMatch, newTag);
             });
 
-        return html;
+        return outputHtml;
     }
 
     /**

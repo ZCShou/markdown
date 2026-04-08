@@ -373,7 +373,7 @@ export function getImageUrl(path) {
             const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
             const request = store.get(path);
             request.onsuccess = () => {
-                const result = request.result;
+                const { result } = request;
                 resolve(result ? URL.createObjectURL(result.blob) : null);
             };
             request.onerror = () => reject(new Error('Failed to get image'));
@@ -399,7 +399,7 @@ export async function getImageAsBase64(path) {
         const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
         const request = store.get(path);
         request.onsuccess = async () => {
-            const result = request.result;
+            const { result } = request;
             if (!result) {
                 resolve(null);
                 return;

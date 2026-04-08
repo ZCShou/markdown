@@ -52,7 +52,7 @@ function _parseMarkdownModel(model) {
         const len = line.length;
 
         if (len >= 3 && (line[0] === '`' || line[0] === '~')) {
-            const c = line[0];
+            const [c] = line;
             if (!inFence) {
                 if (line[1] === c && line[2] === c) {
                     inFence = true; fenceChar = c; fenceStart = i + 1;
@@ -298,8 +298,8 @@ export class MonacoEditor {
         monaco.languages.setMonarchTokensProvider('markdown', {
             defaultToken: '',
             tokenPostfix: '.md',
-            control: /[\\`*_\[\]{}()#+\-\.!]/,
-            noncontrol: /[^\\`*_\[\]{}()#+\-\.!]/,
+            control: /[\\`*_[\]{}()#+.!-]/,
+            noncontrol: /[^\\`*_[\]{}()#+.!-]/,
             escapes: /\\(?:@control)/,
             jsescapes: /\\(?:[btnfr\\"']|[0-7][0-7]?|[0-3][0-7]{2})/,
             empty: ['area', 'base', 'basefont', 'br', 'col', 'frame', 'hr', 'img', 'input',
@@ -308,25 +308,25 @@ export class MonacoEditor {
                 root: [
                     [/^\s*\|/, '@rematch', '@table_header'],
                     [/^(\s{0,3})(#+)((?:[^\\#]|@escapes)+)((?:#+)?)/, ['white', 'keyword', 'keyword', 'keyword']],
-                    [/^\s*(=+|\-+)\s*$/, 'keyword'],
-                    [/^\s*((\*[ ]?)+)\s*$/, 'meta.separator'],
+                    [/^\s*(=+|-+)\s*$/, 'keyword'],
+                    [/^\s*([*][ ]?)+\s*$/, 'meta.separator'],
                     [/^\s*>+/, 'comment'],
-                    [/^\s*([\*\-+:]|\d+\.)\s/, 'keyword'],
+                    [/^\s*([*\-+:]|\d+\.)\s/, 'keyword'],
                     [/^(\t|[ ]{4})[^ ].*$/, 'string'],
-                    [/^\s*~~~\s*((?:\w|[\/\-#])+)?\s*$/, { token: 'string', next: '@codeblock' }],
-                    [/^\s*```\s*((?:\w|[\/\-#])+).*$/, { token: 'string', next: '@codeblockgh', nextEmbedded: '$1' }],
+                    [/^\s*~~~\s*((?:\w|[/#-])+)?\s*$/, { token: 'string', next: '@codeblock' }],
+                    [/^\s*```\s*((?:\w|[/#-])+).*$/, { token: 'string', next: '@codeblockgh', nextEmbedded: '$1' }],
                     [/^\s*```\s*$/, { token: 'string', next: '@codeblock' }],
                     { include: '@linecontent' }
                 ],
                 table_header: [
                     { include: '@table_common' },
-                    [/[^\|]+/, 'keyword.table.header']
+                    [/[^|]+/, 'keyword.table.header']
                 ],
                 table_body: [{ include: '@table_common' }, { include: '@linecontent' }],
                 table_common: [
-                    [/\s*[\-:]+\s*/, { token: 'keyword', switchTo: 'table_body' }],
+                    [/\s*[-:]+\s*/, { token: 'keyword', switchTo: 'table_body' }],
                     [/^\s*\|/, 'keyword.table.left'],
-                    [/^\s*[^\|]/, '@rematch', '@pop'],
+                    [/^\s*[^|]/, '@rematch', '@pop'],
                     [/^\s*$/, '@rematch', '@pop'],
                     [/\|/, { cases: { '@eos': 'keyword.table.right', '@default': 'keyword.table.middle' } }]
                 ],
@@ -351,26 +351,26 @@ export class MonacoEditor {
                     [/\*([^\\*]|@escapes)+\*/, 'emphasis'],
                     [/`([^\\`]|@escapes)+`/, 'variable'],
                     [/\{+[^}]+\}+/, 'string.target'],
-                    [/(!?\[)((?:[^\]\\]|@escapes)*)(\]\([^\)]+\))/, ['string.link', '', 'string.link']],
-                    [/(!?\[)((?:[^\]\\]|@escapes)*)(\])/, 'string.link'],
+                    [/(!?\[)((?:[^\]\\]|@escapes)*)(]\([^)]+\))/, ['string.link', '', 'string.link']],
+                    [/(!?\[)((?:[^\]\\]|@escapes)*)(])/, 'string.link'],
                     { include: 'html' }
                 ],
                 html: [
                     [/<(\w+)\/>/, 'tag'],
-                    [/<(\w+)(\-|\w)*/, {
+                    [/<(\w+)(-|\w)*/, {
                         cases: {
                             '@empty': { token: 'tag', next: '@tag.$1' },
                             '@default': { token: 'tag', next: '@tag.$1' }
                         }
                     }],
-                    [/<\/(\w+)(\-|\w)*\s*>/, { token: 'tag' }],
+                    [/<\/(\w+)(-|\w)*\s*>/, { token: 'tag' }],
                     [/<!--/, 'comment', '@comment']
                 ],
                 comment: [
-                    [/[^<\-]+/, 'comment.content'],
+                    [/[^<-]+/, 'comment.content'],
                     [/-->/, 'comment', '@pop'],
                     [/<!--/, 'comment.content.invalid'],
-                    [/[<\-]/, 'comment.content']
+                    [/[<-]/, 'comment.content']
                 ],
                 tag: [
                     [/[ \t\r\n]+/, 'white'],
