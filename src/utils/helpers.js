@@ -270,6 +270,19 @@ const MIME_TO_EXT = {
 /** 预计算的有效扩展名集合，避免每次调用时重建数组 */
 const VALID_EXTS = new Set(Object.values(MIME_TO_EXT));
 
+async function resolveTauriImageFilePath(path) {
+    const [{ appDataDir, join }, { sep }] = await Promise.all([
+        import('@tauri-apps/api/path'),
+        import('@tauri-apps/api/path')
+    ]);
+    const baseDir = await appDataDir();
+    const normalizedRelativePath = path
+        .replace(/^\/?imgs[\\/]/, `imgs${sep}`)
+        .replace(/^\/+/, '')
+        .replace(/[\\/]+/g, sep);
+    return join(baseDir, normalizedRelativePath);
+}
+
 /**
  * 生成随机字符串
  * @param {number} length - 字符串长度
@@ -376,6 +389,15 @@ export async function saveImage(path, blob) {
  * @returns {Promise<string|null>}
  */
 export function getImageUrl(path) {
+    if (window.__TAURI__) {
+        return import('@tauri-apps/api/core')
+            .then(async ({ convertFileSrc }) => convertFileSrc(await resolveTauriImageFilePath(path)))
+            .catch(err => {
+                console.warn('Failed to resolve Tauri image URL:', path, err);
+                return null;
+            });
+    }
+
     // 将 Promise 本身存入缓存：并发调用会复用同一个 Promise，
     // 不会重复读 IDB 或创建多个 Blob URL
     if (blobUrlCache.has(path)) return blobUrlCache.get(path);
@@ -408,9 +430,7 @@ export function getImageUrl(path) {
 export async function getImageAsBase64(path) {
     if (window.__TAURI__) {
         const { readFile } = window.__TAURI__.fs;
-        const { join, resourceDir } = window.__TAURI__.path;
-        const resourceDirPath = await resourceDir();
-        const fullPath = await join(resourceDirPath, path.replace(/^\/?/, ''));
+        const fullPath = await resolveTauriImageFilePath(path);
         const bytes = await readFile(fullPath);
         const ext = path.split('.').pop()?.toLowerCase() || 'png';
         const mimeTypes = {
@@ -541,11 +561,10 @@ export async function handlePastedImage(file, options = {}) {
     // Tauri 环境：保存到文件系统
     if (window.__TAURI__) {
         const { writeFile, mkdir } = window.__TAURI__.fs;
-        const { join, dirname, resourceDir } = window.__TAURI__.path;
+        const { dirname } = window.__TAURI__.path;
 
         const arrayBuffer = await file.arrayBuffer();
-        const resourceDirPath = await resourceDir();
-        const fullPath = await join(resourceDirPath, imagePath.slice(1));
+        const fullPath = await resolveTauriImageFilePath(imagePath);
         // 使用 Tauri 的 dirname API，兼容 Windows 反斜杠路径
         const dirPath = await dirname(fullPath);
 
@@ -564,9 +583,8 @@ export async function saveImageFromDataUrl(path, dataUrl) {
 
     if (window.__TAURI__) {
         const { writeFile, mkdir } = window.__TAURI__.fs;
-        const { join, dirname, resourceDir } = window.__TAURI__.path;
-        const resourceDirPath = await resourceDir();
-        const fullPath = await join(resourceDirPath, path.slice(1));
+        const { dirname } = window.__TAURI__.path;
+        const fullPath = await resolveTauriImageFilePath(path);
         const dirPath = await dirname(fullPath);
         const arrayBuffer = await blob.arrayBuffer();
 
@@ -606,9 +624,7 @@ export async function deleteImage(path) {
     if (window.__TAURI__) {
         try {
             const { remove } = window.__TAURI__.fs;
-            const { join, resourceDir } = window.__TAURI__.path;
-            const resourceDirPath = await resourceDir();
-            const fullPath = await join(resourceDirPath, path.replace(/^\/?/, ''));
+            const fullPath = await resolveTauriImageFilePath(path);
             await remove(fullPath);
         } catch {
             // 文件可能不存在，忽略错误

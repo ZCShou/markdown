@@ -10,9 +10,10 @@ const __dirname = path.dirname(__filename);
 loadDotEnv(path.resolve(__dirname, '..', '.env'));
 
 const PORT = Number(process.env.OAUTH_BRIDGE_PORT || 3001);
+const REQUEST_BODY_LIMIT = process.env.OAUTH_BRIDGE_BODY_LIMIT || '50mb';
 const app = express();
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -483,6 +484,19 @@ app.post('/api/workspace/snapshot/sync', async (req, res) => {
     } catch (error) {
         makeJsonError(res, 500, error.message || '同步工作空间快照失败');
     }
+});
+
+app.use((error, _req, res, next) => {
+    if (error?.type === 'entity.too.large') {
+        makeJsonError(
+            res,
+            413,
+            `请求体过大，已超过 bridge 限制（当前 ${REQUEST_BODY_LIMIT}）。`
+        );
+        return;
+    }
+
+    next(error);
 });
 
 app.listen(PORT, () => {

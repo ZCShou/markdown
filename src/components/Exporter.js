@@ -385,46 +385,16 @@ ${html}
     async #loadImageAsBase64(src) {
         // Tauri 环境：从文件系统读取
         if (window.__TAURI__) {
-            const { readFile } = window.__TAURI__.fs;
-            const { join, resourceDir } = window.__TAURI__.path;
-
-            const resourceDirPath = await resourceDir();
-            const fullPath = await join(resourceDirPath, src.replace(/^\/?/, ''));
-
             try {
-                const uint8Array = await readFile(fullPath);
-                // 根据扩展名推断 MIME 类型
-                const ext = src.split('.').pop()?.toLowerCase() || 'png';
-                const mimeTypes = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
-                const mime = mimeTypes[ext] || 'image/png';
-                // 使用高效的方式转换 Uint8Array 到 Base64（避免 call stack overflow 和性能问题）
-                const base64 = this.#uint8ArrayToBase64(uint8Array);
-                return `data:${mime};base64,${base64}`;
+                return await getImageAsBase64(src);
             } catch (err) {
-                console.warn('Failed to read image file:', fullPath, err);
+                console.warn('Failed to read image file:', src, err);
                 return null;
             }
         }
 
         // Web 环境：从 IndexedDB 读取
         return getImageAsBase64(src);
-    }
-
-    /**
-     * 高效地将 Uint8Array 转换为 Base64 字符串
-     * 分块处理以避免大文件的 call stack overflow
-     * @param {Uint8Array} bytes - 字节数组
-     * @returns {string} Base64 编码字符串
-     * @private
-     */
-    #uint8ArrayToBase64(bytes) {
-        const CHUNK_SIZE = 8192; // 每次处理 8KB
-        let result = '';
-        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-            const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
-            result += String.fromCharCode.apply(null, Array.from(chunk));
-        }
-        return btoa(result);
     }
 
     /**

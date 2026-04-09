@@ -1031,9 +1031,6 @@ export class Preview extends BaseComponent {
      * @private
      */
     async #processInternalImages() {
-        // 检查是否在 Tauri 环境中（Tauri 环境不需要处理）
-        if (window.__TAURI__) return;
-
         const images = dom.getAllIn(this.container, 'img[data-src]');
         // 并行加载所有内部图片，避免串行等待
         await Promise.all(Array.from(images).map(async (img) => {
