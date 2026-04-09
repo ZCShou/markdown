@@ -7,7 +7,12 @@ import DOMPurify from 'dompurify';
 import Prism from 'prismjs';
 import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
-import { isInternalImagePath, getImageUrl, decodeHtmlEntities } from '../utils/helpers.js';
+import {
+    isInternalImagePath,
+    getImageAsBase64,
+    getImageUrl,
+    decodeHtmlEntities
+} from '../utils/helpers.js';
 
 let mermaidModulePromise = null;
 let katexModulePromise = null;
@@ -1037,9 +1042,11 @@ export class Preview extends BaseComponent {
             const dataSrc = img.getAttribute('data-src');
             if (!dataSrc) return;
             try {
-                const blobUrl = await getImageUrl(dataSrc);
-                if (blobUrl) {
-                    img.src = blobUrl;
+                const resolvedSrc =
+                    (window.__TAURI__ ? await getImageAsBase64(dataSrc) : null) ||
+                    (await getImageUrl(dataSrc));
+                if (resolvedSrc) {
+                    img.src = resolvedSrc;
                     // 保留 data-src 属性供导出使用
                 }
             } catch (error) {

@@ -390,12 +390,33 @@ export async function saveImage(path, blob) {
  */
 export function getImageUrl(path) {
     if (window.__TAURI__) {
-        return import('@tauri-apps/api/core')
-            .then(async ({ convertFileSrc }) => convertFileSrc(await resolveTauriImageFilePath(path)))
-            .catch(err => {
-                console.warn('Failed to resolve Tauri image URL:', path, err);
-                return null;
-            });
+        if (blobUrlCache.has(path)) return blobUrlCache.get(path);
+
+        const promise = (async () => {
+            const fullPath = await resolveTauriImageFilePath(path);
+            const { readFile } = window.__TAURI__.fs;
+            const bytes = await readFile(fullPath);
+            const ext = path.split('.').pop()?.toLowerCase() || 'png';
+            const mimeTypes = {
+                png: 'image/png',
+                jpg: 'image/jpeg',
+                jpeg: 'image/jpeg',
+                gif: 'image/gif',
+                webp: 'image/webp',
+                svg: 'image/svg+xml',
+                bmp: 'image/bmp',
+                tiff: 'image/tiff'
+            };
+            const mime = mimeTypes[ext] || 'image/png';
+            return URL.createObjectURL(new Blob([bytes], { type: mime }));
+        })().catch(err => {
+            blobUrlCache.delete(path);
+            console.warn('Failed to resolve Tauri image URL:', path, err);
+            return null;
+        });
+
+        blobUrlCache.set(path, promise);
+        return promise;
     }
 
     // 将 Promise 本身存入缓存：并发调用会复用同一个 Promise，
