@@ -224,7 +224,7 @@ export class WorkspaceManager {
 
         this.isApplyingRemoteSnapshot = true;
         try {
-            this.state.applyWorkspaceSnapshot(snapshot);
+            this.state.applyWorkspaceSnapshot(snapshot, { preserveCurrentDocument: true });
         } finally {
             this.isApplyingRemoteSnapshot = false;
         }

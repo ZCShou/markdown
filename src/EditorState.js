@@ -1081,7 +1081,15 @@ $$
     applyWorkspaceSnapshot(snapshot, options = {}) {
         const parsed = parseWorkspaceSnapshot(snapshot);
         const { documents, currentDocId, tombstones } = parsed;
+        const preferredCurrentDocId = options.preserveCurrentDocument
+            ? this.#state.currentDocId
+            : currentDocId;
         const nextCurrentDoc =
+            documents.find(
+                doc =>
+                    doc.id === preferredCurrentDocId &&
+                    doc.type === EditorState.RESOURCE_TYPES.FILE
+            ) ||
             documents.find(doc => doc.id === currentDocId && doc.type === EditorState.RESOURCE_TYPES.FILE) ||
             documents.find(doc => doc.type === EditorState.RESOURCE_TYPES.FILE) ||
             null;
