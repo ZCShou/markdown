@@ -1,6 +1,5 @@
 import {
     deleteImage,
-    extractImagePaths,
     getImageAsBase64,
     saveImageFromDataUrl
 } from '../utils/helpers.js';
