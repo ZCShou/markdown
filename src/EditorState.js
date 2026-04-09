@@ -542,6 +542,7 @@ $$
             currentDocId: savedDocId,
             settings: savedSettings
         } = await WorkspaceStorage.loadLocalWorkspaceSnapshot();
+        const workspaceAuth = await WorkspaceStorage.loadWorkspaceAuth();
         const defaultSettings = EditorState.createDefaultSettings();
 
         // 合并保存的设置和默认设置
@@ -628,6 +629,20 @@ $$
             export: settings.export,
             workspace: settings.workspace
         });
+
+        if (workspaceAuth?.connected && workspaceAuth.provider && workspaceAuth.accessToken) {
+            this.#state.workspace = {
+                ...this.#state.workspace,
+                provider: workspaceAuth.provider,
+                connected: true,
+                accessToken: workspaceAuth.accessToken,
+                accountName: workspaceAuth.accountName || '',
+                owner: workspaceAuth.owner || '',
+                repoUrl: workspaceAuth.repoUrl || '',
+                lastSyncStatus: 'connected',
+                lastSyncError: ''
+            };
+        }
     }
 
     /**

@@ -1,5 +1,6 @@
 import { getWorkspaceOAuthClientId } from './defaults.js';
 import { startWorkspaceOAuth } from './oauth.js';
+import { WorkspaceStorage } from './storage.js';
 import { isTauriRuntime } from './tauri.js';
 import { fetchWorkspaceOAuthClientId, invokeWorkspaceBackend } from './runtime.js';
 
@@ -88,6 +89,15 @@ export class WorkspaceManager {
             lastSyncError: ''
         });
 
+        WorkspaceStorage.saveWorkspaceAuth({
+            provider,
+            connected: true,
+            accessToken: tokenResult.accessToken,
+            accountName: tokenResult.login || '',
+            owner: repoResult.owner,
+            repoUrl: repoResult.htmlUrl
+        });
+
         await this.syncNow();
     }
 
@@ -97,6 +107,7 @@ export class WorkspaceManager {
         this.clearSyncTimer();
         this.pendingSync = false;
         this.lastSyncedSnapshot = '';
+        WorkspaceStorage.clearWorkspaceAuth();
         this.state.updateWorkspaceConfig({
             connected: false,
             provider: null,
@@ -173,6 +184,14 @@ export class WorkspaceManager {
             });
 
             this.lastSyncedSnapshot = snapshot;
+            WorkspaceStorage.saveWorkspaceAuth({
+                provider: workspace.provider,
+                connected: true,
+                accessToken: workspace.accessToken,
+                accountName: workspace.accountName,
+                owner: workspace.owner,
+                repoUrl: workspace.repoUrl
+            });
             this.state.updateWorkspaceConfig({
                 lastSyncedAt: new Date().toISOString(),
                 lastSyncStatus: 'synced',

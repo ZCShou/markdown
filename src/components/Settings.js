@@ -150,6 +150,7 @@ export class Settings {
             workspaceProviderSelect: dom.get('#setting-workspace-provider-select'),
             workspaceConnectCurrentBtn: dom.get('#workspace-connect-current'),
             workspaceDisconnectBtn: dom.get('#workspace-disconnect'),
+            workspaceSyncBtn: dom.get('#workspace-sync-now'),
             workspaceRuntimeNote: dom.get('#workspace-runtime-note'),
             workspaceStatusText: dom.get('#workspace-status-text'),
             workspacePlatformGroup: dom.get('#settings-workspace-platform-group'),
@@ -253,25 +254,21 @@ export class Settings {
     }
 
     async refreshWorkspaceRuntimeState(force = false) {
+        const provider = this.cachedElements?.workspaceProviderSelect?.value || 'local';
+
         if (isTauriRuntime()) {
             this.workspaceBridgeAvailable = true;
             this.workspaceBridgeChecking = false;
-            this.updateWorkspaceProviderSettings(
-                this.cachedElements?.workspaceProviderSelect?.value || 'local'
-            );
+            this.updateWorkspaceProviderSettings(provider);
             return;
         }
 
         this.workspaceBridgeChecking = true;
-        this.updateWorkspaceProviderSettings(
-            this.cachedElements?.workspaceProviderSelect?.value || 'local'
-        );
+        this.updateWorkspaceProviderSettings(provider);
 
         this.workspaceBridgeAvailable = await checkWorkspaceBridgeAvailability(force);
         this.workspaceBridgeChecking = false;
-        this.updateWorkspaceProviderSettings(
-            this.cachedElements?.workspaceProviderSelect?.value || 'local'
-        );
+        this.updateWorkspaceProviderSettings(provider);
     }
 
     /**
@@ -329,14 +326,20 @@ export class Settings {
         if (!this.cachedElements) return;
 
         const editor = this.state.get('editor') || {};
-        const codemirror = editor.codemirror || {};
-        const monaco = editor.monaco || {};
         const interfaceState = this.state.get('interface') || {};
         const exportConfig = this.state.get('export') || {};
         const workspace = this.state.get('workspace') || {};
-        const selectedWorkspaceProvider = this.getSelectedWorkspaceProvider(workspace);
+        this.loadEditorSettingsToUI(editor);
+        this.loadInterfaceSettingsToUI(interfaceState);
+        this.loadExportSettingsToUI(exportConfig);
+        this.loadWorkspaceSettingsToUI(workspace);
+        this.renderWorkspaceSummary(workspace);
+    }
 
-        // 通用编辑器设置
+    loadEditorSettingsToUI(editor = {}) {
+        const codemirror = editor.codemirror || {};
+        const monaco = editor.monaco || {};
+
         this.#setInputValue(this.cachedElements.editorTypeSelect, editor.type, 'monaco');
         this.#setInputValue(this.cachedElements.fontSizeInput, editor.fontSize, null);
         this.#setInputValue(this.cachedElements.lineHeightInput, editor.lineHeight, 1.6);
@@ -350,7 +353,6 @@ export class Settings {
             true
         );
 
-        // CodeMirror 设置
         this.#setInputChecked(this.cachedElements.cmLineNumbersInput, codemirror.lineNumbers, true);
         this.#setInputChecked(
             this.cachedElements.cmBracketMatchingInput,
@@ -363,7 +365,6 @@ export class Settings {
             false
         );
 
-        // Monaco 设置
         this.#setInputChecked(this.cachedElements.monacoMinimapInput, monaco.minimap, true);
         this.#setInputChecked(
             this.cachedElements.monacoBracketPairColorizationInput,
@@ -387,10 +388,10 @@ export class Settings {
         );
         this.#setInputChecked(this.cachedElements.monacoStickyScrollInput, monaco.stickyScroll, true);
 
-        // 根据编辑器类型显示/隐藏对应的设置组
         this.updateEditorSpecificSettings(editor.type || 'monaco');
+    }
 
-        // 界面配置
+    loadInterfaceSettingsToUI(interfaceState = {}) {
         this.#setInputValue(this.cachedElements.themeSelect, interfaceState.theme, 'auto');
 
         const leftRatioPercent = Math.round((interfaceState.leftRatio ?? 0.5) * 100);
@@ -414,8 +415,9 @@ export class Settings {
             interfaceState.syncScrollEnabled,
             true
         );
+    }
 
-        // 导出配置
+    loadExportSettingsToUI(exportConfig = {}) {
         this.#setInputChecked(
             this.cachedElements.exportStyleInput,
             exportConfig.includeStyle,
@@ -426,8 +428,11 @@ export class Settings {
             exportConfig.codeHighlight,
             true
         );
+    }
 
-        // 工作空间配置
+    loadWorkspaceSettingsToUI(workspace = {}) {
+        const selectedWorkspaceProvider = this.getSelectedWorkspaceProvider(workspace);
+
         this.#setInputValue(
             this.cachedElements.workspaceRepoNameInput,
             workspace.repoName,
@@ -455,7 +460,6 @@ export class Settings {
         );
 
         this.updateWorkspaceProviderSettings(selectedWorkspaceProvider);
-        this.renderWorkspaceSummary(workspace);
     }
 
     /**
@@ -473,7 +477,7 @@ export class Settings {
     }
 
     getSelectedWorkspaceProvider(workspace = this.state.get('workspace') || {}) {
-        if (workspace.provider === 'local' || workspace.provider === 'github' || workspace.provider === 'gitee') {
+        if (workspace.provider === 'local' || this.isRemoteWorkspaceProvider(workspace.provider)) {
             return workspace.provider;
         }
         return 'local';
@@ -487,42 +491,87 @@ export class Settings {
     }
 
     getWorkspaceProviderActionLabel(provider) {
-        if (provider === 'github') {
-            return '退出 GitHub';
+        return `退出 ${this.getWorkspaceProviderLabel(provider) || '当前平台'}`;
+    }
+
+    getWorkspaceProviderLabel(provider) {
+        if (provider === 'github') return 'GitHub';
+        if (provider === 'gitee') return 'Gitee';
+        if (provider === 'local') return '本地浏览器';
+        return '';
+    }
+
+    isRemoteWorkspaceProvider(provider) {
+        return provider === 'github' || provider === 'gitee';
+    }
+
+    getWorkspaceRuntimeNote(provider, remoteSupported) {
+        if (!this.isRemoteWorkspaceProvider(provider)) {
+            return provider === 'local'
+                ? '本地浏览器模式会将工作空间保存到当前设备的浏览器存储中。'
+                : '';
         }
-        if (provider === 'gitee') {
-            return '退出 Gitee';
+
+        if (this.workspaceBridgeChecking) {
+            return '正在检查远程工作空间服务可用性...';
         }
-        return '退出当前平台';
+
+        if (!isTauriRuntime() && getWorkspaceBridgeBaseUrl()) {
+            return '当前浏览器环境将通过配置的 OAuth bridge 完成授权和同步。';
+        }
+
+        if (!isTauriRuntime()) {
+            return remoteSupported
+                ? '当前浏览器环境会通过内置 OAuth bridge 完成授权和同步；本地开发直接运行 `npm run dev` 即可。'
+                : '当前浏览器环境未检测到可用的 OAuth bridge；本地开发请确认使用 `npm run dev` 启动。';
+        }
+
+        return '';
+    }
+
+    getWorkspaceViewState(workspace = this.state.get('workspace') || {}) {
+        const selectedProvider = this.getCurrentWorkspaceProvider(workspace);
+        const selectedRemoteProvider = this.isRemoteWorkspaceProvider(selectedProvider);
+        const remoteSupported = isTauriRuntime() || this.workspaceBridgeAvailable;
+        const connectedForSelectedProvider =
+            workspace.connected && workspace.provider === selectedProvider;
+
+        return {
+            selectedProvider,
+            selectedRemoteProvider,
+            remoteSupported,
+            connectedForSelectedProvider,
+            providerLabel: this.getWorkspaceProviderLabel(selectedProvider)
+        };
+    }
+
+    async ensureWorkspaceBridgeAvailable() {
+        if (isTauriRuntime()) {
+            return true;
+        }
+
+        return checkWorkspaceBridgeAvailability();
     }
 
     updateWorkspaceProviderSettings(provider) {
         const remoteSupported = isTauriRuntime() || this.workspaceBridgeAvailable;
-        const remoteProvider = provider === 'github' || provider === 'gitee';
+        const remoteProvider = this.isRemoteWorkspaceProvider(provider);
+        const providerLabel = this.getWorkspaceProviderLabel(provider);
 
         if (this.cachedElements?.workspaceConnectCurrentBtn) {
             this.cachedElements.workspaceConnectCurrentBtn.innerHTML =
                 provider === 'local'
                     ? '<i class="codicon codicon-device-desktop" aria-hidden="true"></i><span>切换到本地浏览器</span>'
-                    : `<i class="codicon codicon-sign-in" aria-hidden="true"></i><span>登录 ${provider === 'gitee' ? 'Gitee' : 'GitHub'}</span>`;
+                    : `<i class="codicon codicon-sign-in" aria-hidden="true"></i><span>登录 ${providerLabel}</span>`;
             this.cachedElements.workspaceConnectCurrentBtn.disabled =
                 remoteProvider && (!remoteSupported || this.workspaceBridgeChecking);
         }
 
         if (this.cachedElements?.workspaceRuntimeNote) {
-            this.cachedElements.workspaceRuntimeNote.textContent =
-                remoteProvider && this.workspaceBridgeChecking
-                    ? '正在检查远程工作空间服务可用性...'
-                    :
-                remoteProvider && !isTauriRuntime() && getWorkspaceBridgeBaseUrl()
-                    ? '当前浏览器环境将通过配置的 OAuth bridge 完成授权和同步。'
-                    : remoteProvider && !isTauriRuntime()
-                        ? remoteSupported
-                            ? '当前浏览器环境会通过内置 OAuth bridge 完成授权和同步；本地开发直接运行 `npm run dev` 即可。'
-                            : '当前浏览器环境未检测到可用的 OAuth bridge；本地开发请确认使用 `npm run dev` 启动。'
-                        : provider === 'local'
-                            ? '本地浏览器模式会将工作空间保存到当前设备的浏览器存储中。'
-                        : '';
+            this.cachedElements.workspaceRuntimeNote.textContent = this.getWorkspaceRuntimeNote(
+                provider,
+                remoteSupported
+            );
         }
 
         if (this.cachedElements?.workspacePlatformGroup) {
@@ -541,9 +590,8 @@ export class Settings {
             );
         }
 
-        const syncButton = dom.get('#workspace-sync-now');
-        if (syncButton) {
-            syncButton.disabled =
+        if (this.cachedElements?.workspaceSyncBtn) {
+            this.cachedElements.workspaceSyncBtn.disabled =
                 provider === 'local' ||
                 (remoteProvider && (!remoteSupported || this.workspaceBridgeChecking));
         }
@@ -573,11 +621,19 @@ export class Settings {
      * 从 UI 读取设置并更新到 state
      */
     readSettingsFromUI() {
-        // 读取通用编辑器配置 - 使用缓存的元素
+        const editorConfig = this.readEditorSettingsFromUI();
+        const interfaceConfig = this.readInterfaceSettingsFromUI();
+        const exportConfig = this.readExportSettingsFromUI();
+        const workspaceConfig = this.readWorkspaceSettingsFromUI();
+
+        return { editorConfig, interfaceConfig, exportConfig, workspaceConfig };
+    }
+
+    readEditorSettingsFromUI() {
         const fontSizeValue = this.cachedElements.fontSizeInput?.value;
         const fontSize = fontSizeValue ? parseInt(fontSizeValue) : null;
 
-        const editorConfig = {
+        return {
             type: this.cachedElements.editorTypeSelect?.value || 'monaco',
             fontSize,
             lineHeight: parseFloat(this.cachedElements.lineHeightInput?.value) || 1.6,
@@ -606,9 +662,10 @@ export class Settings {
                 stickyScroll: this.cachedElements.monacoStickyScrollInput?.checked ?? true
             }
         };
+    }
 
-        // 读取界面配置
-        const interfaceConfig = {
+    readInterfaceSettingsFromUI() {
+        return {
             theme: this.cachedElements.themeSelect?.value || 'auto',
             layout: this.cachedElements.layoutSelect?.value || 'layout-both',
             leftRatio: (parseInt(this.cachedElements.leftRatioInput?.value) || 50) / 100,
@@ -616,28 +673,30 @@ export class Settings {
             rightSidebarOpen: this.cachedElements.rightSidebarInput?.checked || false,
             syncScrollEnabled: this.cachedElements.syncScrollEnabledInput?.checked ?? true
         };
+    }
 
-        // 读取导出配置
-        const exportConfig = {
+    readExportSettingsFromUI() {
+        return {
             includeStyle: this.cachedElements.exportStyleInput?.checked || false,
             codeHighlight: this.cachedElements.exportHighlightInput?.checked || false
         };
+    }
 
+    readWorkspaceSettingsFromUI() {
         const currentWorkspace = this.state.get('workspace') || {};
         const selectedProvider =
             this.cachedElements.workspaceProviderSelect?.value ||
             this.getSelectedWorkspaceProvider(currentWorkspace);
-        const workspaceConfig = {
+
+        return {
             provider: selectedProvider,
             repoName: this.cachedElements.workspaceRepoNameInput?.value?.trim() || 'markdown-workspace',
             repoDescription:
                 this.cachedElements.workspaceRepoDescriptionInput?.value?.trim() ||
                 'Markdown workspace data',
             repoPrivate: this.cachedElements.workspaceRepoPrivateInput?.checked ?? true,
-            autoSync: this.cachedElements.workspaceAutoSyncInput?.checked ?? true,
+            autoSync: this.cachedElements.workspaceAutoSyncInput?.checked ?? true
         };
-
-        return { editorConfig, interfaceConfig, exportConfig, workspaceConfig };
     }
 
     /**
@@ -698,19 +757,22 @@ export class Settings {
         const interfaceState = this.state.get('interface') || {};
         const workspace = this.state.get('workspace') || {};
 
-        // 应用字体大小
-        if (this.cachedElements?.editorElement) {
-            if (editor.fontSize !== null && editor.fontSize !== undefined) {
-                this.cachedElements.editorElement.style.fontSize = `${editor.fontSize}px`;
-            } else {
-                this.cachedElements.editorElement.style.fontSize = '';
-            }
-            this.cachedElements.editorElement.style.lineHeight = editor.lineHeight ?? 1.6;
-        }
-
-        // 应用主题
+        this.applyEditorAppearance(editor);
         this.applyTheme(interfaceState.theme ?? 'auto');
         this.renderWorkspaceSummary(workspace);
+    }
+
+    applyEditorAppearance(editor = {}) {
+        if (!this.cachedElements?.editorElement) {
+            return;
+        }
+
+        if (editor.fontSize !== null && editor.fontSize !== undefined) {
+            this.cachedElements.editorElement.style.fontSize = `${editor.fontSize}px`;
+        } else {
+            this.cachedElements.editorElement.style.fontSize = '';
+        }
+        this.cachedElements.editorElement.style.lineHeight = editor.lineHeight ?? 1.6;
     }
 
     renderWorkspaceSummary(workspace = this.state.get('workspace') || {}) {
@@ -718,11 +780,12 @@ export class Settings {
             this.cachedElements.workspaceProviderSelect.value = this.getSelectedWorkspaceProvider(workspace);
         }
 
-        const selectedProvider = this.getCurrentWorkspaceProvider(workspace);
-        const connectedForSelectedProvider =
-            workspace.connected && workspace.provider === selectedProvider;
-        const selectedRemoteProvider =
-            selectedProvider === 'github' || selectedProvider === 'gitee';
+        const {
+            selectedProvider,
+            selectedRemoteProvider,
+            connectedForSelectedProvider,
+            providerLabel
+        } = this.getWorkspaceViewState(workspace);
 
         this.updateWorkspaceProviderSettings(selectedProvider);
 
@@ -740,12 +803,6 @@ export class Settings {
         }
 
         if (this.cachedElements?.workspacePlatformStatusText) {
-            const providerLabel =
-                selectedProvider === 'gitee'
-                    ? 'Gitee'
-                    : selectedProvider === 'github'
-                        ? 'GitHub'
-                        : '';
             this.cachedElements.workspacePlatformStatusText.textContent =
                 connectedForSelectedProvider && providerLabel
                     ? `已登录 ${providerLabel}${workspace.accountName ? `（${workspace.accountName}）` : ''}`
@@ -753,7 +810,7 @@ export class Settings {
                         ? `未登录 ${providerLabel}`
                         : '未登录';
             this.cachedElements.workspacePlatformStatusText.style.display =
-                connectedForSelectedProvider ? '' : 'none';
+                selectedRemoteProvider ? '' : 'none';
         }
 
         if (this.cachedElements?.workspaceConnectCurrentBtn) {
@@ -780,9 +837,8 @@ export class Settings {
             const targetProvider = provider || workspaceConfig.provider || 'github';
 
             if (
-                (targetProvider === 'github' || targetProvider === 'gitee') &&
-                !isTauriRuntime() &&
-                !(await checkWorkspaceBridgeAvailability())
+                this.isRemoteWorkspaceProvider(targetProvider) &&
+                !(await this.ensureWorkspaceBridgeAvailable())
             ) {
                 this.state.showNotification(
                     '当前环境未检测到可用的远程工作空间服务，请确认 bridge 已启动，或配置 `VITE_WORKSPACE_BRIDGE_BASE_URL`。',
@@ -833,11 +889,13 @@ export class Settings {
 
         try {
             const workspace = this.state.get('workspace') || {};
-            if ((workspace.provider || this.cachedElements?.workspaceProviderSelect?.value) === 'local') {
+            const { selectedProvider } = this.getWorkspaceViewState(workspace);
+
+            if (selectedProvider === 'local') {
                 this.state.showNotification('本地浏览器模式不需要远程同步', 'info');
                 return;
             }
-            if (!isTauriRuntime() && !(await checkWorkspaceBridgeAvailability())) {
+            if (!(await this.ensureWorkspaceBridgeAvailable())) {
                 this.state.showNotification(
                     '当前环境未检测到可用的远程工作空间服务，请确认 bridge 已启动，或配置 `VITE_WORKSPACE_BRIDGE_BASE_URL`。',
                     'warning'

@@ -24,7 +24,8 @@ const STORES = {
 const KEYS = {
     DOCUMENTS: 'documents',
     CURRENT_DOC_ID: 'currentDocId',
-    SETTINGS: 'settings'
+    SETTINGS: 'settings',
+    WORKSPACE_AUTH: 'workspaceAuth'
 };
 
 function openDatabase() {
@@ -160,6 +161,22 @@ export class WorkspaceStorage {
 
     static loadSettings() {
         return getData(KEYS.SETTINGS);
+    }
+
+    static saveWorkspaceAuth(auth) {
+        return setData(KEYS.WORKSPACE_AUTH, auth);
+    }
+
+    static async loadWorkspaceAuth() {
+        const auth = await getData(KEYS.WORKSPACE_AUTH);
+        if (!auth || typeof auth !== 'object') {
+            return null;
+        }
+        return auth;
+    }
+
+    static clearWorkspaceAuth() {
+        return setData(KEYS.WORKSPACE_AUTH, null);
     }
 
     static async loadLocalWorkspaceSnapshot() {
