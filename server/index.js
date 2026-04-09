@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { mergeWorkspaceSnapshots as mergeWorkspaceSnapshotData } from '../src/workspace/snapshot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,6 +104,10 @@ function encodeBase64(value) {
     return Buffer.from(value, 'utf8').toString('base64');
 }
 
+function decodeBase64(value) {
+    return Buffer.from(String(value || '').replace(/\s+/g, ''), 'base64').toString('utf8');
+}
+
 async function fetchUserLogin(provider, accessToken) {
     const api = getProviderApi(provider);
 
@@ -151,6 +156,39 @@ async function getExistingFileSha(provider, accessToken, owner, repo, pathName, 
     }
 
     return result.sha || null;
+}
+
+async function getFileContents(provider, accessToken, owner, repo, pathName, branch) {
+    const url =
+        provider === 'github'
+            ? `https://api.github.com/repos/${owner}/${repo}/contents/${pathName}?ref=${encodeURIComponent(branch)}`
+            : `https://gitee.com/api/v5/repos/${owner}/${repo}/contents/${pathName}?access_token=${encodeURIComponent(accessToken)}&ref=${encodeURIComponent(branch)}`;
+
+    const response = await fetch(url, {
+        headers:
+            provider === 'github'
+                ? {
+                    Accept: 'application/vnd.github+json',
+                    Authorization: `Bearer ${accessToken}`,
+                    'User-Agent': 'markdown-workspace-bridge'
+                }
+                : undefined
+    });
+
+    if (response.status === 404) {
+        return null;
+    }
+
+    const result = await parseJsonResponse(response);
+    if (!response.ok) {
+        throw new Error(result.message || '读取远程工作空间文件失败');
+    }
+
+    if (!result?.content) {
+        return null;
+    }
+
+    return decodeBase64(result.content);
 }
 
 async function putFileContents(provider, accessToken, owner, repo, branch, workspaceDir, fileName, content, message) {
@@ -413,6 +451,22 @@ app.post('/api/workspace/snapshot/sync', async (req, res) => {
             snapshotJson
         } = req.body || {};
 
+        const remoteSnapshotJson =
+            (await getFileContents(
+                provider,
+                accessToken,
+                owner,
+                repo,
+                `${workspaceDir}/workspace.json`,
+                branch
+            )) || '';
+
+        const mergedSnapshotJson = JSON.stringify(
+            mergeWorkspaceSnapshotData(snapshotJson, remoteSnapshotJson),
+            null,
+            2
+        );
+
         await putFileContents(
             provider,
             accessToken,
@@ -421,11 +475,11 @@ app.post('/api/workspace/snapshot/sync', async (req, res) => {
             branch,
             workspaceDir,
             'workspace.json',
-            snapshotJson,
+            mergedSnapshotJson,
             'chore: sync markdown workspace'
         );
 
-        res.json({ success: true });
+        res.json({ success: true, snapshotJson: mergedSnapshotJson });
     } catch (error) {
         makeJsonError(res, 500, error.message || '同步工作空间快照失败');
     }

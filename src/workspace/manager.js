@@ -1,15 +1,9 @@
 import { getWorkspaceOAuthClientId } from './defaults.js';
+import { buildWorkspaceSnapshot as createWorkspaceSnapshot } from './snapshot.js';
 import { startWorkspaceOAuth } from './oauth.js';
 import { WorkspaceStorage } from './storage.js';
 import { isTauriRuntime } from './tauri.js';
 import { fetchWorkspaceOAuthClientId, invokeWorkspaceBackend } from './runtime.js';
-
-export function buildWorkspaceSnapshot(state) {
-    return {
-        currentDocId: state.get('currentDocId'),
-        documents: state.get('documents', true) || []
-    };
-}
 
 export class WorkspaceManager {
     constructor(state) {
@@ -158,7 +152,15 @@ export class WorkspaceManager {
         this.clearSyncTimer();
 
         try {
-            const snapshot = JSON.stringify(buildWorkspaceSnapshot(this.state), null, 2);
+            const snapshot = JSON.stringify(
+                createWorkspaceSnapshot(
+                    this.state.get('documents', true) || [],
+                    this.state.get('currentDocId'),
+                    this.state.get('workspaceTombstones', true) || []
+                ),
+                null,
+                2
+            );
 
             if (snapshot === this.lastSyncedSnapshot) {
                 this.state.updateWorkspaceConfig({
@@ -173,7 +175,7 @@ export class WorkspaceManager {
                 lastSyncError: ''
             });
 
-            await invokeWorkspaceBackend('workspace_sync_snapshot', {
+            const syncResult = await invokeWorkspaceBackend('workspace_sync_snapshot', {
                 provider: workspace.provider,
                 accessToken: workspace.accessToken,
                 owner: workspace.owner,
@@ -183,7 +185,7 @@ export class WorkspaceManager {
                 snapshotJson: snapshot
             });
 
-            this.lastSyncedSnapshot = snapshot;
+            this.lastSyncedSnapshot = syncResult?.snapshotJson || snapshot;
             WorkspaceStorage.saveWorkspaceAuth({
                 provider: workspace.provider,
                 connected: true,

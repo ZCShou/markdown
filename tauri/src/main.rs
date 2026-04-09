@@ -54,6 +54,13 @@ struct RepoEnsureResponse {
     default_branch: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceSyncResponse {
+    success: bool,
+    snapshot_json: String,
+}
+
 #[derive(Deserialize)]
 struct GithubTokenResponse {
     access_token: Option<String>,
@@ -79,6 +86,16 @@ struct RepoResponse {
     name: Option<String>,
     html_url: Option<String>,
     default_branch: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct WorkspaceSnapshot {
+    #[serde(rename = "currentDocId")]
+    current_doc_id: Option<String>,
+    documents: Option<Vec<Value>>,
+    tombstones: Option<Vec<Value>>,
+    #[serde(rename = "deletedDocs")]
+    deleted_docs: Option<Vec<Value>>,
 }
 
 fn github_client() -> Result<reqwest::Client, String> {
@@ -123,6 +140,170 @@ fn extract_http_error(prefix: &str, status: reqwest::StatusCode, body: &str) -> 
     }
 
     format!("{prefix} ({status}): {body}")
+}
+
+fn decode_base64_to_string(value: &str) -> Result<String, String> {
+    let sanitized = value.replace(char::is_whitespace, "");
+    let bytes = STANDARD.decode(sanitized).map_err(|err| err.to_string())?;
+    String::from_utf8(bytes).map_err(|err| err.to_string())
+}
+
+fn parse_workspace_snapshot(snapshot_json: &str) -> WorkspaceSnapshot {
+    serde_json::from_str(snapshot_json).unwrap_or(WorkspaceSnapshot {
+        current_doc_id: None,
+        documents: Some(Vec::new()),
+        tombstones: Some(Vec::new()),
+        deleted_docs: Some(Vec::new()),
+    })
+}
+
+fn normalize_workspace_documents(documents: Option<Vec<Value>>) -> Vec<Value> {
+    documents
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|doc| doc.is_object() && doc.get("id").and_then(Value::as_str).is_some())
+        .collect()
+}
+
+fn normalize_workspace_tombstones(
+    tombstones: Option<Vec<Value>>,
+    deleted_docs: Option<Vec<Value>>,
+) -> Vec<Value> {
+    tombstones
+        .or(deleted_docs)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|tombstone| {
+            tombstone.is_object()
+                && tombstone.get("id").and_then(Value::as_str).is_some()
+                && tombstone.get("deletedAt").and_then(Value::as_str).is_some()
+        })
+        .collect()
+}
+
+fn get_doc_updated_at(doc: &Value) -> &str {
+    doc.get("updatedAt").and_then(Value::as_str).unwrap_or("")
+}
+
+fn get_deleted_at(tombstone: &Value) -> &str {
+    tombstone.get("deletedAt").and_then(Value::as_str).unwrap_or("")
+}
+
+fn merge_workspace_tombstones(base: Vec<Value>, incoming: Vec<Value>) -> Vec<Value> {
+    let mut merged = base;
+
+    for tombstone in incoming {
+        let Some(tombstone_id) = tombstone.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+
+        if let Some(index) = merged
+            .iter()
+            .position(|item| item.get("id").and_then(Value::as_str) == Some(tombstone_id))
+        {
+            if get_deleted_at(&tombstone) >= get_deleted_at(&merged[index]) {
+                merged[index] = tombstone;
+            }
+            continue;
+        }
+
+        merged.push(tombstone);
+    }
+
+    merged
+}
+
+fn apply_workspace_tombstones(documents: Vec<Value>, tombstones: &[Value]) -> Vec<Value> {
+    documents
+        .into_iter()
+        .filter(|doc| {
+            let Some(doc_id) = doc.get("id").and_then(Value::as_str) else {
+                return false;
+            };
+
+            let tombstone = tombstones
+                .iter()
+                .find(|item| item.get("id").and_then(Value::as_str) == Some(doc_id));
+
+            match tombstone {
+                Some(tombstone) => get_doc_updated_at(doc) > get_deleted_at(tombstone),
+                None => true,
+            }
+        })
+        .collect()
+}
+
+fn build_workspace_snapshot(
+    documents: Vec<Value>,
+    current_doc_id: Option<String>,
+    tombstones: Vec<Value>,
+) -> Value {
+    let visible_documents = apply_workspace_tombstones(documents, &tombstones);
+
+    let valid_current_doc_id = current_doc_id.filter(|doc_id| {
+        visible_documents
+            .iter()
+            .any(|doc| doc.get("id").and_then(Value::as_str) == Some(doc_id.as_str()))
+    });
+
+    let fallback_current_doc_id = visible_documents.iter().find_map(|doc| {
+        if doc.get("type").and_then(Value::as_str) != Some("folder") {
+            doc.get("id").and_then(Value::as_str).map(ToString::to_string)
+        } else {
+            None
+        }
+    });
+
+    json!({
+        "currentDocId": valid_current_doc_id.or(fallback_current_doc_id),
+        "documents": visible_documents,
+        "tombstones": tombstones
+    })
+}
+
+fn merge_workspace_snapshots(local_snapshot_json: &str, remote_snapshot_json: &str) -> Result<String, String> {
+    let local = parse_workspace_snapshot(local_snapshot_json);
+    let remote = parse_workspace_snapshot(remote_snapshot_json);
+    let local_documents = normalize_workspace_documents(local.documents);
+    let remote_documents = normalize_workspace_documents(remote.documents);
+    let tombstones = merge_workspace_tombstones(
+        normalize_workspace_tombstones(local.tombstones, local.deleted_docs),
+        normalize_workspace_tombstones(remote.tombstones, remote.deleted_docs),
+    );
+
+    let mut merged_documents: Vec<Value> = Vec::new();
+
+    let mut upsert = |doc: &Value| {
+        let Some(doc_id) = doc.get("id").and_then(Value::as_str) else {
+            return;
+        };
+
+        if let Some(index) = merged_documents
+            .iter()
+            .position(|item| item.get("id").and_then(Value::as_str) == Some(doc_id))
+        {
+            if get_doc_updated_at(doc) >= get_doc_updated_at(&merged_documents[index]) {
+                merged_documents[index] = doc.clone();
+            }
+            return;
+        }
+
+        merged_documents.push(doc.clone());
+    };
+
+    for doc in local_documents.iter() {
+        upsert(doc);
+    }
+    for doc in remote_documents.iter() {
+        upsert(doc);
+    }
+
+    serde_json::to_string_pretty(&build_workspace_snapshot(
+        merged_documents,
+        local.current_doc_id.or(remote.current_doc_id),
+        tombstones,
+    ))
+    .map_err(|err| err.to_string())
 }
 
 async fn fetch_user_login(
@@ -393,6 +574,86 @@ async fn fetch_existing_sha(
     }
 }
 
+async fn fetch_file_contents(
+    client: &reqwest::Client,
+    provider: Provider,
+    access_token: &str,
+    owner: &str,
+    repo: &str,
+    path: &str,
+    branch: &str,
+) -> Result<Option<String>, String> {
+    match provider {
+        Provider::Github => {
+            let response = client
+                .get(format!(
+                    "https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+                ))
+                .header(USER_AGENT, APP_USER_AGENT)
+                .header(ACCEPT, "application/vnd.github+json")
+                .header(AUTHORIZATION, format!("Bearer {access_token}"))
+                .query(&[("ref", branch)])
+                .send()
+                .await
+                .map_err(|err| err.to_string())?;
+
+            let status = response.status();
+            let body = response.text().await.map_err(|err| err.to_string())?;
+
+            if status.as_u16() == 404 {
+                return Ok(None);
+            }
+
+            if !status.is_success() {
+                return Err(extract_http_error(
+                    "failed to load GitHub workspace file",
+                    status,
+                    &body,
+                ));
+            }
+
+            let value: Value = serde_json::from_str(&body).map_err(|err| err.to_string())?;
+            Ok(value
+                .get("content")
+                .and_then(Value::as_str)
+                .map(decode_base64_to_string)
+                .transpose()?)
+        }
+        Provider::Gitee => {
+            let response = client
+                .get(format!(
+                    "https://gitee.com/api/v5/repos/{owner}/{repo}/contents/{path}"
+                ))
+                .query(&[("access_token", access_token), ("ref", branch)])
+                .send()
+                .await
+                .map_err(|err| err.to_string())?;
+
+            let status = response.status();
+            let body = response.text().await.map_err(|err| err.to_string())?;
+
+            if status.as_u16() == 404 {
+                return Ok(None);
+            }
+
+            if !status.is_success() {
+                return Err(extract_http_error(
+                    "failed to load Gitee workspace file",
+                    status,
+                    &body,
+                ));
+            }
+
+            let value: Value = serde_json::from_str(&body).map_err(|err| err.to_string())?;
+            Ok(value
+                .get("content")
+                .and_then(Value::as_str)
+                .map(decode_base64_to_string)
+                .transpose()?)
+        }
+    }
+}
+
 async fn put_file_contents(
     client: &reqwest::Client,
     provider: Provider,
@@ -625,9 +886,23 @@ async fn workspace_sync_snapshot(
     branch: String,
     workspace_dir: String,
     snapshot_json: String,
-) -> Result<(), String> {
+) -> Result<WorkspaceSyncResponse, String> {
     let provider = Provider::parse(&provider)?;
     let client = github_client()?;
+    let path = format!("{workspace_dir}/workspace.json");
+    let remote_snapshot_json = fetch_file_contents(
+        &client,
+        provider,
+        &access_token,
+        &owner,
+        &repo,
+        &path,
+        &branch,
+    )
+    .await?
+    .unwrap_or_default();
+
+    let merged_snapshot_json = merge_workspace_snapshots(&snapshot_json, &remote_snapshot_json)?;
 
     put_file_contents(
         &client,
@@ -636,11 +911,16 @@ async fn workspace_sync_snapshot(
         &owner,
         &repo,
         &branch,
-        &format!("{workspace_dir}/workspace.json"),
-        &snapshot_json,
+        &path,
+        &merged_snapshot_json,
         "chore: sync markdown workspace",
     )
-    .await
+    .await?;
+
+    Ok(WorkspaceSyncResponse {
+        success: true,
+        snapshot_json: merged_snapshot_json,
+    })
 }
 
 fn main() {

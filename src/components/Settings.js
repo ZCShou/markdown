@@ -545,9 +545,9 @@ export class Settings {
         };
     }
 
-    async ensureWorkspaceBridgeAvailable() {
+    ensureWorkspaceBridgeAvailable() {
         if (isTauriRuntime()) {
-            return true;
+            return Promise.resolve(true);
         }
 
         return checkWorkspaceBridgeAvailability();

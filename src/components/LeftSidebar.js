@@ -6,6 +6,7 @@ import { BaseComponent } from './BaseComponent.js';
 import { EditorState } from '../EditorState.js';
 import { dom } from '../utils/dom.js';
 import { Dialog } from './Dialog.js';
+import { buildWorkspaceSnapshot, parseWorkspaceSnapshot } from '../workspace/index.js';
 
 /**
  *
@@ -1215,13 +1216,17 @@ export class LeftSidebar extends BaseComponent {
         }
 
         try {
+            const snapshot = buildWorkspaceSnapshot(
+                documents,
+                this.state.get('currentDocId')
+            );
             const blob = new Blob(
                 [
                     JSON.stringify(
                         {
                             version: '1.0',
                             exportDate: new Date().toISOString(),
-                            documents
+                            ...snapshot
                         },
                         null,
                         2
@@ -1266,13 +1271,13 @@ export class LeftSidebar extends BaseComponent {
 
             try {
                 const text = await file.text();
-                const data = JSON.parse(text);
-                if (!Array.isArray(data?.documents)) throw new Error('文件格式无效');
-                if (data.documents.length > 10000) throw new Error('文档数量过多');
+                const snapshot = parseWorkspaceSnapshot(text);
+                if (snapshot.documents.length === 0) throw new Error('文件格式无效');
+                if (snapshot.documents.length > 10000) throw new Error('文档数量过多');
 
                 const importMode = await Dialog.show({
                     title: '导入文档',
-                    message: `检测到 <strong>${data.documents.length}</strong> 个文档，请选择导入方式：`,
+                    message: `检测到 <strong>${snapshot.documents.length}</strong> 个文档，请选择导入方式：`,
                     type: 'info',
                     buttons: [
                         { text: '合并', value: 'merge', type: 'primary' },
@@ -1288,15 +1293,9 @@ export class LeftSidebar extends BaseComponent {
                     return;
                 }
 
-                const currentDocs = this.state.get('documents');
-                const newDocuments =
-                    importMode === 'replace'
-                        ? data.documents
-                        : this.#mergeDocuments(currentDocs, data.documents);
-
-                this.state.importDocuments(newDocuments, 'replace', true);
+                this.state.importDocuments(snapshot.documents, importMode, true);
                 this.showMessage(
-                    `成功${importMode === 'replace' ? '替换' : '合并'}导入 ${data.documents.length} 个文档`,
+                    `成功${importMode === 'replace' ? '替换' : '合并'}导入 ${snapshot.documents.length} 个文档`,
                     'success'
                 );
             } catch (error) {
@@ -1307,22 +1306,6 @@ export class LeftSidebar extends BaseComponent {
         };
 
         input.click();
-    }
-
-    /** @private */
-    #mergeDocuments(currentDocs, importDocs) {
-        const docMap = new Map(currentDocs.map(d => [d.id, d]));
-        let addedCount = 0;
-
-        for (const doc of importDocs) {
-            if (!docMap.has(doc.id)) {
-                docMap.set(doc.id, doc);
-                addedCount++;
-            }
-        }
-
-        if (addedCount === 0) this.showMessage('所有文档已存在，无需导入', 'info');
-        return Array.from(docMap.values());
     }
 
     // ==================== 资源清理 ====================

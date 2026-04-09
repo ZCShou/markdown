@@ -25,7 +25,8 @@ const KEYS = {
     DOCUMENTS: 'documents',
     CURRENT_DOC_ID: 'currentDocId',
     SETTINGS: 'settings',
-    WORKSPACE_AUTH: 'workspaceAuth'
+    WORKSPACE_AUTH: 'workspaceAuth',
+    WORKSPACE_TOMBSTONES: 'workspaceTombstones'
 };
 
 function openDatabase() {
@@ -179,17 +180,28 @@ export class WorkspaceStorage {
         return setData(KEYS.WORKSPACE_AUTH, null);
     }
 
+    static saveWorkspaceTombstones(tombstones) {
+        return setData(KEYS.WORKSPACE_TOMBSTONES, tombstones);
+    }
+
+    static async loadWorkspaceTombstones() {
+        const tombstones = await getData(KEYS.WORKSPACE_TOMBSTONES);
+        return Array.isArray(tombstones) ? tombstones : [];
+    }
+
     static async loadLocalWorkspaceSnapshot() {
-        const [documents, currentDocId, settings] = await Promise.all([
+        const [documents, currentDocId, settings, workspaceTombstones] = await Promise.all([
             WorkspaceStorage.loadDocuments(),
             WorkspaceStorage.loadCurrentDocId(),
-            WorkspaceStorage.loadSettings()
+            WorkspaceStorage.loadSettings(),
+            WorkspaceStorage.loadWorkspaceTombstones()
         ]);
 
         return {
             documents,
             currentDocId,
-            settings
+            settings,
+            workspaceTombstones
         };
     }
 

@@ -20,6 +20,8 @@ import { deleteImage, extractImagePaths, isInternalImagePath } from './utils/hel
 import {
     createDefaultWorkspaceSettings,
     mergeWorkspaceSettings,
+    mergeWorkspaceDocuments,
+    mergeWorkspaceTombstones,
     WorkspacePersistence,
     WorkspaceStorage
 } from './workspace/index.js';
@@ -437,6 +439,7 @@ $$
 
         // 工作空间配置
         workspace: createDefaultWorkspaceSettings(),
+        workspaceTombstones: [],
 
         // 渲染状态
         isRenderingMermaid: false,
@@ -540,7 +543,8 @@ $$
         const {
             documents,
             currentDocId: savedDocId,
-            settings: savedSettings
+            settings: savedSettings,
+            workspaceTombstones
         } = await WorkspaceStorage.loadLocalWorkspaceSnapshot();
         const workspaceAuth = await WorkspaceStorage.loadWorkspaceAuth();
         const defaultSettings = EditorState.createDefaultSettings();
@@ -627,7 +631,8 @@ $$
                 ...settings.interface
             },
             export: settings.export,
-            workspace: settings.workspace
+            workspace: settings.workspace,
+            workspaceTombstones
         });
 
         if (workspaceAuth?.connected && workspaceAuth.provider && workspaceAuth.accessToken) {
@@ -814,13 +819,18 @@ $$
         }
 
         const documents = this.#state.documents.filter(doc => !toDelete.has(doc.id));
+        const deletedAt = new Date().toISOString();
+        const workspaceTombstones = mergeWorkspaceTombstones(
+            this.#state.workspaceTombstones,
+            Array.from(toDelete).map(id => ({ id, deletedAt }))
+        );
 
         // 检查当前文档是否被删除
         const currentDocId = toDelete.has(this.#state.currentDocId)
             ? null
             : this.#state.currentDocId;
 
-        this.#setState({ documents, currentDocId }, options);
+        this.#setState({ documents, currentDocId, workspaceTombstones }, options);
 
         // 异步删除图片（不阻塞状态更新）
         if (imagePaths.size > 0) {
@@ -989,29 +999,6 @@ $$
     }
 
     /**
-     * 合并文档列表（私有方法）
-     * @private
-     * @param {Array} currentDocs - 当前文档
-     * @param {Array} importDocs - 导入文档
-     * @returns {Array} 合并后的文档
-     */
-    #mergeDocuments(currentDocs, importDocs) {
-        const docMap = new Map(currentDocs.map(doc => [doc.id, doc]));
-
-        importDocs.forEach(doc => {
-            if (docMap.has(doc.id)) {
-                // 更新现有文档
-                docMap.set(doc.id, { ...docMap.get(doc.id), ...doc });
-            } else {
-                // 添加新文档
-                docMap.set(doc.id, doc);
-            }
-        });
-
-        return Array.from(docMap.values());
-    }
-
-    /**
      * 导入文档
      * @param {Array} docs - 要导入的文档数组
      * @param {string} mode - 导入模式：'replace' 或 'merge'
@@ -1019,7 +1006,8 @@ $$
      */
     importDocuments(docs, mode = 'replace', notify = true) {
         const currentDocs = this.#state.documents;
-        const newDocuments = mode === 'replace' ? docs : this.#mergeDocuments(currentDocs, docs);
+        const newDocuments =
+            mode === 'replace' ? docs : mergeWorkspaceDocuments(currentDocs, docs).documents;
 
         this.#setState({ documents: newDocuments }, { silent: !notify });
     }

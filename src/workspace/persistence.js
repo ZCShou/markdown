@@ -8,12 +8,15 @@ export class WorkspacePersistence {
         editor: { debounce: 300 },
         interface: { debounce: 300 },
         export: { debounce: 300 },
-        workspace: { debounce: 300 }
+        workspace: { debounce: 300 },
+        workspaceTombstones: { debounce: 300 }
     };
 
     static PERSIST_HANDLERS = {
         documents: state => WorkspaceStorage.saveDocuments(state.documents),
         currentDocId: state => WorkspaceStorage.saveCurrentDocId(state.currentDocId),
+        workspaceTombstones: state =>
+            WorkspaceStorage.saveWorkspaceTombstones(state.workspaceTombstones),
         settings: state =>
             WorkspaceStorage.saveSettings({
                 editor: state.editor,
