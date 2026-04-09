@@ -1,19 +1,19 @@
 /**
- * StoreManager 单元测试
+ * WorkspaceStorage 单元测试
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { StoreManager } from '../src/StoreManager.js';
+import { WorkspaceStorage } from '../src/workspace/storage.js';
 
-describe('StoreManager - 存储管理器测试', () => {
+describe('WorkspaceStorage - 存储管理器测试', () => {
     beforeEach(async () => {
         // 初始化 IndexedDB
-        await StoreManager.init();
+        await WorkspaceStorage.init();
         // 清空数据
-        await StoreManager.clearAll();
+        await WorkspaceStorage.clearLocalWorkspace();
     });
 
     afterEach(async () => {
-        await StoreManager.clearAll();
+        await WorkspaceStorage.clearLocalWorkspace();
     });
 
     describe('文档管理', () => {
@@ -35,23 +35,23 @@ describe('StoreManager - 存储管理器测试', () => {
         ];
 
         it('应该成功保存文档列表', async () => {
-            const result = await StoreManager.saveDocuments(mockDocuments);
+            const result = await WorkspaceStorage.saveDocuments(mockDocuments);
 
             expect(result.success).toBe(true);
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockDocuments);
         });
 
         it('应该成功加载文档列表', async () => {
-            await StoreManager.saveDocuments(mockDocuments);
+            await WorkspaceStorage.saveDocuments(mockDocuments);
 
-            const documents = await StoreManager.loadDocuments();
+            const documents = await WorkspaceStorage.loadDocuments();
 
             expect(documents).toEqual(mockDocuments);
         });
 
         it('应该在没有文档时返回空数组', async () => {
-            const documents = await StoreManager.loadDocuments();
+            const documents = await WorkspaceStorage.loadDocuments();
 
             expect(documents).toEqual([]);
         });
@@ -59,23 +59,23 @@ describe('StoreManager - 存储管理器测试', () => {
 
     describe('当前文档ID', () => {
         it('应该成功保存当前文档ID', async () => {
-            const result = await StoreManager.saveCurrentDocId('doc-123');
+            const result = await WorkspaceStorage.saveCurrentDocId('doc-123');
 
             expect(result.success).toBe(true);
-            const docId = await StoreManager.loadCurrentDocId();
+            const docId = await WorkspaceStorage.loadCurrentDocId();
             expect(docId).toBe('doc-123');
         });
 
         it('应该成功加载当前文档ID', async () => {
-            await StoreManager.saveCurrentDocId('doc-456');
+            await WorkspaceStorage.saveCurrentDocId('doc-456');
 
-            const docId = await StoreManager.loadCurrentDocId();
+            const docId = await WorkspaceStorage.loadCurrentDocId();
 
             expect(docId).toBe('doc-456');
         });
 
         it('应该在没有保存文档ID时返回null', async () => {
-            const docId = await StoreManager.loadCurrentDocId();
+            const docId = await WorkspaceStorage.loadCurrentDocId();
 
             expect(docId).toBeNull();
         });
@@ -99,23 +99,23 @@ describe('StoreManager - 存储管理器测试', () => {
         };
 
         it('应该成功保存设置', async () => {
-            const result = await StoreManager.saveSettings(mockSettings);
+            const result = await WorkspaceStorage.saveSettings(mockSettings);
 
             expect(result.success).toBe(true);
-            const saved = await StoreManager.loadSettings();
+            const saved = await WorkspaceStorage.loadSettings();
             expect(saved).toEqual(mockSettings);
         });
 
         it('应该成功加载设置', async () => {
-            await StoreManager.saveSettings(mockSettings);
+            await WorkspaceStorage.saveSettings(mockSettings);
 
-            const settings = await StoreManager.loadSettings();
+            const settings = await WorkspaceStorage.loadSettings();
 
             expect(settings).toEqual(mockSettings);
         });
 
         it('应该在没有保存设置时返回null', async () => {
-            const settings = await StoreManager.loadSettings();
+            const settings = await WorkspaceStorage.loadSettings();
 
             expect(settings).toBeNull();
         });

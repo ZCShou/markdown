@@ -1,30 +1,11 @@
 /**
- * IndexedDB 存储管理器
- * 负责管理所有与 IndexedDB 相关的数据存储和读取
+ * 工作空间存储
+ * 统一管理本地浏览器工作空间的持久化数据。
  *
- * @example
- * ```js
- * // 初始化数据库
- * await StoreManager.init();
- *
- * // 保存文档列表
- * await StoreManager.saveDocuments(documents);
- *
- * // 加载文档列表
- * const documents = await StoreManager.loadDocuments();
- *
- * // 保存当前文档 ID
- * await StoreManager.saveCurrentDocId('doc-id');
- *
- * // 加载当前文档 ID
- * const docId = await StoreManager.loadCurrentDocId();
- *
- * // 保存设置
- * await StoreManager.saveSettings({ editor: {...}, interface: {...}, export: {...} });
- *
- * // 加载设置
- * const settings = await StoreManager.loadSettings();
- * ```
+ * 当前支持的数据：
+ * - documents
+ * - currentDocId
+ * - settings
  */
 
 /** @type {IDBDatabase|null} */
@@ -46,10 +27,6 @@ const KEYS = {
     SETTINGS: 'settings'
 };
 
-/**
- * 初始化 IndexedDB 数据库
- * @returns {Promise<IDBDatabase>}
- */
 function openDatabase() {
     if (db) return Promise.resolve(db);
     if (dbPromise) return dbPromise;
@@ -59,18 +36,27 @@ function openDatabase() {
 
         request.onerror = () => {
             console.error('IndexedDB 打开失败:', request.error);
+            dbPromise = null;
             reject(request.error);
         };
 
         request.onsuccess = () => {
             db = request.result;
+            db.onclose = () => {
+                db = null;
+                dbPromise = null;
+            };
+            db.onversionchange = () => {
+                db?.close();
+                db = null;
+                dbPromise = null;
+            };
             resolve(db);
         };
 
         request.onupgradeneeded = event => {
             const database = event.target.result;
 
-            // 创建对象存储（使用单个存储，通过键区分不同数据）
             if (!database.objectStoreNames.contains(STORES.DATA)) {
                 database.createObjectStore(STORES.DATA, { keyPath: 'key' });
             }
@@ -80,12 +66,6 @@ function openDatabase() {
     return dbPromise;
 }
 
-/**
- * 保存数据存储项
- * @param {string} key - 键名
- * @param {*} value - 值
- * @returns {Promise<{success: boolean, error?: string}>}
- */
 async function setData(key, value) {
     try {
         const database = await openDatabase();
@@ -93,29 +73,34 @@ async function setData(key, value) {
         return new Promise(resolve => {
             const transaction = database.transaction([STORES.DATA], 'readwrite');
             const store = transaction.objectStore(STORES.DATA);
+            transaction.oncomplete = () => resolve({ success: true });
+            transaction.onerror = () => {
+                console.error(`保存 ${key} 失败:`, transaction.error);
+                resolve({
+                    success: false,
+                    error: transaction.error?.message || '保存失败'
+                });
+            };
+            transaction.onabort = () => {
+                console.error(`保存 ${key} 失败:`, transaction.error);
+                resolve({
+                    success: false,
+                    error: transaction.error?.message || '保存失败'
+                });
+            };
 
             const request = store.put({ key, value });
-
-            request.onsuccess = () => {
-                resolve({ success: true });
-            };
-
             request.onerror = () => {
                 console.error(`保存 ${key} 失败:`, request.error);
-                resolve({ success: false, error: request.error?.message || '保存失败' });
+                transaction.abort();
             };
         });
-    } catch (e) {
-        console.error(`保存 ${key} 失败:`, e);
-        return { success: false, error: e.message || '保存失败' };
+    } catch (error) {
+        console.error(`保存 ${key} 失败:`, error);
+        return { success: false, error: error.message || '保存失败' };
     }
 }
 
-/**
- * 获取数据存储项
- * @param {string} key - 键名
- * @returns {Promise<*>}
- */
 async function getData(key) {
     try {
         const database = await openDatabase();
@@ -123,11 +108,10 @@ async function getData(key) {
         return new Promise((resolve, reject) => {
             const transaction = database.transaction([STORES.DATA], 'readonly');
             const store = transaction.objectStore(STORES.DATA);
-
             const request = store.get(key);
 
             request.onsuccess = () => {
-                const {result} = request;
+                const { result } = request;
                 resolve(result ? result.value : null);
             };
 
@@ -136,38 +120,21 @@ async function getData(key) {
                 reject(request.error);
             };
         });
-    } catch (e) {
-        console.error(`加载 ${key} 失败:`, e);
+    } catch (error) {
+        console.error(`加载 ${key} 失败:`, error);
         return null;
     }
 }
 
-export class StoreManager {
-    // ==================== 初始化 ====================
-
-    /**
-     * 初始化存储管理器
-     * @returns {Promise<void>}
-     */
+export class WorkspaceStorage {
     static async init() {
         await openDatabase();
     }
 
-    // ==================== 文档管理 ====================
-
-    /**
-     * 保存文档列表
-     * @param {Array} documents - 文档列表
-     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
-     */
     static saveDocuments(documents) {
         return setData(KEYS.DOCUMENTS, documents);
     }
 
-    /**
-     * 加载文档列表
-     * @returns {Promise<Array>} 文档列表
-     */
     static async loadDocuments() {
         const documents = await getData(KEYS.DOCUMENTS);
         if (!documents) return [];
@@ -178,50 +145,38 @@ export class StoreManager {
         return documents;
     }
 
-    /**
-     * 保存当前文档 ID
-     * @param {string} docId - 文档 ID
-     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
-     */
     static saveCurrentDocId(docId) {
         return setData(KEYS.CURRENT_DOC_ID, docId);
     }
 
-    /**
-     * 加载当前文档 ID
-     * @returns {Promise<string|null>} 文档 ID，如果不存在则返回 null
-     */
     static async loadCurrentDocId() {
         const saved = await getData(KEYS.CURRENT_DOC_ID);
         return saved || null;
     }
 
-    // ==================== 统一设置存储 ====================
-
-    /**
-     * 保存统一设置
-     * @param {Object} settings - 设置对象
-     * @returns {Promise<{success: boolean, error?: string}>} 保存结果
-     */
     static saveSettings(settings) {
         return setData(KEYS.SETTINGS, settings);
     }
 
-    /**
-     * 加载统一设置
-     * @returns {Promise<Object|null>} 设置对象，失败返回 null
-     */
     static loadSettings() {
         return getData(KEYS.SETTINGS);
     }
 
-    // ==================== 数据迁移 ====================
+    static async loadLocalWorkspaceSnapshot() {
+        const [documents, currentDocId, settings] = await Promise.all([
+            WorkspaceStorage.loadDocuments(),
+            WorkspaceStorage.loadCurrentDocId(),
+            WorkspaceStorage.loadSettings()
+        ]);
 
-    /**
-     * 清除所有数据
-     * @returns {Promise<void>}
-     */
-    static async clearAll() {
+        return {
+            documents,
+            currentDocId,
+            settings
+        };
+    }
+
+    static async clearLocalWorkspace() {
         try {
             const database = await openDatabase();
 
@@ -233,8 +188,8 @@ export class StoreManager {
                 request.onsuccess = () => resolve();
                 request.onerror = () => reject(request.error);
             });
-        } catch (e) {
-            console.error('清除数据失败:', e);
+        } catch (error) {
+            console.error('清除工作空间数据失败:', error);
         }
     }
 }

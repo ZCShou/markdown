@@ -53,7 +53,13 @@ export default defineConfig(({ mode }) => {
         server: {
             port: 3000,
             host: '0.0.0.0',
-            open: true
+            open: true,
+            proxy: {
+                '/api/workspace': {
+                    target: 'http://localhost:3001',
+                    changeOrigin: true
+                }
+            }
         },
         build: {
             outDir: 'dist',

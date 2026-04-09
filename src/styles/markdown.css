@@ -1254,7 +1254,7 @@ html::-webkit-scrollbar-thumb:hover,
   background: var(--md-overlay-bg);
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
-  z-index: 9999;
+  z-index: 10003;
   display: none;
 }
 
@@ -1272,7 +1272,7 @@ html::-webkit-scrollbar-thumb:hover,
   padding: 16px 24px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 10000;
+  z-index: 10004;
   display: none;
   max-width: 400px;
   text-align: center;
@@ -1772,6 +1772,13 @@ body.is-dragging-tree {
   letter-spacing: 0.5px;
 }
 
+.md-settings-note {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--md-text-secondary);
+}
+
 .md-settings-item {
   display: flex;
   align-items: center;
@@ -1816,6 +1823,7 @@ body.is-dragging-tree {
 
 .md-settings-control input[type='number'],
 .md-settings-control input[type='text'],
+.md-settings-control input[type='password'],
 .md-settings-control select {
   padding: 6px 12px;
   border: 1px solid var(--md-border);
@@ -1829,6 +1837,7 @@ body.is-dragging-tree {
 
 .md-settings-control input[type='number']:focus,
 .md-settings-control input[type='text']:focus,
+.md-settings-control input[type='password']:focus,
 .md-settings-control select:focus {
   border-color: var(--md-color-primary);
 }
@@ -1918,6 +1927,73 @@ body.is-dragging-tree {
   padding: 8px;
   background-color: var(--md-bg-tertiary);
   border-top: 1px solid var(--md-border);
+}
+
+.md-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.md-settings-actions .md-btn {
+  min-width: 120px;
+}
+
+.md-settings-summary-value,
+.md-settings-summary-link {
+  font-size: 14px;
+  color: var(--md-text-primary);
+  word-break: break-word;
+}
+
+.md-settings-platform-status {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.md-settings-platform-status .md-settings-summary-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+.md-settings-summary-link {
+  color: var(--md-markdown-link);
+  text-decoration: none;
+}
+
+.md-settings-summary-link:hover {
+  text-decoration: underline;
+}
+
+.md-settings-advanced {
+  margin-top: 12px;
+  border: 1px solid var(--md-border);
+  border-radius: 8px;
+  background: var(--md-bg-secondary);
+}
+
+.md-settings-advanced summary {
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--md-text-secondary);
+  user-select: none;
+}
+
+.md-settings-advanced-body {
+  padding: 0 14px 14px 14px;
+}
+
+.md-settings-platform {
+  display: none;
+}
+
+.md-settings-platform .md-settings-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 /* ==================== 关于页面 ==================== */
@@ -2262,6 +2338,10 @@ body.is-dragging-tree {
   }
 
   .md-settings-control {
+    width: 100%;
+  }
+
+  .md-settings-actions .md-btn {
     width: 100%;
   }
 }

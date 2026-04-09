@@ -18,6 +18,7 @@ import { Exporter } from './components/Exporter.js';
 import { dom } from './utils/dom.js';
 import { applyTheme } from './utils/theme.js';
 import { handlePastedImage } from './utils/helpers.js';
+import { WorkspaceManager } from './workspace/manager.js';
 
 /**
  *
@@ -148,6 +149,9 @@ export class MarkdownEditor {
 
         /** @type {Object} 组件实例 */
         this.components = {};
+
+        /** @type {WorkspaceManager} 工作空间同步管理器 */
+        this.workspaceManager = new WorkspaceManager(this.state);
 
         /** @type {CodeMirrorEditor|null} CodeMirror 实例 */
         this.codeMirrorEditor = null;
@@ -401,11 +405,14 @@ export class MarkdownEditor {
 
         // 设置组件（传入 state 以实现状态同步）
         this.components.settings = new Settings(this.state);
+        this.components.settings.setWorkspaceManager(this.workspaceManager);
 
         // 初始化所有组件
         Object.values(this.components).forEach(component => {
             component.init();
         });
+
+        this.workspaceManager.init();
 
         // 空闲时预加载另一个编辑器模块，加速首次切换
         if (this.currentEditorType !== MarkdownEditor.EDITOR_TYPES.MONACO) {
@@ -983,6 +990,7 @@ export class MarkdownEditor {
             }
         });
         this.components = {};
+        this.workspaceManager.destroy();
 
         // 标记为未初始化
         this.isInitialized = false;

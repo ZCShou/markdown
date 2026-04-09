@@ -1,18 +1,18 @@
 /**
- * PersistenceManager 测试
+ * WorkspacePersistence 测试
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { PersistenceManager } from '../src/PersistenceManager.js';
-import { StoreManager } from '../src/StoreManager.js';
+import { WorkspacePersistence } from '../src/workspace/persistence.js';
+import { WorkspaceStorage } from '../src/workspace/storage.js';
 
-describe('PersistenceManager - 持久化管理器测试', () => {
+describe('WorkspacePersistence - 持久化管理器测试', () => {
     let mockState;
     let persistence;
 
     beforeEach(async () => {
         // 初始化 IndexedDB
-        await StoreManager.init();
-        await StoreManager.clearAll();
+        await WorkspaceStorage.init();
+        await WorkspaceStorage.clearLocalWorkspace();
 
         // 创建模拟状态
         mockState = {
@@ -26,12 +26,12 @@ describe('PersistenceManager - 持久化管理器测试', () => {
         };
 
         // 创建持久化管理器
-        persistence = new PersistenceManager(() => mockState);
+        persistence = new WorkspacePersistence(() => mockState);
     });
 
     afterEach(async () => {
         persistence?.destroy();
-        await StoreManager.clearAll();
+        await WorkspaceStorage.clearLocalWorkspace();
     });
 
     describe('配置和初始化', () => {
@@ -46,7 +46,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             await new Promise(resolve => setTimeout(resolve, 400));
 
             // 验证数据已保存
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockState.documents);
         });
 
@@ -61,7 +61,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待防抖完成
             await new Promise(resolve => setTimeout(resolve, 200));
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockState.documents);
         });
     });
@@ -71,7 +71,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 不启动持久化
             persistence.schedule(['documents']);
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual([]);
         });
 
@@ -82,7 +82,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待防抖完成
             await new Promise(resolve => setTimeout(resolve, 400));
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockState.documents);
         });
 
@@ -93,7 +93,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待异步操作完成
             await new Promise(resolve => setTimeout(resolve, 50));
 
-            const saved = await StoreManager.loadCurrentDocId();
+            const saved = await WorkspaceStorage.loadCurrentDocId();
             expect(saved).toBe('1');
         });
 
@@ -104,7 +104,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待防抖完成（默认 300ms）
             await new Promise(resolve => setTimeout(resolve, 400));
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockState.documents);
         });
     });
@@ -117,7 +117,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待防抖
             await new Promise(resolve => setTimeout(resolve, 400));
 
-            const saved = await StoreManager.loadSettings();
+            const saved = await WorkspaceStorage.loadSettings();
             expect(saved).toEqual({
                 editor: mockState.editor,
                 interface: mockState.interface,
@@ -133,7 +133,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
 
             persistence.schedule(['documents']);
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual([]);
         });
 
@@ -145,7 +145,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待一段时间，确保没有定时器在运行
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual([]);
         });
     });
@@ -162,7 +162,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             // 验证没有保存数据（因为定时器被清理了）
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual([]);
         });
 
@@ -173,7 +173,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 销毁后调度应该不执行
             persistence.schedule(['documents']);
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual([]);
         });
 
@@ -190,7 +190,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
 
     describe('边界情况', () => {
         it('应该处理空状态', async () => {
-            const emptyPersistence = new PersistenceManager(() => ({
+            const emptyPersistence = new WorkspacePersistence(() => ({
                 documents: [],
                 currentDocId: null,
                 content: '',
@@ -206,7 +206,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             await new Promise(resolve => setTimeout(resolve, 400));
 
             // 应该成功保存空数组
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual([]);
 
             emptyPersistence.destroy();
@@ -224,7 +224,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             await new Promise(resolve => setTimeout(resolve, 400));
 
             // 应该只保存一次
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockState.documents);
         });
 
@@ -236,7 +236,7 @@ describe('PersistenceManager - 持久化管理器测试', () => {
             // 等待新的防抖时间
             await new Promise(resolve => setTimeout(resolve, 200));
 
-            const saved = await StoreManager.loadDocuments();
+            const saved = await WorkspaceStorage.loadDocuments();
             expect(saved).toEqual(mockState.documents);
         });
     });

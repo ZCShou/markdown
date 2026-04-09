@@ -16,9 +16,13 @@
  * state.setCurrentDocument(docId);
  * ```
  */
-import { StoreManager } from './StoreManager.js';
-import { PersistenceManager } from './PersistenceManager.js';
 import { deleteImage, extractImagePaths, isInternalImagePath } from './utils/helpers.js';
+import {
+    createDefaultWorkspaceSettings,
+    mergeWorkspaceSettings,
+    WorkspacePersistence,
+    WorkspaceStorage
+} from './workspace/index.js';
 
 /**
  *
@@ -71,8 +75,27 @@ export class EditorState {
         export: {
             includeStyle: true,
             codeHighlight: true
-        }
+        },
+        workspace: createDefaultWorkspaceSettings()
     };
+
+    /**
+     * 获取新的默认设置对象，避免共享嵌套引用
+     * @returns {Object}
+     */
+    static createDefaultSettings() {
+        const defaults = EditorState.DEFAULT_SETTINGS;
+        return {
+            editor: {
+                ...defaults.editor,
+                codemirror: { ...defaults.editor.codemirror },
+                monaco: { ...defaults.editor.monaco }
+            },
+            interface: { ...defaults.interface },
+            export: { ...defaults.export },
+            workspace: { ...defaults.workspace }
+        }
+    }
 
     /**
      * 默认 Markdown 内容
@@ -412,6 +435,9 @@ $$
         // 导出配置 - 引用默认设置
         export: { ...EditorState.DEFAULT_SETTINGS.export },
 
+        // 工作空间配置
+        workspace: createDefaultWorkspaceSettings(),
+
         // 渲染状态
         isRenderingMermaid: false,
         headings: [], // 标题数据，用于目录生成
@@ -428,7 +454,7 @@ $$
     #globalListeners = new Set();
 
     /** @private */
-    #persistence = new PersistenceManager(() => this.#state);
+    #persistence = new WorkspacePersistence(() => this.#state);
 
     // ==================== 状态访问 ====================
 
@@ -509,39 +535,42 @@ $$
      */
     async init() {
         // 初始化 IndexedDB
-        await StoreManager.init();
+        await WorkspaceStorage.init();
 
-        const documents = await StoreManager.loadDocuments();
-        const savedDocId = await StoreManager.loadCurrentDocId();
-        const savedSettings = await StoreManager.loadSettings();
+        const {
+            documents,
+            currentDocId: savedDocId,
+            settings: savedSettings
+        } = await WorkspaceStorage.loadLocalWorkspaceSnapshot();
+        const defaultSettings = EditorState.createDefaultSettings();
 
         // 合并保存的设置和默认设置
         const settings = savedSettings
             ? {
                 editor: {
-                    ...EditorState.DEFAULT_SETTINGS.editor,
+                    ...defaultSettings.editor,
                     ...savedSettings.editor,
                     // 深度合并嵌套的编辑器特定设置
                     codemirror: {
-                        ...EditorState.DEFAULT_SETTINGS.editor.codemirror,
+                        ...defaultSettings.editor.codemirror,
                         ...savedSettings.editor?.codemirror
                     },
                     monaco: {
-                        ...EditorState.DEFAULT_SETTINGS.editor.monaco,
+                        ...defaultSettings.editor.monaco,
                         ...savedSettings.editor?.monaco
                     }
                 },
                 interface: {
-                    ...EditorState.DEFAULT_SETTINGS.interface,
+                    ...defaultSettings.interface,
                     ...savedSettings.interface
                 },
-                export: { ...EditorState.DEFAULT_SETTINGS.export, ...savedSettings.export }
+                export: { ...defaultSettings.export, ...savedSettings.export },
+                workspace: mergeWorkspaceSettings(
+                    defaultSettings.workspace,
+                    savedSettings.workspace
+                )
             }
-            : {
-                editor: { ...EditorState.DEFAULT_SETTINGS.editor },
-                interface: { ...EditorState.DEFAULT_SETTINGS.interface },
-                export: { ...EditorState.DEFAULT_SETTINGS.export }
-            };
+            : defaultSettings;
 
         // 确定当前文档和内容
         let currentDocId = null;
@@ -581,8 +610,8 @@ $$
             currentDocId = defaultDoc.id;
             ({ content } = defaultDoc);
             // 立即持久化，确保刷新后不会重复创建
-            await StoreManager.saveDocuments(documents);
-            await StoreManager.saveCurrentDocId(currentDocId);
+            await WorkspaceStorage.saveDocuments(documents);
+            await WorkspaceStorage.saveCurrentDocId(currentDocId);
         }
 
         // 直接初始化状态（不触发监听器和持久化）
@@ -596,7 +625,8 @@ $$
             interface: {
                 ...settings.interface
             },
-            export: settings.export
+            export: settings.export,
+            workspace: settings.workspace
         });
     }
 
@@ -1185,6 +1215,21 @@ $$
      */
     updateExportConfig(config) {
         this.#updateConfig('export', config);
+    }
+
+    /**
+     * 更新工作空间配置
+     * @param {Object} config - 工作空间配置
+     */
+    updateWorkspaceConfig(config) {
+        const currentWorkspace = this.#state.workspace || createDefaultWorkspaceSettings();
+
+        this.#setState({
+            workspace: {
+                ...currentWorkspace,
+                ...config
+            }
+        });
     }
 
     /**

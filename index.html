@@ -310,6 +310,10 @@
                             <i class="codicon codicon-export md-settings-nav-item-icon"></i>
                             <span class="md-settings-nav-item-text">导出</span>
                         </div>
+                        <div class="md-settings-nav-item" data-section="workspace" title="工作空间">
+                            <i class="codicon codicon-cloud md-settings-nav-item-icon"></i>
+                            <span class="md-settings-nav-item-text">工作空间</span>
+                        </div>
                         <div class="md-settings-nav-item" data-section="about" title="关于">
                             <i class="codicon codicon-info md-settings-nav-item-icon"></i>
                             <span class="md-settings-nav-item-text">关于</span>
@@ -762,6 +766,113 @@
                                                 id="setting-export-code-highlight"
                                                 checked
                                             />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="md-settings-section" id="settings-workspace">
+                            <div class="md-settings-group">
+                                <h4>同步配置</h4>
+                                <p class="md-settings-note" id="workspace-runtime-note"></p>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>同步平台</span>
+                                        <span class="md-settings-description">选择本地浏览器、GitHub 或 Gitee 作为工作空间存储方式</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <select id="setting-workspace-provider-select">
+                                            <option value="local">本地浏览器</option>
+                                            <option value="github">GitHub</option>
+                                            <option value="gitee">Gitee</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>同步状态</span>
+                                        <span class="md-settings-description">显示当前连接和最近一次同步结果</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <strong class="md-settings-summary-value" id="workspace-status-text">未连接</strong>
+                                        <button
+                                            class="md-btn md-btn-icon md-btn-ghost"
+                                            id="workspace-sync-now"
+                                            type="button"
+                                            aria-label="立即同步"
+                                            title="立即同步"
+                                        >
+                                            <i class="codicon codicon-sync" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>自动同步</span>
+                                        <span class="md-settings-description">文档变化后自动写回远程仓库</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-workspace-auto-sync" checked />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md-settings-group" id="settings-workspace-platform-group">
+                                <h4>平台配置</h4>
+                                <p class="md-settings-note">
+                                    平台配置仅对 GitHub 和 Gitee 生效，授权参数继续从应用配置或 `.env` 中读取。
+                                </p>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>平台状态</span>
+                                        <span class="md-settings-description">未登录时显示登录按钮，已登录后显示账号信息和退出按钮</span>
+                                    </label>
+                                    <div class="md-settings-control md-settings-platform-status">
+                                        <strong class="md-settings-summary-value" id="workspace-platform-status-text">未登录</strong>
+                                        <button class="md-btn md-btn-primary" id="workspace-connect-current">
+                                            <i class="codicon codicon-sign-in" aria-hidden="true"></i>
+                                            <span>登录当前平台</span>
+                                        </button>
+                                        <button
+                                            class="md-btn md-btn-icon md-btn-ghost"
+                                            id="workspace-disconnect"
+                                            type="button"
+                                            aria-label="退出当前平台"
+                                            title="退出当前平台"
+                                        >
+                                            <i class="codicon codicon-sign-out" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>仓库名称</span>
+                                        <span class="md-settings-description">首次授权时自动创建，常规情况下保留默认值即可</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <input type="text" id="setting-workspace-repo-name" value="markdown-workspace" />
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>仓库描述</span>
+                                        <span class="md-settings-description">用于标识这个工作空间仓库的用途</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <input type="text" id="setting-workspace-repo-description" value="Markdown workspace data" />
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>私有仓库</span>
+                                        <span class="md-settings-description">建议保持开启，避免工作空间内容公开</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-workspace-repo-private" checked />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>

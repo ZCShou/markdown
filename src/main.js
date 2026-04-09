@@ -3,6 +3,7 @@ import '@vscode/codicons/dist/codicon.css';
 import 'katex/dist/katex.min.css';
 
 import { MarkdownEditor } from './MarkdownEditor.js';
+import { handleWorkspaceOAuthCallback } from './workspace/oauth.js';
 
 /**
  * 显示错误降级 UI
@@ -69,4 +70,6 @@ async function initApp() {
 }
 
 // 初始化应用
-document.addEventListener('DOMContentLoaded', initApp);
+if (!handleWorkspaceOAuthCallback()) {
+    document.addEventListener('DOMContentLoaded', initApp);
+}
