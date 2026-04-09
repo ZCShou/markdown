@@ -5,9 +5,12 @@ export {
 } from './defaults.js';
 export {
     buildWorkspaceSnapshot,
+    collectWorkspaceAssetPaths,
+    mergeWorkspaceAssets,
     mergeWorkspaceDocuments,
     mergeWorkspaceSnapshots,
     mergeWorkspaceTombstones,
+    normalizeWorkspaceAssets,
     parseWorkspaceSnapshot
 } from './snapshot.js';
 export { handleWorkspaceOAuthCallback, startWorkspaceOAuth } from './oauth.js';

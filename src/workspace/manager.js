@@ -1,40 +1,62 @@
+import {
+    deleteImage,
+    extractImagePaths,
+    getImageAsBase64,
+    saveImageFromDataUrl
+} from '../utils/helpers.js';
 import { getWorkspaceOAuthClientId } from './defaults.js';
-import { buildWorkspaceSnapshot as createWorkspaceSnapshot } from './snapshot.js';
+import {
+    buildWorkspaceSnapshot as createWorkspaceSnapshot,
+    collectWorkspaceAssetPaths,
+    parseWorkspaceSnapshot
+} from './snapshot.js';
 import { startWorkspaceOAuth } from './oauth.js';
 import { WorkspaceStorage } from './storage.js';
 import { isTauriRuntime } from './tauri.js';
 import { fetchWorkspaceOAuthClientId, invokeWorkspaceBackend } from './runtime.js';
 
 export class WorkspaceManager {
+    static AUTO_SYNC_INTERVAL = 30000;
+
     constructor(state) {
         this.state = state;
-        this.syncTimer = null;
+        this.syncInterval = null;
         this.documentsUnsubscribe = null;
         this.currentDocUnsubscribe = null;
         this.workspaceUnsubscribe = null;
         this.isSyncing = false;
         this.pendingSync = false;
+        this.hasPendingAutoSync = false;
+        this.isApplyingRemoteSnapshot = false;
         this.lastSyncedSnapshot = '';
     }
 
     init() {
         this.documentsUnsubscribe = this.state.subscribeTo('documents', () => {
             const workspace = this.state.get('workspace');
-            if (!workspace?.connected || !workspace.autoSync) return;
-            this.scheduleSync();
+            if (!workspace?.connected || !workspace.autoSync || this.isApplyingRemoteSnapshot) return;
+            this.markPendingAutoSync();
         });
 
         this.currentDocUnsubscribe = this.state.subscribeTo('currentDocId', () => {
             const workspace = this.state.get('workspace');
-            if (!workspace?.connected || !workspace.autoSync) return;
-            this.scheduleSync();
+            if (!workspace?.connected || !workspace.autoSync || this.isApplyingRemoteSnapshot) return;
+            this.markPendingAutoSync();
         });
 
         this.workspaceUnsubscribe = this.state.subscribeTo('workspace', workspace => {
             if (!workspace?.connected || !workspace.autoSync) {
-                this.clearSyncTimer();
+                this.stopAutoSyncPolling();
+                return;
             }
+
+            this.startAutoSyncPolling();
         });
+
+        const workspace = this.state.get('workspace');
+        if (workspace?.connected && workspace.autoSync) {
+            this.startAutoSyncPolling();
+        }
     }
 
     async connect(provider) {
@@ -92,14 +114,16 @@ export class WorkspaceManager {
             repoUrl: repoResult.htmlUrl
         });
 
+        this.hasPendingAutoSync = false;
         await this.syncNow();
     }
 
     disconnect() {
         const workspace = this.state.get('workspace');
 
-        this.clearSyncTimer();
+        this.stopAutoSyncPolling();
         this.pendingSync = false;
+        this.hasPendingAutoSync = false;
         this.lastSyncedSnapshot = '';
         WorkspaceStorage.clearWorkspaceAuth();
         this.state.updateWorkspaceConfig({
@@ -115,9 +139,20 @@ export class WorkspaceManager {
         });
     }
 
-    scheduleSync(delay = 1500) {
-        this.clearSyncTimer();
-        this.syncTimer = window.setTimeout(() => {
+    markPendingAutoSync() {
+        this.hasPendingAutoSync = true;
+    }
+
+    startAutoSyncPolling() {
+        if (this.syncInterval) {
+            return;
+        }
+
+        this.syncInterval = window.setInterval(() => {
+            if (!this.hasPendingAutoSync || this.isSyncing) {
+                return;
+            }
+
             this.syncNow().catch(error => {
                 console.error('Workspace auto sync failed:', error);
                 this.state.updateWorkspaceConfig({
@@ -126,13 +161,73 @@ export class WorkspaceManager {
                 });
                 this.state.showNotification(error.message || '自动同步失败', 'error');
             });
-        }, delay);
+        }, WorkspaceManager.AUTO_SYNC_INTERVAL);
     }
 
-    clearSyncTimer() {
-        if (this.syncTimer) {
-            clearTimeout(this.syncTimer);
-            this.syncTimer = null;
+    stopAutoSyncPolling() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
+    }
+
+    async buildSnapshotPayload() {
+        const documents = this.state.get('documents', true) || [];
+        const currentDocId = this.state.get('currentDocId');
+        const tombstones = this.state.get('workspaceTombstones', true) || [];
+        const imagePaths = collectWorkspaceAssetPaths(documents);
+
+        const assetResults = await Promise.allSettled(
+            Array.from(imagePaths).map(async imagePath => ({
+                path: imagePath,
+                dataUrl: await getImageAsBase64(imagePath)
+            }))
+        );
+
+        const assets = assetResults.flatMap(result => {
+            if (result.status === 'fulfilled' && result.value.dataUrl) {
+                return [result.value];
+            }
+
+            if (result.status === 'rejected') {
+                console.warn('Failed to read workspace image asset:', result.reason);
+            }
+
+            return [];
+        });
+
+        return createWorkspaceSnapshot(documents, currentDocId, tombstones, assets);
+    }
+
+    async applyMergedSnapshot(snapshotJson) {
+        if (!snapshotJson) return;
+
+        const currentImagePaths = collectWorkspaceAssetPaths(this.state.get('documents', true) || []);
+
+        const snapshot = parseWorkspaceSnapshot(snapshotJson);
+        const nextImagePaths = collectWorkspaceAssetPaths(snapshot.documents || []);
+
+        const restoreResults = await Promise.allSettled(
+            (snapshot.assets || []).map(asset => saveImageFromDataUrl(asset.path, asset.dataUrl))
+        );
+
+        restoreResults.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                const asset = snapshot.assets?.[index];
+                console.warn('Failed to restore workspace image asset:', asset?.path, result.reason);
+            }
+        });
+
+        const removedImagePaths = Array.from(currentImagePaths).filter(
+            imagePath => !nextImagePaths.has(imagePath)
+        );
+        await Promise.allSettled(removedImagePaths.map(imagePath => deleteImage(imagePath)));
+
+        this.isApplyingRemoteSnapshot = true;
+        try {
+            this.state.applyWorkspaceSnapshot(snapshot);
+        } finally {
+            this.isApplyingRemoteSnapshot = false;
         }
     }
 
@@ -149,18 +244,9 @@ export class WorkspaceManager {
         }
 
         this.isSyncing = true;
-        this.clearSyncTimer();
 
         try {
-            const snapshot = JSON.stringify(
-                createWorkspaceSnapshot(
-                    this.state.get('documents', true) || [],
-                    this.state.get('currentDocId'),
-                    this.state.get('workspaceTombstones', true) || []
-                ),
-                null,
-                2
-            );
+            const snapshot = JSON.stringify(await this.buildSnapshotPayload(), null, 2);
 
             if (snapshot === this.lastSyncedSnapshot) {
                 this.state.updateWorkspaceConfig({
@@ -186,6 +272,10 @@ export class WorkspaceManager {
             });
 
             this.lastSyncedSnapshot = syncResult?.snapshotJson || snapshot;
+            this.hasPendingAutoSync = false;
+            if (syncResult?.snapshotJson) {
+                await this.applyMergedSnapshot(syncResult.snapshotJson);
+            }
             WorkspaceStorage.saveWorkspaceAuth({
                 provider: workspace.provider,
                 connected: true,
@@ -209,13 +299,13 @@ export class WorkspaceManager {
             this.isSyncing = false;
             if (this.pendingSync) {
                 this.pendingSync = false;
-                this.scheduleSync(300);
+                this.hasPendingAutoSync = true;
             }
         }
     }
 
     destroy() {
-        this.clearSyncTimer();
+        this.stopAutoSyncPolling();
 
         if (this.documentsUnsubscribe) {
             this.documentsUnsubscribe();

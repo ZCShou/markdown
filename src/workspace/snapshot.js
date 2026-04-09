@@ -6,6 +6,10 @@ function getDeletedAt(tombstone) {
     return typeof tombstone?.deletedAt === 'string' ? tombstone.deletedAt : '';
 }
 
+function getAssetUpdatedAt(asset) {
+    return typeof asset?.updatedAt === 'string' ? asset.updatedAt : '';
+}
+
 export function normalizeWorkspaceDocuments(documents) {
     if (!Array.isArray(documents)) {
         return [];
@@ -28,6 +32,32 @@ export function normalizeWorkspaceTombstones(tombstones) {
     );
 }
 
+export function normalizeWorkspaceAssets(assets) {
+    if (!Array.isArray(assets)) {
+        return [];
+    }
+
+    return assets.filter(
+        asset =>
+            asset &&
+            typeof asset === 'object' &&
+            typeof asset.path === 'string' &&
+            typeof asset.dataUrl === 'string'
+    );
+}
+
+export function collectWorkspaceAssetPaths(documents = []) {
+    const assetPaths = new Set();
+
+    for (const doc of normalizeWorkspaceDocuments(documents)) {
+        if (doc.type === 'image' && typeof doc.imagePath === 'string') {
+            assetPaths.add(doc.imagePath);
+        }
+    }
+
+    return assetPaths;
+}
+
 export function applyWorkspaceTombstones(documents = [], tombstones = []) {
     const normalizedDocuments = normalizeWorkspaceDocuments(documents);
     const tombstoneMap = new Map(
@@ -44,10 +74,19 @@ export function applyWorkspaceTombstones(documents = [], tombstones = []) {
     });
 }
 
-export function buildWorkspaceSnapshot(documents = [], currentDocId = null, tombstones = []) {
+export function buildWorkspaceSnapshot(
+    documents = [],
+    currentDocId = null,
+    tombstones = [],
+    assets = []
+) {
     const normalizedDocuments = normalizeWorkspaceDocuments(documents);
     const normalizedTombstones = normalizeWorkspaceTombstones(tombstones);
     const visibleDocuments = applyWorkspaceTombstones(normalizedDocuments, normalizedTombstones);
+    const referencedImagePaths = collectWorkspaceAssetPaths(visibleDocuments);
+    const normalizedAssets = normalizeWorkspaceAssets(assets).filter(asset =>
+        referencedImagePaths.has(asset.path)
+    );
     const validCurrentDocId = visibleDocuments.some(doc => doc.id === currentDocId)
         ? currentDocId
         : visibleDocuments.find(doc => doc.type !== 'folder')?.id || null;
@@ -55,7 +94,8 @@ export function buildWorkspaceSnapshot(documents = [], currentDocId = null, tomb
     return {
         currentDocId: validCurrentDocId,
         documents: visibleDocuments,
-        tombstones: normalizedTombstones
+        tombstones: normalizedTombstones,
+        assets: normalizedAssets
     };
 }
 
@@ -75,7 +115,8 @@ export function parseWorkspaceSnapshot(snapshot) {
     return buildWorkspaceSnapshot(
         snapshot.documents,
         snapshot.currentDocId || null,
-        snapshot.tombstones || snapshot.deletedDocs || null
+        snapshot.tombstones || snapshot.deletedDocs || null,
+        snapshot.assets || null
     );
 }
 
@@ -132,6 +173,27 @@ export function mergeWorkspaceTombstones(baseTombstones = [], incomingTombstones
     return mergedTombstones;
 }
 
+export function mergeWorkspaceAssets(baseAssets = [], incomingAssets = []) {
+    const mergedAssets = [...normalizeWorkspaceAssets(baseAssets)];
+    const indexByPath = new Map(mergedAssets.map((asset, index) => [asset.path, index]));
+
+    for (const asset of normalizeWorkspaceAssets(incomingAssets)) {
+        const existingIndex = indexByPath.get(asset.path);
+
+        if (existingIndex === undefined) {
+            indexByPath.set(asset.path, mergedAssets.length);
+            mergedAssets.push(asset);
+            continue;
+        }
+
+        if (getAssetUpdatedAt(asset) >= getAssetUpdatedAt(mergedAssets[existingIndex])) {
+            mergedAssets[existingIndex] = asset;
+        }
+    }
+
+    return mergedAssets;
+}
+
 export function mergeWorkspaceSnapshots(baseSnapshot, incomingSnapshot) {
     const parsedBase = parseWorkspaceSnapshot(baseSnapshot);
     const parsedIncoming = parseWorkspaceSnapshot(incomingSnapshot);
@@ -140,10 +202,15 @@ export function mergeWorkspaceSnapshots(baseSnapshot, incomingSnapshot) {
         parsedBase.tombstones,
         parsedIncoming.tombstones
     );
+    const referencedImagePaths = collectWorkspaceAssetPaths(merged.documents);
+    const assets = mergeWorkspaceAssets(parsedBase.assets, parsedIncoming.assets).filter(asset =>
+        referencedImagePaths.has(asset.path)
+    );
 
     return buildWorkspaceSnapshot(
         merged.documents,
         parsedIncoming.currentDocId || parsedBase.currentDocId,
-        tombstones
+        tombstones,
+        assets
     );
 }

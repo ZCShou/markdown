@@ -7,6 +7,7 @@ import { EditorState } from '../EditorState.js';
 import { dom } from '../utils/dom.js';
 import { Dialog } from './Dialog.js';
 import { buildWorkspaceSnapshot, parseWorkspaceSnapshot } from '../workspace/index.js';
+import { getImageAsBase64, saveImageFromDataUrl } from '../utils/helpers.js';
 
 /**
  *
@@ -55,11 +56,11 @@ export class LeftSidebar extends BaseComponent {
 
         // 订阅文档树状态
         const unsubscribeTree = this.state.subscribeTo(
-            ['documents', 'selectedDocIds'],
+            ['documents', 'selectedDocIds', 'currentDocId'],
             (newValue, oldValue, key) => {
                 if (key === 'selectedDocIds') {
                     this.updateSelectionState(newValue, oldValue);
-                } else if (key === 'documents') {
+                } else if (key === 'documents' || key === 'currentDocId') {
                     this.renderTree();
                 }
             }
@@ -296,6 +297,11 @@ export class LeftSidebar extends BaseComponent {
         const deleteBtn = e.target.closest('.md-doc-item-delete');
         if (deleteBtn) {
             e.stopPropagation();
+            const { imagePath } = deleteBtn.dataset;
+            if (imagePath) {
+                this.deleteImageNode(imagePath);
+                return;
+            }
             this.deleteDocument(deleteBtn.dataset.docId);
             return;
         }
@@ -608,6 +614,11 @@ export class LeftSidebar extends BaseComponent {
 
         if (!doc) return;
 
+        if (doc.type === EditorState.RESOURCE_TYPES.IMAGE) {
+            this.state.selectResource(docId);
+            return;
+        }
+
         // 更新状态，由updateSelectionState统一处理UI更新
         this.state.setCurrentDocument(docId);
 
@@ -650,7 +661,12 @@ export class LeftSidebar extends BaseComponent {
         };
 
         const childrenCount = doc.type === 'folder' ? countChildren(docId) : 0;
-        const itemType = doc.type === 'folder' ? '文件夹' : '文档';
+        const itemType =
+            doc.type === EditorState.RESOURCE_TYPES.FOLDER
+                ? '文件夹'
+                : doc.type === EditorState.RESOURCE_TYPES.IMAGE
+                    ? '图片'
+                    : '文档';
         const message =
             childrenCount > 0
                 ? `确定要删除这个${itemType}及其 ${childrenCount} 个子项吗？`
@@ -877,6 +893,20 @@ export class LeftSidebar extends BaseComponent {
         );
     }
 
+    async deleteImageNode(imagePath) {
+        const confirmed = await Dialog.confirm('确定要删除这张图片吗？\n\n它会从所有引用它的文档中移除。', {
+            title: '删除图片',
+            type: 'danger',
+            confirmText: '删除',
+            cancelText: '取消'
+        });
+        if (!confirmed) return;
+
+        this.state.deleteImageAsset(imagePath);
+        this.renderTree();
+        this.showMessage('图片已删除', 'success');
+    }
+
     // ==================== 渲染相关 ====================
 
     /**
@@ -1096,7 +1126,7 @@ export class LeftSidebar extends BaseComponent {
     renderTreeNode(node, currentDocId, level, selectedDocIds = new Set()) {
         const isEditing = node.id === this.editingDocId;
         const isActive = node.id === currentDocId || selectedDocIds.has(node.id);
-        const isFolder = node.type === 'folder';
+        const isFolder = node.type === EditorState.RESOURCE_TYPES.FOLDER;
         const isExpanded = isFolder && this.expandedFolders.has(node.id);
         const hasChildren = isFolder && node.children?.length > 0;
 
@@ -1140,7 +1170,9 @@ export class LeftSidebar extends BaseComponent {
             ? isExpanded
                 ? 'codicon-folder-opened'
                 : 'codicon-folder'
-            : 'codicon-file';
+            : node.type === EditorState.RESOURCE_TYPES.IMAGE
+                ? 'codicon-file-media'
+                : 'codicon-file';
         this.createElement('i', { className: `codicon ${iconClass}`, parent: iconSpan });
 
         if (isEditing) {
@@ -1163,7 +1195,7 @@ export class LeftSidebar extends BaseComponent {
             parent: item
         });
 
-        if (isFolder) {
+        if (node.type === EditorState.RESOURCE_TYPES.FOLDER && node.folderKind !== 'images') {
             ['new-file', 'new-folder'].forEach(type => {
                 const btn = this.createElement('button', {
                     className: `md-btn md-btn-icon md-btn-xs md-${type}-btn`,
@@ -1179,7 +1211,11 @@ export class LeftSidebar extends BaseComponent {
 
         const deleteBtn = this.createElement('button', {
             className: 'md-btn md-btn-icon md-btn-xs md-doc-item-delete',
-            attributes: { title: '删除', 'data-doc-id': node.id },
+            attributes: {
+                title: node.type === EditorState.RESOURCE_TYPES.IMAGE ? '删除图片' : '删除',
+                'data-doc-id': node.id,
+                ...(node.type === EditorState.RESOURCE_TYPES.IMAGE ? { 'data-image-path': node.imagePath } : {})
+            },
             parent: actions
         });
         this.createElement('i', { className: 'codicon codicon-trash', parent: deleteBtn });
@@ -1203,6 +1239,7 @@ export class LeftSidebar extends BaseComponent {
         return nodeContainer;
     }
 
+
     // ==================== 文档导入导出 ====================
 
     /**
@@ -1215,10 +1252,22 @@ export class LeftSidebar extends BaseComponent {
             return;
         }
 
-        try {
+        (async () => {
+            const imageAssets = await Promise.all(
+                documents
+                    .filter(doc => doc.type === EditorState.RESOURCE_TYPES.IMAGE && doc.imagePath)
+                    .map(async doc => ({
+                        path: doc.imagePath,
+                        dataUrl: await getImageAsBase64(doc.imagePath),
+                        updatedAt: doc.updatedAt
+                    }))
+            );
+
             const snapshot = buildWorkspaceSnapshot(
                 documents,
-                this.state.get('currentDocId')
+                this.state.get('currentDocId'),
+                this.state.get('workspaceTombstones', true) || [],
+                imageAssets.filter(asset => asset.dataUrl)
             );
             const blob = new Blob(
                 [
@@ -1246,9 +1295,9 @@ export class LeftSidebar extends BaseComponent {
             setTimeout(() => URL.revokeObjectURL(a.href), 100);
 
             this.showMessage(`成功导出 ${documents.length} 个文档`, 'success');
-        } catch (_error) {
+        })().catch(() => {
             this.showMessage('导出文档失败', 'error');
-        }
+        });
     }
 
     /**
@@ -1293,7 +1342,15 @@ export class LeftSidebar extends BaseComponent {
                     return;
                 }
 
-                this.state.importDocuments(snapshot.documents, importMode, true);
+                await Promise.allSettled(
+                    (snapshot.assets || []).map(asset => saveImageFromDataUrl(asset.path, asset.dataUrl))
+                );
+
+                if (importMode === 'replace') {
+                    this.state.applyWorkspaceSnapshot(snapshot);
+                } else {
+                    this.state.importDocuments(snapshot.documents, 'merge', true);
+                }
                 this.showMessage(
                     `成功${importMode === 'replace' ? '替换' : '合并'}导入 ${snapshot.documents.length} 个文档`,
                     'success'

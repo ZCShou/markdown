@@ -94,6 +94,7 @@ struct WorkspaceSnapshot {
     current_doc_id: Option<String>,
     documents: Option<Vec<Value>>,
     tombstones: Option<Vec<Value>>,
+    assets: Option<Vec<Value>>,
     #[serde(rename = "deletedDocs")]
     deleted_docs: Option<Vec<Value>>,
 }
@@ -153,6 +154,7 @@ fn parse_workspace_snapshot(snapshot_json: &str) -> WorkspaceSnapshot {
         current_doc_id: None,
         documents: Some(Vec::new()),
         tombstones: Some(Vec::new()),
+        assets: Some(Vec::new()),
         deleted_docs: Some(Vec::new()),
     })
 }
@@ -181,12 +183,28 @@ fn normalize_workspace_tombstones(
         .collect()
 }
 
+fn normalize_workspace_assets(assets: Option<Vec<Value>>) -> Vec<Value> {
+    assets
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|asset| {
+            asset.is_object()
+                && asset.get("path").and_then(Value::as_str).is_some()
+                && asset.get("dataUrl").and_then(Value::as_str).is_some()
+        })
+        .collect()
+}
+
 fn get_doc_updated_at(doc: &Value) -> &str {
     doc.get("updatedAt").and_then(Value::as_str).unwrap_or("")
 }
 
 fn get_deleted_at(tombstone: &Value) -> &str {
     tombstone.get("deletedAt").and_then(Value::as_str).unwrap_or("")
+}
+
+fn get_asset_updated_at(asset: &Value) -> &str {
+    asset.get("updatedAt").and_then(Value::as_str).unwrap_or("")
 }
 
 fn merge_workspace_tombstones(base: Vec<Value>, incoming: Vec<Value>) -> Vec<Value> {
@@ -233,10 +251,35 @@ fn apply_workspace_tombstones(documents: Vec<Value>, tombstones: &[Value]) -> Ve
         .collect()
 }
 
+fn merge_workspace_assets(base: Vec<Value>, incoming: Vec<Value>) -> Vec<Value> {
+    let mut merged = base;
+
+    for asset in incoming {
+        let Some(asset_path) = asset.get("path").and_then(Value::as_str) else {
+            continue;
+        };
+
+        if let Some(index) = merged
+            .iter()
+            .position(|item| item.get("path").and_then(Value::as_str) == Some(asset_path))
+        {
+            if get_asset_updated_at(&asset) >= get_asset_updated_at(&merged[index]) {
+                merged[index] = asset;
+            }
+            continue;
+        }
+
+        merged.push(asset);
+    }
+
+    merged
+}
+
 fn build_workspace_snapshot(
     documents: Vec<Value>,
     current_doc_id: Option<String>,
     tombstones: Vec<Value>,
+    assets: Vec<Value>,
 ) -> Value {
     let visible_documents = apply_workspace_tombstones(documents, &tombstones);
 
@@ -257,7 +300,8 @@ fn build_workspace_snapshot(
     json!({
         "currentDocId": valid_current_doc_id.or(fallback_current_doc_id),
         "documents": visible_documents,
-        "tombstones": tombstones
+        "tombstones": tombstones,
+        "assets": assets
     })
 }
 
@@ -269,6 +313,10 @@ fn merge_workspace_snapshots(local_snapshot_json: &str, remote_snapshot_json: &s
     let tombstones = merge_workspace_tombstones(
         normalize_workspace_tombstones(local.tombstones, local.deleted_docs),
         normalize_workspace_tombstones(remote.tombstones, remote.deleted_docs),
+    );
+    let assets = merge_workspace_assets(
+        normalize_workspace_assets(local.assets),
+        normalize_workspace_assets(remote.assets),
     );
 
     let mut merged_documents: Vec<Value> = Vec::new();
@@ -302,6 +350,7 @@ fn merge_workspace_snapshots(local_snapshot_json: &str, remote_snapshot_json: &s
         merged_documents,
         local.current_doc_id.or(remote.current_doc_id),
         tombstones,
+        assets,
     ))
     .map_err(|err| err.to_string())
 }

@@ -236,7 +236,12 @@ export class MarkdownEditor {
      */
     async #handleImagePaste(file) {
         try {
-            return await handlePastedImage(file);
+            const { folderId, directorySegments } = this.state.ensureImageFolderForCurrentDoc();
+            const imagePath = await handlePastedImage(file, {
+                directorySegments
+            });
+            this.state.registerImageResource(imagePath, folderId);
+            return imagePath;
         } catch (error) {
             console.error('Failed to save pasted image:', error);
             this.showMessage(error.message || '保存图片失败', MarkdownEditor.MESSAGE_TYPES.ERROR);

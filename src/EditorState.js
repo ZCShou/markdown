@@ -19,6 +19,7 @@
 import { deleteImage, extractImagePaths, isInternalImagePath } from './utils/helpers.js';
 import {
     createDefaultWorkspaceSettings,
+    parseWorkspaceSnapshot,
     mergeWorkspaceSettings,
     mergeWorkspaceDocuments,
     mergeWorkspaceTombstones,
@@ -79,6 +80,12 @@ export class EditorState {
             codeHighlight: true
         },
         workspace: createDefaultWorkspaceSettings()
+    };
+
+    static RESOURCE_TYPES = {
+        FILE: 'file',
+        FOLDER: 'folder',
+        IMAGE: 'image'
     };
 
     /**
@@ -583,7 +590,7 @@ $$
 
         // 尝试使用保存的文档 ID
         if (savedDocId) {
-            const doc = documents.find(d => d.id === savedDocId && d.type !== 'folder');
+            const doc = documents.find(d => d.id === savedDocId && d.type === EditorState.RESOURCE_TYPES.FILE);
             if (doc) {
                 currentDocId = doc.id;
                 content = doc.content || '';
@@ -592,7 +599,7 @@ $$
 
         // 如果没有找到保存的文档，选择第一个非文件夹文档
         if (!currentDocId) {
-            const firstDoc = documents.find(d => d.type !== 'folder');
+            const firstDoc = documents.find(d => d.type === EditorState.RESOURCE_TYPES.FILE);
             if (firstDoc) {
                 currentDocId = firstDoc.id;
                 content = firstDoc.content || '';
@@ -605,7 +612,7 @@ $$
             const defaultDoc = {
                 id: Date.now().toString(),
                 name: '欢迎使用',
-                type: 'file',
+                type: EditorState.RESOURCE_TYPES.FILE,
                 parentId: null,
                 content: EditorState.DEFAULT_CONTENT,
                 createdAt: now,
@@ -808,6 +815,9 @@ $$
         const imagePaths = new Set();
         for (const docId of toDelete) {
             const doc = this.#state.documents.find(d => d.id === docId);
+            if (doc?.type === EditorState.RESOURCE_TYPES.IMAGE && doc.imagePath) {
+                imagePaths.add(doc.imagePath);
+            }
             if (doc?.content) {
                 const paths = extractImagePaths(doc.content);
                 for (const path of paths) {
@@ -872,7 +882,7 @@ $$
             }
 
             // 只有当文档不是文件夹时，才更新内容
-            if (doc.type !== 'folder') {
+            if (doc.type === EditorState.RESOURCE_TYPES.FILE) {
                 updates.content = doc.content || '';
             }
 
@@ -1012,6 +1022,83 @@ $$
         this.#setState({ documents: newDocuments }, { silent: !notify });
     }
 
+    deleteImageAsset(imagePath) {
+        if (!imagePath || !isInternalImagePath(imagePath)) {
+            return;
+        }
+
+        const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const imagePattern = new RegExp(
+            `!?\\[[^\\]]*\\]\\(${escapeRegExp(imagePath)}\\)\\n?`,
+            'g'
+        );
+
+        let { content } = this.#state;
+        let currentDocChanged = false;
+        const updatedDocuments = this.#state.documents.map(doc => {
+            if (typeof doc.content !== 'string' || !doc.content.includes(imagePath)) {
+                return doc;
+            }
+
+            const nextContent = doc.content.replace(imagePattern, '').trimEnd();
+            if (doc.id === this.#state.currentDocId) {
+                content = nextContent;
+                currentDocChanged = true;
+            }
+
+            return {
+                ...doc,
+                content: nextContent,
+                updatedAt: new Date().toISOString()
+            };
+        });
+
+        const imageDocIds = this.#state.documents
+            .filter(doc => doc.type === EditorState.RESOURCE_TYPES.IMAGE && doc.imagePath === imagePath)
+            .map(doc => doc.id);
+        const toDelete = new Set(imageDocIds);
+        const documents = updatedDocuments.filter(doc => !toDelete.has(doc.id));
+        const deletedAt = new Date().toISOString();
+        const workspaceTombstones =
+            imageDocIds.length > 0
+                ? mergeWorkspaceTombstones(
+                    this.#state.workspaceTombstones,
+                    imageDocIds.map(id => ({ id, deletedAt }))
+                )
+                : this.#state.workspaceTombstones;
+        const selectedDocIds = this.#state.selectedDocIds.filter(id => !toDelete.has(id));
+
+        this.#setState(
+            currentDocChanged
+                ? { documents, content, workspaceTombstones, selectedDocIds }
+                : { documents, workspaceTombstones, selectedDocIds },
+            { silent: false }
+        );
+
+        deleteImage(imagePath).catch(() => { });
+    }
+
+    applyWorkspaceSnapshot(snapshot, options = {}) {
+        const parsed = parseWorkspaceSnapshot(snapshot);
+        const { documents, currentDocId, tombstones } = parsed;
+        const nextCurrentDoc =
+            documents.find(doc => doc.id === currentDocId && doc.type === EditorState.RESOURCE_TYPES.FILE) ||
+            documents.find(doc => doc.type === EditorState.RESOURCE_TYPES.FILE) ||
+            null;
+
+        this.#setState(
+            {
+                documents,
+                currentDocId: nextCurrentDoc?.id || null,
+                content: nextCurrentDoc?.content || '',
+                selectedDocIds: nextCurrentDoc?.id ? [nextCurrentDoc.id] : [],
+                lastClickedDocId: nextCurrentDoc?.id || null,
+                workspaceTombstones: tombstones || []
+            },
+            options
+        );
+    }
+
     /**
      * 获取文档树（支持获取完整树或子树）
      * @param {string} [folderId] - 文件夹ID（不传则返回完整树）
@@ -1022,7 +1109,7 @@ $$
 
         // 如果指定了文件夹ID，只返回该文件夹的子项
         if (folderId) {
-            return docs.filter(doc => doc.parentId === folderId);
+            return this.#sortDocumentNodes(docs.filter(doc => doc.parentId === folderId));
         }
 
         // 构建完整树型结构
@@ -1040,7 +1127,28 @@ $$
             }
         });
 
-        return roots;
+        docMap.forEach(doc => {
+            if (doc.children?.length) {
+                doc.children = this.#sortDocumentNodes(doc.children);
+            }
+        });
+
+        return this.#sortDocumentNodes(roots);
+    }
+
+    #sortDocumentNodes(nodes = []) {
+        return [...nodes].sort((a, b) => {
+            const aIsImagesFolder =
+                a.type === EditorState.RESOURCE_TYPES.FOLDER && a.folderKind === 'images';
+            const bIsImagesFolder =
+                b.type === EditorState.RESOURCE_TYPES.FOLDER && b.folderKind === 'images';
+
+            if (aIsImagesFolder !== bIsImagesFolder) {
+                return aIsImagesFolder ? -1 : 1;
+            }
+
+            return 0;
+        });
     }
 
     /**
@@ -1071,6 +1179,94 @@ $$
         return true;
     }
 
+    getDocumentFolderPathSegments(docId = this.#state.currentDocId) {
+        if (!docId) return [];
+
+        const documents = this.#state.documents || [];
+        const docMap = new Map(documents.map(doc => [doc.id, doc]));
+        const segments = [];
+        let current = docMap.get(docId);
+
+        if (!current) return [];
+        current = current.parentId ? docMap.get(current.parentId) : null;
+
+        while (current) {
+            if (current.type === EditorState.RESOURCE_TYPES.FOLDER && current.name) {
+                segments.unshift(current.name);
+            }
+            current = current.parentId ? docMap.get(current.parentId) : null;
+        }
+
+        return segments;
+    }
+
+    ensureImageFolderForCurrentDoc() {
+        const currentDoc = this.#state.documents.find(doc => doc.id === this.#state.currentDocId);
+        const parentId = currentDoc?.parentId ?? null;
+        const existingFolder = this.#state.documents.find(
+            doc =>
+                doc.type === EditorState.RESOURCE_TYPES.FOLDER &&
+                doc.parentId === parentId &&
+                doc.folderKind === 'images'
+        );
+
+        if (existingFolder) {
+            return {
+                folderId: existingFolder.id,
+                directorySegments: [...this.getDocumentFolderPathSegments(), 'images']
+            };
+        }
+
+        const now = new Date().toISOString();
+        const folderId = Date.now().toString();
+        this.addDocument(
+            {
+                id: folderId,
+                name: 'images',
+                type: EditorState.RESOURCE_TYPES.FOLDER,
+                folderKind: 'images',
+                createdAt: now,
+                updatedAt: now
+            },
+            parentId
+        );
+
+        return {
+            folderId,
+            directorySegments: [...this.getDocumentFolderPathSegments(), 'images']
+        };
+    }
+
+    registerImageResource(imagePath, parentId) {
+        if (!imagePath || !parentId) return;
+
+        const fileName = imagePath.split('/').pop() || 'image';
+        const existingImage = this.#state.documents.find(
+            doc => doc.type === EditorState.RESOURCE_TYPES.IMAGE && doc.imagePath === imagePath
+        );
+        if (existingImage) return existingImage.id;
+
+        const now = new Date().toISOString();
+        const imageDoc = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: fileName,
+            type: EditorState.RESOURCE_TYPES.IMAGE,
+            imagePath,
+            parentId,
+            createdAt: now,
+            updatedAt: now
+        };
+        this.addDocument(imageDoc, parentId);
+        return imageDoc.id;
+    }
+
+    selectResource(docId) {
+        this.#setState({
+            selectedDocIds: docId ? [docId] : [],
+            lastClickedDocId: docId || null
+        });
+    }
+
     // ==================== 内容更新 ====================
 
     /**
@@ -1083,7 +1279,8 @@ $$
         this.#setState({ content }, { skipPersist: true });
 
         // 同步更新 documents 数组中的内容并触发持久化
-        if (this.#state.currentDocId) {
+        const currentDoc = this.#state.documents.find(doc => doc.id === this.#state.currentDocId);
+        if (currentDoc?.type === EditorState.RESOURCE_TYPES.FILE) {
             this.#updateDocumentContent(this.#state.currentDocId, content);
         }
     }

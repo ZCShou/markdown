@@ -283,14 +283,26 @@ function randomString(length = 16) {
 
 /**
  * 生成图片保存路径
- * 格式: /imgs/YYYY-MM-DD/随机字符串.扩展名
+ * 格式: /imgs/<目录>/images/随机字符串.扩展名
  * @param {string} ext - 文件扩展名（不含点）
+ * @param {string[]} directorySegments - 目录片段
  * @returns {string} 图片保存路径
  */
-export function generateImagePath(ext = 'png') {
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    return `/imgs/${dateStr}/${randomString(16)}.${ext}`;
+function sanitizePathSegment(segment) {
+    return String(segment || '')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, '-')
+        .replace(/^\.+|\.+$/g, '')
+        .slice(0, 64);
+}
+
+export function generateImagePath(ext = 'png', directorySegments = ['images']) {
+    const safeSegments = directorySegments
+        .map(sanitizePathSegment)
+        .filter(Boolean);
+    const pathSegments = safeSegments.length > 0 ? safeSegments : ['images'];
+    return `/imgs/${pathSegments.join('/')}/${randomString(16)}.${ext}`;
 }
 
 /**
@@ -394,6 +406,28 @@ export function getImageUrl(path) {
  * @returns {Promise<string|null>} Base64 Data URL 或 null
  */
 export async function getImageAsBase64(path) {
+    if (window.__TAURI__) {
+        const { readFile } = window.__TAURI__.fs;
+        const { join, resourceDir } = window.__TAURI__.path;
+        const resourceDirPath = await resourceDir();
+        const fullPath = await join(resourceDirPath, path.replace(/^\/?/, ''));
+        const bytes = await readFile(fullPath);
+        const ext = path.split('.').pop()?.toLowerCase() || 'png';
+        const mimeTypes = {
+            png: 'image/png',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            gif: 'image/gif',
+            webp: 'image/webp',
+            svg: 'image/svg+xml',
+            bmp: 'image/bmp',
+            tiff: 'image/tiff'
+        };
+        const mime = mimeTypes[ext] || 'image/png';
+        const base64 = btoa(String.fromCharCode(...bytes));
+        return `data:${mime};base64,${base64}`;
+    }
+
     const database = await initImageDB();
     return new Promise((resolve, reject) => {
         const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
@@ -427,6 +461,11 @@ function blobToBase64(blob) {
         reader.onerror = () => reject(new Error('Failed to read blob'));
         reader.readAsDataURL(blob);
     });
+}
+
+async function dataUrlToBlob(dataUrl) {
+    const response = await fetch(dataUrl);
+    return response.blob();
 }
 
 /**
@@ -490,14 +529,14 @@ function extractExtension(file) {
  * @returns {Promise<string>} 图片路径
  * @throws {Error} 图片过大时抛出错误
  */
-export async function handlePastedImage(file) {
+export async function handlePastedImage(file, options = {}) {
     // 校验文件大小
     if (file.size > MAX_IMAGE_SIZE) {
         throw new Error(`图片大小超过限制（最大 ${MAX_IMAGE_SIZE / 1024 / 1024}MB）`);
     }
 
     const ext = extractExtension(file);
-    const imagePath = generateImagePath(ext);
+    const imagePath = generateImagePath(ext, options.directorySegments);
 
     // Tauri 环境：保存到文件系统
     if (window.__TAURI__) {
@@ -518,6 +557,25 @@ export async function handlePastedImage(file) {
     // Web 环境：保存到 IndexedDB
     await saveImage(imagePath, file);
     return imagePath;
+}
+
+export async function saveImageFromDataUrl(path, dataUrl) {
+    const blob = await dataUrlToBlob(dataUrl);
+
+    if (window.__TAURI__) {
+        const { writeFile, mkdir } = window.__TAURI__.fs;
+        const { join, dirname, resourceDir } = window.__TAURI__.path;
+        const resourceDirPath = await resourceDir();
+        const fullPath = await join(resourceDirPath, path.slice(1));
+        const dirPath = await dirname(fullPath);
+        const arrayBuffer = await blob.arrayBuffer();
+
+        try { await mkdir(dirPath, { recursive: true }); } catch { /* ignore */ }
+        await writeFile(fullPath, new Uint8Array(arrayBuffer));
+        return;
+    }
+
+    await saveImage(path, blob);
 }
 
 /**

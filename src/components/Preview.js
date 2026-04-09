@@ -770,7 +770,7 @@ export class Preview extends BaseComponent {
 
         const documents = this.state.get('documents');
         const doc = documents.find(d => d.id === currentDocId);
-        if (!doc || doc.type === 'folder') return;
+        if (!doc || doc.type !== 'file') return;
 
         // 切换文档时重置滚动高亮状态
         this.#scrollToHeadingVersion++; // 使上一个文档任何飞行中的 scroll-to-heading 失效
