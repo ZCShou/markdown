@@ -65,12 +65,44 @@
                             id="md-export-docs"
                             title="导出文档"
                             aria-label="导出文档"
-                        >
-                            <i
-                                class="codicon codicon-sign-out md-icon-rotate-90"
-                                aria-hidden="true"
-                            ></i>
+                            >
+                                <i
+                                    class="codicon codicon-sign-out md-icon-rotate-90"
+                                    aria-hidden="true"
+                                ></i>
                         </button>
+                        <div class="md-workspace-sync" id="md-workspace-sync">
+                            <button
+                                class="md-btn md-btn-icon md-btn-ghost md-workspace-sync-btn"
+                                id="md-workspace-sync-btn"
+                                title="工作空间同步"
+                                aria-label="工作空间同步"
+                                aria-haspopup="menu"
+                                aria-expanded="false"
+                            >
+                                <i class="codicon codicon-sync" aria-hidden="true"></i>
+                            </button>
+                            <div
+                                class="md-workspace-sync-menu"
+                                id="md-workspace-sync-menu"
+                                role="menu"
+                                aria-label="选择同步平台"
+                                hidden
+                            >
+                                <button class="md-workspace-sync-menu-item" data-provider="local" role="menuitemradio" aria-checked="false">
+                                    <i class="codicon codicon-check" aria-hidden="true"></i>
+                                    <span>本地浏览器</span>
+                                </button>
+                                <button class="md-workspace-sync-menu-item" data-provider="github" role="menuitemradio" aria-checked="false">
+                                    <i class="codicon codicon-check" aria-hidden="true"></i>
+                                    <span>GitHub</span>
+                                </button>
+                                <button class="md-workspace-sync-menu-item" data-provider="gitee" role="menuitemradio" aria-checked="false">
+                                    <i class="codicon codicon-check" aria-hidden="true"></i>
+                                    <span>Gitee</span>
+                                </button>
+                            </div>
+                        </div>
                         <button
                             class="md-btn md-btn-icon md-btn-ghost"
                             id="md-delete-item"

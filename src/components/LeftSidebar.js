@@ -15,6 +15,8 @@ export class LeftSidebar extends BaseComponent {
     #pendingEdit = null;
     /** @private */
     #domCache = new Map(); // DOM 元素缓存
+    /** @private */
+    #syncSuccessTimer = null;
 
     constructor(state, containerId) {
         super(state, containerId);
@@ -26,6 +28,8 @@ export class LeftSidebar extends BaseComponent {
         this.clickTimeout = null;
         this.lastDragOverTime = 0;
         this.expandedFolders = new Set();
+        this.isWorkspaceMenuOpen = false;
+        this.workspaceSyncVisualState = 'idle';
     }
 
     // ==================== 生命周期管理 ====================
@@ -60,10 +64,15 @@ export class LeftSidebar extends BaseComponent {
             }
         );
 
+        const unsubscribeWorkspace = this.state.subscribeTo('workspace', (workspace, oldWorkspace) => {
+            this.updateWorkspaceSyncUI(workspace, oldWorkspace);
+        });
+
         // 合并取消订阅函数
         this.unsubscribe = () => {
             unsubscribeSidebar();
             unsubscribeTree();
+            unsubscribeWorkspace();
         };
     }
 
@@ -118,6 +127,30 @@ export class LeftSidebar extends BaseComponent {
         if (exportBtn) {
             exportBtn.addEventListener('click', () => this.exportDocuments());
         }
+
+        const workspaceSyncBtn = dom.getById('md-workspace-sync-btn')?.element;
+        if (workspaceSyncBtn) {
+            workspaceSyncBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                this.toggleWorkspaceMenu();
+            });
+        }
+
+        const workspaceSyncMenu = dom.getById('md-workspace-sync-menu')?.element;
+        if (workspaceSyncMenu) {
+            workspaceSyncMenu.addEventListener('click', e => {
+                const item = e.target.closest('.md-workspace-sync-menu-item');
+                if (!item) return;
+                this.selectWorkspaceProvider(item.dataset.provider);
+            });
+        }
+
+        this.addEventListener(document, 'click', e => {
+            const syncRoot = dom.getById('md-workspace-sync')?.element;
+            if (this.isWorkspaceMenuOpen && syncRoot && !syncRoot.contains(e.target)) {
+                this.closeWorkspaceMenu();
+            }
+        });
     }
 
     // ==================== 侧边栏控制 ====================
@@ -857,6 +890,126 @@ export class LeftSidebar extends BaseComponent {
 
         // 渲染文档树
         this.renderTree();
+        this.updateWorkspaceSyncUI(this.state.get('workspace') || {});
+    }
+
+    toggleWorkspaceMenu() {
+        if (this.isWorkspaceMenuOpen) {
+            this.closeWorkspaceMenu();
+            return;
+        }
+
+        const menu = dom.getById('md-workspace-sync-menu')?.element;
+        const button = dom.getById('md-workspace-sync-btn')?.element;
+        if (!menu || !button) return;
+
+        this.isWorkspaceMenuOpen = true;
+        menu.hidden = false;
+        button.setAttribute('aria-expanded', 'true');
+    }
+
+    closeWorkspaceMenu() {
+        const menu = dom.getById('md-workspace-sync-menu')?.element;
+        const button = dom.getById('md-workspace-sync-btn')?.element;
+        if (!menu || !button) return;
+
+        this.isWorkspaceMenuOpen = false;
+        menu.hidden = true;
+        button.setAttribute('aria-expanded', 'false');
+    }
+
+    getWorkspaceProviderLabel(provider) {
+        if (provider === 'github') return 'GitHub';
+        if (provider === 'gitee') return 'Gitee';
+        return '本地浏览器';
+    }
+
+    selectWorkspaceProvider(provider) {
+        const workspace = this.state.get('workspace') || {};
+        const currentProvider = workspace.provider || 'local';
+
+        if (!provider || provider === currentProvider) {
+            this.closeWorkspaceMenu();
+            return;
+        }
+
+        this.closeWorkspaceMenu();
+        this.openWorkspaceSettings(provider);
+
+        if (provider === 'local') {
+            this.showMessage('请在设置中切换到本地浏览器模式', 'info');
+            return;
+        }
+
+        if (!(workspace.connected && workspace.provider === provider)) {
+            this.showMessage(`请在设置中完成 ${this.getWorkspaceProviderLabel(provider)} 授权`, 'info');
+        }
+    }
+
+    openWorkspaceSettings(provider) {
+        const settingsButton = dom.getById('md-settings-btn')?.element;
+        if (!settingsButton) return;
+
+        settingsButton.click();
+
+        requestAnimationFrame(() => {
+            const workspaceNav = document.querySelector('.md-settings-nav-item[data-section="workspace"]');
+            workspaceNav?.click();
+
+            const providerSelect = document.getElementById('setting-workspace-provider-select');
+            if (providerSelect) {
+                providerSelect.value = provider;
+                providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
+
+    updateWorkspaceSyncUI(workspace = {}, oldWorkspace = null) {
+        const button = dom.getById('md-workspace-sync-btn')?.element;
+        const menu = dom.getById('md-workspace-sync-menu')?.element;
+        if (!button || !menu) return;
+
+        if (
+            oldWorkspace &&
+            workspace.lastSyncStatus === 'synced' &&
+            oldWorkspace.lastSyncStatus !== 'synced'
+        ) {
+            this.workspaceSyncVisualState = 'success';
+            clearTimeout(this.#syncSuccessTimer);
+            this.#syncSuccessTimer = setTimeout(() => {
+                this.workspaceSyncVisualState = 'idle';
+                this.updateWorkspaceSyncUI(this.state.get('workspace') || {});
+            }, 1600);
+        } else if (workspace.lastSyncStatus === 'syncing') {
+            clearTimeout(this.#syncSuccessTimer);
+            this.workspaceSyncVisualState = 'syncing';
+        } else if (workspace.lastSyncStatus === 'error') {
+            clearTimeout(this.#syncSuccessTimer);
+            this.workspaceSyncVisualState = 'error';
+        } else if (this.workspaceSyncVisualState !== 'success') {
+            this.workspaceSyncVisualState = 'idle';
+        }
+
+        button.classList.toggle('is-syncing', this.workspaceSyncVisualState === 'syncing');
+        button.classList.toggle('is-synced', this.workspaceSyncVisualState === 'success');
+        button.classList.toggle('is-sync-error', this.workspaceSyncVisualState === 'error');
+
+        const icon = button.querySelector('.codicon');
+        if (icon) {
+            const iconClassMap = {
+                syncing: 'codicon codicon-sync',
+                success: 'codicon codicon-check',
+                error: 'codicon codicon-close',
+                idle: 'codicon codicon-sync'
+            };
+            icon.className = iconClassMap[this.workspaceSyncVisualState] || iconClassMap.idle;
+        }
+
+        menu.querySelectorAll('.md-workspace-sync-menu-item').forEach(item => {
+            const checked = item.dataset.provider === (workspace.provider || 'local');
+            item.classList.toggle('is-selected', checked);
+            item.setAttribute('aria-checked', checked ? 'true' : 'false');
+        });
     }
 
     /**
@@ -1176,9 +1329,11 @@ export class LeftSidebar extends BaseComponent {
 
     destroy() {
         clearTimeout(this.clickTimeout);
+        clearTimeout(this.#syncSuccessTimer);
         this.#clearDropTarget();
         this.draggedItems = null;
         this.draggedSet = null;
+        this.closeWorkspaceMenu();
         this.#domCache.clear();
         document.body.classList.remove('is-dragging-tree');
         super.destroy?.();
