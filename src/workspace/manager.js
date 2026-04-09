@@ -23,6 +23,7 @@ export class WorkspaceManager {
         this.documentsUnsubscribe = null;
         this.currentDocUnsubscribe = null;
         this.workspaceUnsubscribe = null;
+        this.beforeSyncHook = null;
         this.isSyncing = false;
         this.pendingSync = false;
         this.hasPendingAutoSync = false;
@@ -170,6 +171,10 @@ export class WorkspaceManager {
         }
     }
 
+    setBeforeSyncHook(hook) {
+        this.beforeSyncHook = typeof hook === 'function' ? hook : null;
+    }
+
     async buildSnapshotPayload() {
         const documents = this.state.get('documents', true) || [];
         const currentDocId = this.state.get('currentDocId');
@@ -245,6 +250,10 @@ export class WorkspaceManager {
         this.isSyncing = true;
 
         try {
+            if (this.beforeSyncHook) {
+                await this.beforeSyncHook();
+            }
+
             const snapshot = JSON.stringify(await this.buildSnapshotPayload(), null, 2);
 
             if (snapshot === this.lastSyncedSnapshot) {

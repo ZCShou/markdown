@@ -152,6 +152,7 @@ export class MarkdownEditor {
 
         /** @type {WorkspaceManager} 工作空间同步管理器 */
         this.workspaceManager = new WorkspaceManager(this.state);
+        this.workspaceManager.setBeforeSyncHook(this.#flushEditorContent.bind(this));
 
         /** @type {CodeMirrorEditor|null} CodeMirror 实例 */
         this.codeMirrorEditor = null;
@@ -260,7 +261,24 @@ export class MarkdownEditor {
         }
         this.#editorInputTimer = setTimeout(() => {
             this.state.updateContent(content);
+            this.#editorInputTimer = null;
         }, MarkdownEditor.DEBOUNCE_DELAY.UPDATE);
+    }
+
+    /**
+     * 同步前立即刷新当前编辑器内容，避免防抖中的输入漏进工作空间快照
+     * @private
+     */
+    #flushEditorContent() {
+        if (this.#editorInputTimer) {
+            clearTimeout(this.#editorInputTimer);
+            this.#editorInputTimer = null;
+        }
+
+        const currentContent = this.#getActiveEditor()?.getValue();
+        if (typeof currentContent === 'string') {
+            this.state.updateContent(currentContent);
+        }
     }
 
     /**
