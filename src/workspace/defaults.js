@@ -14,7 +14,7 @@ export function createDefaultWorkspaceSettings() {
         repoName: 'markdown-workspace',
         repoDescription: 'Markdown workspace data',
         repoPrivate: true,
-        workspaceDir: 'stackedit-workspace',
+        workspaceDir: 'markdown-workspace',
         branch: 'main',
         owner: '',
         repoUrl: '',
