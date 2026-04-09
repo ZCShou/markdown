@@ -1,3 +1,5 @@
+import { extractImagePaths, isInternalImagePath } from '../utils/helpers.js';
+
 function getDocUpdatedAt(doc) {
     return typeof doc?.updatedAt === 'string' ? doc.updatedAt : '';
 }
@@ -52,6 +54,14 @@ export function collectWorkspaceAssetPaths(documents = []) {
     for (const doc of normalizeWorkspaceDocuments(documents)) {
         if (doc.type === 'image' && typeof doc.imagePath === 'string') {
             assetPaths.add(doc.imagePath);
+        }
+
+        if (typeof doc.content === 'string' && doc.content) {
+            for (const imagePath of extractImagePaths(doc.content)) {
+                if (isInternalImagePath(imagePath)) {
+                    assetPaths.add(imagePath);
+                }
+            }
         }
     }
 
