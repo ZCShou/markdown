@@ -153,6 +153,10 @@
   --prism-regex: #d16969;
 }
 
+[data-mode='dark'] .md-doc-item-actions {
+  background: rgba(30, 30, 30, 0.9);
+}
+
 /* ==================== 基础重置 ==================== */
 html,
 body {
@@ -1389,6 +1393,7 @@ html::-webkit-scrollbar-thumb:hover,
   color: var(--md-text-primary);
   user-select: none;
   min-height: 34px;
+  position: relative;
 }
 
 .md-doc-item:hover:not(.active) {
@@ -1490,7 +1495,11 @@ html::-webkit-scrollbar-thumb:hover,
   height: 22px;
   opacity: 0;
   flex-shrink: 0;
-  margin-left: 4px;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
 }
 
 .md-doc-item:hover .md-doc-item-actions,
