@@ -75,8 +75,8 @@
                             <button
                                 class="md-btn md-btn-icon md-btn-ghost md-workspace-sync-btn"
                                 id="md-workspace-sync-btn"
-                                title="工作空间同步"
-                                aria-label="工作空间同步"
+                                title="同步中心"
+                                aria-label="同步中心"
                                 aria-haspopup="menu"
                                 aria-expanded="false"
                             >
@@ -86,21 +86,36 @@
                                 class="md-workspace-sync-menu"
                                 id="md-workspace-sync-menu"
                                 role="menu"
-                                aria-label="选择同步平台"
+                                aria-label="同步中心"
                                 hidden
                             >
-                                <button class="md-workspace-sync-menu-item" data-provider="local" role="menuitemradio" aria-checked="false">
-                                    <i class="codicon codicon-check" aria-hidden="true"></i>
-                                    <span>本地浏览器</span>
-                                </button>
-                                <button class="md-workspace-sync-menu-item" data-provider="github" role="menuitemradio" aria-checked="false">
-                                    <i class="codicon codicon-check" aria-hidden="true"></i>
-                                    <span>GitHub</span>
-                                </button>
-                                <button class="md-workspace-sync-menu-item" data-provider="gitee" role="menuitemradio" aria-checked="false">
-                                    <i class="codicon codicon-check" aria-hidden="true"></i>
-                                    <span>Gitee</span>
-                                </button>
+                                <div class="md-workspace-sync-menu-header">
+                                    <div class="md-workspace-sync-menu-heading">
+                                        <strong>同步中心</strong>
+                                        <span>已连接的远端备份</span>
+                                    </div>
+                                    <div class="md-workspace-sync-menu-actions">
+                                        <button
+                                            class="md-btn md-btn-icon md-btn-ghost md-workspace-sync-menu-action"
+                                            id="md-workspace-sync-settings"
+                                            type="button"
+                                            title="打开同步设置"
+                                            aria-label="打开同步设置"
+                                        >
+                                            <i class="codicon codicon-settings-gear" aria-hidden="true"></i>
+                                        </button>
+                                        <button
+                                            class="md-btn md-btn-icon md-btn-ghost md-workspace-sync-menu-action"
+                                            id="md-workspace-sync-now"
+                                            type="button"
+                                            title="立即同步"
+                                            aria-label="立即同步"
+                                        >
+                                            <i class="codicon codicon-sync" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="md-workspace-sync-menu-list" id="md-workspace-sync-menu-list"></div>
                             </div>
                         </div>
                         <button
@@ -810,21 +825,8 @@
                                 <p class="md-settings-note" id="workspace-runtime-note"></p>
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
-                                        <span>同步平台</span>
-                                        <span class="md-settings-description">选择本地浏览器、GitHub 或 Gitee 作为工作空间存储方式</span>
-                                    </label>
-                                    <div class="md-settings-control">
-                                        <select id="setting-workspace-provider-select">
-                                            <option value="local">本地浏览器</option>
-                                            <option value="github">GitHub</option>
-                                            <option value="gitee">Gitee</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="md-settings-item">
-                                    <label class="md-settings-label">
                                         <span>同步状态</span>
-                                        <span class="md-settings-description">显示当前连接和最近一次同步结果</span>
+                                        <span class="md-settings-description">显示当前已连接的平台数量和最近一次同步结果</span>
                                     </label>
                                     <div class="md-settings-control">
                                         <strong class="md-settings-summary-value" id="workspace-status-text">未连接</strong>
@@ -852,31 +854,31 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="md-settings-group" id="settings-workspace-platform-group">
-                                <h4>平台配置</h4>
-                                <p class="md-settings-note">
-                                    平台配置仅对 GitHub 和 Gitee 生效，授权参数继续从应用配置或 `.env` 中读取。
-                                </p>
+                            <div class="md-settings-group" id="settings-workspace-platform-github">
+                                <div class="md-settings-platform-header">
+                                    <div class="md-settings-platform-title">
+                                        <span class="md-settings-platform-icon">
+                                            <i class="codicon codicon-mark-github" aria-hidden="true"></i>
+                                        </span>
+                                        <div class="md-settings-platform-copy">
+                                            <h4>GitHub</h4>
+                                            <span class="md-settings-platform-subtitle">远端备份平台</span>
+                                        </div>
+                                    </div>
+                                    <div class="md-settings-platform-actions" id="workspace-platform-actions-github">
+                                        <button class="md-btn md-btn-primary" type="button">
+                                            <i class="codicon codicon-sign-in" aria-hidden="true"></i>
+                                            <span>登录 GitHub</span>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="md-settings-item">
                                     <label class="md-settings-label">
-                                        <span>平台状态</span>
-                                        <span class="md-settings-description">未登录时显示登录按钮，已登录后显示账号信息和退出按钮</span>
+                                        <span>上次同步</span>
+                                        <span class="md-settings-description">用于确认这个平台最近一次成功同步的时间</span>
                                     </label>
-                                    <div class="md-settings-control md-settings-platform-status">
-                                        <strong class="md-settings-summary-value" id="workspace-platform-status-text">未登录</strong>
-                                        <button class="md-btn md-btn-primary" id="workspace-connect-current">
-                                            <i class="codicon codicon-sign-in" aria-hidden="true"></i>
-                                            <span>登录当前平台</span>
-                                        </button>
-                                        <button
-                                            class="md-btn md-btn-icon md-btn-ghost"
-                                            id="workspace-disconnect"
-                                            type="button"
-                                            aria-label="退出当前平台"
-                                            title="退出当前平台"
-                                        >
-                                            <i class="codicon codicon-sign-out" aria-hidden="true"></i>
-                                        </button>
+                                    <div class="md-settings-control">
+                                        <strong class="md-settings-summary-value" id="workspace-platform-last-synced-github">尚未同步</strong>
                                     </div>
                                 </div>
                                 <div class="md-settings-item">
@@ -885,7 +887,7 @@
                                         <span class="md-settings-description">首次授权时自动创建，常规情况下保留默认值即可</span>
                                     </label>
                                     <div class="md-settings-control">
-                                        <input type="text" id="setting-workspace-repo-name" value="markdown-workspace" />
+                                        <input type="text" id="setting-workspace-repo-name-github" value="markdown-workspace" />
                                     </div>
                                 </div>
                                 <div class="md-settings-item">
@@ -894,7 +896,7 @@
                                         <span class="md-settings-description">用于标识这个工作空间仓库的用途</span>
                                     </label>
                                     <div class="md-settings-control">
-                                        <input type="text" id="setting-workspace-repo-description" value="Markdown workspace data" />
+                                        <input type="text" id="setting-workspace-repo-description-github" value="Markdown workspace data" />
                                     </div>
                                 </div>
                                 <div class="md-settings-item">
@@ -904,7 +906,65 @@
                                     </label>
                                     <div class="md-settings-control">
                                         <label class="md-switch">
-                                            <input type="checkbox" id="setting-workspace-repo-private" checked />
+                                            <input type="checkbox" id="setting-workspace-repo-private-github" checked />
+                                            <span class="md-switch-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md-settings-group" id="settings-workspace-platform-gitee">
+                                <div class="md-settings-platform-header">
+                                    <div class="md-settings-platform-title">
+                                        <span class="md-settings-platform-icon">
+                                            <i class="codicon codicon-repo" aria-hidden="true"></i>
+                                        </span>
+                                        <div class="md-settings-platform-copy">
+                                            <h4>Gitee</h4>
+                                            <span class="md-settings-platform-subtitle">远端备份平台</span>
+                                        </div>
+                                    </div>
+                                    <div class="md-settings-platform-actions" id="workspace-platform-actions-gitee">
+                                        <button class="md-btn md-btn-primary" type="button">
+                                            <i class="codicon codicon-sign-in" aria-hidden="true"></i>
+                                            <span>登录 Gitee</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>上次同步</span>
+                                        <span class="md-settings-description">用于确认这个平台最近一次成功同步的时间</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <strong class="md-settings-summary-value" id="workspace-platform-last-synced-gitee">尚未同步</strong>
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>仓库名称</span>
+                                        <span class="md-settings-description">首次授权时自动创建，常规情况下保留默认值即可</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <input type="text" id="setting-workspace-repo-name-gitee" value="markdown-workspace" />
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>仓库描述</span>
+                                        <span class="md-settings-description">用于标识这个工作空间仓库的用途</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <input type="text" id="setting-workspace-repo-description-gitee" value="Markdown workspace data" />
+                                    </div>
+                                </div>
+                                <div class="md-settings-item">
+                                    <label class="md-settings-label">
+                                        <span>私有仓库</span>
+                                        <span class="md-settings-description">建议保持开启，避免工作空间内容公开</span>
+                                    </label>
+                                    <div class="md-settings-control">
+                                        <label class="md-switch">
+                                            <input type="checkbox" id="setting-workspace-repo-private-gitee" checked />
                                             <span class="md-switch-slider"></span>
                                         </label>
                                     </div>

@@ -6,7 +6,12 @@ import { BaseComponent } from './BaseComponent.js';
 import { EditorState } from '../EditorState.js';
 import { dom } from '../utils/dom.js';
 import { Dialog } from './Dialog.js';
-import { buildWorkspaceSnapshot, parseWorkspaceSnapshot } from '../workspace/index.js';
+import {
+    buildWorkspaceSnapshot,
+    getConnectedWorkspaceProviders,
+    getWorkspaceRemote,
+    parseWorkspaceSnapshot
+} from '../workspace/index.js';
 import { getImageAsBase64, saveImageFromDataUrl } from '../utils/helpers.js';
 
 /**
@@ -23,6 +28,7 @@ export class LeftSidebar extends BaseComponent {
     constructor(state, containerId) {
         super(state, containerId);
         this.side = 'left';
+        this.workspaceManager = null;
         this.editingDocId = null;
         this.draggedItems = null;
         this.dragTarget = null;
@@ -32,6 +38,10 @@ export class LeftSidebar extends BaseComponent {
         this.expandedFolders = new Set();
         this.isWorkspaceMenuOpen = false;
         this.workspaceSyncVisualState = 'idle';
+    }
+
+    setWorkspaceManager(workspaceManager) {
+        this.workspaceManager = workspaceManager;
     }
 
     // ==================== 生命周期管理 ====================
@@ -141,9 +151,20 @@ export class LeftSidebar extends BaseComponent {
         const workspaceSyncMenu = dom.getById('md-workspace-sync-menu')?.element;
         if (workspaceSyncMenu) {
             workspaceSyncMenu.addEventListener('click', e => {
+                const action = e.target.closest('[data-action]');
+                if (action) {
+                    const { action: actionType, provider } = action.dataset;
+                    if (actionType === 'settings') {
+                        this.handleWorkspaceSettingsAction(provider);
+                    } else if (actionType === 'sync') {
+                        this.handleWorkspaceSyncAction(provider);
+                    }
+                    return;
+                }
+
                 const item = e.target.closest('.md-workspace-sync-menu-item');
                 if (!item) return;
-                this.selectWorkspaceProvider(item.dataset.provider);
+                this.openWorkspaceSettings(item.dataset.provider);
             });
         }
 
@@ -955,25 +976,59 @@ export class LeftSidebar extends BaseComponent {
         return '本地浏览器';
     }
 
-    selectWorkspaceProvider(provider) {
+    getWorkspaceSyncStatusLabel(provider, workspace = this.state.get('workspace') || {}) {
+        const remote = getWorkspaceRemote(workspace, provider);
+        if (!remote?.connected) {
+            return '未连接';
+        }
+
+        const statusMap = {
+            idle: '已连接，等待同步',
+            authorizing: '正在授权',
+            connected: '已连接，等待同步',
+            syncing: '同步中',
+            synced: remote.lastSyncedAt ? '已同步到最新备份' : '已连接，等待同步',
+            error: remote.lastSyncError || '同步失败'
+        };
+
+        return statusMap[remote.lastSyncStatus] || '已连接';
+    }
+
+    getWorkspaceProviderIcon(provider) {
+        if (provider === 'github') return 'codicon-mark-github';
+        if (provider === 'gitee') return 'codicon-repo';
+        return 'codicon-cloud';
+    }
+
+    getWorkspaceSettingsTargetProvider() {
         const workspace = this.state.get('workspace') || {};
-        const currentProvider = workspace.provider || 'local';
+        const connectedProviders = getConnectedWorkspaceProviders(workspace);
+        return connectedProviders[0] || 'github';
+    }
 
-        if (!provider || provider === currentProvider) {
-            this.closeWorkspaceMenu();
-            return;
-        }
-
+    handleWorkspaceSettingsAction(provider) {
         this.closeWorkspaceMenu();
-        this.openWorkspaceSettings(provider);
+        this.openWorkspaceSettings(provider || this.getWorkspaceSettingsTargetProvider());
+    }
 
-        if (provider === 'local') {
-            this.showMessage('请在设置中切换到本地浏览器模式', 'info');
+    async handleWorkspaceSyncAction(provider) {
+        this.closeWorkspaceMenu();
+
+        if (!this.workspaceManager) {
+            this.showMessage('工作空间管理器未初始化', 'error');
             return;
         }
 
-        if (!(workspace.connected && workspace.provider === provider)) {
-            this.showMessage(`请在设置中完成 ${this.getWorkspaceProviderLabel(provider)} 授权`, 'info');
+        try {
+            await this.workspaceManager.syncNow(provider || null);
+            this.showMessage(
+                provider
+                    ? `${this.getWorkspaceProviderLabel(provider)} 已完成同步`
+                    : '已完成远端备份同步',
+                'success'
+            );
+        } catch (error) {
+            this.showMessage(error.message || '同步失败', 'error');
         }
     }
 
@@ -987,10 +1042,12 @@ export class LeftSidebar extends BaseComponent {
             const workspaceNav = document.querySelector('.md-settings-nav-item[data-section="workspace"]');
             workspaceNav?.click();
 
-            const providerSelect = document.getElementById('setting-workspace-provider-select');
-            if (providerSelect) {
-                providerSelect.value = provider;
-                providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            const providerGroup = provider
+                ? document.getElementById(`settings-workspace-platform-${provider}`)
+                : null;
+            if (providerGroup) {
+                providerGroup.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                providerGroup.querySelector('button, input')?.focus({ preventScroll: true });
             }
         });
     }
@@ -998,12 +1055,37 @@ export class LeftSidebar extends BaseComponent {
     updateWorkspaceSyncUI(workspace = {}, oldWorkspace = null) {
         const button = dom.getById('md-workspace-sync-btn')?.element;
         const menu = dom.getById('md-workspace-sync-menu')?.element;
-        if (!button || !menu) return;
+        const menuList = dom.getById('md-workspace-sync-menu-list')?.element;
+        const syncNowBtn = dom.getById('md-workspace-sync-now')?.element;
+        const settingsBtn = dom.getById('md-workspace-sync-settings')?.element;
+        if (!button || !menu || !menuList) return;
+        const connectedProviders = getConnectedWorkspaceProviders(workspace);
+        const resolveVisualStatus = targetWorkspace => {
+            const remoteStatuses = getConnectedWorkspaceProviders(targetWorkspace || {})
+                .map(provider => getWorkspaceRemote(targetWorkspace, provider)?.lastSyncStatus)
+                .filter(Boolean);
+
+            if (remoteStatuses.includes('syncing') || remoteStatuses.includes('authorizing')) {
+                return 'syncing';
+            }
+            if (remoteStatuses.includes('error')) {
+                return 'error';
+            }
+            if (remoteStatuses.includes('synced')) {
+                return 'synced';
+            }
+            if (remoteStatuses.includes('connected')) {
+                return 'connected';
+            }
+
+            return 'idle';
+        };
+        const selectedStatus = resolveVisualStatus(workspace);
 
         if (
             oldWorkspace &&
-            workspace.lastSyncStatus === 'synced' &&
-            oldWorkspace.lastSyncStatus !== 'synced'
+            selectedStatus === 'synced' &&
+            resolveVisualStatus(oldWorkspace) !== 'synced'
         ) {
             this.workspaceSyncVisualState = 'success';
             clearTimeout(this.#syncSuccessTimer);
@@ -1011,12 +1093,16 @@ export class LeftSidebar extends BaseComponent {
                 this.workspaceSyncVisualState = 'idle';
                 this.updateWorkspaceSyncUI(this.state.get('workspace') || {});
             }, 1600);
-        } else if (workspace.lastSyncStatus === 'syncing') {
+        } else if (selectedStatus === 'syncing') {
             clearTimeout(this.#syncSuccessTimer);
             this.workspaceSyncVisualState = 'syncing';
-        } else if (workspace.lastSyncStatus === 'error') {
+        } else if (selectedStatus === 'error') {
             clearTimeout(this.#syncSuccessTimer);
             this.workspaceSyncVisualState = 'error';
+            this.#syncSuccessTimer = setTimeout(() => {
+                this.workspaceSyncVisualState = 'idle';
+                this.updateWorkspaceSyncUI(this.state.get('workspace') || {});
+            }, 1800);
         } else if (this.workspaceSyncVisualState !== 'success') {
             this.workspaceSyncVisualState = 'idle';
         }
@@ -1030,17 +1116,75 @@ export class LeftSidebar extends BaseComponent {
             const iconClassMap = {
                 syncing: 'codicon codicon-sync',
                 success: 'codicon codicon-check',
-                error: 'codicon codicon-close',
-                idle: 'codicon codicon-sync'
+                error: 'codicon codicon-error',
+                idle: 'codicon codicon-cloud'
             };
             icon.className = iconClassMap[this.workspaceSyncVisualState] || iconClassMap.idle;
         }
 
-        menu.querySelectorAll('.md-workspace-sync-menu-item').forEach(item => {
-            const checked = item.dataset.provider === (workspace.provider || 'local');
-            item.classList.toggle('is-selected', checked);
-            item.setAttribute('aria-checked', checked ? 'true' : 'false');
-        });
+        if (settingsBtn) {
+            settingsBtn.dataset.action = 'settings';
+            settingsBtn.dataset.provider = this.getWorkspaceSettingsTargetProvider();
+        }
+
+        if (syncNowBtn) {
+            syncNowBtn.dataset.action = 'sync';
+            delete syncNowBtn.dataset.provider;
+            syncNowBtn.disabled = connectedProviders.length === 0;
+        }
+
+        if (connectedProviders.length === 0) {
+            menuList.innerHTML = `
+                <div class="md-workspace-sync-menu-empty">
+                    暂无已连接的远端备份，点击右上角设置可登录 GitHub 或 Gitee。
+                </div>
+            `;
+            return;
+        }
+
+        menuList.innerHTML = connectedProviders
+            .map(provider => {
+                const remote = getWorkspaceRemote(workspace, provider);
+                const providerLabel = this.getWorkspaceProviderLabel(provider);
+                const statusText = this.getWorkspaceSyncStatusLabel(provider, workspace);
+                const accountText = remote?.accountName ? `账号：${remote.accountName}` : '已连接';
+
+                return `
+                    <div class="md-workspace-sync-menu-item" data-provider="${provider}" role="menuitem" tabindex="0">
+                        <span class="md-workspace-sync-menu-leading">
+                            <i class="codicon ${this.getWorkspaceProviderIcon(provider)}" aria-hidden="true"></i>
+                        </span>
+                        <span class="md-workspace-sync-menu-copy">
+                            <span class="md-workspace-sync-menu-title">${providerLabel}</span>
+                            <span class="md-workspace-sync-menu-meta">${statusText}</span>
+                            <span class="md-workspace-sync-menu-meta">${accountText}</span>
+                        </span>
+                        <span class="md-workspace-sync-menu-actions">
+                            <button
+                                class="md-btn md-btn-icon md-btn-ghost md-workspace-sync-menu-action"
+                                type="button"
+                                data-action="settings"
+                                data-provider="${provider}"
+                                title="打开 ${providerLabel} 设置"
+                                aria-label="打开 ${providerLabel} 设置"
+                            >
+                                <i class="codicon codicon-settings-gear" aria-hidden="true"></i>
+                            </button>
+                            <button
+                                class="md-btn md-btn-icon md-btn-ghost md-workspace-sync-menu-action"
+                                type="button"
+                                data-action="sync"
+                                data-provider="${provider}"
+                                title="立即同步 ${providerLabel}"
+                                aria-label="立即同步 ${providerLabel}"
+                            >
+                                <i class="codicon codicon-sync" aria-hidden="true"></i>
+                            </button>
+                        </span>
+                    </div>
+                `;
+            })
+            .join('');
     }
 
     /**

@@ -25,7 +25,7 @@ const KEYS = {
     DOCUMENTS: 'documents',
     CURRENT_DOC_ID: 'currentDocId',
     SETTINGS: 'settings',
-    WORKSPACE_AUTH: 'workspaceAuth',
+    WORKSPACE_AUTHS: 'workspaceAuths',
     WORKSPACE_TOMBSTONES: 'workspaceTombstones'
 };
 
@@ -164,20 +164,17 @@ export class WorkspaceStorage {
         return getData(KEYS.SETTINGS);
     }
 
-    static saveWorkspaceAuth(auth) {
-        return setData(KEYS.WORKSPACE_AUTH, auth);
+    static saveWorkspaceAuths(auths) {
+        return setData(KEYS.WORKSPACE_AUTHS, auths);
     }
 
-    static async loadWorkspaceAuth() {
-        const auth = await getData(KEYS.WORKSPACE_AUTH);
-        if (!auth || typeof auth !== 'object') {
-            return null;
-        }
-        return auth;
+    static async loadWorkspaceAuths() {
+        const auths = await getData(KEYS.WORKSPACE_AUTHS);
+        return auths && typeof auths === 'object' && !Array.isArray(auths) ? auths : {};
     }
 
-    static clearWorkspaceAuth() {
-        return setData(KEYS.WORKSPACE_AUTH, null);
+    static clearWorkspaceAuths() {
+        return setData(KEYS.WORKSPACE_AUTHS, {});
     }
 
     static saveWorkspaceTombstones(tombstones) {

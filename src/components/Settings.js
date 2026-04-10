@@ -26,8 +26,11 @@
 import { dom } from '../utils/dom.js';
 import { EditorState } from '../EditorState.js';
 import {
+    WORKSPACE_REMOTE_PROVIDERS,
     checkWorkspaceBridgeAvailability,
+    getConnectedWorkspaceProviders,
     getWorkspaceBridgeBaseUrl,
+    getWorkspaceRemote,
     isTauriRuntime
 } from '../workspace/index.js';
 import { Dialog } from './Dialog.js';
@@ -147,18 +150,25 @@ export class Settings {
             exportHighlightInput: dom.get('#setting-export-code-highlight'),
 
             // 工作空间设置
-            workspaceProviderSelect: dom.get('#setting-workspace-provider-select'),
-            workspaceConnectCurrentBtn: dom.get('#workspace-connect-current'),
-            workspaceDisconnectBtn: dom.get('#workspace-disconnect'),
             workspaceSyncBtn: dom.get('#workspace-sync-now'),
             workspaceRuntimeNote: dom.get('#workspace-runtime-note'),
             workspaceStatusText: dom.get('#workspace-status-text'),
-            workspacePlatformGroup: dom.get('#settings-workspace-platform-group'),
-            workspacePlatformStatusText: dom.get('#workspace-platform-status-text'),
-            workspaceRepoNameInput: dom.get('#setting-workspace-repo-name'),
-            workspaceRepoDescriptionInput: dom.get('#setting-workspace-repo-description'),
-            workspaceRepoPrivateInput: dom.get('#setting-workspace-repo-private'),
             workspaceAutoSyncInput: dom.get('#setting-workspace-auto-sync'),
+            workspacePlatforms: Object.fromEntries(
+                WORKSPACE_REMOTE_PROVIDERS.map(provider => [
+                    provider,
+                    {
+                        group: dom.get(`#settings-workspace-platform-${provider}`),
+                        actions: dom.get(`#workspace-platform-actions-${provider}`),
+                        lastSyncedText: dom.get(`#workspace-platform-last-synced-${provider}`),
+                        repoNameInput: dom.get(`#setting-workspace-repo-name-${provider}`),
+                        repoDescriptionInput: dom.get(
+                            `#setting-workspace-repo-description-${provider}`
+                        ),
+                        repoPrivateInput: dom.get(`#setting-workspace-repo-private-${provider}`)
+                    }
+                ])
+            ),
 
             // 编辑器元素（用于字体设置）
             editorElement: dom.get('#markdown-editor')
@@ -204,20 +214,27 @@ export class Settings {
             resetBtn.addEventListener('click', () => this.resetSettings());
         }
 
-        const connectCurrentBtn = dom.get('#workspace-connect-current');
-        if (connectCurrentBtn) {
-            connectCurrentBtn.addEventListener('click', () => this.handleWorkspaceConnect());
-        }
-
         const syncBtn = dom.get('#workspace-sync-now');
         if (syncBtn) {
             syncBtn.addEventListener('click', () => this.handleWorkspaceSync());
         }
 
-        const disconnectBtn = dom.get('#workspace-disconnect');
-        if (disconnectBtn) {
-            disconnectBtn.addEventListener('click', () => this.handleWorkspaceDisconnect());
-        }
+        WORKSPACE_REMOTE_PROVIDERS.forEach(provider => {
+            const group = this.cachedElements?.workspacePlatforms?.[provider]?.group;
+            if (group) {
+                group.addEventListener('click', event => {
+                    const actionEl = event.target.closest('[data-workspace-action]');
+                    if (!actionEl) return;
+
+                    const { workspaceAction } = actionEl.dataset;
+                    if (workspaceAction === 'connect') {
+                        this.handleWorkspaceConnect(provider);
+                    } else if (workspaceAction === 'disconnect') {
+                        this.handleWorkspaceDisconnect(provider);
+                    }
+                });
+            }
+        });
 
         // 布局比例滑块实时显示 - 使用缓存的元素
         if (this.cachedElements?.leftRatioInput) {
@@ -242,33 +259,22 @@ export class Settings {
             });
         }
 
-        if (this.cachedElements?.workspaceProviderSelect) {
-            this.cachedElements.workspaceProviderSelect.addEventListener('change', e => {
-                this.updateWorkspaceProviderSettings(e.target.value);
-                this.renderWorkspaceSummary(this.state.get('workspace') || {});
-                if (!isTauriRuntime()) {
-                    this.refreshWorkspaceRuntimeState();
-                }
-            });
-        }
     }
 
     async refreshWorkspaceRuntimeState(force = false) {
-        const provider = this.cachedElements?.workspaceProviderSelect?.value || 'local';
-
         if (isTauriRuntime()) {
             this.workspaceBridgeAvailable = true;
             this.workspaceBridgeChecking = false;
-            this.updateWorkspaceProviderSettings(provider);
+            this.renderWorkspaceSummary(this.state.get('workspace') || {});
             return;
         }
 
         this.workspaceBridgeChecking = true;
-        this.updateWorkspaceProviderSettings(provider);
+        this.renderWorkspaceSummary(this.state.get('workspace') || {});
 
         this.workspaceBridgeAvailable = await checkWorkspaceBridgeAvailability(force);
         this.workspaceBridgeChecking = false;
-        this.updateWorkspaceProviderSettings(provider);
+        this.renderWorkspaceSummary(this.state.get('workspace') || {});
     }
 
     /**
@@ -431,35 +437,23 @@ export class Settings {
     }
 
     loadWorkspaceSettingsToUI(workspace = {}) {
-        const selectedWorkspaceProvider = this.getSelectedWorkspaceProvider(workspace);
-
-        this.#setInputValue(
-            this.cachedElements.workspaceRepoNameInput,
-            workspace.repoName,
-            'markdown-workspace'
-        );
-        this.#setInputValue(
-            this.cachedElements.workspaceRepoDescriptionInput,
-            workspace.repoDescription,
-            'Markdown workspace data'
-        );
-        this.#setInputChecked(
-            this.cachedElements.workspaceRepoPrivateInput,
-            workspace.repoPrivate,
-            true
-        );
         this.#setInputChecked(
             this.cachedElements.workspaceAutoSyncInput,
             workspace.autoSync,
             true
         );
-        this.#setInputValue(
-            this.cachedElements.workspaceProviderSelect,
-            selectedWorkspaceProvider,
-            'local'
-        );
 
-        this.updateWorkspaceProviderSettings(selectedWorkspaceProvider);
+        WORKSPACE_REMOTE_PROVIDERS.forEach(provider => {
+            const remote = getWorkspaceRemote(workspace, provider);
+            const controls = this.cachedElements?.workspacePlatforms?.[provider];
+            this.#setInputValue(controls?.repoNameInput, remote?.repoName, 'markdown-workspace');
+            this.#setInputValue(
+                controls?.repoDescriptionInput,
+                remote?.repoDescription,
+                'Markdown workspace data'
+            );
+            this.#setInputChecked(controls?.repoPrivateInput, remote?.repoPrivate, true);
+        });
     }
 
     /**
@@ -476,20 +470,6 @@ export class Settings {
         }
     }
 
-    getSelectedWorkspaceProvider(workspace = this.state.get('workspace') || {}) {
-        if (workspace.provider === 'local' || this.isRemoteWorkspaceProvider(workspace.provider)) {
-            return workspace.provider;
-        }
-        return 'local';
-    }
-
-    getCurrentWorkspaceProvider(workspace = this.state.get('workspace') || {}) {
-        return (
-            this.cachedElements?.workspaceProviderSelect?.value ||
-            this.getSelectedWorkspaceProvider(workspace)
-        );
-    }
-
     getWorkspaceProviderActionLabel(provider) {
         return `退出 ${this.getWorkspaceProviderLabel(provider) || '当前平台'}`;
     }
@@ -501,17 +481,26 @@ export class Settings {
         return '';
     }
 
-    isRemoteWorkspaceProvider(provider) {
-        return provider === 'github' || provider === 'gitee';
-    }
-
-    getWorkspaceRuntimeNote(provider, remoteSupported) {
-        if (!this.isRemoteWorkspaceProvider(provider)) {
-            return provider === 'local'
-                ? '本地浏览器模式会将工作空间保存到当前设备的浏览器存储中。'
-                : '';
+    formatWorkspaceSyncTime(value) {
+        if (!value) {
+            return '尚未同步';
         }
 
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '尚未同步';
+        }
+
+        return new Intl.DateTimeFormat('zh-CN', {
+            hour12: false,
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    }
+
+    getWorkspaceRuntimeNote(remoteSupported) {
         if (this.workspaceBridgeChecking) {
             return '正在检查远程工作空间服务可用性...';
         }
@@ -522,27 +511,11 @@ export class Settings {
 
         if (!isTauriRuntime()) {
             return remoteSupported
-                ? '当前浏览器环境会通过内置 OAuth bridge 完成授权和同步；本地开发直接运行 `npm run dev` 即可。'
+                ? ''
                 : '当前浏览器环境未检测到可用的 OAuth bridge；本地开发请确认使用 `npm run dev` 启动。';
         }
 
         return '';
-    }
-
-    getWorkspaceViewState(workspace = this.state.get('workspace') || {}) {
-        const selectedProvider = this.getCurrentWorkspaceProvider(workspace);
-        const selectedRemoteProvider = this.isRemoteWorkspaceProvider(selectedProvider);
-        const remoteSupported = isTauriRuntime() || this.workspaceBridgeAvailable;
-        const connectedForSelectedProvider =
-            workspace.connected && workspace.provider === selectedProvider;
-
-        return {
-            selectedProvider,
-            selectedRemoteProvider,
-            remoteSupported,
-            connectedForSelectedProvider,
-            providerLabel: this.getWorkspaceProviderLabel(selectedProvider)
-        };
     }
 
     ensureWorkspaceBridgeAvailable() {
@@ -553,47 +526,19 @@ export class Settings {
         return checkWorkspaceBridgeAvailability();
     }
 
-    updateWorkspaceProviderSettings(provider) {
+    refreshWorkspaceControls(workspace = this.state.get('workspace') || {}) {
         const remoteSupported = isTauriRuntime() || this.workspaceBridgeAvailable;
-        const remoteProvider = this.isRemoteWorkspaceProvider(provider);
-        const providerLabel = this.getWorkspaceProviderLabel(provider);
-
-        if (this.cachedElements?.workspaceConnectCurrentBtn) {
-            this.cachedElements.workspaceConnectCurrentBtn.innerHTML =
-                provider === 'local'
-                    ? '<i class="codicon codicon-device-desktop" aria-hidden="true"></i><span>切换到本地浏览器</span>'
-                    : `<i class="codicon codicon-sign-in" aria-hidden="true"></i><span>登录 ${providerLabel}</span>`;
-            this.cachedElements.workspaceConnectCurrentBtn.disabled =
-                remoteProvider && (!remoteSupported || this.workspaceBridgeChecking);
-        }
 
         if (this.cachedElements?.workspaceRuntimeNote) {
-            this.cachedElements.workspaceRuntimeNote.textContent = this.getWorkspaceRuntimeNote(
-                provider,
-                remoteSupported
-            );
-        }
-
-        if (this.cachedElements?.workspacePlatformGroup) {
-            this.cachedElements.workspacePlatformGroup.style.display = remoteProvider ? '' : 'none';
-        }
-
-        if (this.cachedElements?.workspaceDisconnectBtn) {
-            this.cachedElements.workspaceDisconnectBtn.disabled = !remoteProvider;
-            this.cachedElements.workspaceDisconnectBtn.setAttribute(
-                'aria-label',
-                this.getWorkspaceProviderActionLabel(provider)
-            );
-            this.cachedElements.workspaceDisconnectBtn.setAttribute(
-                'title',
-                this.getWorkspaceProviderActionLabel(provider)
-            );
+            this.cachedElements.workspaceRuntimeNote.textContent =
+                this.getWorkspaceRuntimeNote(remoteSupported);
         }
 
         if (this.cachedElements?.workspaceSyncBtn) {
             this.cachedElements.workspaceSyncBtn.disabled =
-                provider === 'local' ||
-                (remoteProvider && (!remoteSupported || this.workspaceBridgeChecking));
+                getConnectedWorkspaceProviders(workspace).length === 0 ||
+                !remoteSupported ||
+                this.workspaceBridgeChecking;
         }
     }
 
@@ -684,18 +629,27 @@ export class Settings {
 
     readWorkspaceSettingsFromUI() {
         const currentWorkspace = this.state.get('workspace') || {};
-        const selectedProvider =
-            this.cachedElements.workspaceProviderSelect?.value ||
-            this.getSelectedWorkspaceProvider(currentWorkspace);
+        const remotes = Object.fromEntries(
+            WORKSPACE_REMOTE_PROVIDERS.map(provider => {
+                const controls = this.cachedElements?.workspacePlatforms?.[provider];
+                return [
+                    provider,
+                    {
+                        ...getWorkspaceRemote(currentWorkspace, provider),
+                        repoName: controls?.repoNameInput?.value?.trim() || 'markdown-workspace',
+                        repoDescription:
+                            controls?.repoDescriptionInput?.value?.trim() ||
+                            'Markdown workspace data',
+                        repoPrivate: controls?.repoPrivateInput?.checked ?? true
+                    }
+                ];
+            })
+        );
 
         return {
-            provider: selectedProvider,
-            repoName: this.cachedElements.workspaceRepoNameInput?.value?.trim() || 'markdown-workspace',
-            repoDescription:
-                this.cachedElements.workspaceRepoDescriptionInput?.value?.trim() ||
-                'Markdown workspace data',
-            repoPrivate: this.cachedElements.workspaceRepoPrivateInput?.checked ?? true,
-            autoSync: this.cachedElements.workspaceAutoSyncInput?.checked ?? true
+            provider: currentWorkspace.provider || 'local',
+            autoSync: this.cachedElements.workspaceAutoSyncInput?.checked ?? true,
+            remotes
         };
     }
 
@@ -776,53 +730,71 @@ export class Settings {
     }
 
     renderWorkspaceSummary(workspace = this.state.get('workspace') || {}) {
-        if (this.cachedElements?.workspaceProviderSelect && !this.cachedElements.workspaceProviderSelect.matches(':focus')) {
-            this.cachedElements.workspaceProviderSelect.value = this.getSelectedWorkspaceProvider(workspace);
-        }
-
-        const {
-            selectedProvider,
-            selectedRemoteProvider,
-            connectedForSelectedProvider,
-            providerLabel
-        } = this.getWorkspaceViewState(workspace);
-
-        this.updateWorkspaceProviderSettings(selectedProvider);
+        const remoteSupported = isTauriRuntime() || this.workspaceBridgeAvailable;
+        const connectedProviders = getConnectedWorkspaceProviders(workspace);
 
         if (this.cachedElements?.workspaceStatusText) {
-            const statusMap = {
-                idle: workspace.provider === 'local' ? '本地存储' : '未连接',
-                authorizing: '正在授权',
-                connected: '已连接，等待同步',
-                syncing: '同步中',
-                synced: '同步成功',
-                error: workspace.lastSyncError || '同步失败'
-            };
-            this.cachedElements.workspaceStatusText.textContent =
-                statusMap[workspace.lastSyncStatus] || '未连接';
+            const remoteStatuses = connectedProviders.map(provider =>
+                getWorkspaceRemote(workspace, provider)?.lastSyncStatus
+            );
+            let summaryStatus = '未连接远端备份';
+
+            if (remoteStatuses.includes('syncing') || remoteStatuses.includes('authorizing')) {
+                summaryStatus = `已连接 ${connectedProviders.length} 个平台，同步中`;
+            } else if (remoteStatuses.includes('error')) {
+                summaryStatus = `已连接 ${connectedProviders.length} 个平台，部分同步失败`;
+            } else if (remoteStatuses.includes('synced')) {
+                summaryStatus = `已连接 ${connectedProviders.length} 个平台，同步成功`;
+            } else if (connectedProviders.length > 0) {
+                summaryStatus = `已连接 ${connectedProviders.length} 个平台，等待同步`;
+            }
+
+            this.cachedElements.workspaceStatusText.textContent = summaryStatus;
         }
 
-        if (this.cachedElements?.workspacePlatformStatusText) {
-            this.cachedElements.workspacePlatformStatusText.textContent =
-                connectedForSelectedProvider && providerLabel
-                    ? `已登录 ${providerLabel}${workspace.accountName ? `（${workspace.accountName}）` : ''}`
-                    : providerLabel
-                        ? `未登录 ${providerLabel}`
-                        : '未登录';
-            this.cachedElements.workspacePlatformStatusText.style.display =
-                selectedRemoteProvider ? '' : 'none';
-        }
+        WORKSPACE_REMOTE_PROVIDERS.forEach(provider => {
+            const controls = this.cachedElements?.workspacePlatforms?.[provider];
+            const remote = getWorkspaceRemote(workspace, provider);
+            const connected = Boolean(remote?.connected);
+            const providerLabel = this.getWorkspaceProviderLabel(provider);
 
-        if (this.cachedElements?.workspaceConnectCurrentBtn) {
-            this.cachedElements.workspaceConnectCurrentBtn.style.display =
-                selectedRemoteProvider && !connectedForSelectedProvider ? '' : 'none';
-        }
+            if (controls?.actions) {
+                controls.actions.innerHTML =
+                    connected
+                    ? `
+                        <strong class="md-settings-summary-value">已登录 ${providerLabel}${remote.accountName ? `（${remote.accountName}）` : ''}</strong>
+                        <button
+                            class="md-btn md-btn-icon md-btn-ghost"
+                            type="button"
+                            data-workspace-action="disconnect"
+                            aria-label="${this.getWorkspaceProviderActionLabel(provider)}"
+                            title="${this.getWorkspaceProviderActionLabel(provider)}"
+                        >
+                            <i class="codicon codicon-sign-out" aria-hidden="true"></i>
+                        </button>
+                    `
+                    : `
+                        <button
+                            class="md-btn md-btn-primary"
+                            type="button"
+                            data-workspace-action="connect"
+                            ${!remoteSupported || this.workspaceBridgeChecking ? 'disabled' : ''}
+                        >
+                            <i class="codicon codicon-sign-in" aria-hidden="true"></i>
+                            <span>登录 ${providerLabel}</span>
+                        </button>
+                    `;
+                controls.actions.style.display = 'inline-flex';
+            }
 
-        if (this.cachedElements?.workspaceDisconnectBtn) {
-            this.cachedElements.workspaceDisconnectBtn.disabled = !connectedForSelectedProvider;
-            this.cachedElements.workspaceDisconnectBtn.style.display =
-                selectedRemoteProvider && connectedForSelectedProvider ? '' : 'none';
-        }
+            if (controls?.lastSyncedText) {
+                controls.lastSyncedText.textContent = connected
+                    ? this.formatWorkspaceSyncTime(remote.lastSyncedAt)
+                    : '尚未同步';
+            }
+        });
+
+        this.refreshWorkspaceControls(workspace);
     }
 
     async handleWorkspaceConnect(provider) {
@@ -831,15 +803,16 @@ export class Settings {
             return;
         }
 
+        if (!provider) {
+            this.state.showNotification('未指定远程备份平台', 'error');
+            return;
+        }
+
         try {
             const { workspaceConfig } = this.readSettingsFromUI();
             this.state.updateWorkspaceConfig(workspaceConfig);
-            const targetProvider = provider || workspaceConfig.provider || 'github';
 
-            if (
-                this.isRemoteWorkspaceProvider(targetProvider) &&
-                !(await this.ensureWorkspaceBridgeAvailable())
-            ) {
+            if (!(await this.ensureWorkspaceBridgeAvailable())) {
                 this.state.showNotification(
                     '当前环境未检测到可用的远程工作空间服务，请确认 bridge 已启动，或配置 `VITE_WORKSPACE_BRIDGE_BASE_URL`。',
                     'warning'
@@ -847,31 +820,14 @@ export class Settings {
                 return;
             }
 
-            if (targetProvider === 'local') {
-                this.workspaceManager.disconnect();
-                this.state.updateWorkspaceConfig({
-                    provider: 'local',
-                    connected: false,
-                    lastSyncStatus: 'idle',
-                    lastSyncError: '',
-                    repoUrl: '',
-                    owner: '',
-                    accessToken: '',
-                    accountName: ''
-                });
-                this.renderWorkspaceSummary();
-                this.state.showNotification('已切换到本地浏览器模式', 'success');
-                return;
-            }
-
             this.renderWorkspaceSummary({
                 ...this.state.get('workspace'),
                 ...workspaceConfig
             });
-            await this.workspaceManager.connect(targetProvider);
+            await this.workspaceManager.connect(provider);
             this.renderWorkspaceSummary();
             this.state.showNotification(
-                `${targetProvider === 'github' ? 'GitHub' : 'Gitee'} 工作空间已连接并完成首次同步`,
+                `${provider === 'github' ? 'GitHub' : 'Gitee'} 工作空间已连接并完成首次同步`,
                 'success'
             );
         } catch (error) {
@@ -889,10 +845,10 @@ export class Settings {
 
         try {
             const workspace = this.state.get('workspace') || {};
-            const { selectedProvider } = this.getWorkspaceViewState(workspace);
+            const connectedProviders = getConnectedWorkspaceProviders(workspace);
 
-            if (selectedProvider === 'local') {
-                this.state.showNotification('本地浏览器模式不需要远程同步', 'info');
+            if (connectedProviders.length === 0) {
+                this.state.showNotification('当前没有已连接的远程备份工作空间', 'info');
                 return;
             }
             if (!(await this.ensureWorkspaceBridgeAvailable())) {
@@ -904,7 +860,7 @@ export class Settings {
             }
             await this.workspaceManager.syncNow();
             this.renderWorkspaceSummary();
-            this.state.showNotification('工作空间已同步到远程仓库', 'success');
+            this.state.showNotification('工作空间已同步到远程备份', 'success');
         } catch (error) {
             console.error('Workspace sync failed:', error);
             this.renderWorkspaceSummary();
@@ -912,13 +868,13 @@ export class Settings {
         }
     }
 
-    handleWorkspaceDisconnect() {
+    async handleWorkspaceDisconnect(provider) {
         if (!this.workspaceManager) {
             this.state.showNotification('工作空间管理器未初始化', 'error');
             return;
         }
 
-        this.workspaceManager.disconnect();
+        await this.workspaceManager.disconnect(provider);
         this.renderWorkspaceSummary();
         this.state.showNotification('工作空间连接已断开', 'success');
     }

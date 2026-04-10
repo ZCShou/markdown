@@ -1,5 +1,9 @@
 export {
     createDefaultWorkspaceSettings,
+    WORKSPACE_REMOTE_PROVIDERS,
+    getConnectedWorkspaceProviders,
+    getWorkspaceRemote,
+    isRemoteWorkspaceProvider,
     mergeWorkspaceSettings,
     sanitizeWorkspaceSettingsForPersistence
 } from './defaults.js';

@@ -419,6 +419,7 @@ export class MarkdownEditor {
 
         // 左侧边栏组件（包含文档树功能）
         this.components.leftSidebar = new LeftSidebar(this.state, 'md-sidebar-left');
+        this.components.leftSidebar.setWorkspaceManager(this.workspaceManager);
 
         // 右侧边栏组件（包含目录功能）
         this.components.rightSidebar = new RightSidebar(this.state, 'md-sidebar-right');

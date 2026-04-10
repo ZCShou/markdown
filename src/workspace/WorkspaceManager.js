@@ -3,7 +3,11 @@ import {
     getImageAsBase64,
     saveImageFromDataUrl
 } from '../utils/helpers.js';
-import { getWorkspaceOAuthClientId } from './defaults.js';
+import {
+    getConnectedWorkspaceProviders,
+    getWorkspaceOAuthClientId,
+    getWorkspaceRemote
+} from './defaults.js';
 import {
     buildWorkspaceSnapshot as createWorkspaceSnapshot,
     collectWorkspaceAssetPaths,
@@ -28,24 +32,35 @@ export class WorkspaceManager {
         this.pendingSync = false;
         this.hasPendingAutoSync = false;
         this.isApplyingRemoteSnapshot = false;
-        this.lastSyncedSnapshot = '';
     }
 
     init() {
         this.documentsUnsubscribe = this.state.subscribeTo('documents', () => {
             const workspace = this.state.get('workspace');
-            if (!workspace?.connected || !workspace.autoSync || this.isApplyingRemoteSnapshot) return;
+            if (
+                !workspace?.autoSync ||
+                this.isApplyingRemoteSnapshot ||
+                this.getConnectedProviders(workspace).length === 0
+            ) {
+                return;
+            }
             this.markPendingAutoSync();
         });
 
         this.currentDocUnsubscribe = this.state.subscribeTo('currentDocId', () => {
             const workspace = this.state.get('workspace');
-            if (!workspace?.connected || !workspace.autoSync || this.isApplyingRemoteSnapshot) return;
+            if (
+                !workspace?.autoSync ||
+                this.isApplyingRemoteSnapshot ||
+                this.getConnectedProviders(workspace).length === 0
+            ) {
+                return;
+            }
             this.markPendingAutoSync();
         });
 
         this.workspaceUnsubscribe = this.state.subscribeTo('workspace', workspace => {
-            if (!workspace?.connected || !workspace.autoSync) {
+            if (!workspace?.autoSync || this.getConnectedProviders(workspace).length === 0) {
                 this.stopAutoSyncPolling();
                 return;
             }
@@ -54,9 +69,35 @@ export class WorkspaceManager {
         });
 
         const workspace = this.state.get('workspace');
-        if (workspace?.connected && workspace.autoSync) {
+        if (workspace?.autoSync && this.getConnectedProviders(workspace).length > 0) {
             this.startAutoSyncPolling();
         }
+    }
+
+    getConnectedProviders(workspace = this.state.get('workspace')) {
+        return getConnectedWorkspaceProviders(workspace || {});
+    }
+
+    async persistWorkspaceAuths() {
+        const workspace = this.state.get('workspace') || {};
+        const auths = Object.fromEntries(
+            this.getConnectedProviders(workspace).map(provider => {
+                const remote = getWorkspaceRemote(workspace, provider);
+                return [
+                    provider,
+                    {
+                        provider,
+                        connected: true,
+                        accessToken: remote.accessToken,
+                        accountName: remote.accountName,
+                        owner: remote.owner,
+                        repoUrl: remote.repoUrl
+                    }
+                ];
+            })
+        );
+
+        await WorkspaceStorage.saveWorkspaceAuths(auths);
     }
 
     async connect(provider) {
@@ -70,73 +111,78 @@ export class WorkspaceManager {
             throw new Error(`缺少 ${provider === 'github' ? 'GitHub' : 'Gitee'} Client ID 配置。`);
         }
 
-        this.state.updateWorkspaceConfig({
+        this.state.updateWorkspaceRemoteConfig(provider, {
             lastSyncStatus: 'authorizing',
             lastSyncError: ''
         });
 
-        const oauthResult = await startWorkspaceOAuth(provider, clientId);
-        const tokenResult = await invokeWorkspaceBackend('workspace_exchange_oauth_code', {
-            provider,
-            code: oauthResult.code,
-            redirectUri: oauthResult.redirectUri
-        });
+        try {
+            const oauthResult = await startWorkspaceOAuth(provider, clientId);
+            const tokenResult = await invokeWorkspaceBackend('workspace_exchange_oauth_code', {
+                provider,
+                code: oauthResult.code,
+                redirectUri: oauthResult.redirectUri
+            });
 
-        const workspace = this.state.get('workspace');
-        const repoResult = await invokeWorkspaceBackend('workspace_ensure_repo', {
-            provider,
-            accessToken: tokenResult.accessToken,
-            repoName: workspace.repoName,
-            repoDescription: workspace.repoDescription,
-            repoPrivate: workspace.repoPrivate,
-            workspaceDir: workspace.workspaceDir
-        });
+            const workspace = this.state.get('workspace');
+            const remote = getWorkspaceRemote(workspace, provider);
+            const repoResult = await invokeWorkspaceBackend('workspace_ensure_repo', {
+                provider,
+                accessToken: tokenResult.accessToken,
+                repoName: remote.repoName,
+                repoDescription: remote.repoDescription,
+                repoPrivate: remote.repoPrivate,
+                workspaceDir: remote.workspaceDir
+            });
 
-        this.state.updateWorkspaceConfig({
-            provider,
-            connected: true,
-            accessToken: tokenResult.accessToken,
-            accountName: tokenResult.login || '',
-            owner: repoResult.owner,
-            repoName: repoResult.repo,
-            branch: repoResult.defaultBranch || workspace.branch || 'main',
-            repoUrl: repoResult.htmlUrl,
-            lastSyncStatus: 'connected',
-            lastSyncError: ''
-        });
+            this.state.updateWorkspaceRemoteConfig(provider, {
+                connected: true,
+                accessToken: tokenResult.accessToken,
+                accountName: tokenResult.login || '',
+                owner: repoResult.owner,
+                repoName: repoResult.repo,
+                branch: repoResult.defaultBranch || remote.branch || 'main',
+                repoUrl: repoResult.htmlUrl,
+                lastSyncStatus: 'connected',
+                lastSyncError: ''
+            });
 
-        WorkspaceStorage.saveWorkspaceAuth({
-            provider,
-            connected: true,
-            accessToken: tokenResult.accessToken,
-            accountName: tokenResult.login || '',
-            owner: repoResult.owner,
-            repoUrl: repoResult.htmlUrl
-        });
+            await this.persistWorkspaceAuths();
 
-        this.hasPendingAutoSync = false;
-        await this.syncNow();
+            this.hasPendingAutoSync = false;
+            await this.syncNow();
+        } catch (error) {
+            this.state.updateWorkspaceRemoteConfig(provider, {
+                lastSyncStatus: 'error',
+                lastSyncError: error.message || '连接失败'
+            });
+            throw error;
+        }
     }
 
-    disconnect() {
-        const workspace = this.state.get('workspace');
+    async disconnect(provider) {
+        if (!provider) {
+            return;
+        }
 
-        this.stopAutoSyncPolling();
-        this.pendingSync = false;
-        this.hasPendingAutoSync = false;
-        this.lastSyncedSnapshot = '';
-        WorkspaceStorage.clearWorkspaceAuth();
-        this.state.updateWorkspaceConfig({
+        this.state.updateWorkspaceRemoteConfig(provider, {
             connected: false,
-            provider: null,
             accessToken: '',
             accountName: '',
             owner: '',
             repoUrl: '',
+            lastSyncedAt: null,
             lastSyncStatus: 'idle',
-            lastSyncError: '',
-            branch: workspace?.branch || 'main'
+            lastSyncError: ''
         });
+
+        await this.persistWorkspaceAuths();
+
+        if (this.getConnectedProviders(this.state.get('workspace')).length === 0) {
+            this.stopAutoSyncPolling();
+            this.pendingSync = false;
+            this.hasPendingAutoSync = false;
+        }
     }
 
     markPendingAutoSync() {
@@ -155,10 +201,6 @@ export class WorkspaceManager {
 
             this.syncNow().catch(error => {
                 console.error('Workspace auto sync failed:', error);
-                this.state.updateWorkspaceConfig({
-                    lastSyncStatus: 'error',
-                    lastSyncError: error.message || '自动同步失败'
-                });
                 this.state.showNotification(error.message || '自动同步失败', 'error');
             });
         }, WorkspaceManager.AUTO_SYNC_INTERVAL);
@@ -235,11 +277,51 @@ export class WorkspaceManager {
         }
     }
 
-    async syncNow() {
+    async syncProvider(provider, snapshotJson) {
         const workspace = this.state.get('workspace');
+        const remote = getWorkspaceRemote(workspace, provider);
 
-        if (!workspace?.connected || !workspace.provider || !workspace.accessToken) {
-            throw new Error('当前没有已连接的工作空间。');
+        if (!remote?.connected || !remote.accessToken) {
+            throw new Error(`${provider === 'github' ? 'GitHub' : 'Gitee'} 尚未连接。`);
+        }
+
+        this.state.updateWorkspaceRemoteConfig(provider, {
+            lastSyncStatus: 'syncing',
+            lastSyncError: ''
+        });
+
+        const syncResult = await invokeWorkspaceBackend('workspace_sync_snapshot', {
+            provider,
+            accessToken: remote.accessToken,
+            owner: remote.owner,
+            repo: remote.repoName,
+            branch: remote.branch,
+            workspaceDir: remote.workspaceDir,
+            snapshotJson
+        });
+
+        const mergedSnapshotJson = syncResult?.snapshotJson || snapshotJson;
+        if (mergedSnapshotJson !== snapshotJson) {
+            await this.applyMergedSnapshot(mergedSnapshotJson);
+        }
+
+        this.state.updateWorkspaceRemoteConfig(provider, {
+            lastSyncedAt: new Date().toISOString(),
+            lastSyncStatus: 'synced',
+            lastSyncError: ''
+        });
+
+        return mergedSnapshotJson;
+    }
+
+    async syncNow(provider = null) {
+        const workspace = this.state.get('workspace');
+        const connectedProviders = provider
+            ? [provider]
+            : this.getConnectedProviders(workspace);
+
+        if (connectedProviders.length === 0) {
+            throw new Error('当前没有已连接的远程备份工作空间。');
         }
 
         if (this.isSyncing) {
@@ -248,60 +330,29 @@ export class WorkspaceManager {
         }
 
         this.isSyncing = true;
+        let currentProvider = null;
 
         try {
             if (this.beforeSyncHook) {
                 await this.beforeSyncHook();
             }
 
-            const snapshot = JSON.stringify(await this.buildSnapshotPayload(), null, 2);
+            let snapshotJson = JSON.stringify(await this.buildSnapshotPayload(), null, 2);
 
-            if (snapshot === this.lastSyncedSnapshot) {
-                this.state.updateWorkspaceConfig({
-                    lastSyncStatus: 'synced',
-                    lastSyncError: ''
-                });
-                return;
+            for (const remoteProvider of connectedProviders) {
+                currentProvider = remoteProvider;
+                // eslint-disable-next-line no-await-in-loop
+                snapshotJson = await this.syncProvider(remoteProvider, snapshotJson);
             }
 
-            this.state.updateWorkspaceConfig({
-                lastSyncStatus: 'syncing',
-                lastSyncError: ''
-            });
-
-            const syncResult = await invokeWorkspaceBackend('workspace_sync_snapshot', {
-                provider: workspace.provider,
-                accessToken: workspace.accessToken,
-                owner: workspace.owner,
-                repo: workspace.repoName,
-                branch: workspace.branch,
-                workspaceDir: workspace.workspaceDir,
-                snapshotJson: snapshot
-            });
-
-            this.lastSyncedSnapshot = syncResult?.snapshotJson || snapshot;
             this.hasPendingAutoSync = false;
-            if (syncResult?.snapshotJson) {
-                await this.applyMergedSnapshot(syncResult.snapshotJson);
-            }
-            WorkspaceStorage.saveWorkspaceAuth({
-                provider: workspace.provider,
-                connected: true,
-                accessToken: workspace.accessToken,
-                accountName: workspace.accountName,
-                owner: workspace.owner,
-                repoUrl: workspace.repoUrl
-            });
-            this.state.updateWorkspaceConfig({
-                lastSyncedAt: new Date().toISOString(),
-                lastSyncStatus: 'synced',
-                lastSyncError: ''
-            });
         } catch (error) {
-            this.state.updateWorkspaceConfig({
-                lastSyncStatus: 'error',
-                lastSyncError: error.message || '同步失败'
-            });
+            if (currentProvider) {
+                this.state.updateWorkspaceRemoteConfig(currentProvider, {
+                    lastSyncStatus: 'error',
+                    lastSyncError: error.message || '同步失败'
+                });
+            }
             throw error;
         } finally {
             this.isSyncing = false;

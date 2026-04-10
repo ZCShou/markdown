@@ -19,6 +19,7 @@
 import { deleteImage, extractImagePaths, isInternalImagePath } from './utils/helpers.js';
 import {
     createDefaultWorkspaceSettings,
+    getWorkspaceRemote,
     parseWorkspaceSnapshot,
     mergeWorkspaceSettings,
     mergeWorkspaceDocuments,
@@ -553,7 +554,7 @@ $$
             settings: savedSettings,
             workspaceTombstones
         } = await WorkspaceStorage.loadLocalWorkspaceSnapshot();
-        const workspaceAuth = await WorkspaceStorage.loadWorkspaceAuth();
+        const workspaceAuths = await WorkspaceStorage.loadWorkspaceAuths();
         const defaultSettings = EditorState.createDefaultSettings();
 
         // 合并保存的设置和默认设置
@@ -642,17 +643,30 @@ $$
             workspaceTombstones
         });
 
-        if (workspaceAuth?.connected && workspaceAuth.provider && workspaceAuth.accessToken) {
+        if (workspaceAuths && typeof workspaceAuths === 'object') {
+            const nextRemotes = { ...this.#state.workspace.remotes };
+
+            Object.entries(workspaceAuths).forEach(([provider, auth]) => {
+                const currentRemote = getWorkspaceRemote(this.#state.workspace, provider);
+                if (!currentRemote || !auth?.connected || !auth?.accessToken) {
+                    return;
+                }
+
+                nextRemotes[provider] = {
+                    ...currentRemote,
+                    connected: true,
+                    accessToken: auth.accessToken,
+                    accountName: auth.accountName || '',
+                    owner: auth.owner || '',
+                    repoUrl: auth.repoUrl || '',
+                    lastSyncStatus: 'connected',
+                    lastSyncError: ''
+                };
+            });
+
             this.#state.workspace = {
                 ...this.#state.workspace,
-                provider: workspaceAuth.provider,
-                connected: true,
-                accessToken: workspaceAuth.accessToken,
-                accountName: workspaceAuth.accountName || '',
-                owner: workspaceAuth.owner || '',
-                repoUrl: workspaceAuth.repoUrl || '',
-                lastSyncStatus: 'connected',
-                lastSyncError: ''
+                remotes: nextRemotes
             };
         }
     }
@@ -1435,7 +1449,32 @@ $$
         this.#setState({
             workspace: {
                 ...currentWorkspace,
-                ...config
+                ...config,
+                remotes: {
+                    ...currentWorkspace.remotes,
+                    ...(config?.remotes || {})
+                }
+            }
+        });
+    }
+
+    updateWorkspaceRemoteConfig(provider, config) {
+        const currentWorkspace = this.#state.workspace || createDefaultWorkspaceSettings();
+        const currentRemote = getWorkspaceRemote(currentWorkspace, provider);
+        if (!currentRemote) {
+            return;
+        }
+
+        this.#setState({
+            workspace: {
+                ...currentWorkspace,
+                remotes: {
+                    ...currentWorkspace.remotes,
+                    [provider]: {
+                        ...currentRemote,
+                        ...config
+                    }
+                }
             }
         });
     }
