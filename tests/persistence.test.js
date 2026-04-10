@@ -2,8 +2,8 @@
  * WorkspacePersistence 测试
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { WorkspacePersistence } from '../src/workspace/persistence.js';
-import { WorkspaceStorage } from '../src/workspace/storage.js';
+import { WorkspacePersistence } from '../src/workspace/WorkspacePersistence.js';
+import { WorkspaceStorage } from '../src/workspace/WorkspaceStorage.js';
 
 describe('WorkspacePersistence - 持久化管理器测试', () => {
     let mockState;

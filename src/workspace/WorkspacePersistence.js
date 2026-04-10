@@ -1,5 +1,5 @@
 import { sanitizeWorkspaceSettingsForPersistence } from './defaults.js';
-import { WorkspaceStorage } from './storage.js';
+import { WorkspaceStorage } from './WorkspaceStorage.js';
 
 export class WorkspacePersistence {
     static DEFAULT_CONFIG = {

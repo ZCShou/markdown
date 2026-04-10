@@ -2,7 +2,7 @@
  * WorkspaceStorage 单元测试
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { WorkspaceStorage } from '../src/workspace/storage.js';
+import { WorkspaceStorage } from '../src/workspace/WorkspaceStorage.js';
 
 describe('WorkspaceStorage - 存储管理器测试', () => {
     beforeEach(async () => {

@@ -18,7 +18,7 @@ import { Exporter } from './components/Exporter.js';
 import { dom } from './utils/dom.js';
 import { applyTheme } from './utils/theme.js';
 import { handlePastedImage } from './utils/helpers.js';
-import { WorkspaceManager } from './workspace/manager.js';
+import { WorkspaceManager } from './workspace/WorkspaceManager.js';
 
 /**
  *

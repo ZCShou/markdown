@@ -10,7 +10,7 @@ import {
     parseWorkspaceSnapshot
 } from './snapshot.js';
 import { startWorkspaceOAuth } from './oauth.js';
-import { WorkspaceStorage } from './storage.js';
+import { WorkspaceStorage } from './WorkspaceStorage.js';
 import { isTauriRuntime } from './tauri.js';
 import { fetchWorkspaceOAuthClientId, invokeWorkspaceBackend } from './runtime.js';
 
