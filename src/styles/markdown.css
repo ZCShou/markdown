@@ -545,6 +545,23 @@ html::-webkit-scrollbar-thumb:hover,
   flex-shrink: 0;
 }
 
+.md-platform-logo {
+  display: block;
+  flex-shrink: 0;
+}
+
+.md-platform-logo-github,
+.md-platform-logo-gitee {
+  width: 20px;
+  height: 20px;
+}
+
+.md-settings-platform-icon .md-platform-logo-github,
+.md-settings-platform-icon .md-platform-logo-gitee {
+  width: 22px;
+  height: 22px;
+}
+
 .md-workspace-sync-menu-copy {
   display: flex;
   flex-direction: column;
