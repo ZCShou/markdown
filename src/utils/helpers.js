@@ -9,6 +9,7 @@
  * const dateStr = formatDate(new Date());
  * ```
  */
+import { isTauriRuntime } from '../workspace/tauri.js';
 
 /**
  * 防抖函数
@@ -270,17 +271,23 @@ const MIME_TO_EXT = {
 /** 预计算的有效扩展名集合，避免每次调用时重建数组 */
 const VALID_EXTS = new Set(Object.values(MIME_TO_EXT));
 
+const EXT_TO_MIME = Object.fromEntries(
+    Object.entries(MIME_TO_EXT).map(([mime, ext]) => [ext, mime])
+);
+
 async function resolveTauriImageFilePath(path) {
-    const [{ appDataDir, join }, { sep }] = await Promise.all([
-        import('@tauri-apps/api/path'),
-        import('@tauri-apps/api/path')
-    ]);
+    const { appDataDir, join, sep } = await import('@tauri-apps/api/path');
     const baseDir = await appDataDir();
     const normalizedRelativePath = path
         .replace(/^\/?imgs[\\/]/, `imgs${sep}`)
         .replace(/^\/+/, '')
         .replace(/[\\/]+/g, sep);
     return join(baseDir, normalizedRelativePath);
+}
+
+function getImageMimeType(path) {
+    const ext = path.split('.').pop()?.toLowerCase() || 'png';
+    return EXT_TO_MIME[ext] || 'image/png';
 }
 
 /**
@@ -389,25 +396,14 @@ export async function saveImage(path, blob) {
  * @returns {Promise<string|null>}
  */
 export function getImageUrl(path) {
-    if (window.__TAURI__) {
+    if (isTauriRuntime()) {
         if (blobUrlCache.has(path)) return blobUrlCache.get(path);
 
         const promise = (async () => {
             const fullPath = await resolveTauriImageFilePath(path);
             const { readFile } = window.__TAURI__.fs;
             const bytes = await readFile(fullPath);
-            const ext = path.split('.').pop()?.toLowerCase() || 'png';
-            const mimeTypes = {
-                png: 'image/png',
-                jpg: 'image/jpeg',
-                jpeg: 'image/jpeg',
-                gif: 'image/gif',
-                webp: 'image/webp',
-                svg: 'image/svg+xml',
-                bmp: 'image/bmp',
-                tiff: 'image/tiff'
-            };
-            const mime = mimeTypes[ext] || 'image/png';
+            const mime = getImageMimeType(path);
             return URL.createObjectURL(new Blob([bytes], { type: mime }));
         })().catch(err => {
             blobUrlCache.delete(path);
@@ -449,22 +445,11 @@ export function getImageUrl(path) {
  * @returns {Promise<string|null>} Base64 Data URL 或 null
  */
 export async function getImageAsBase64(path) {
-    if (window.__TAURI__) {
+    if (isTauriRuntime()) {
         const { readFile } = window.__TAURI__.fs;
         const fullPath = await resolveTauriImageFilePath(path);
         const bytes = await readFile(fullPath);
-        const ext = path.split('.').pop()?.toLowerCase() || 'png';
-        const mimeTypes = {
-            png: 'image/png',
-            jpg: 'image/jpeg',
-            jpeg: 'image/jpeg',
-            gif: 'image/gif',
-            webp: 'image/webp',
-            svg: 'image/svg+xml',
-            bmp: 'image/bmp',
-            tiff: 'image/tiff'
-        };
-        const mime = mimeTypes[ext] || 'image/png';
+        const mime = getImageMimeType(path);
         const base64 = btoa(String.fromCharCode(...bytes));
         return `data:${mime};base64,${base64}`;
     }
@@ -580,7 +565,7 @@ export async function handlePastedImage(file, options = {}) {
     const imagePath = generateImagePath(ext, options.directorySegments);
 
     // Tauri 环境：保存到文件系统
-    if (window.__TAURI__) {
+    if (isTauriRuntime()) {
         const { writeFile, mkdir } = window.__TAURI__.fs;
         const { dirname } = window.__TAURI__.path;
 
@@ -602,7 +587,7 @@ export async function handlePastedImage(file, options = {}) {
 export async function saveImageFromDataUrl(path, dataUrl) {
     const blob = await dataUrlToBlob(dataUrl);
 
-    if (window.__TAURI__) {
+    if (isTauriRuntime()) {
         const { writeFile, mkdir } = window.__TAURI__.fs;
         const { dirname } = window.__TAURI__.path;
         const fullPath = await resolveTauriImageFilePath(path);
@@ -642,7 +627,7 @@ export async function deleteImage(path) {
     await revokeBlobUrl(path);
 
     // Tauri 环境：从文件系统删除
-    if (window.__TAURI__) {
+    if (isTauriRuntime()) {
         try {
             const { remove } = window.__TAURI__.fs;
             const fullPath = await resolveTauriImageFilePath(path);

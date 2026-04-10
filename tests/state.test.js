@@ -20,7 +20,8 @@ describe('EditorState - 状态管理器测试', () => {
             await state.init();
 
             expect(state.get('content')).toBeTruthy();
-            expect(state.get('documents')).toEqual([]);
+            expect(state.get('documents')).toHaveLength(1);
+            expect(state.get('currentDocId')).toBeTruthy();
             expect(state.get('editor')).toBeDefined();
             expect(state.get('interface')).toBeDefined();
             expect(state.get('export')).toBeDefined();
@@ -37,7 +38,7 @@ describe('EditorState - 状态管理器测试', () => {
 
         it('应该获取特定键的值', () => {
             expect(state.get('content')).toBeTruthy();
-            expect(state.get('documents')).toEqual([]);
+            expect(state.get('documents')).toHaveLength(1);
         });
 
         it('应该获取嵌套对象的值', () => {
@@ -120,7 +121,7 @@ describe('EditorState - 状态管理器测试', () => {
 
             const documents = state.get('documents');
             expect(documents.length).toBeGreaterThan(0);
-            expect(documents[0]).toMatchObject(doc);
+            expect(documents.find(d => d.id === doc.id)).toMatchObject(doc);
         });
 
         it('应该更新文档', () => {
@@ -232,7 +233,8 @@ describe('EditorState - 状态管理器测试', () => {
 
         it('应该处理空文档树', () => {
             const tree = state.getDocumentTree();
-            expect(tree).toEqual([]);
+            expect(tree).toHaveLength(1);
+            expect(tree[0]).toMatchObject({ type: 'file' });
         });
     });
 

@@ -51,10 +51,38 @@ class IDBObjectStoreMock {
 class IDBTransactionMock {
     constructor(stores, mode, db) {
         this.db = db;
+        this.oncomplete = null;
+        this.onerror = null;
+        this.onabort = null;
     }
 
     objectStore(_name) {
-        return new IDBObjectStoreMock(this.db._store);
+        const transaction = this;
+        const store = new IDBObjectStoreMock(this.db._store);
+
+        return {
+            put(data) {
+                const request = store.put(data);
+                setTimeout(() => {
+                    if (transaction.oncomplete) {
+                        transaction.oncomplete({ target: transaction });
+                    }
+                }, 0);
+                return request;
+            },
+            get(key) {
+                return store.get(key);
+            },
+            clear() {
+                const request = store.clear();
+                setTimeout(() => {
+                    if (transaction.oncomplete) {
+                        transaction.oncomplete({ target: transaction });
+                    }
+                }, 0);
+                return request;
+            }
+        };
     }
 }
 
@@ -103,7 +131,16 @@ global.indexedDB = indexedDBMock;
 // 模拟 matchMedia（用于响应式测试）
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: () => false
+    value: () => ({
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: () => { },
+        removeEventListener: () => { },
+        addListener: () => { },
+        removeListener: () => { },
+        dispatchEvent: () => false
+    })
 });
 // 模拟 ResizeObserver
 global.ResizeObserver = class ResizeObserver {

@@ -9,7 +9,6 @@ import { BaseComponent } from './BaseComponent.js';
 import { dom } from '../utils/dom.js';
 import {
     isInternalImagePath,
-    getImageAsBase64,
     getImageUrl,
     decodeHtmlEntities
 } from '../utils/helpers.js';
@@ -1042,9 +1041,7 @@ export class Preview extends BaseComponent {
             const dataSrc = img.getAttribute('data-src');
             if (!dataSrc) return;
             try {
-                const resolvedSrc =
-                    (window.__TAURI__ ? await getImageAsBase64(dataSrc) : null) ||
-                    (await getImageUrl(dataSrc));
+                const resolvedSrc = await getImageUrl(dataSrc);
                 if (resolvedSrc) {
                     img.src = resolvedSrc;
                     // 保留 data-src 属性供导出使用

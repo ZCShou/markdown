@@ -11,11 +11,9 @@ export class Exporter {
 
     /**
      * @param {Object} state - 状态管理器
-     * @param {string} previewContainerId - 预览容器元素 ID
      */
-    constructor(state, previewContainerId) {
+    constructor(state) {
         this.state = state;
-        this.previewContainerId = previewContainerId;
         this.unsubscribe = null;
         this.#unsubscribeReady = null;
     }
@@ -383,18 +381,12 @@ ${html}
      * @private
      */
     async #loadImageAsBase64(src) {
-        // Tauri 环境：从文件系统读取
-        if (window.__TAURI__) {
-            try {
-                return await getImageAsBase64(src);
-            } catch (err) {
-                console.warn('Failed to read image file:', src, err);
-                return null;
-            }
+        try {
+            return await getImageAsBase64(src);
+        } catch (err) {
+            console.warn('Failed to read image file:', src, err);
+            return null;
         }
-
-        // Web 环境：从 IndexedDB 读取
-        return getImageAsBase64(src);
     }
 
     /**

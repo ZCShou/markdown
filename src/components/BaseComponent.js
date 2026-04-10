@@ -75,7 +75,6 @@ export class BaseComponent {
         this.container = null;
         this.unsubscribe = null;
         this.eventHandlers = new Map();
-        this.errorHandlers = new Map();
     }
 
     /**
@@ -171,9 +170,15 @@ export class BaseComponent {
         });
         this.eventHandlers.clear();
 
+        if (this.debouncedFunctions) {
+            this.debouncedFunctions.clear();
+            this.debouncedFunctions = null;
+        }
+
         // 清空容器
         if (this.container) {
             this.container.innerHTML = '';
+            this.container = null;
         }
     }
 

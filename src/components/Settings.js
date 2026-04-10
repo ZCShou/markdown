@@ -25,6 +25,7 @@
  */
 import { dom } from '../utils/dom.js';
 import { EditorState } from '../EditorState.js';
+import { applyTheme as applyDocumentTheme, watchSystemTheme } from '../utils/theme.js';
 import {
     WORKSPACE_REMOTE_PROVIDERS,
     checkWorkspaceBridgeAvailability,
@@ -44,7 +45,6 @@ export class Settings {
         this.state = state;
         this.workspaceManager = null;
         this.overlay = null;
-        this.dialog = null;
         this.currentSection = 'interface';
 
         // DOM 元素缓存
@@ -56,9 +56,8 @@ export class Settings {
         this.workspaceBridgeAvailable = isTauriRuntime();
         this.workspaceBridgeChecking = false;
 
-        // 系统主题变化监听器（用于清理）
-        this.colorSchemeMatcher = null;
-        this.themeChangeHandler = null;
+        // 系统主题变化监听器清理函数
+        this.systemThemeUnsubscribe = null;
     }
 
     /**
@@ -75,7 +74,6 @@ export class Settings {
     init() {
         // 获取 DOM 元素
         this.overlay = dom.get('#md-settings-overlay');
-        this.dialog = dom.get('.md-settings-dialog');
 
         // 缓存 DOM 元素
         this.cacheElements();
@@ -281,12 +279,14 @@ export class Settings {
      * 清理事件监听器
      */
     cleanup() {
-        // 移除系统主题监听器
-        if (this.colorSchemeMatcher && this.themeChangeHandler) {
-            this.colorSchemeMatcher.removeEventListener('change', this.themeChangeHandler);
-            this.colorSchemeMatcher = null;
-            this.themeChangeHandler = null;
+        if (this.systemThemeUnsubscribe) {
+            this.systemThemeUnsubscribe();
+            this.systemThemeUnsubscribe = null;
         }
+    }
+
+    destroy() {
+        this.cleanup();
     }
 
     /**
@@ -883,14 +883,12 @@ export class Settings {
      * 监听系统主题变化
      */
     watchSystemTheme() {
-        this.colorSchemeMatcher = window.matchMedia('(prefers-color-scheme: dark)');
-        this.themeChangeHandler = () => {
+        this.systemThemeUnsubscribe = watchSystemTheme(() => {
             const interfaceState = this.state.get('interface');
             if (interfaceState?.theme === 'auto') {
                 this.applyTheme('auto');
             }
-        };
-        this.colorSchemeMatcher.addEventListener('change', this.themeChangeHandler);
+        });
     }
 
     /**
@@ -898,18 +896,6 @@ export class Settings {
      * @param {string} theme - 主题模式
      */
     applyTheme(theme) {
-        const html = document.documentElement;
-
-        // 确定实际主题模式
-        const isDark = theme === 'dark' || (theme === 'auto' && this.colorSchemeMatcher?.matches);
-
-        // 应用主题到 HTML
-        html.setAttribute('data-mode', isDark ? 'dark' : 'light');
-
-        // 更新主题颜色
-        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-        if (themeColorMeta) {
-            themeColorMeta.content = isDark ? '#1e1e1e' : '#f0f0f0';
-        }
+        applyDocumentTheme(theme);
     }
 }

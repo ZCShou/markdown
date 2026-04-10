@@ -20,6 +20,15 @@ import { applyTheme } from './utils/theme.js';
 import { handlePastedImage } from './utils/helpers.js';
 import { WorkspaceManager } from './workspace/WorkspaceManager.js';
 
+function scheduleIdleTask(task) {
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(task, { timeout: 5000 });
+        return;
+    }
+
+    window.setTimeout(task, 2000);
+}
+
 /**
  *
  */
@@ -43,6 +52,12 @@ export class MarkdownEditor {
 
     /** @type {Function|null} 编辑器配置订阅取消函数 */
     #editorConfigUnsubscribe = null;
+
+    /** @type {Function|null} 界面配置订阅取消函数 */
+    #interfaceUnsubscribe = null;
+
+    /** @type {Function|null} 通知订阅取消函数 */
+    #notificationUnsubscribe = null;
 
     /** @type {Function|null} 同步滚动内容订阅取消函数 */
     #syncScrollContentUnsubscribe = null;
@@ -97,33 +112,14 @@ export class MarkdownEditor {
         ERROR: 'error'
     };
 
-    /**
-     * 防抖延迟配置（毫秒）
-     * @type {Object}
-     */
-    static DEBOUNCE_DELAY = {
-        UPDATE: 150, // 内容更新防抖延迟
-        SAVE: 1000 // 自动保存防抖延迟
-    };
+    /** 内容更新防抖延迟（毫秒） */
+    static UPDATE_DEBOUNCE_DELAY = 150;
 
-    /**
-     * 拖拽配置
-     * @type {Object}
-     */
-    static DRAG_CONFIG = {
-        MIN_WIDTH: 100, // 最小面板宽度（像素）
-        BATCH_SIZE: 10 // 批量处理大小
-    };
+    /** 消息显示时长（毫秒） */
+    static MESSAGE_DURATION = 2000;
 
-    /**
-     * UI 常量配置
-     * @type {Object}
-     */
-    static UI_CONFIG = {
-        MESSAGE_DURATION: 2000, // 消息显示时长（毫秒）
-        MERMAID_RENDER_DELAY: 100, // Mermaid 渲染延迟（毫秒）
-        MAX_CONTENT_LENGTH: 1000000 // 最大内容长度限制
-    };
+    /** 最小面板宽度（像素） */
+    static MIN_PANEL_WIDTH = 100;
 
     /**
      * 构造函数 - 初始化编辑器实例
@@ -161,7 +157,7 @@ export class MarkdownEditor {
         this.monacoEditor = null;
 
         /** @type {string} 当前编辑器类型 */
-        this.currentEditorType = 'codemirror';
+        this.currentEditorType = MarkdownEditor.EDITOR_TYPES.MONACO;
     }
 
     // ==================== 工具函数 ====================
@@ -175,7 +171,7 @@ export class MarkdownEditor {
     showMessage(
         message,
         type = MarkdownEditor.MESSAGE_TYPES.INFO,
-        duration = MarkdownEditor.UI_CONFIG.MESSAGE_DURATION
+        duration = MarkdownEditor.MESSAGE_DURATION
     ) {
         const overlay = dom.status.overlay?.element;
         const messageEl = dom.status.message?.element;
@@ -262,7 +258,7 @@ export class MarkdownEditor {
         this.#editorInputTimer = setTimeout(() => {
             this.state.updateContent(content);
             this.#editorInputTimer = null;
-        }, MarkdownEditor.DEBOUNCE_DELAY.UPDATE);
+        }, MarkdownEditor.UPDATE_DEBOUNCE_DELAY);
     }
 
     /**
@@ -425,7 +421,7 @@ export class MarkdownEditor {
         this.components.rightSidebar = new RightSidebar(this.state, 'md-sidebar-right');
 
         // 导出组件（独立于 Preview，直接订阅导出事件）
-        this.components.exporter = new Exporter(this.state, 'markdown-preview');
+        this.components.exporter = new Exporter(this.state);
 
         // 设置组件（传入 state 以实现状态同步）
         this.components.settings = new Settings(this.state);
@@ -440,17 +436,9 @@ export class MarkdownEditor {
 
         // 空闲时预加载另一个编辑器模块，加速首次切换
         if (this.currentEditorType !== MarkdownEditor.EDITOR_TYPES.MONACO) {
-            const scheduleIdle = window.requestIdleCallback || (cb => setTimeout(cb, 2000));
-            scheduleIdle(
-                () => import('./components/MonacoEditor.js'),
-                { timeout: 5000 }
-            );
+            scheduleIdleTask(() => import('./components/MonacoEditor.js'));
         } else {
-            const scheduleIdle = window.requestIdleCallback || (cb => setTimeout(cb, 2000));
-            scheduleIdle(
-                () => import('./components/CodeMirrorEditor.js'),
-                { timeout: 5000 }
-            );
+            scheduleIdleTask(() => import('./components/CodeMirrorEditor.js'));
         }
     }
 
@@ -564,7 +552,7 @@ export class MarkdownEditor {
 
         if (!divider || !container) return;
 
-        const MIN_WIDTH = MarkdownEditor.DRAG_CONFIG.MIN_WIDTH ?? 100;
+        const MIN_WIDTH = MarkdownEditor.MIN_PANEL_WIDTH;
 
         const updateSplitRatio = ratio => {
             const clamped = Math.max(0, Math.min(1, Number(ratio)));
@@ -912,7 +900,7 @@ export class MarkdownEditor {
         });
 
         // 监听界面配置变化，应用到界面
-        this.state.subscribeTo('interface', (newInterface, oldInterface) => {
+        this.#interfaceUnsubscribe = this.state.subscribeTo('interface', (newInterface, oldInterface) => {
             const hasOld = !!oldInterface;
 
             // 应用主题（只在主题变化时）
@@ -924,22 +912,12 @@ export class MarkdownEditor {
 
             // 应用布局（只在布局变化时）
             if (!hasOld || newInterface.layout !== oldInterface.layout) {
-                const container = dom.get('.md-container');
-                if (container) {
-                    container.classList.remove(
-                        MarkdownEditor.LAYOUT_MODES.BOTH,
-                        MarkdownEditor.LAYOUT_MODES.EDITOR_ONLY,
-                        MarkdownEditor.LAYOUT_MODES.PREVIEW_ONLY
-                    );
-                    container.classList.add(
-                        newInterface.layout ?? MarkdownEditor.LAYOUT_MODES.BOTH
-                    );
-                }
+                this.applyLayout(newInterface.layout ?? MarkdownEditor.LAYOUT_MODES.BOTH);
             }
         });
 
         // 监听通知状态变化，显示消息
-        this.state.subscribeTo('notification', notification => {
+        this.#notificationUnsubscribe = this.state.subscribeTo('notification', notification => {
             if (notification) {
                 this.showMessage(notification.message, notification.type);
                 this.state.clearNotification();
@@ -971,6 +949,16 @@ export class MarkdownEditor {
         if (this.#editorConfigUnsubscribe) {
             this.#editorConfigUnsubscribe();
             this.#editorConfigUnsubscribe = null;
+        }
+
+        if (this.#interfaceUnsubscribe) {
+            this.#interfaceUnsubscribe();
+            this.#interfaceUnsubscribe = null;
+        }
+
+        if (this.#notificationUnsubscribe) {
+            this.#notificationUnsubscribe();
+            this.#notificationUnsubscribe = null;
         }
 
         if (this.#dividerInterfaceUnsubscribe) {

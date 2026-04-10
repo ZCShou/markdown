@@ -22,6 +22,26 @@ describe('WorkspacePersistence - 持久化管理器测试', () => {
             editor: { fontSize: 16 },
             interface: { theme: 'dark' },
             export: { includeStyle: true },
+            workspace: {
+                provider: 'local',
+                autoSync: true,
+                remotes: {
+                    github: {
+                        repoName: 'markdown-workspace',
+                        repoDescription: 'Markdown workspace data',
+                        repoPrivate: true,
+                        workspaceDir: 'markdown-workspace',
+                        branch: 'main'
+                    },
+                    gitee: {
+                        repoName: 'markdown-workspace',
+                        repoDescription: 'Markdown workspace data',
+                        repoPrivate: true,
+                        workspaceDir: 'markdown-workspace',
+                        branch: 'main'
+                    }
+                }
+            },
             syncScrollEnabled: false
         };
 
@@ -121,7 +141,8 @@ describe('WorkspacePersistence - 持久化管理器测试', () => {
             expect(saved).toEqual({
                 editor: mockState.editor,
                 interface: mockState.interface,
-                export: mockState.export
+                export: mockState.export,
+                workspace: mockState.workspace
             });
         });
     });
