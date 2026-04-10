@@ -157,10 +157,6 @@
   --prism-regex: #d16969;
 }
 
-[data-mode='dark'] .md-doc-item-actions {
-  background: rgba(30, 30, 30, 0.9);
-}
-
 /* ==================== 基础重置 ==================== */
 html,
 body {
