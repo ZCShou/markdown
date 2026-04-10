@@ -112,6 +112,26 @@ function _preprocessHtmlBlocks(md) {
         .join('');
 }
 
+const SUPERSCRIPT_RE = /\^([^^|\n\s](?:[^^|\n]{0,48}[^^|\n\s])?)\^/g;
+const SUBSCRIPT_RE = /~([^~|\n\s](?:[^~|\n]{0,48}[^~|\n\s])?)~/g;
+
+function _replaceWhenNotInCode(markdown, regex, isInCode, replacer) {
+    return markdown.replace(regex, (match, content, offset) => {
+        if (isInCode(offset)) {
+            return match;
+        }
+
+        return replacer(content);
+    });
+}
+
+function _replaceSupSubSyntax(markdown, isInCode, blocks, regex, type, marker) {
+    return _replaceWhenNotInCode(markdown, regex, isInCode, content => {
+        blocks.push({ type, content });
+        return `${marker}${blocks.length - 1}\x01`;
+    });
+}
+
 /**
  * 预览组件
  */
@@ -1358,22 +1378,34 @@ export class Preview extends BaseComponent {
                 }
 
                 if (featureFlags.hasStrike) {
-                    processedMarkdown = processedMarkdown.replace(/~~([^~\n]{1,200})~~/g, (match, content) => {
-                        strikeBlocks.push(content);
-                        return `\x03STRIKE${strikeBlocks.length - 1}\x03`;
-                    });
+                    processedMarkdown = _replaceWhenNotInCode(
+                        processedMarkdown,
+                        /~~([^~\n]{1,200})~~/g,
+                        isInCode,
+                        content => {
+                            strikeBlocks.push(content);
+                            return `\x03STRIKE${strikeBlocks.length - 1}\x03`;
+                        }
+                    );
                 }
 
                 if (featureFlags.hasSupSub) {
-                    processedMarkdown = processedMarkdown
-                        .replace(/\^([^\n^]{1,50})\^/g, (match, content) => {
-                            supSubBlocks.push({ type: 'sup', content });
-                            return `\x01SUP${supSubBlocks.length - 1}\x01`;
-                        })
-                        .replace(/~([^~\n]{1,50})~/g, (match, content) => {
-                            supSubBlocks.push({ type: 'sub', content });
-                            return `\x01SUB${supSubBlocks.length - 1}\x01`;
-                        });
+                    processedMarkdown = _replaceSupSubSyntax(
+                        processedMarkdown,
+                        isInCode,
+                        supSubBlocks,
+                        SUPERSCRIPT_RE,
+                        'sup',
+                        '\x01SUP'
+                    );
+                    processedMarkdown = _replaceSupSubSyntax(
+                        processedMarkdown,
+                        isInCode,
+                        supSubBlocks,
+                        SUBSCRIPT_RE,
+                        'sub',
+                        '\x01SUB'
+                    );
                 }
             }
 
