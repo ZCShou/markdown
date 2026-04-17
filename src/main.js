@@ -1,4 +1,5 @@
-// Import third-party CSS dependencies
+// Load the full VS Code codicon rules globally so app UI and CodeMirror views
+// can render icon glyph mappings outside Monaco.
 import '@vscode/codicons/dist/codicon.css';
 import 'katex/dist/katex.min.css';
 

@@ -7,6 +7,46 @@ import { VitePWA } from 'vite-plugin-pwa';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+function monacoCodiconDedupePlugin() {
+    const monacoCodiconCss = [
+        `${resolve(__dirname, 'node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css')}`.replace(/\\/g, '/'),
+        `${resolve(__dirname, 'node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css')}`.replace(/\\/g, '/')
+    ];
+    const codiconStartMarker = '@font-face {';
+    const codiconFontMarker = 'font-family: "codicon"';
+    const codiconEndMarker = '.monaco-editor .codicon.codicon-symbol-array,';
+
+    function stripEmbeddedMonacoCodiconCss(source) {
+        const fontIndex = source.indexOf(codiconFontMarker);
+        if (fontIndex === -1) return source;
+
+        const startIndex = source.lastIndexOf(codiconStartMarker, fontIndex);
+        const endIndex = source.indexOf(codiconEndMarker, fontIndex);
+        if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return source;
+
+        return `${source.slice(0, startIndex)}${source.slice(endIndex)}`;
+    }
+
+    return {
+        name: 'monaco-codicon-dedupe',
+        load(id) {
+            const normalized = id.replace(/\\/g, '/');
+            if (monacoCodiconCss.includes(normalized)) {
+                return '/* Monaco codicon CSS suppressed: app loads @vscode/codicons globally. */';
+            }
+            return null;
+        },
+        generateBundle(_options, bundle) {
+            for (const [fileName, chunk] of Object.entries(bundle)) {
+                if (chunk.type !== 'asset' || typeof chunk.source !== 'string') continue;
+                if (!fileName.endsWith('.css') || !fileName.includes('monaco-editor')) continue;
+
+                chunk.source = stripEmbeddedMonacoCodiconCss(chunk.source);
+            }
+        }
+    };
+}
+
 /**
  * Vite 配置工厂
  * @param {{mode: string}} param0 - Vite 提供的上下文对象
@@ -21,6 +61,7 @@ export default defineConfig(({ mode }) => {
     return {
         base,
         plugins: [
+            monacoCodiconDedupePlugin(),
             VitePWA({
                 registerType: 'autoUpdate',
                 includeAssets: ['favicon.svg'],
@@ -42,7 +83,12 @@ export default defineConfig(({ mode }) => {
                     ]
                 },
                 workbox: {
-                    globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+                    // Only precache fingerprinted static assets that are safe to
+                    // serve across deploys. Avoid caching HTML/fonts here so a
+                    // freshly activated service worker won't pin an older app shell
+                    // during GitHub Pages propagation windows.
+                    globPatterns: ['**/*.{js,css,svg,png,ico,woff2}'],
+                    navigateFallback: null,
                     maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10 MB
                 },
                 devOptions: {
