@@ -47,7 +47,6 @@ export default [
             'no-eval': 'error',
             'no-implied-eval': 'error',
             'no-new-func': 'error',
-            'no-return-await': 'error',
             'require-await': 'warn',
             'no-unused-vars': ['error', {
                 argsIgnorePattern: '^_',

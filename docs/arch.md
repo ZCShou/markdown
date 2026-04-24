@@ -43,8 +43,6 @@ markdown-editor/
 │   ├── main.js                 # 应用入口（含全局错误边界）
 │   ├── MarkdownEditor.js       # 编辑器主控制器
 │   ├── EditorState.js          # 状态管理器（含事件钩子系统）
-│   ├── StoreManager.js         # 存储管理器
-│   ├── PersistenceManager.js   # 持久化管理器
 │   ├── components/             # UI 组件
 │   │   ├── BaseComponent.js   # 组件基类
 │   │   ├── LeftSidebar.js     # 左侧边栏（文档树）

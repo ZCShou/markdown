@@ -7,26 +7,6 @@ import { mergeWorkspaceSnapshots as mergeWorkspaceSnapshotData } from '../src/wo
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-loadDotEnv(path.resolve(__dirname, '..', '.env'));
-
-const PORT = Number(process.env.OAUTH_BRIDGE_PORT || 3001);
-const REQUEST_BODY_LIMIT = process.env.OAUTH_BRIDGE_BODY_LIMIT || '50mb';
-const app = express();
-
-app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-
-    if (req.method === 'OPTIONS') {
-        res.status(204).end();
-        return;
-    }
-
-    next();
-});
-
 function loadDotEnv(filePath) {
     if (!fs.existsSync(filePath)) return;
 
@@ -46,6 +26,26 @@ function loadDotEnv(filePath) {
         }
     }
 }
+
+loadDotEnv(path.resolve(__dirname, '..', '.env'));
+
+const PORT = Number(process.env.OAUTH_BRIDGE_PORT || 3001);
+const REQUEST_BODY_LIMIT = process.env.OAUTH_BRIDGE_BODY_LIMIT || '50mb';
+const app = express();
+
+app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+        res.status(204).end();
+        return;
+    }
+
+    next();
+});
 
 function getProviderEnv(provider) {
     if (provider === 'github') {
